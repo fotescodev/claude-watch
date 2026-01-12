@@ -1,0 +1,360 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		/* App Files */
+		APP001 /* ClaudeWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC001; };
+
+		/* Model Files */
+		MOD001 /* SessionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC002; };
+		MOD002 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC003; };
+
+		/* View Files */
+		VIEW001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC004; };
+		VIEW002 /* ControlDeckView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC005; };
+		VIEW003 /* ActionsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC006; };
+		VIEW004 /* QuickPromptsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC007; };
+		VIEW005 /* VoiceInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC008; };
+		VIEW006 /* ModelPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC009; };
+		VIEW007 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC010; };
+
+		/* Service Files */
+		SVC001 /* WatchConnectivityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC011; };
+		SVC002 /* HapticService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC012; };
+
+		/* Complication Files */
+		CMP001 /* ComplicationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC013; };
+		CMP002 /* ComplicationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC014; };
+
+		/* Resources */
+		RES001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = RES_ASSETS; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		/* Product */
+		PROD001 /* ClaudeWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClaudeWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+
+		/* Source Files */
+		SRC001 /* ClaudeWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWatchApp.swift; sourceTree = "<group>"; };
+		SRC002 /* SessionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionState.swift; sourceTree = "<group>"; };
+		SRC003 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
+		SRC004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		SRC005 /* ControlDeckView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlDeckView.swift; sourceTree = "<group>"; };
+		SRC006 /* ActionsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionsListView.swift; sourceTree = "<group>"; };
+		SRC007 /* QuickPromptsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickPromptsView.swift; sourceTree = "<group>"; };
+		SRC008 /* VoiceInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInputView.swift; sourceTree = "<group>"; };
+		SRC009 /* ModelPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPickerView.swift; sourceTree = "<group>"; };
+		SRC010 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		SRC011 /* WatchConnectivityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityService.swift; sourceTree = "<group>"; };
+		SRC012 /* HapticService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticService.swift; sourceTree = "<group>"; };
+		SRC013 /* ComplicationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationController.swift; sourceTree = "<group>"; };
+		SRC014 /* ComplicationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationViews.swift; sourceTree = "<group>"; };
+
+		/* Resources */
+		RES_ASSETS /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		RES_INFO /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		ROOT = {
+			isa = PBXGroup;
+			children = (
+				GRP_WATCH /* ClaudeWatch */,
+				GRP_PRODUCTS /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		GRP_PRODUCTS /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				PROD001 /* ClaudeWatch.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		GRP_WATCH /* ClaudeWatch */ = {
+			isa = PBXGroup;
+			children = (
+				GRP_APP /* App */,
+				GRP_MODELS /* Models */,
+				GRP_VIEWS /* Views */,
+				GRP_SERVICES /* Services */,
+				GRP_COMPLICATIONS /* Complications */,
+				RES_ASSETS /* Assets.xcassets */,
+				RES_INFO /* Info.plist */,
+			);
+			path = ClaudeWatch;
+			sourceTree = "<group>";
+		};
+		GRP_APP /* App */ = {
+			isa = PBXGroup;
+			children = (
+				SRC001 /* ClaudeWatchApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		GRP_MODELS /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				SRC002 /* SessionState.swift */,
+				SRC003 /* SessionManager.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		GRP_VIEWS /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				SRC004 /* ContentView.swift */,
+				SRC005 /* ControlDeckView.swift */,
+				SRC006 /* ActionsListView.swift */,
+				SRC007 /* QuickPromptsView.swift */,
+				SRC008 /* VoiceInputView.swift */,
+				SRC009 /* ModelPickerView.swift */,
+				SRC010 /* SettingsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		GRP_SERVICES /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				SRC011 /* WatchConnectivityService.swift */,
+				SRC012 /* HapticService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		GRP_COMPLICATIONS /* Complications */ = {
+			isa = PBXGroup;
+			children = (
+				SRC013 /* ComplicationController.swift */,
+				SRC014 /* ComplicationViews.swift */,
+			);
+			path = Complications;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		TARGET001 /* ClaudeWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CFG_LIST001;
+			buildPhases = (
+				PHASE_SOURCES,
+				PHASE_RESOURCES,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ClaudeWatch;
+			productName = ClaudeWatch;
+			productReference = PROD001;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		PROJECT001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					TARGET001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = CFG_LIST_PROJECT;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = ROOT;
+			productRefGroup = GRP_PRODUCTS;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				TARGET001,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		PHASE_SOURCES = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				APP001,
+				MOD001,
+				MOD002,
+				VIEW001,
+				VIEW002,
+				VIEW003,
+				VIEW004,
+				VIEW005,
+				VIEW006,
+				VIEW007,
+				SVC001,
+				SVC002,
+				CMP001,
+				CMP002,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		PHASE_RESOURCES = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				RES001,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		CFG_DEBUG_PROJECT = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = watchos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		CFG_RELEASE_PROJECT = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = watchos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		CFG_DEBUG_TARGET = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ClaudeWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Claude;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.anthropic.claudecode;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.anthropic.claudecode.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		CFG_RELEASE_TARGET = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ClaudeWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Claude;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.anthropic.claudecode;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.anthropic.claudecode.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CFG_LIST_PROJECT = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CFG_DEBUG_PROJECT,
+				CFG_RELEASE_PROJECT,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CFG_LIST001 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CFG_DEBUG_TARGET,
+				CFG_RELEASE_TARGET,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = PROJECT001;
+}
