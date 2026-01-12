@@ -224,7 +224,6 @@ struct InlineWidgetView: View {
 }
 
 // MARK: - Widget Definition
-@main
 struct ClaudeWatchWidgets: Widget {
     let kind: String = "ClaudeWatchWidget"
 

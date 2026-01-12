@@ -1,0 +1,9 @@
+# Claude Watch MCP Server Dependencies
+
+# Core
+websockets>=12.0
+aiohttp>=3.9.0
+
+# Optional: APNs push notifications
+# httpx[http2]>=0.25.0  # For HTTP/2 APNs connection
+# PyJWT>=2.8.0          # For APNs JWT authentication
