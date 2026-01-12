@@ -14,6 +14,9 @@ class SessionManager: ObservableObject {
     @Published var subscriptionPercent: Int = 85
     @Published var connectionStatus: ConnectionStatus = .disconnected
 
+    // MARK: - Bridge Service (Web Sessions)
+    private let bridgeService = ClaudeBridgeService.shared
+
     // MARK: - Quick Prompts Library
     let quickPrompts: [QuickPrompt] = [
         QuickPrompt(text: "Continue", icon: "arrow.right", category: .action),
@@ -26,25 +29,90 @@ class SessionManager: ObservableObject {
         QuickPrompt(text: "Summarize", icon: "text.alignleft", category: .question),
     ]
 
+    private var cancellables = Set<AnyCancellable>()
+
     // MARK: - Initialization
     init() {
         loadConfig()
-        setupMockData() // For demo purposes
+        setupBridgeServiceObservers()
+    }
+
+    private func setupBridgeServiceObservers() {
+        // Observe bridge service state changes
+        bridgeService.$isConnected
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] connected in
+                self?.isConnected = connected
+                self?.connectionStatus = connected ? .connected : .disconnected
+            }
+            .store(in: &cancellables)
+
+        bridgeService.$currentSession
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] session in
+                self?.syncSessionState(from: session)
+            }
+            .store(in: &cancellables)
+
+        bridgeService.$serverStatus
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in
+                switch status {
+                case .connected: self?.connectionStatus = .connected
+                case .connecting: self?.connectionStatus = .connecting
+                case .disconnected: self?.connectionStatus = .disconnected
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func syncSessionState(from webSession: WebSession?) {
+        guard let session = webSession else {
+            currentTask = nil
+            pendingActions = []
+            return
+        }
+
+        // Map web session to local task state
+        currentTask = TaskState(
+            name: session.taskName,
+            progress: session.progress,
+            status: mapSessionStatus(session.statusEnum)
+        )
+
+        // Map pending actions
+        pendingActions = session.pendingActions.map { action in
+            PendingAction(
+                id: UUID(uuidString: action.id) ?? UUID(),
+                type: action.actionType,
+                description: action.description,
+                filePath: action.filePath,
+                timestamp: ISO8601DateFormatter().date(from: action.timestamp) ?? Date()
+            )
+        }
+    }
+
+    private func mapSessionStatus(_ status: SessionStatus) -> TaskStatus {
+        switch status {
+        case .starting: return .pending
+        case .running: return .running
+        case .waiting_approval: return .waitingApproval
+        case .completed: return .completed
+        case .failed: return .failed
+        case .cancelled: return .failed
+        }
     }
 
     // MARK: - Connection Management
     func connect() {
         connectionStatus = .connecting
-
-        // Simulate connection delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-            self?.connectionStatus = .connected
-            self?.isConnected = true
-            self?.playHaptic(.success)
+        Task {
+            await bridgeService.connect()
         }
     }
 
     func disconnect() {
+        bridgeService.disconnect()
         connectionStatus = .disconnected
         isConnected = false
         currentTask = nil
@@ -53,29 +121,30 @@ class SessionManager: ObservableObject {
 
     // MARK: - Action Handlers
     func acceptChanges() {
-        guard let action = pendingActions.first else { return }
+        guard let session = bridgeService.currentSession,
+              let action = pendingActions.first else { return }
         playHaptic(.success)
 
-        withAnimation(.spring(response: 0.3)) {
-            pendingActions.removeFirst()
-        }
-
-        // Update task progress
-        if var task = currentTask {
-            task.progress = min(task.progress + 0.1, 1.0)
-            if task.progress >= 1.0 {
-                task.status = .completed
+        Task {
+            do {
+                try await bridgeService.approveAction(sessionId: session.id, actionId: action.id.uuidString)
+            } catch {
+                print("Failed to approve action: \(error)")
             }
-            currentTask = task
         }
     }
 
     func discardChanges() {
-        guard !pendingActions.isEmpty else { return }
+        guard let session = bridgeService.currentSession,
+              let action = pendingActions.first else { return }
         playHaptic(.failure)
 
-        withAnimation(.spring(response: 0.3)) {
-            pendingActions.removeFirst()
+        Task {
+            do {
+                try await bridgeService.discardAction(sessionId: session.id, actionId: action.id.uuidString)
+            } catch {
+                print("Failed to discard action: \(error)")
+            }
         }
     }
 
@@ -85,26 +154,22 @@ class SessionManager: ObservableObject {
 
     func retryAction() {
         playHaptic(.retry)
-
-        // Re-queue the current action
-        if let action = pendingActions.first {
-            var retryAction = action
-            retryAction.timestamp = Date()
-            pendingActions[0] = retryAction
+        // For retry, we just refresh - the action stays in place
+        Task {
+            await bridgeService.refreshSessions()
         }
     }
 
     func approveAll() {
+        guard let session = bridgeService.currentSession else { return }
         playHaptic(.success)
 
-        withAnimation(.spring(response: 0.5)) {
-            pendingActions.removeAll()
-        }
-
-        if var task = currentTask {
-            task.progress = 1.0
-            task.status = .completed
-            currentTask = task
+        Task {
+            do {
+                try await bridgeService.approveAll(sessionId: session.id)
+            } catch {
+                print("Failed to approve all: \(error)")
+            }
         }
     }
 
@@ -147,11 +212,15 @@ class SessionManager: ObservableObject {
             }
         }
 
-        // Simulate starting a new task
-        currentTask = TaskState(name: prompt.text.uppercased(), progress: 0.0, status: .running)
-
-        // Simulate progress
-        simulateTaskProgress()
+        // Create web session with the prompt
+        Task {
+            do {
+                let session = try await bridgeService.createSession(prompt: prompt.text)
+                print("Created session: \(session.id)")
+            } catch {
+                print("Failed to create session: \(error)")
+            }
+        }
     }
 
     func sendVoicePrompt(_ text: String) {
@@ -196,56 +265,12 @@ class SessionManager: ObservableObject {
         }
     }
 
-    // MARK: - Mock Data (Demo)
-    private func setupMockData() {
-        currentTask = TaskState(
-            name: "CODE REFACTOR",
-            progress: 0.6,
-            status: .waitingApproval
-        )
-
-        pendingActions = [
-            PendingAction(type: .fileEdit, description: "Update SessionManager.swift", filePath: "ClaudeWatch/Models/SessionManager.swift"),
-            PendingAction(type: .bashCommand, description: "Run swift build"),
-            PendingAction(type: .fileCreate, description: "Create new test file", filePath: "Tests/SessionTests.swift"),
-        ]
-
-        isConnected = true
-        connectionStatus = .connected
-    }
-
-    private func simulateTaskProgress() {
-        guard var task = currentTask else { return }
-
-        // Simulate gradual progress
-        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] timer in
-            guard let self = self, var currentTask = self.currentTask else {
-                timer.invalidate()
-                return
-            }
-
-            if currentTask.progress < 1.0 && !self.config.yoloMode {
-                currentTask.progress += 0.05
-
-                // Add pending action at certain progress points
-                if Int(currentTask.progress * 100) % 20 == 0 {
-                    let action = PendingAction(
-                        type: [.fileEdit, .bashCommand, .toolCall].randomElement()!,
-                        description: "Pending action \(Int(currentTask.progress * 100))%"
-                    )
-                    self.pendingActions.append(action)
-                    currentTask.status = .waitingApproval
-                    self.playHaptic(.notification)
-                }
-
-                self.currentTask = currentTask
-            } else {
-                currentTask.status = .completed
-                currentTask.progress = 1.0
-                self.currentTask = currentTask
-                self.playHaptic(.success)
-                timer.invalidate()
-            }
+    // MARK: - Server URL Configuration
+    var serverURL: String {
+        get { bridgeService.serverURLString }
+        set {
+            bridgeService.serverURLString = newValue
+            bridgeService.updateBaseURL()
         }
     }
 }

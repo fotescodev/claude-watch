@@ -1,0 +1,6 @@
+# Claude Watch Bridge Server Dependencies
+fastapi>=0.104.0
+uvicorn>=0.24.0
+
+# Optional: for production deployment
+# gunicorn>=21.0.0

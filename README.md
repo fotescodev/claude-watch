@@ -1,10 +1,27 @@
 # Claude Watch
 
-A WatchOS companion app for Claude Code - control your AI coding sessions from your wrist.
+A WatchOS companion app for Claude Code - control your AI coding sessions from your wrist using Claude's web sessions feature.
 
 ![WatchOS](https://img.shields.io/badge/watchOS-10.0+-orange)
 ![Swift](https://img.shields.io/badge/Swift-5.9+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+
+## How It Works
+
+```
+┌─────────────┐         ┌──────────────────┐         ┌─────────────────┐
+│ Apple Watch │ ──5G──▶ │  Bridge Server   │ ──────▶ │  Claude Code    │
+│  (cellular) │         │  (your machine)  │         │  Web Sessions   │
+└─────────────┘         └──────────────────┘         └─────────────────┘
+                               │
+                               ▼
+                        Exposed via:
+                        • Tailscale
+                        • ngrok
+                        • Cloudflare Tunnel
+```
+
+The watch connects to a lightweight bridge server running on your dev machine. The bridge server uses Claude Code's `& "prompt"` syntax to spawn web sessions that run on Anthropic's infrastructure - no need to keep your laptop open!
 
 ## Features
 
@@ -18,7 +35,7 @@ A WatchOS companion app for Claude Code - control your AI coding sessions from y
 - View all pending actions in a scrollable list
 - Swipe to accept or discard individual actions
 - Approve all pending actions at once
-- Real-time updates from Claude Code sessions
+- Real-time updates via polling
 
 ### 🎤 Voice Input
 - Dictate prompts directly from your watch
@@ -36,6 +53,49 @@ A WatchOS companion app for Claude Code - control your AI coding sessions from y
 - Celebration pattern when tasks complete
 - Alert pattern for pending actions requiring attention
 
+## Quick Start
+
+### 1. Start the Bridge Server
+
+```bash
+cd BridgeServer
+pip install -r requirements.txt
+python server.py
+```
+
+### 2. Expose to Internet
+
+Choose one:
+
+**Tailscale (recommended for security):**
+```bash
+tailscale serve 8787
+```
+
+**ngrok (quick setup):**
+```bash
+ngrok http 8787
+```
+
+**Cloudflare Tunnel:**
+```bash
+cloudflared tunnel --url http://localhost:8787
+```
+
+### 3. Configure Watch App
+
+1. Open Claude Watch on your Apple Watch
+2. Go to Settings → Bridge Server
+3. Enter your tunnel URL (e.g., `https://abc123.ngrok.io`)
+4. Tap Connect
+
+### 4. Start Coding!
+
+Send prompts from your watch. They'll spawn as web sessions that:
+- Run on Claude's infrastructure
+- Continue even if your laptop sleeps
+- Can be teleported back with `/teleport` when you're at your desk
+
 ## Architecture
 
 ```
@@ -44,7 +104,7 @@ ClaudeWatch/
 │   └── ClaudeWatchApp.swift       # App entry point
 ├── Models/
 │   ├── SessionState.swift          # Data models
-│   └── SessionManager.swift        # State management
+│   └── SessionManager.swift        # State management (uses bridge)
 ├── Views/
 │   ├── ContentView.swift           # Main tab navigation
 │   ├── ControlDeckView.swift       # Main control interface
@@ -52,54 +112,51 @@ ClaudeWatch/
 │   ├── QuickPromptsView.swift      # Prompt suggestions
 │   ├── VoiceInputView.swift        # Voice dictation
 │   ├── ModelPickerView.swift       # Model selection
-│   └── SettingsView.swift          # App settings
+│   └── SettingsView.swift          # Server URL config
 ├── Services/
-│   ├── WatchConnectivityService.swift  # iPhone/Mac communication
+│   ├── ClaudeBridgeService.swift   # HTTP API client
 │   └── HapticService.swift         # Haptic feedback
 ├── Complications/
-│   ├── ComplicationController.swift    # ClockKit complications
 │   └── ComplicationViews.swift     # WidgetKit widgets
-└── Assets.xcassets/                # App icons and colors
+└── Assets.xcassets/
+
+BridgeServer/
+├── server.py                       # FastAPI bridge server
+└── requirements.txt                # Python dependencies
 ```
 
-## Setup
+## Bridge Server API
 
-### Requirements
-- Xcode 15.0+
-- watchOS 10.0+
-- iOS 17.0+ (for companion app)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/status` | GET | Server health check |
+| `/session` | POST | Create new web session |
+| `/session/:id` | GET | Get session status |
+| `/sessions` | GET | List all sessions |
+| `/session/:id/approve` | POST | Approve pending action |
+| `/session/:id/approveAll` | POST | Approve all actions |
+| `/session/:id/discard` | POST | Discard pending action |
+| `/session/:id/cancel` | POST | Cancel session |
 
-### Installation
+### Example: Create Session
 
-1. Open Xcode and create a new WatchOS App project
-2. Copy all files from `ClaudeWatch/` into your project
-3. Update the bundle identifier in `Info.plist`
-4. Add required capabilities:
-   - WatchConnectivity
-   - Background Modes (if needed)
-5. Build and run on your Apple Watch
+```bash
+curl -X POST http://localhost:8787/session \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Fix the authentication bug in login.py"}'
+```
 
-### Connecting to Claude Code
-
-The app communicates with Claude Code via WatchConnectivity. For full functionality, you'll need a companion iOS/macOS app that bridges to Claude Code CLI.
-
-**Message Protocol:**
-
-```swift
-// Watch → Phone/Mac
-["action": "accept"]           // Accept current changes
-["action": "discard"]          // Discard current changes
-["action": "approve"]          // Approve current action
-["action": "retry"]            // Retry current action
-["action": "approveAll"]       // Approve all pending
-["action": "toggleYolo", "enabled": true]
-["action": "changeModel", "model": "opus"]
-["action": "sendPrompt", "prompt": "Fix the bug"]
-
-// Phone/Mac → Watch
-["type": "taskUpdate", "name": "REFACTOR", "progress": 0.6]
-["type": "actionPending", "description": "Edit file.swift"]
-["type": "statusUpdate", ...]
+Response:
+```json
+{
+  "id": "a1b2c3d4",
+  "prompt": "Fix the authentication bug in login.py",
+  "status": "starting",
+  "progress": 0.0,
+  "task_name": "FIX THE AUTHENTICATION",
+  "pending_actions": [],
+  "created_at": "2024-01-15T10:30:00Z"
+}
 ```
 
 ## UI Preview
@@ -107,8 +164,8 @@ The app communicates with Claude Code via WatchConnectivity. For full functional
 ### Control Deck (Main Screen)
 ```
 ┌─────────────────────────┐
-│ TASK: CODE REFACTOR 60% │
-│ ▓▓▓▓▓▓▓▓░░░░░░         │
+│ TASK: FIX AUTH BUG  45% │
+│ ▓▓▓▓▓▓░░░░░░░░         │
 │ MODEL: OPUS 4.5  SUB:85%│
 │ ● CONNECTED        YOLO │
 ├─────────────────────────┤
@@ -119,43 +176,31 @@ The app communicates with Claude Code via WatchConnectivity. For full functional
 └─────────────────────────┘
 ```
 
-### Actions List
-```
-┌─────────────────────────┐
-│ PENDING              [3]│
-├─────────────────────────┤
-│ ✏️ FILE_EDIT            │
-│ Update SessionManager   │
-│ Models/Session...swift  │
-├─────────────────────────┤
-│ 🖥️ BASH                 │
-│ Run swift build         │
-├─────────────────────────┤
-│   [✓ APPROVE ALL]       │
-└─────────────────────────┘
-```
+## Workflow Example
 
-## Customization
+1. **At your desk**: Start working on a feature in Claude Code
+2. **Need to step away**: Send current task to web with `& "continue working on the auth feature"`
+3. **On the go**: Monitor from your watch, approve file edits
+4. **Back at desk**: Run `/teleport` to pull the session back to your terminal
 
-### Adding Quick Prompts
-Edit `SessionManager.swift`:
-```swift
-let quickPrompts: [QuickPrompt] = [
-    QuickPrompt(text: "Your prompt", icon: "star", category: .action),
-    // Add more...
-]
-```
+## Requirements
 
-### Haptic Patterns
-Customize patterns in `HapticService.swift`:
-```swift
-func customAction() {
-    device.play(.success)
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-        self.device.play(.click)
-    }
-}
-```
+### Watch App
+- Xcode 15.0+
+- watchOS 10.0+
+- Apple Watch with cellular (for 5G connectivity)
+
+### Bridge Server
+- Python 3.8+
+- Claude Code CLI installed
+- Network tunnel (Tailscale/ngrok/Cloudflare)
+
+## Security Notes
+
+- The bridge server should only be exposed via authenticated tunnels
+- Tailscale is recommended as it uses your private network
+- Never expose the bridge server directly to the public internet
+- The watch app stores the server URL securely in UserDefaults
 
 ## Contributing
 

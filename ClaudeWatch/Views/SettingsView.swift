@@ -2,13 +2,34 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var sessionManager: SessionManager
+    @State private var serverURL: String = ""
+    @State private var showingURLEditor = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: 12) {
                 // Connection Section
-                SettingsSection(title: "CONNECTION") {
+                SettingsSection(title: "BRIDGE SERVER") {
                     ConnectionStatusRow()
+
+                    Button {
+                        serverURL = sessionManager.serverURL
+                        showingURLEditor = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "link")
+                                .foregroundColor(.blue)
+
+                            Text("Server URL")
+                                .font(.system(size: 11))
+
+                            Spacer()
+
+                            Text(sessionManager.serverURL.replacingOccurrences(of: "http://", with: "").prefix(15) + "...")
+                                .font(.system(size: 9, design: .monospaced))
+                                .foregroundColor(.gray)
+                        }
+                    }
                 }
 
                 // Model Section
@@ -108,6 +129,52 @@ struct SettingsView: View {
             .padding(.horizontal, 4)
         }
         .navigationTitle("Settings")
+        .sheet(isPresented: $showingURLEditor) {
+            ServerURLEditor(serverURL: $serverURL) {
+                sessionManager.serverURL = serverURL
+                sessionManager.connect()
+            }
+        }
+    }
+}
+
+// MARK: - Server URL Editor
+struct ServerURLEditor: View {
+    @Binding var serverURL: String
+    let onSave: () -> Void
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("BRIDGE SERVER")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundColor(.green)
+
+            TextField("Server URL", text: $serverURL)
+                .font(.system(size: 11, design: .monospaced))
+                .textContentType(.URL)
+                .autocorrectionDisabled()
+
+            Text("Enter your bridge server URL\n(e.g., https://your-tunnel.ngrok.io)")
+                .font(.system(size: 9))
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+
+            HStack(spacing: 8) {
+                Button("Cancel") {
+                    dismiss()
+                }
+                .foregroundColor(.red)
+
+                Button("Save") {
+                    onSave()
+                    dismiss()
+                }
+                .foregroundColor(.green)
+            }
+            .font(.system(size: 11, weight: .medium))
+        }
+        .padding()
     }
 }
 
