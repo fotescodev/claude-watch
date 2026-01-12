@@ -25,8 +25,8 @@ struct MainView: View {
                 // Voice Input Button
                 VoiceButton(showingVoiceInput: $showingVoiceInput)
 
-                // YOLO Toggle
-                YoloToggle()
+                // Mode Switcher (Normal → Auto → Plan)
+                ModeSwitcher()
             }
             .padding(.horizontal, 4)
         }
@@ -109,12 +109,13 @@ struct StatusHeader: View {
 
                 Spacer()
 
-                if service.state.yoloMode {
-                    Text("YOLO")
+                // Mode badge
+                if service.state.mode != .normal {
+                    Text(service.state.mode.displayName)
                         .font(.system(size: 8, weight: .black, design: .monospaced))
-                        .foregroundColor(.red)
+                        .foregroundColor(Color(service.state.mode.color))
                         .padding(.horizontal, 4)
-                        .background(Color.red.opacity(0.3))
+                        .background(Color(service.state.mode.color).opacity(0.3))
                         .cornerRadius(2)
                 }
 
@@ -335,37 +336,58 @@ struct VoiceButton: View {
     }
 }
 
-// MARK: - YOLO Toggle
-struct YoloToggle: View {
+// MARK: - Mode Switcher (like Shift+Tab in Claude Code)
+struct ModeSwitcher: View {
     @ObservedObject private var service = WatchService.shared
 
     var body: some View {
         Button {
-            service.toggleYolo()
+            service.cycleMode()
         } label: {
             HStack {
-                Image(systemName: service.state.yoloMode ? "bolt.fill" : "bolt.slash")
+                Image(systemName: service.state.mode.icon)
                     .font(.system(size: 12))
 
-                Text("YOLO")
+                Text(service.state.mode.displayName)
                     .font(.system(size: 10, weight: .black, design: .monospaced))
 
                 Spacer()
 
-                Text(service.state.yoloMode ? "ON" : "OFF")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                // Show next mode hint
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 8))
+                    .foregroundColor(.gray)
+
+                Text(service.state.mode.next().displayName)
+                    .font(.system(size: 8, weight: .medium, design: .monospaced))
+                    .foregroundColor(.gray)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(
-                service.state.yoloMode
-                    ? LinearGradient(colors: [.red, .orange], startPoint: .leading, endPoint: .trailing)
-                    : LinearGradient(colors: [Color.gray.opacity(0.2)], startPoint: .leading, endPoint: .trailing)
-            )
-            .foregroundColor(service.state.yoloMode ? .white : .gray)
+            .background(modeBackground)
+            .foregroundColor(modeForeground)
             .cornerRadius(8)
         }
         .buttonStyle(.plain)
+    }
+
+    private var modeBackground: LinearGradient {
+        switch service.state.mode {
+        case .normal:
+            return LinearGradient(colors: [.blue.opacity(0.2)], startPoint: .leading, endPoint: .trailing)
+        case .autoAccept:
+            return LinearGradient(colors: [.red, .orange], startPoint: .leading, endPoint: .trailing)
+        case .plan:
+            return LinearGradient(colors: [.purple.opacity(0.3)], startPoint: .leading, endPoint: .trailing)
+        }
+    }
+
+    private var modeForeground: Color {
+        switch service.state.mode {
+        case .normal: return .blue
+        case .autoAccept: return .white
+        case .plan: return .purple
+        }
     }
 }
 

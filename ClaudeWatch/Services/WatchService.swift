@@ -117,7 +117,15 @@ class WatchService: ObservableObject {
                 playHaptic(success ? .success : .failure)
 
             case "yolo_changed":
-                state.yoloMode = json["enabled"] as? Bool ?? false
+                // Legacy support
+                let enabled = json["enabled"] as? Bool ?? false
+                state.mode = enabled ? .autoAccept : .normal
+
+            case "mode_changed":
+                if let modeStr = json["mode"] as? String,
+                   let mode = PermissionMode(rawValue: modeStr) {
+                    state.mode = mode
+                }
 
             case "pong":
                 break // Ping response received
@@ -139,7 +147,14 @@ class WatchService: ObservableObject {
         state.taskDescription = data["task_description"] as? String ?? ""
         state.progress = data["progress"] as? Double ?? 0
         state.model = data["model"] as? String ?? "opus"
-        state.yoloMode = data["yolo_mode"] as? Bool ?? false
+
+        // Handle mode (with legacy yolo_mode fallback)
+        if let modeStr = data["mode"] as? String,
+           let mode = PermissionMode(rawValue: modeStr) {
+            state.mode = mode
+        } else if let yoloMode = data["yolo_mode"] as? Bool {
+            state.mode = yoloMode ? .autoAccept : .normal
+        }
 
         if let statusStr = data["status"] as? String {
             state.status = SessionStatus(rawValue: statusStr) ?? .idle
@@ -237,16 +252,37 @@ class WatchService: ObservableObject {
     }
 
     func toggleYolo() {
-        let newValue = !state.yoloMode
+        // Legacy support - now cycles through modes
+        cycleMode()
+    }
+
+    func cycleMode() {
+        let newMode = state.mode.next()
+        setMode(newMode)
+    }
+
+    func setMode(_ mode: PermissionMode) {
         send([
-            "type": "toggle_yolo",
-            "enabled": newValue
+            "type": "set_mode",
+            "mode": mode.rawValue
         ])
 
         // Optimistic update
-        state.yoloMode = newValue
+        state.mode = mode
 
-        playHaptic(newValue ? .start : .stop)
+        // Haptic feedback based on mode
+        switch mode {
+        case .normal:
+            playHaptic(.click)
+        case .autoAccept:
+            playHaptic(.start)
+            // Auto-approve all pending when entering auto-accept
+            if !state.pendingActions.isEmpty {
+                approveAll()
+            }
+        case .plan:
+            playHaptic(.stop)
+        }
     }
 
     func sendPrompt(_ text: String) {
@@ -282,7 +318,58 @@ struct WatchState {
     var status: SessionStatus = .idle
     var pendingActions: [PendingAction] = []
     var model: String = "opus"
-    var yoloMode: Bool = false
+    var mode: PermissionMode = .normal
+
+    // Convenience for backward compatibility
+    var yoloMode: Bool {
+        mode == .autoAccept
+    }
+}
+
+// MARK: - Permission Mode (like Claude Code's Shift+Tab)
+enum PermissionMode: String, CaseIterable {
+    case normal = "normal"
+    case autoAccept = "auto_accept"
+    case plan = "plan"
+
+    var displayName: String {
+        switch self {
+        case .normal: return "NORMAL"
+        case .autoAccept: return "AUTO"
+        case .plan: return "PLAN"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .normal: return "hand.raised"
+        case .autoAccept: return "bolt.fill"
+        case .plan: return "doc.text.magnifyingglass"
+        }
+    }
+
+    var color: String {
+        switch self {
+        case .normal: return "blue"
+        case .autoAccept: return "red"
+        case .plan: return "purple"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .normal: return "Approve each action"
+        case .autoAccept: return "Auto-approve all"
+        case .plan: return "Read-only planning"
+        }
+    }
+
+    func next() -> PermissionMode {
+        let all = PermissionMode.allCases
+        let currentIndex = all.firstIndex(of: self) ?? 0
+        let nextIndex = (currentIndex + 1) % all.count
+        return all[nextIndex]
+    }
 }
 
 enum SessionStatus: String {
