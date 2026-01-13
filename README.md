@@ -85,17 +85,18 @@ You're using Claude Code. It's incredible. But...
 ## 💡 The Solution
 
 ```
-┌─────────────┐       ┌─────────────┐       ┌─────────────┐
-│ Claude Code │──MCP──│   Server    │──5G───│ Apple Watch │
-│  (on Mac)   │       │  (Bridge)   │       │  (on wrist) │
-└─────────────┘       └──────┬──────┘       └─────────────┘
-                             │
-                             ▼
-                     Push Notifications
-                        via APNs
+┌─────────────┐         ┌──────────────────┐         ┌─────────────┐
+│ Claude Code │──HTTP──►│ Cloudflare Worker│◄──HTTP──│ Apple Watch │
+│  (on Mac)   │         │  (Cloud Relay)   │         │  (on wrist) │
+└─────────────┘         └────────┬─────────┘         └─────────────┘
+       ▲                         │                          │
+       │                         ▼                          │
+       │                   APNs (optional)                  │
+       │                         │                          │
+       └─────────polling─────────┴──────────polling─────────┘
 ```
 
-**Claude Watch** hooks into Claude Code via MCP. When Claude needs your approval:
+**Claude Watch** uses a cloud relay. When Claude needs your approval:
 
 1. 📱 Your watch buzzes
 2. 👀 You glance at your wrist
@@ -186,48 +187,52 @@ Different vibration patterns for different events. You'll *feel* when something 
 - Apple Watch Series 6+ with watchOS 10+
 - Mac with Claude Code CLI installed
 - Xcode 15+ (for building)
-- Network tunnel (Tailscale, ngrok, or Cloudflare)
 
-### 1️⃣ Clone & Install
+### Option A: Cloud Mode (Recommended)
+
+Works anywhere with internet — walk your dog, go to a coffee shop, etc.
+
+**1️⃣ Generate Pairing Code**
 
 ```bash
-git clone https://github.com/anthropics/claude-watch.git
-cd claude-watch
-
-# Install server dependencies
-cd MCPServer
-pip install -r requirements.txt
+curl -X POST https://claude-watch.fotescodev.workers.dev/pair
+# Returns: {"code": "ABC-123", "pairingId": "...", "expiresIn": 600}
 ```
 
-### 2️⃣ Start the Server
+**2️⃣ Enter Code on Watch**
+
+Open the watch app → Settings (gear icon) → **Pair with Code** → Enter code
+
+**3️⃣ Send Approval Requests**
 
 ```bash
-python server.py --standalone --port 8787
+# From Claude Code or any script:
+curl -X POST https://claude-watch.fotescodev.workers.dev/request \
+  -H "Content-Type: application/json" \
+  -d '{"pairingId": "YOUR_PAIRING_ID", "type": "bash", "title": "npm test"}'
+# Returns: {"requestId": "abc123"}
 ```
 
-### 3️⃣ Expose to Internet
+**4️⃣ Poll for Response**
 
 ```bash
-# Option A: Tailscale (recommended)
+curl https://claude-watch.fotescodev.workers.dev/request/abc123
+# Returns: {"status": "approved"} or {"status": "rejected"} or {"status": "pending"}
+```
+
+### Option B: Local WebSocket Mode
+
+For local development or when you don't want cloud dependency.
+
+```bash
+# 1. Start server
+cd MCPServer && python server.py --standalone --port 8787
+
+# 2. Expose via tunnel (Tailscale/ngrok/Cloudflare)
 tailscale serve 8787
 
-# Option B: ngrok
-ngrok http 8787
-
-# Option C: Cloudflare
-cloudflared tunnel --url http://localhost:8787
+# 3. In watch app: Settings → Enter ws://your-url:8787 → Connect
 ```
-
-### 4️⃣ Build & Run Watch App
-
-```bash
-open ClaudeWatch.xcodeproj
-# Select your Apple Watch target → Run (⌘R)
-```
-
-### 5️⃣ Configure & Connect
-
-In the watch app: **Settings** → Enter your tunnel URL → **Connect**
 
 <br/>
 
@@ -240,17 +245,74 @@ In the watch app: **Settings** → Enter your tunnel URL → **Connect**
 ```
 claude-watch/
 │
-├── 📱 ClaudeWatch/              # watchOS App
+├── 📱 ClaudeWatch/              # watchOS App (Swift/SwiftUI)
 │   ├── App/                     # Entry point + notification handling
-│   ├── Views/                   # SwiftUI (single MainView)
-│   ├── Services/                # WebSocket client
+│   │   └── ClaudeWatchApp.swift # AppDelegate, notification categories
+│   ├── Views/                   # SwiftUI views
+│   │   ├── MainView.swift       # Main UI with action queue
+│   │   └── PairingView.swift    # Pairing code entry
+│   ├── Services/                # Business logic
+│   │   └── WatchService.swift   # Cloud polling, WebSocket, state
 │   └── Complications/           # Watch face widgets
 │
-└── 🖥️ MCPServer/                # Python Server
+├── 🌐 MCPServer/worker/         # Cloudflare Worker (JavaScript)
+│   ├── src/index.js             # Cloud relay API
+│   ├── wrangler.toml            # Cloudflare config
+│   └── package.json             # Dependencies
+│
+└── 🖥️ MCPServer/                # Local Python Server (optional)
     └── server.py                # MCP + WebSocket + APNs
 ```
 
-### Communication Flow
+### Cloud Mode Flow (Production)
+
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                                                                           │
+│  1. PAIRING                                                               │
+│  ─────────────────────────────────────────────────────────────────────── │
+│  Claude Code                    Cloudflare                   Watch        │
+│       │                              │                          │         │
+│       │─── POST /pair ──────────────►│                          │         │
+│       │◄── {code: "ABC-123"} ───────│                          │         │
+│       │                              │                          │         │
+│       │         User shows code      │◄── POST /pair/complete ──│         │
+│       │         on terminal          │    {code, deviceToken}   │         │
+│       │                              │                          │         │
+│                                                                           │
+│  2. REQUEST/RESPONSE                                                      │
+│  ─────────────────────────────────────────────────────────────────────── │
+│  Claude Code                    Cloudflare                   Watch        │
+│       │                              │                          │         │
+│       │─── POST /request ───────────►│                          │         │
+│       │    {pairingId, type, title}  │─── APNs push (optional) ─►│         │
+│       │                              │                          │         │
+│       │                              │◄── GET /requests/{id} ────│ (poll) │
+│       │                              │    returns pending list   │ every  │
+│       │                              │                          │ 2 sec  │
+│       │                              │◄── POST /respond/{id} ────│         │
+│       │                              │    {approved: true}       │         │
+│       │                              │                          │         │
+│       │◄── GET /request/{id} ───────│                          │         │
+│       │    {status: "approved"}      │                          │         │
+│       │                              │                          │         │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+### Cloud Relay API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/pair` | POST | Generate 6-char pairing code (expires 10 min) |
+| `/pair/complete` | POST | Watch completes pairing with code + device token |
+| `/pair/:id/status` | GET | Check if pairing is complete |
+| `/request` | POST | Send approval request (returns requestId) |
+| `/request/:id` | GET | Poll for response status |
+| `/requests/:pairingId` | GET | List pending requests (for watch polling) |
+| `/respond/:id` | POST | Watch sends approve/reject |
+| `/health` | GET | Health check |
+
+### Local WebSocket Mode (Development)
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -269,7 +331,7 @@ claude-watch/
 └────────────────────────────────────────────────────────────────┘
 ```
 
-### MCP Tools
+### MCP Tools (Local Mode)
 
 | Tool | Description |
 |------|-------------|
@@ -298,14 +360,17 @@ claude-watch/
 - [x] Voice commands
 - [x] Watch face complications
 - [x] Haptic feedback patterns
+- [x] **Cloud relay (Cloudflare Worker)**
+- [x] **Pairing flow with 6-char codes**
+- [x] **Remote approval via polling**
 
 </td>
 <td>
 
 ### 🚧 In Progress
+- [ ] APNs push notifications
 - [ ] TestFlight beta
 - [ ] App Store submission
-- [ ] Companion iOS app
 
 </td>
 <td>
@@ -328,7 +393,57 @@ claude-watch/
 
 ## 🧑‍💻 For Developers
 
-### Run Server in Development
+### Deploy Your Own Cloud Relay
+
+```bash
+cd MCPServer/worker
+
+# Install wrangler
+npm install
+
+# Login to Cloudflare
+npx wrangler login
+
+# Create KV namespaces
+npx wrangler kv:namespace create PAIRINGS
+npx wrangler kv:namespace create REQUESTS
+
+# Update wrangler.toml with your namespace IDs
+
+# Deploy
+npx wrangler deploy
+# → https://your-worker.your-subdomain.workers.dev
+```
+
+### Test Cloud Relay API
+
+```bash
+# 1. Create pairing
+curl -X POST https://claude-watch.fotescodev.workers.dev/pair
+# → {"code":"ABC-123","pairingId":"...","expiresIn":600}
+
+# 2. Complete pairing (simulating watch)
+curl -X POST https://claude-watch.fotescodev.workers.dev/pair/complete \
+  -H "Content-Type: application/json" \
+  -d '{"code":"ABC-123","deviceToken":"test"}'
+
+# 3. Send request
+curl -X POST https://claude-watch.fotescodev.workers.dev/request \
+  -H "Content-Type: application/json" \
+  -d '{"pairingId":"YOUR_ID","type":"bash","title":"npm test"}'
+# → {"requestId":"abc123"}
+
+# 4. Respond (simulating watch)
+curl -X POST https://claude-watch.fotescodev.workers.dev/respond/abc123 \
+  -H "Content-Type: application/json" \
+  -d '{"approved":true}'
+
+# 5. Check status
+curl https://claude-watch.fotescodev.workers.dev/request/abc123
+# → {"status":"approved"}
+```
+
+### Run Local WebSocket Server
 
 ```bash
 cd MCPServer
@@ -339,7 +454,7 @@ python server.py --standalone --port 8787
 # - REST API:  http://localhost:8788
 ```
 
-### Test Without Watch
+### Test Local Server Without Watch
 
 ```bash
 # Get current state
@@ -364,6 +479,17 @@ curl -X POST http://localhost:8788/action/respond \
   }
 }
 ```
+
+### Key Files
+
+| File | Description |
+|------|-------------|
+| `MCPServer/worker/src/index.js` | Cloudflare Worker - all API endpoints |
+| `MCPServer/worker/wrangler.toml` | Cloudflare config, KV namespace bindings |
+| `ClaudeWatch/Services/WatchService.swift` | Watch app service - polling, state, API calls |
+| `ClaudeWatch/Views/MainView.swift` | Main UI - action queue, approve/reject buttons |
+| `ClaudeWatch/Views/PairingView.swift` | Pairing code entry UI |
+| `ClaudeWatch/App/ClaudeWatchApp.swift` | App entry, notification handling |
 
 <br/>
 
