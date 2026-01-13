@@ -38,8 +38,14 @@ struct MainView: View {
             Claude.background.ignoresSafeArea()
 
             // Content based on state
-            if service.connectionStatus == .disconnected {
+            if service.connectionStatus == .disconnected && !service.isDemoMode {
                 OfflineStateView()
+            } else if case .reconnecting = service.connectionStatus {
+                // Show reconnecting indicator over main content
+                VStack {
+                    ReconnectingView(status: service.connectionStatus)
+                    Spacer()
+                }
             } else if service.state.pendingActions.isEmpty && service.state.status == .idle {
                 EmptyStateView()
             } else {
@@ -100,6 +106,7 @@ struct MainView: View {
         switch service.connectionStatus {
         case .connected: return "checkmark.circle.fill"
         case .connecting: return "arrow.trianglehead.2.clockwise"
+        case .reconnecting: return "arrow.clockwise"
         case .disconnected: return "wifi.slash"
         }
     }
@@ -107,7 +114,7 @@ struct MainView: View {
     private var connectionColor: Color {
         switch service.connectionStatus {
         case .connected: return Claude.success
-        case .connecting: return Claude.warning
+        case .connecting, .reconnecting: return Claude.warning
         case .disconnected: return Claude.danger
         }
     }
@@ -336,6 +343,45 @@ struct OfflineStateView: View {
             .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Reconnecting State
+struct ReconnectingView: View {
+    let status: ConnectionStatus
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 10) {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: Claude.warning))
+                    .scaleEffect(0.8)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    if case .reconnecting(let attempt, let nextRetryIn) = status {
+                        Text("Reconnecting...")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Claude.textPrimary)
+
+                        Text("Attempt \(attempt) • \(Int(nextRetryIn))s")
+                            .font(.system(size: 11))
+                            .foregroundColor(Claude.textSecondary)
+                    } else {
+                        Text("Connecting...")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Claude.textPrimary)
+                    }
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Claude.surface1)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .padding(.horizontal)
+        .padding(.top, 8)
     }
 }
 
@@ -829,7 +875,7 @@ struct SettingsSheet: View {
                         .fill(statusColor)
                         .frame(width: 8, height: 8)
 
-                    Text(service.connectionStatus.rawValue.capitalized)
+                    Text(service.connectionStatus.displayName)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(statusColor)
                 }
@@ -892,7 +938,7 @@ struct SettingsSheet: View {
     private var statusColor: Color {
         switch service.connectionStatus {
         case .connected: return Claude.success
-        case .connecting: return Claude.warning
+        case .connecting, .reconnecting: return Claude.warning
         case .disconnected: return Claude.danger
         }
     }

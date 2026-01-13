@@ -78,6 +78,26 @@ class AppDelegate: NSObject, WKApplicationDelegate {
     func didFailToRegisterForRemoteNotificationsWithError(_ error: Error) {
         print("Failed to register for remote notifications: \(error)")
     }
+
+    // MARK: - App Lifecycle
+
+    func applicationDidBecomeActive() {
+        Task { @MainActor in
+            WatchService.shared.handleAppDidBecomeActive()
+        }
+    }
+
+    func applicationWillResignActive() {
+        Task { @MainActor in
+            WatchService.shared.handleAppWillResignActive()
+        }
+    }
+
+    func applicationDidEnterBackground() {
+        Task { @MainActor in
+            WatchService.shared.handleAppDidEnterBackground()
+        }
+    }
 }
 
 // MARK: - Notification Handling

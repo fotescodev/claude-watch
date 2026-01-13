@@ -3,6 +3,7 @@ import Combine
 import SwiftUI
 import WatchKit
 import UserNotifications
+import Network
 
 /// Main service for communicating with Claude Watch MCP Server
 /// Uses WebSocket for real-time updates, with REST fallback
@@ -23,6 +24,23 @@ class WatchService: ObservableObject {
     private var urlSession: URLSession!
     private var reconnectTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
+    private var handshakeTimeoutTask: Task<Void, Never>?
+    private var pongTimeoutTask: Task<Void, Never>?
+
+    // MARK: - Reliability Configuration
+    private let reconnectConfig = ReconnectionConfig()
+    private var reconnectAttempt: Int = 0
+    private var messageQueue: [QueuedMessage] = []
+    private let maxQueueSize: Int = 50
+    private var lastPongTime: Date?
+    private let pingInterval: TimeInterval = 15.0
+    private let pongTimeout: TimeInterval = 10.0
+    private let handshakeTimeout: TimeInterval = 10.0
+    private var hasCompletedHandshake: Bool = false
+
+    // MARK: - Network Monitoring
+    private var pathMonitor: NWPathMonitor?
+    private var isNetworkAvailable: Bool = true
 
     // MARK: - Demo Mode
     @AppStorage("demoMode") var isDemoMode = true  // Enable demo by default for testing
@@ -33,40 +51,99 @@ class WatchService: ObservableObject {
         config.timeoutIntervalForRequest = 30
         urlSession = URLSession(configuration: config)
 
+        // Start network monitoring
+        startNetworkMonitoring()
+
         // Load demo data if demo mode is enabled
         if isDemoMode {
             loadDemoData()
         }
     }
 
+    nonisolated deinit {
+        // Note: NWPathMonitor.cancel() is thread-safe
+        // We access it directly here since deinit is nonisolated
+    }
+
+    // MARK: - App Lifecycle
+
+    func handleAppDidBecomeActive() {
+        // Reset backoff when coming to foreground
+        reconnectAttempt = 0
+
+        // If disconnected or reconnecting, try to connect immediately
+        switch connectionStatus {
+        case .disconnected:
+            connect()
+        case .reconnecting:
+            reconnectTask?.cancel()
+            connect()
+        case .connected:
+            // Send ping to verify connection is still alive
+            sendImmediate(["type": "ping"])
+        case .connecting:
+            // Already trying to connect, do nothing
+            break
+        }
+    }
+
+    func handleAppWillResignActive() {
+        // Don't disconnect - let the system handle it
+        // But we could pause aggressive reconnection if needed
+    }
+
+    func handleAppDidEnterBackground() {
+        // The system may keep the connection alive briefly
+        // Send a final state request to ensure we have latest data
+        if connectionStatus.isConnected {
+            sendImmediate(["type": "get_state"])
+        }
+    }
+
     // MARK: - Connection
     func connect() {
+        // Cancel any existing reconnect attempt
+        reconnectTask?.cancel()
+
+        // Clean up existing connection
         disconnect()
+
         connectionStatus = .connecting
+        hasCompletedHandshake = false
 
         guard let url = URL(string: serverURLString) else {
             connectionStatus = .disconnected
-            lastError = "Invalid server URL"
+            lastError = WebSocketError.invalidURL.localizedDescription
             return
         }
 
         webSocket = urlSession.webSocketTask(with: url)
         webSocket?.resume()
 
-        connectionStatus = .connected
+        // Start receiving immediately (status stays .connecting)
         startReceiving()
-        startPingLoop()
 
-        // Request current state
-        send(["type": "get_state"])
+        // Start handshake timeout - if no message received, fail
+        handshakeTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(self?.handshakeTimeout ?? 10.0) * 1_000_000_000)
+            guard let self = self, !Task.isCancelled else { return }
+            if !self.hasCompletedHandshake {
+                self.handleError(.handshakeTimeout)
+            }
+        }
+
+        // Request current state (response will confirm connection)
+        sendImmediate(["type": "get_state"])
     }
 
     func disconnect() {
         pingTask?.cancel()
         reconnectTask?.cancel()
+        handshakeTimeoutTask?.cancel()
+        pongTimeoutTask?.cancel()
         webSocket?.cancel(with: .goingAway, reason: nil)
         webSocket = nil
-        connectionStatus = .disconnected
+        hasCompletedHandshake = false
     }
 
     // MARK: - WebSocket Communication
@@ -86,6 +163,11 @@ class WatchService: ObservableObject {
     }
 
     private func handleMessage(_ message: URLSessionWebSocketTask.Message) {
+        // Complete handshake on first successful message
+        if !hasCompletedHandshake {
+            completeHandshake()
+        }
+
         switch message {
         case .string(let text):
             guard let data = text.data(using: .utf8),
@@ -137,7 +219,7 @@ class WatchService: ObservableObject {
                 }
 
             case "pong":
-                break // Ping response received
+                handlePongReceived()
 
             case "notification":
                 let title = json["title"] as? String ?? "Claude"
@@ -193,33 +275,228 @@ class WatchService: ObservableObject {
     }
 
     private func handleDisconnection(error: Error) {
-        connectionStatus = .disconnected
+        handleError(.receiveFailed(error))
+    }
+
+    // MARK: - Connection Lifecycle Helpers
+
+    private func completeHandshake() {
+        guard !hasCompletedHandshake else { return }
+
+        hasCompletedHandshake = true
+        handshakeTimeoutTask?.cancel()
+        connectionStatus = .connected
+        reconnectAttempt = 0  // Reset backoff on successful connection
+        lastPongTime = Date()
+
+        // Start ping loop now that we're connected
+        startPingLoop()
+
+        // Flush any queued messages
+        flushMessageQueue()
+
+        playHaptic(.success)
+    }
+
+    private func handlePongReceived() {
+        lastPongTime = Date()
+        pongTimeoutTask?.cancel()
+    }
+
+    private func handleError(_ error: WebSocketError) {
+        // Cancel all tasks
+        pingTask?.cancel()
+        handshakeTimeoutTask?.cancel()
+        pongTimeoutTask?.cancel()
+
+        // Close the WebSocket
+        webSocket?.cancel(with: .goingAway, reason: nil)
+        webSocket = nil
+        hasCompletedHandshake = false
+
         lastError = error.localizedDescription
 
-        // Attempt reconnection
-        reconnectTask = Task {
-            try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
-            if !Task.isCancelled {
+        // Check if we should retry
+        guard error.isRecoverable else {
+            connectionStatus = .disconnected
+            return
+        }
+
+        // Check max retries
+        guard reconnectAttempt < reconnectConfig.maxRetries else {
+            connectionStatus = .disconnected
+            lastError = WebSocketError.maxRetriesExceeded.localizedDescription
+            return
+        }
+
+        // Schedule reconnection with exponential backoff
+        scheduleReconnect()
+    }
+
+    private func scheduleReconnect() {
+        // Don't schedule reconnect if network is unavailable
+        guard isNetworkAvailable else {
+            connectionStatus = .disconnected
+            lastError = WebSocketError.networkUnavailable.localizedDescription
+            return
+        }
+
+        let delay = reconnectConfig.delay(forAttempt: reconnectAttempt)
+        reconnectAttempt += 1
+
+        connectionStatus = .reconnecting(attempt: reconnectAttempt, nextRetryIn: delay)
+
+        reconnectTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard let self = self, !Task.isCancelled else { return }
+            // Double-check network is still available before attempting
+            guard self.isNetworkAvailable else { return }
+            self.connect()
+        }
+    }
+
+    // MARK: - Network Monitoring
+
+    private func startNetworkMonitoring() {
+        pathMonitor = NWPathMonitor()
+        pathMonitor?.pathUpdateHandler = { [weak self] path in
+            Task { @MainActor [weak self] in
+                self?.handleNetworkPathUpdate(path)
+            }
+        }
+        pathMonitor?.start(queue: DispatchQueue(label: "com.claudewatch.network-monitor"))
+    }
+
+    private func stopNetworkMonitoring() {
+        pathMonitor?.cancel()
+        pathMonitor = nil
+    }
+
+    private func handleNetworkPathUpdate(_ path: NWPath) {
+        let wasAvailable = isNetworkAvailable
+        isNetworkAvailable = path.status == .satisfied
+
+        if !wasAvailable && isNetworkAvailable {
+            // Network became available - reconnect immediately with reset backoff
+            reconnectAttempt = 0
+            reconnectTask?.cancel()
+
+            // Only connect if we were trying to connect or are disconnected
+            if case .reconnecting = connectionStatus {
                 connect()
+            } else if connectionStatus == .disconnected {
+                connect()
+            }
+        } else if wasAvailable && !isNetworkAvailable {
+            // Network became unavailable - cancel reconnection attempts
+            reconnectTask?.cancel()
+
+            // If currently connected, let the socket fail naturally
+            // If reconnecting, update status
+            if case .reconnecting = connectionStatus {
+                connectionStatus = .disconnected
+                lastError = WebSocketError.networkUnavailable.localizedDescription
             }
         }
     }
 
     private func startPingLoop() {
-        pingTask = Task {
+        pingTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 seconds
-                send(["type": "ping"])
+                guard let self = self else { return }
+
+                // Only ping if connected
+                guard self.connectionStatus.isConnected else {
+                    try? await Task.sleep(nanoseconds: UInt64(self.pingInterval * 1_000_000_000))
+                    continue
+                }
+
+                // Check for pong timeout before sending new ping
+                if let lastPong = self.lastPongTime,
+                   Date().timeIntervalSince(lastPong) > self.pingInterval + self.pongTimeout {
+                    self.handleError(.pongTimeout)
+                    return
+                }
+
+                // Send ping
+                self.sendImmediate(["type": "ping"])
+
+                // Schedule pong timeout check
+                self.pongTimeoutTask = Task { [weak self] in
+                    try? await Task.sleep(nanoseconds: UInt64((self?.pongTimeout ?? 10.0) * 1_000_000_000))
+                    guard let self = self, !Task.isCancelled else { return }
+                    if let lastPong = self.lastPongTime,
+                       Date().timeIntervalSince(lastPong) > self.pongTimeout {
+                        self.handleError(.pongTimeout)
+                    }
+                }
+
+                try? await Task.sleep(nanoseconds: UInt64(self.pingInterval * 1_000_000_000))
             }
         }
     }
 
-    private func send(_ message: [String: Any]) {
-        guard let data = try? JSONSerialization.data(withJSONObject: message),
-              let string = String(data: data, encoding: .utf8) else {
+    // MARK: - Message Sending
+
+    private func send(_ message: [String: Any], priority: QueuedMessage.MessagePriority = .normal) {
+        // Queue message if not connected
+        guard connectionStatus.isConnected else {
+            queueMessage(message, priority: priority)
             return
         }
-        webSocket?.send(.string(string)) { _ in }
+
+        sendImmediate(message) { [weak self] error in
+            if let error = error {
+                self?.handleSendError(message, error: error, priority: priority)
+            }
+        }
+    }
+
+    private func sendImmediate(_ message: [String: Any], completion: ((Error?) -> Void)? = nil) {
+        guard let data = try? JSONSerialization.data(withJSONObject: message),
+              let string = String(data: data, encoding: .utf8) else {
+            completion?(WebSocketError.sendFailed(NSError(domain: "WatchService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to serialize message"])))
+            return
+        }
+        webSocket?.send(.string(string)) { error in
+            completion?(error)
+        }
+    }
+
+    private func queueMessage(_ message: [String: Any], priority: QueuedMessage.MessagePriority) {
+        let queued = QueuedMessage(payload: message, createdAt: Date(), priority: priority)
+
+        // Maintain queue size limit (drop oldest low-priority messages)
+        if messageQueue.count >= maxQueueSize {
+            if let index = messageQueue.firstIndex(where: { $0.priority == .low }) {
+                messageQueue.remove(at: index)
+            } else if messageQueue.count >= maxQueueSize {
+                // If no low priority messages, drop oldest
+                messageQueue.removeFirst()
+            }
+        }
+
+        messageQueue.append(queued)
+        messageQueue.sort { $0.priority > $1.priority }
+    }
+
+    private func flushMessageQueue() {
+        let messages = messageQueue
+        messageQueue.removeAll()
+
+        for queued in messages {
+            send(queued.payload, priority: queued.priority)
+        }
+    }
+
+    private func handleSendError(_ message: [String: Any], error: Error, priority: QueuedMessage.MessagePriority) {
+        // For high-priority messages (approve/reject), re-queue for retry
+        if priority == .high {
+            queueMessage(message, priority: priority)
+        }
+
+        // This might indicate connection failure
+        handleError(.sendFailed(error))
     }
 
     // MARK: - Actions
@@ -228,7 +505,7 @@ class WatchService: ObservableObject {
             "type": "action_response",
             "action_id": actionId,
             "approved": true
-        ])
+        ], priority: .high)
 
         // Optimistic update
         state.pendingActions.removeAll { $0.id == actionId }
@@ -244,7 +521,7 @@ class WatchService: ObservableObject {
             "type": "action_response",
             "action_id": actionId,
             "approved": false
-        ])
+        ], priority: .high)
 
         // Optimistic update
         state.pendingActions.removeAll { $0.id == actionId }
@@ -256,7 +533,7 @@ class WatchService: ObservableObject {
     }
 
     func approveAll() {
-        send(["type": "approve_all"])
+        send(["type": "approve_all"], priority: .high)
 
         // Optimistic update
         state.pendingActions.removeAll()
@@ -483,10 +760,96 @@ enum SessionStatus: String {
     }
 }
 
-enum ConnectionStatus: String {
+enum ConnectionStatus: Equatable {
     case disconnected
     case connecting
     case connected
+    case reconnecting(attempt: Int, nextRetryIn: TimeInterval)
+
+    var displayName: String {
+        switch self {
+        case .disconnected: return "OFFLINE"
+        case .connecting: return "CONNECTING"
+        case .connected: return "CONNECTED"
+        case .reconnecting(let attempt, _): return "RETRY \(attempt)"
+        }
+    }
+
+    var isConnected: Bool {
+        if case .connected = self { return true }
+        return false
+    }
+}
+
+// MARK: - WebSocket Error Types
+enum WebSocketError: Error {
+    case handshakeTimeout
+    case pongTimeout
+    case sendFailed(Error)
+    case receiveFailed(Error)
+    case invalidURL
+    case networkUnavailable
+    case maxRetriesExceeded
+
+    var isRecoverable: Bool {
+        switch self {
+        case .invalidURL, .maxRetriesExceeded:
+            return false
+        default:
+            return true
+        }
+    }
+
+    var localizedDescription: String {
+        switch self {
+        case .handshakeTimeout: return "Connection timeout"
+        case .pongTimeout: return "Server not responding"
+        case .sendFailed(let error): return "Send failed: \(error.localizedDescription)"
+        case .receiveFailed(let error): return "Receive failed: \(error.localizedDescription)"
+        case .invalidURL: return "Invalid server URL"
+        case .networkUnavailable: return "Network unavailable"
+        case .maxRetriesExceeded: return "Max reconnection attempts exceeded"
+        }
+    }
+}
+
+// MARK: - Reconnection Configuration
+struct ReconnectionConfig {
+    let initialDelay: TimeInterval = 1.0
+    let maxDelay: TimeInterval = 60.0
+    let multiplier: Double = 2.0
+    let maxRetries: Int = 10
+    let jitterFactor: Double = 0.2
+
+    func delay(forAttempt attempt: Int) -> TimeInterval {
+        let baseDelay = min(initialDelay * pow(multiplier, Double(attempt)), maxDelay)
+        let jitter = baseDelay * jitterFactor * Double.random(in: -1...1)
+        return max(0.1, baseDelay + jitter) // Ensure positive delay
+    }
+}
+
+// MARK: - Message Queue Types
+struct QueuedMessage: Identifiable {
+    let id = UUID()
+    let payload: [String: Any]
+    let createdAt: Date
+    var retryCount: Int = 0
+    let maxRetries: Int = 3
+    let priority: MessagePriority
+
+    enum MessagePriority: Int, Comparable {
+        case low = 0      // state requests
+        case normal = 1   // mode changes
+        case high = 2     // approve/reject actions
+
+        static func < (lhs: Self, rhs: Self) -> Bool {
+            lhs.rawValue < rhs.rawValue
+        }
+    }
+
+    var canRetry: Bool {
+        retryCount < maxRetries
+    }
 }
 
 struct PendingAction: Identifiable {
