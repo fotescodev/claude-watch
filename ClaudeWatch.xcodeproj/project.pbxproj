@@ -10,25 +10,13 @@
 		/* App Files */
 		APP001 /* ClaudeWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC001; };
 
-		/* Model Files */
-		MOD001 /* SessionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC002; };
-		MOD002 /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC003; };
-
 		/* View Files */
-		VIEW001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC004; };
-		VIEW002 /* ControlDeckView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC005; };
-		VIEW003 /* ActionsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC006; };
-		VIEW004 /* QuickPromptsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC007; };
-		VIEW005 /* VoiceInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC008; };
-		VIEW006 /* ModelPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC009; };
-		VIEW007 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC010; };
+		VIEW001 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC004; };
 
 		/* Service Files */
-		SVC001 /* WatchConnectivityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC011; };
-		SVC002 /* HapticService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC012; };
+		SVC001 /* WatchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC011; };
 
 		/* Complication Files */
-		CMP001 /* ComplicationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC013; };
 		CMP002 /* ComplicationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC014; };
 
 		/* Resources */
@@ -41,18 +29,8 @@
 
 		/* Source Files */
 		SRC001 /* ClaudeWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWatchApp.swift; sourceTree = "<group>"; };
-		SRC002 /* SessionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionState.swift; sourceTree = "<group>"; };
-		SRC003 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
-		SRC004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		SRC005 /* ControlDeckView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlDeckView.swift; sourceTree = "<group>"; };
-		SRC006 /* ActionsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionsListView.swift; sourceTree = "<group>"; };
-		SRC007 /* QuickPromptsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickPromptsView.swift; sourceTree = "<group>"; };
-		SRC008 /* VoiceInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInputView.swift; sourceTree = "<group>"; };
-		SRC009 /* ModelPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPickerView.swift; sourceTree = "<group>"; };
-		SRC010 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		SRC011 /* WatchConnectivityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityService.swift; sourceTree = "<group>"; };
-		SRC012 /* HapticService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticService.swift; sourceTree = "<group>"; };
-		SRC013 /* ComplicationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationController.swift; sourceTree = "<group>"; };
+		SRC004 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+		SRC011 /* WatchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchService.swift; sourceTree = "<group>"; };
 		SRC014 /* ComplicationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationViews.swift; sourceTree = "<group>"; };
 
 		/* Resources */
@@ -81,7 +59,6 @@
 			isa = PBXGroup;
 			children = (
 				GRP_APP /* App */,
-				GRP_MODELS /* Models */,
 				GRP_VIEWS /* Views */,
 				GRP_SERVICES /* Services */,
 				GRP_COMPLICATIONS /* Complications */,
@@ -99,25 +76,10 @@
 			path = App;
 			sourceTree = "<group>";
 		};
-		GRP_MODELS /* Models */ = {
-			isa = PBXGroup;
-			children = (
-				SRC002 /* SessionState.swift */,
-				SRC003 /* SessionManager.swift */,
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
 		GRP_VIEWS /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				SRC004 /* ContentView.swift */,
-				SRC005 /* ControlDeckView.swift */,
-				SRC006 /* ActionsListView.swift */,
-				SRC007 /* QuickPromptsView.swift */,
-				SRC008 /* VoiceInputView.swift */,
-				SRC009 /* ModelPickerView.swift */,
-				SRC010 /* SettingsView.swift */,
+				SRC004 /* MainView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -125,8 +87,7 @@
 		GRP_SERVICES /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				SRC011 /* WatchConnectivityService.swift */,
-				SRC012 /* HapticService.swift */,
+				SRC011 /* WatchService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -134,7 +95,6 @@
 		GRP_COMPLICATIONS /* Complications */ = {
 			isa = PBXGroup;
 			children = (
-				SRC013 /* ComplicationController.swift */,
 				SRC014 /* ComplicationViews.swift */,
 			);
 			path = Complications;
@@ -198,18 +158,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				APP001,
-				MOD001,
-				MOD002,
 				VIEW001,
-				VIEW002,
-				VIEW003,
-				VIEW004,
-				VIEW005,
-				VIEW006,
-				VIEW007,
 				SVC001,
-				SVC002,
-				CMP001,
 				CMP002,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

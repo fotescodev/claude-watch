@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 import WatchKit
 import UserNotifications
 
@@ -15,7 +16,7 @@ class WatchService: ObservableObject {
     @Published var lastError: String?
 
     // MARK: - Configuration
-    @AppStorage("serverURL") var serverURLString = "ws://localhost:8787"
+    @AppStorage("serverURL") var serverURLString = "ws://192.168.1.165:8787"
 
     // MARK: - Private
     private var webSocket: URLSessionWebSocketTask?
@@ -129,6 +130,11 @@ class WatchService: ObservableObject {
 
             case "pong":
                 break // Ping response received
+
+            case "notification":
+                let title = json["title"] as? String ?? "Claude"
+                let message = json["message"] as? String ?? ""
+                showLocalNotification(title: title, message: message)
 
             default:
                 break
@@ -292,6 +298,28 @@ class WatchService: ObservableObject {
         ])
 
         playHaptic(.click)
+    }
+
+    // MARK: - Notifications
+    private func showLocalNotification(title: String, message: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = message
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil // Deliver immediately
+        )
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Notification error: \(error)")
+            }
+        }
+
+        playHaptic(.notification)
     }
 
     // MARK: - Haptics

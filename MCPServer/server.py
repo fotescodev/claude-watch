@@ -673,6 +673,30 @@ def create_rest_app(watch_manager: WatchConnectionManager) -> web.Application:
             "pending_actions": len(watch_manager.state.pending_actions),
         })
 
+    async def post_test_action(request):
+        """Create a test pending action for debugging"""
+        data = await request.json()
+        action = PendingAction(
+            id=str(uuid.uuid4())[:8],
+            type=ActionType(data.get("type", "bash")),
+            title=data.get("title", "Test Action"),
+            description=data.get("description", "This is a test action"),
+            command=data.get("command"),
+            file_path=data.get("file_path"),
+        )
+        asyncio.create_task(watch_manager.request_approval(action))
+        return web.json_response({"success": True, "action_id": action.id})
+
+    async def post_test_notify(request):
+        """Send a test notification to all watches"""
+        data = await request.json()
+        await watch_manager.broadcast({
+            "type": "notification",
+            "title": data.get("title", "Test Notification"),
+            "message": data.get("message", "This is a test")
+        })
+        return web.json_response({"success": True})
+
     app = web.Application()
     app.router.add_get("/state", get_state)
     app.router.add_post("/action/respond", post_action_response)
@@ -680,6 +704,8 @@ def create_rest_app(watch_manager: WatchConnectionManager) -> web.Application:
     app.router.add_post("/prompt", post_prompt)
     app.router.add_post("/yolo", post_toggle_yolo)
     app.router.add_get("/health", get_health)
+    app.router.add_post("/test/action", post_test_action)
+    app.router.add_post("/test/notify", post_test_notify)
 
     return app
 
@@ -766,7 +792,7 @@ async def main():
             async def ws_server():
                 async with ws_serve(
                     lambda ws: websocket_handler(ws, watch_manager),
-                    "localhost",
+                    "0.0.0.0",
                     args.port
                 ):
                     await asyncio.Future()
