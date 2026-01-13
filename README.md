@@ -1,264 +1,419 @@
-# Claude Watch
+<p align="center">
+  <img src="https://img.shields.io/badge/watchOS-10.0+-FF6B35?style=for-the-badge&logo=apple&logoColor=white" alt="watchOS 10.0+"/>
+  <img src="https://img.shields.io/badge/Swift-5.9+-F05138?style=for-the-badge&logo=swift&logoColor=white" alt="Swift 5.9+"/>
+  <img src="https://img.shields.io/badge/MCP-Protocol-8B5CF6?style=for-the-badge" alt="MCP Protocol"/>
+  <img src="https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge" alt="MIT License"/>
+</p>
 
-Control Claude Code from your wrist. Get tapped when approval is needed, tap to approve — no phone required.
+<p align="center">
+  <img src="https://img.shields.io/badge/Status-Coming%20Soon-FF3366?style=flat-square" alt="Coming Soon"/>
+  <img src="https://img.shields.io/badge/Beta-Testers%20Wanted-8B5CF6?style=flat-square" alt="Beta Testers Wanted"/>
+</p>
 
-```
-┌────────────────────────────────────────┐
-│  🔧 Claude: File Edit                  │
-│  Update auth/login.py                  │
-│  "Add rate limiting to prevent..."     │
-│                                        │
-│  [Approve]  [Reject]  [Open App]       │
-└────────────────────────────────────────┘
-          ↓ tap Approve
-     Claude continues working
-```
+<br/>
 
-## How It Works
+<h1 align="center">
+  <br/>
+  ⌚ Claude Watch
+  <br/>
+</h1>
 
-```
-┌─────────────┐         ┌─────────────┐         ┌─────────────┐
-│ Claude Code │ ──MCP──▶│   Server    │──WebSocket──▶│ Apple Watch │
-│   (CLI)     │         │ (your Mac)  │◀─────────────│   (5G)     │
-└─────────────┘         └──────┬──────┘         └─────────────┘
-                               │
-                               ▼
-                         Push via APNs
-                        (optional but best)
-```
+<h3 align="center">
+  <em>The first wearable interface for AI-assisted coding.</em>
+  <br/>
+  <strong>Approve code changes from your wrist. No phone. No laptop. Just tap.</strong>
+</h3>
 
-1. **MCP Server** runs alongside Claude Code, hooking into tool execution
-2. When Claude needs approval, server sends **push notification** to your watch
-3. You tap **Approve** or **Reject** right from the notification
-4. Response flows back through WebSocket
-5. Claude continues (or stops)
+<br/>
 
-**No polling. No iPhone needed. Just a tap.**
+<p align="center">
+  <a href="#-the-problem">Problem</a> •
+  <a href="#-the-solution">Solution</a> •
+  <a href="#-features">Features</a> •
+  <a href="#-quick-start">Quick Start</a> •
+  <a href="#-architecture">Architecture</a> •
+  <a href="#-roadmap">Roadmap</a>
+</p>
 
-## Features
+<br/>
 
-### Actionable Notifications
-The killer feature. When Claude wants to edit a file or run a command:
+---
 
-```
-┌─────────────────────────────────┐
-│ 🔧 Claude: File Edit            │
-│ src/auth/login.py               │
-│ "Add rate limiting..."          │
-│                                 │
-│ [Approve] [Reject] [Approve All]│
-└─────────────────────────────────┘
-```
+<br/>
 
-Tap directly from notification — app doesn't even need to open.
-
-### Single-Screen UI
-When you do open the app, everything is on one screen:
+## 🎬 See It In Action
 
 ```
-┌─────────────────────────┐
-│ ● REFACTORING      73%  │  ← Status
-│ ▓▓▓▓▓▓▓░░░              │
-│ RUNNING            YOLO │
-├─────────────────────────┤
-│ ┌─────────────────────┐ │
-│ │ ✏️ Edit login.py     │ │  ← Pending action
-│ │ [Approve] [Reject]  │ │
-│ └─────────────────────┘ │
-├─────────────────────────┤
-│ [→][✓][🐛][■]          │  ← Quick prompts
-├─────────────────────────┤
-│ 🎤 Voice Command        │  ← Dictation
-├─────────────────────────┤
-│ ⚡ YOLO            OFF   │  ← Auto-approve
-└─────────────────────────┘
+                    ┌─────────────────────────────────┐
+   *buzz* *buzz*    │ 🔧 Claude: File Edit            │
+                    │                                 │
+  You look down     │ src/auth/login.py               │
+  at your watch     │ "Add rate limiting to           │
+        ↓           │  prevent brute force..."        │
+                    │                                 │
+                    │  [Approve]  [Reject]  [Open]    │
+                    └─────────────────────────────────┘
+                                   │
+                              tap Approve
+                                   │
+                                   ▼
+                      ✓ Claude continues coding
+                        You continue walking
 ```
 
-### Voice Commands
-Hold the mic button and speak:
-- "Continue"
-- "Run the tests"
-- "Fix the errors"
-- "Stop and explain what you're doing"
-- "Commit with message fixed login bug"
+**Your AI pair programmer, now on your wrist.**
 
-### Watch Face Complications
-Glance at your watch face to see:
-- **Circular**: Progress ring + pending count
-- **Rectangular**: Task name, progress bar, status
-- **Inline**: "REFACTOR 73% • 2"
+<br/>
 
-### YOLO Mode
-Toggle on to auto-approve everything. Live dangerously.
+---
 
-## Quick Start
+<br/>
 
-### 1. Install the MCP Server
+## 😤 The Problem
+
+You're using Claude Code. It's incredible. But...
+
+- 🚶 You step away from your desk for coffee
+- 💻 Claude needs approval for a file edit
+- ⏳ Your AI sits there. Waiting. Blocked.
+- 😫 You come back 10 minutes later to find... nothing happened
+
+**Every context switch kills your AI's momentum.**
+
+<br/>
+
+## 💡 The Solution
+
+```
+┌─────────────┐       ┌─────────────┐       ┌─────────────┐
+│ Claude Code │──MCP──│   Server    │──5G───│ Apple Watch │
+│  (on Mac)   │       │  (Bridge)   │       │  (on wrist) │
+└─────────────┘       └──────┬──────┘       └─────────────┘
+                             │
+                             ▼
+                     Push Notifications
+                        via APNs
+```
+
+**Claude Watch** hooks into Claude Code via MCP. When Claude needs your approval:
+
+1. 📱 Your watch buzzes
+2. 👀 You glance at your wrist
+3. 👆 Tap **Approve**
+4. ✅ Claude continues — you never broke stride
+
+**No phone. No laptop. No app to open. Just tap the notification.**
+
+<br/>
+
+---
+
+<br/>
+
+## ✨ Features
+
+<table>
+<tr>
+<td width="50%">
+
+### 🔔 Actionable Notifications
+Approve or reject directly from the notification banner. The app doesn't even need to open.
+
+### 🎯 Single-Screen UI
+Everything you need, nothing you don't. Status, pending actions, voice input — one glance.
+
+### 🎤 Voice Commands
+*"Run the tests"*
+*"Fix the errors"*
+*"Commit with message auth hotfix"*
+
+</td>
+<td width="50%">
+
+### 🔄 Mode Cycling
+Just like Claude Code's `Shift+Tab`:
+- **Normal** → Approve each action
+- **Auto** → YOLO mode, approve all
+- **Plan** → Read-only research
+
+### ⌚ Complications
+See progress right on your watch face. No app launch needed.
+
+### 📳 Haptic Feedback
+Different vibration patterns for different events. You'll *feel* when something needs attention.
+
+</td>
+</tr>
+</table>
+
+<br/>
+
+---
+
+<br/>
+
+## 🖼️ Screenshots
+
+<p align="center">
+  <em>Coming soon — currently in active development</em>
+</p>
+
+<p align="center">
+  <code>┌─────────────────────────┐</code><br/>
+  <code>│ ● REFACTORING      73%  │</code><br/>
+  <code>│ ▓▓▓▓▓▓▓░░░              │</code><br/>
+  <code>│ RUNNING            AUTO │</code><br/>
+  <code>├─────────────────────────┤</code><br/>
+  <code>│ ✏️ Edit login.py         │</code><br/>
+  <code>│ [Approve] [Reject]      │</code><br/>
+  <code>├─────────────────────────┤</code><br/>
+  <code>│ 🎤 Voice Command         │</code><br/>
+  <code>├─────────────────────────┤</code><br/>
+  <code>│ ⚡ AUTO        → PLAN    │</code><br/>
+  <code>└─────────────────────────┘</code>
+</p>
+
+<br/>
+
+---
+
+<br/>
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Apple Watch Series 6+ with watchOS 10+
+- Mac with Claude Code CLI installed
+- Xcode 15+ (for building)
+- Network tunnel (Tailscale, ngrok, or Cloudflare)
+
+### 1️⃣ Clone & Install
 
 ```bash
+git clone https://github.com/anthropics/claude-watch.git
+cd claude-watch
+
+# Install server dependencies
 cd MCPServer
 pip install -r requirements.txt
 ```
 
-### 2. Add to Claude Code Settings
-
-Edit `~/.claude/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "watch": {
-      "command": "python",
-      "args": ["/path/to/claude-watch/MCPServer/server.py", "--standalone", "--port", "8787"]
-    }
-  }
-}
-```
-
-Or run standalone for testing:
+### 2️⃣ Start the Server
 
 ```bash
 python server.py --standalone --port 8787
 ```
 
-### 3. Expose to Internet
+### 3️⃣ Expose to Internet
 
-Your watch needs to reach the server. Pick one:
-
-**Tailscale (recommended)**
 ```bash
+# Option A: Tailscale (recommended)
 tailscale serve 8787
-# Your URL: https://your-machine.tailnet-name.ts.net
-```
 
-**ngrok**
-```bash
+# Option B: ngrok
 ngrok http 8787
-# Your URL: https://abc123.ngrok.io
-```
 
-**Cloudflare Tunnel**
-```bash
+# Option C: Cloudflare
 cloudflared tunnel --url http://localhost:8787
 ```
 
-### 4. Configure Watch App
+### 4️⃣ Build & Run Watch App
 
-1. Open Claude Watch on Apple Watch
-2. Tap gear icon (settings)
-3. Enter your server URL: `wss://your-server-url`
-4. Connection indicator turns green
+```bash
+open ClaudeWatch.xcodeproj
+# Select your Apple Watch target → Run (⌘R)
+```
 
-### 5. Done!
+### 5️⃣ Configure & Connect
 
-Claude Code will now send notifications to your watch when it needs approval.
+In the watch app: **Settings** → Enter your tunnel URL → **Connect**
 
-## Architecture
+<br/>
+
+---
+
+<br/>
+
+## 🏗️ Architecture
 
 ```
 claude-watch/
-├── MCPServer/
-│   ├── server.py           # MCP + WebSocket + REST server
-│   └── requirements.txt
 │
-└── ClaudeWatch/
-    ├── App/
-    │   └── ClaudeWatchApp.swift    # Entry point + notifications
-    ├── Views/
-    │   └── MainView.swift          # Single-screen UI
-    ├── Services/
-    │   └── WatchService.swift      # WebSocket client
-    └── Complications/
-        └── ComplicationViews.swift # Watch face widgets
+├── 📱 ClaudeWatch/              # watchOS App
+│   ├── App/                     # Entry point + notification handling
+│   ├── Views/                   # SwiftUI (single MainView)
+│   ├── Services/                # WebSocket client
+│   └── Complications/           # Watch face widgets
+│
+└── 🖥️ MCPServer/                # Python Server
+    └── server.py                # MCP + WebSocket + APNs
 ```
 
-### MCP Server Tools
+### Communication Flow
 
-The server exposes these tools to Claude Code:
+```
+┌────────────────────────────────────────────────────────────────┐
+│                                                                │
+│   Claude Code                                                  │
+│       │                                                        │
+│       │ MCP Protocol                                           │
+│       ▼                                                        │
+│   ┌─────────┐    WebSocket     ┌─────────────┐                │
+│   │ Server  │◄────────────────►│ Apple Watch │                │
+│   └────┬────┘                  └─────────────┘                │
+│        │                              ▲                        │
+│        │ APNs Push                    │                        │
+│        └──────────────────────────────┘                        │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### MCP Tools
 
 | Tool | Description |
 |------|-------------|
 | `watch_request_approval` | Block until watch approves/rejects |
 | `watch_notify` | Send notification to watch |
-| `watch_update_progress` | Update progress bar |
+| `watch_update_progress` | Update progress indicator |
 | `watch_set_task` | Set current task name |
-| `watch_complete_task` | Mark task complete |
+| `watch_complete_task` | Mark task as done |
 
-### WebSocket Protocol
-
-**Server → Watch:**
-```json
-{"type": "action_requested", "action": {...}}
-{"type": "progress_update", "progress": 0.73}
-{"type": "state_sync", "state": {...}}
-```
-
-**Watch → Server:**
-```json
-{"type": "action_response", "action_id": "abc", "approved": true}
-{"type": "prompt", "text": "run the tests"}
-{"type": "toggle_yolo", "enabled": true}
-```
-
-### Push Notifications (APNs)
-
-For true push (no open connection needed):
-
-1. Create APNs key in Apple Developer Portal
-2. Run server with APNs config:
-```bash
-python server.py --standalone \
-  --apns-key /path/to/key.p8 \
-  --apns-key-id KEYID123 \
-  --apns-team-id TEAMID \
-  --bundle-id com.yourcompany.claudewatch
-```
-
-## Development
-
-### Watch App
-
-1. Open in Xcode 15+
-2. Select Apple Watch target
-3. Build and run
-
-### Server Testing
-
-```bash
-# Run server
-python server.py --standalone --port 8787
-
-# Test endpoints (REST API on port 8788)
-curl http://localhost:8788/state
-curl -X POST http://localhost:8788/action/respond \
-  -d '{"action_id": "abc", "approved": true}'
-```
-
-## Requirements
-
-**Watch App**
-- watchOS 10.0+
-- Apple Watch with cellular (recommended)
-
-**Server**
-- Python 3.8+
-- Claude Code CLI
-- Tailscale/ngrok/Cloudflare for tunneling
-
-## FAQ
-
-**Do I need my iPhone nearby?**
-No. Cellular Apple Watch connects directly to server.
-
-**Does my Mac need to stay on?**
-Yes, MCP server runs on your Mac. For untethered: run server in cloud or use web sessions.
-
-**What if I miss a notification?**
-Pending actions show in app. They timeout after 5 minutes.
-
-**Battery impact?**
-Minimal. WebSocket is efficient, push uses APNs (not polling).
+<br/>
 
 ---
 
-*Inspired by the vibecoding hardware control deck.*
+<br/>
+
+## 🗺️ Roadmap
+
+<table>
+<tr>
+<td>
+
+### ✅ Done
+- [x] WebSocket real-time sync
+- [x] Actionable push notifications
+- [x] Mode cycling (Normal/Auto/Plan)
+- [x] Voice commands
+- [x] Watch face complications
+- [x] Haptic feedback patterns
+
+</td>
+<td>
+
+### 🚧 In Progress
+- [ ] TestFlight beta
+- [ ] App Store submission
+- [ ] Companion iOS app
+
+</td>
+<td>
+
+### 🔮 Future
+- [ ] Multi-session support
+- [ ] Diff preview on watch
+- [ ] Siri integration
+- [ ] Android Wear OS port
+
+</td>
+</tr>
+</table>
+
+<br/>
+
+---
+
+<br/>
+
+## 🧑‍💻 For Developers
+
+### Run Server in Development
+
+```bash
+cd MCPServer
+python server.py --standalone --port 8787
+
+# Server runs on:
+# - WebSocket: ws://localhost:8787
+# - REST API:  http://localhost:8788
+```
+
+### Test Without Watch
+
+```bash
+# Get current state
+curl http://localhost:8788/state
+
+# Simulate approval
+curl -X POST http://localhost:8788/action/respond \
+  -H "Content-Type: application/json" \
+  -d '{"action_id": "test123", "approved": true}'
+```
+
+### Add to Claude Code (MCP)
+
+```json
+// ~/.claude/settings.json
+{
+  "mcpServers": {
+    "watch": {
+      "command": "python",
+      "args": ["/path/to/MCPServer/server.py"]
+    }
+  }
+}
+```
+
+<br/>
+
+---
+
+<br/>
+
+## 🤝 Contributing
+
+We're looking for contributors! Areas where we need help:
+
+- 🎨 **Design** — UI/UX improvements for the watch interface
+- 🍎 **iOS** — Companion app for non-cellular watches
+- 🤖 **Android** — Wear OS port
+- 📝 **Docs** — Tutorials, guides, videos
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+<br/>
+
+---
+
+<br/>
+
+## 📜 License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+<br/>
+
+---
+
+<br/>
+
+<p align="center">
+  <strong>Built for developers who code on the move.</strong>
+  <br/>
+  <em>Inspired by the <a href="https://reddit.com/r/vibecoding">vibecoding</a> hardware control deck.</em>
+</p>
+
+<p align="center">
+  <a href="https://github.com/anthropics/claude-watch/stargazers">⭐ Star us on GitHub</a>
+  •
+  <a href="https://twitter.com/anthropaboromicclaude">🐦 Follow for updates</a>
+  •
+  <a href="https://discord.gg/claudecode">💬 Join Discord</a>
+</p>
+
+<br/>
+
+<p align="center">
+  <sub>Made with ❤️ and way too much ☕</sub>
+</p>
