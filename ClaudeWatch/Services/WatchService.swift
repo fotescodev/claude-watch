@@ -24,11 +24,19 @@ class WatchService: ObservableObject {
     private var reconnectTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
 
+    // MARK: - Demo Mode
+    @AppStorage("demoMode") var isDemoMode = true  // Enable demo by default for testing
+
     // MARK: - Initialization
     init() {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         urlSession = URLSession(configuration: config)
+
+        // Load demo data if demo mode is enabled
+        if isDemoMode {
+            loadDemoData()
+        }
     }
 
     // MARK: - Connection
@@ -335,6 +343,53 @@ class WatchService: ObservableObject {
             "token": tokenString
         ])
     }
+
+    // MARK: - Demo Mode (for UI testing)
+    func loadDemoData() {
+        // Simulate connected state
+        connectionStatus = .connected
+
+        // Set up a running task
+        state.taskName = "Refactoring auth module"
+        state.taskDescription = "Updating authentication to use OAuth2"
+        state.progress = 0.45
+        state.status = .waiting
+        state.model = "opus"
+        state.mode = .normal
+
+        // Add some pending actions
+        state.pendingActions = [
+            PendingAction(
+                id: "action-1",
+                type: "file_edit",
+                title: "Edit App.tsx",
+                description: "Update main component",
+                filePath: "src/app/App.tsx",
+                command: nil,
+                timestamp: Date().addingTimeInterval(-120)
+            ),
+            PendingAction(
+                id: "action-2",
+                type: "file_create",
+                title: "Create AuthService.ts",
+                description: "New authentication service",
+                filePath: "src/services/AuthService.ts",
+                command: nil,
+                timestamp: Date().addingTimeInterval(-300)
+            ),
+            PendingAction(
+                id: "action-3",
+                type: "bash",
+                title: "Run npm install",
+                description: "Install new dependencies",
+                filePath: nil,
+                command: "npm install oauth2-client",
+                timestamp: Date().addingTimeInterval(-480)
+            ),
+        ]
+
+        playHaptic(.notification)
+    }
 }
 
 // MARK: - Data Models
@@ -442,6 +497,17 @@ struct PendingAction: Identifiable {
     let filePath: String?
     let command: String?
     let timestamp: Date
+
+    // Direct initializer for demo/testing
+    init(id: String, type: String, title: String, description: String, filePath: String?, command: String?, timestamp: Date) {
+        self.id = id
+        self.type = type
+        self.title = title
+        self.description = description
+        self.filePath = filePath
+        self.command = command
+        self.timestamp = timestamp
+    }
 
     init?(from data: [String: Any]) {
         guard let id = data["id"] as? String,
