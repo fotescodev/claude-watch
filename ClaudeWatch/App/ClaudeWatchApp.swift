@@ -118,22 +118,33 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let userInfo = response.notification.request.content.userInfo
-        let actionId = userInfo["action_id"] as? String
+        // Cloud mode uses "requestId", WebSocket mode uses "action_id"
+        let requestId = userInfo["requestId"] as? String ?? userInfo["action_id"] as? String
 
         Task { @MainActor in
+            let service = WatchService.shared
+
             switch response.actionIdentifier {
             case "APPROVE_ACTION":
-                if let actionId = actionId {
-                    WatchService.shared.approveAction(actionId)
+                if let requestId = requestId {
+                    if service.useCloudMode && service.isPaired {
+                        try? await service.respondToCloudRequest(requestId, approved: true)
+                    } else {
+                        service.approveAction(requestId)
+                    }
                 }
 
             case "REJECT_ACTION":
-                if let actionId = actionId {
-                    WatchService.shared.rejectAction(actionId)
+                if let requestId = requestId {
+                    if service.useCloudMode && service.isPaired {
+                        try? await service.respondToCloudRequest(requestId, approved: false)
+                    } else {
+                        service.rejectAction(requestId)
+                    }
                 }
 
             case "APPROVE_ALL_ACTION":
-                WatchService.shared.approveAll()
+                service.approveAll()
 
             case UNNotificationDefaultActionIdentifier:
                 // User tapped notification - app opens to main view

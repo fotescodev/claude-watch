@@ -38,7 +38,9 @@ struct MainView: View {
             Claude.background.ignoresSafeArea()
 
             // Content based on state
-            if service.connectionStatus == .disconnected && !service.isDemoMode {
+            if service.useCloudMode && !service.isPaired && !service.isDemoMode {
+                PairingView(service: service)
+            } else if service.connectionStatus == .disconnected && !service.isDemoMode {
                 OfflineStateView()
             } else if case .reconnecting = service.connectionStatus {
                 // Show reconnecting indicator over main content
@@ -72,7 +74,15 @@ struct MainView: View {
         }
         .onAppear {
             if !service.isDemoMode {
-                service.connect()
+                if service.useCloudMode {
+                    // Cloud mode - start polling if paired
+                    if service.isPaired {
+                        service.startPolling()
+                    }
+                } else {
+                    // WebSocket mode
+                    service.connect()
+                }
             }
             startPulse()
         }
@@ -482,7 +492,13 @@ struct PrimaryActionCard: View {
             HStack(spacing: 8) {
                 // Reject
                 Button {
-                    service.rejectAction(action.id)
+                    Task {
+                        if service.useCloudMode && service.isPaired {
+                            try? await service.respondToCloudRequest(action.id, approved: false)
+                        } else {
+                            service.rejectAction(action.id)
+                        }
+                    }
                     WKInterfaceDevice.current().play(.failure)
                 } label: {
                     HStack(spacing: 4) {
@@ -507,7 +523,13 @@ struct PrimaryActionCard: View {
 
                 // Approve
                 Button {
-                    service.approveAction(action.id)
+                    Task {
+                        if service.useCloudMode && service.isPaired {
+                            try? await service.respondToCloudRequest(action.id, approved: true)
+                        } else {
+                            service.approveAction(action.id)
+                        }
+                    }
                     WKInterfaceDevice.current().play(.success)
                 } label: {
                     HStack(spacing: 4) {
@@ -856,6 +878,7 @@ struct SettingsSheet: View {
     @ObservedObject private var service = WatchService.shared
     @Environment(\.dismiss) var dismiss
     @State private var serverURL: String = ""
+    @State private var showingPairing = false
 
     var body: some View {
         ScrollView {
@@ -881,47 +904,115 @@ struct SettingsSheet: View {
                 }
                 .padding(.vertical, 4)
 
-                // Server URL input
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Server URL")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(Claude.textSecondary)
+                // Cloud Mode Section
+                if service.useCloudMode {
+                    VStack(spacing: 12) {
+                        if service.isPaired {
+                            // Show paired status
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(Claude.success)
+                                Text("Paired")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(Claude.success)
+                            }
 
-                    TextField("ws://...", text: $serverURL)
-                        .font(.system(size: 13))
-                        .textContentType(.URL)
-                        .padding(10)
-                        .background(Claude.surface1)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                            // Unpair button
+                            Button {
+                                service.unpair()
+                                WKInterfaceDevice.current().play(.click)
+                            } label: {
+                                Text("Unpair")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(Claude.danger)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(Claude.danger.opacity(0.15))
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            // Pair button
+                            Button {
+                                showingPairing = true
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "link")
+                                        .font(.system(size: 12, weight: .semibold))
+                                    Text("Pair with Code")
+                                        .font(.system(size: 13, weight: .semibold))
+                                }
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Claude.orange)
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 8)
                 }
 
-                // Action buttons
-                HStack(spacing: 10) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Text("Cancel")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(Claude.danger)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(Claude.danger.opacity(0.15))
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
+                // Server URL input (WebSocket mode)
+                if !service.useCloudMode {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Server URL")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Claude.textSecondary)
 
+                        TextField("ws://...", text: $serverURL)
+                            .font(.system(size: 13))
+                            .textContentType(.URL)
+                            .padding(10)
+                            .background(Claude.surface1)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+
+                    // Action buttons
+                    HStack(spacing: 10) {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Text("Cancel")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Claude.danger)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Claude.danger.opacity(0.15))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            service.serverURLString = serverURL
+                            service.connect()
+                            WKInterfaceDevice.current().play(.success)
+                            dismiss()
+                        } label: {
+                            Text("Save")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Claude.success)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                // Done button for cloud mode
+                if service.useCloudMode {
                     Button {
-                        service.serverURLString = serverURL
-                        service.connect()
-                        WKInterfaceDevice.current().play(.success)
                         dismiss()
                     } label: {
-                        Text("Save")
+                        Text("Done")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .background(Claude.success)
+                            .background(Claude.info)
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -932,6 +1023,9 @@ struct SettingsSheet: View {
         .background(Claude.background)
         .onAppear {
             serverURL = service.serverURLString
+        }
+        .sheet(isPresented: $showingPairing) {
+            PairingView(service: service)
         }
     }
 

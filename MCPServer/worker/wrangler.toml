@@ -1,0 +1,22 @@
+name = "claude-watch"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+workers_dev = true
+
+# KV Namespaces for storage
+[[kv_namespaces]]
+binding = "PAIRINGS"
+id = "ca881e7704d749ebbc605cc1855468d3"
+
+[[kv_namespaces]]
+binding = "REQUESTS"
+id = "a96675a4ff09467f82f3044fcbb728ab"
+
+# Environment variables (set via wrangler secret)
+# APNS_KEY_ID - Apple APNs Key ID
+# APNS_TEAM_ID - Apple Team ID
+# APNS_PRIVATE_KEY - APNs private key (base64 encoded)
+# APNS_BUNDLE_ID - App bundle ID
+
+[vars]
+APNS_BUNDLE_ID = "com.anthropic.claudecode.watchkitapp"

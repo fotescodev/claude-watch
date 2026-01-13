@@ -18,6 +18,14 @@ class WatchService: ObservableObject {
 
     // MARK: - Configuration
     @AppStorage("serverURL") var serverURLString = "ws://192.168.1.165:8787"
+    @AppStorage("cloudServerURL") var cloudServerURL = "https://claude-watch.fotescodev.workers.dev"
+    @AppStorage("pairingId") var pairingId: String = ""
+    @AppStorage("useCloudMode") var useCloudMode = true  // Use cloud relay by default
+
+    /// Whether the watch is paired with a Claude Code instance
+    var isPaired: Bool {
+        !pairingId.isEmpty
+    }
 
     // MARK: - Private
     private var webSocket: URLSessionWebSocketTask?
@@ -42,8 +50,12 @@ class WatchService: ObservableObject {
     private var pathMonitor: NWPathMonitor?
     private var isNetworkAvailable: Bool = true
 
+    // MARK: - Cloud Mode Polling
+    private var pollingTask: Task<Void, Never>?
+    private let pollingInterval: TimeInterval = 2.0
+
     // MARK: - Demo Mode
-    @AppStorage("demoMode") var isDemoMode = true  // Enable demo by default for testing
+    @AppStorage("demoMode") var isDemoMode = false  // Connect to real server by default
 
     // MARK: - Initialization
     init() {
@@ -71,6 +83,13 @@ class WatchService: ObservableObject {
         // Reset backoff when coming to foreground
         reconnectAttempt = 0
 
+        // Cloud mode with polling
+        if useCloudMode && isPaired {
+            startPolling()
+            return
+        }
+
+        // WebSocket mode
         // If disconnected or reconnecting, try to connect immediately
         switch connectionStatus {
         case .disconnected:
@@ -93,7 +112,13 @@ class WatchService: ObservableObject {
     }
 
     func handleAppDidEnterBackground() {
-        // The system may keep the connection alive briefly
+        // Stop polling in background to save battery
+        if useCloudMode {
+            stopPolling()
+            return
+        }
+
+        // WebSocket mode: The system may keep the connection alive briefly
         // Send a final state request to ensure we have latest data
         if connectionStatus.isConnected {
             sendImmediate(["type": "get_state"])
@@ -584,6 +609,202 @@ class WatchService: ObservableObject {
         ])
 
         playHaptic(.click)
+    }
+
+    // MARK: - Cloud Mode (Production)
+
+    /// Complete pairing with Claude Code using a 6-character code
+    func completePairing(code: String) async throws {
+        let url = URL(string: "\(cloudServerURL)/pair/complete")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Get device token for push notifications
+        let deviceToken = await getDeviceToken()
+
+        let body: [String: Any] = [
+            "code": code,
+            "deviceToken": deviceToken ?? "simulator-token"
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await urlSession.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw CloudError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 404 {
+            throw CloudError.invalidCode
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            throw CloudError.serverError(httpResponse.statusCode)
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let newPairingId = json["pairingId"] as? String else {
+            throw CloudError.invalidResponse
+        }
+
+        // Store pairing ID
+        pairingId = newPairingId
+        connectionStatus = .connected
+        playHaptic(.success)
+
+        // Start polling for requests
+        startPolling()
+    }
+
+    /// Respond to an approval request via cloud API
+    func respondToCloudRequest(_ requestId: String, approved: Bool) async throws {
+        let url = URL(string: "\(cloudServerURL)/respond/\(requestId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = ["approved": approved]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (_, response) = try await urlSession.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw CloudError.serverError((response as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+
+        // Update local state
+        state.pendingActions.removeAll { $0.id == requestId }
+        if state.pendingActions.isEmpty {
+            state.status = .running
+        }
+
+        playHaptic(approved ? .success : .failure)
+    }
+
+    /// Get device token for APNs (set during notification registration)
+    private func getDeviceToken() async -> String? {
+        // In production, this would be stored during UNUserNotificationCenter registration
+        // For now, return nil and we'll handle it in the pairing flow
+        return UserDefaults.standard.string(forKey: "apnsDeviceToken")
+    }
+
+    /// Unpair from Claude Code
+    func unpair() {
+        stopPolling()
+        pairingId = ""
+        connectionStatus = .disconnected
+        state = WatchState()
+        playHaptic(.click)
+    }
+
+    // MARK: - Cloud Polling
+
+    /// Start polling for pending requests (alternative to APNs)
+    func startPolling() {
+        guard useCloudMode && isPaired else { return }
+        guard pollingTask == nil else { return }
+
+        connectionStatus = .connected
+        pollingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self = self else { return }
+
+                do {
+                    try await self.fetchPendingRequests()
+                } catch {
+                    print("Polling error: \(error)")
+                }
+
+                try? await Task.sleep(nanoseconds: UInt64(self.pollingInterval * 1_000_000_000))
+            }
+        }
+    }
+
+    /// Stop polling
+    func stopPolling() {
+        pollingTask?.cancel()
+        pollingTask = nil
+    }
+
+    /// Fetch pending requests from cloud server
+    private func fetchPendingRequests() async throws {
+        let url = URL(string: "\(cloudServerURL)/requests/\(pairingId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await urlSession.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            return
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let requests = json["requests"] as? [[String: Any]] else {
+            return
+        }
+
+        // Convert to pending actions
+        var newActions: [PendingAction] = []
+        for req in requests {
+            guard let id = req["id"] as? String,
+                  let type = req["type"] as? String,
+                  let title = req["title"] as? String else {
+                continue
+            }
+
+            let action = PendingAction(
+                id: id,
+                type: type,
+                title: title,
+                description: req["description"] as? String ?? "",
+                filePath: req["filePath"] as? String,
+                command: req["command"] as? String,
+                timestamp: Date()
+            )
+            newActions.append(action)
+        }
+
+        // Check if new actions were added
+        let existingIds = Set(state.pendingActions.map { $0.id })
+        let newIds = Set(newActions.map { $0.id })
+        let addedIds = newIds.subtracting(existingIds)
+
+        // Update state
+        state.pendingActions = newActions
+
+        if !state.pendingActions.isEmpty {
+            state.status = .waiting
+        }
+
+        // Play haptic for new actions
+        if !addedIds.isEmpty {
+            playHaptic(.notification)
+        }
+    }
+
+    // MARK: - Cloud Errors
+
+    enum CloudError: LocalizedError {
+        case invalidCode
+        case invalidResponse
+        case serverError(Int)
+        case timeout
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidCode:
+                return "Invalid or expired pairing code"
+            case .invalidResponse:
+                return "Invalid response from server"
+            case .serverError(let code):
+                return "Server error: \(code)"
+            case .timeout:
+                return "Request timed out"
+            }
+        }
     }
 
     // MARK: - Notifications

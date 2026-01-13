@@ -12,6 +12,7 @@
 
 		/* View Files */
 		VIEW001 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC004; };
+		VIEW002 /* PairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC005; };
 
 		/* Service Files */
 		SVC001 /* WatchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC011; };
@@ -48,6 +49,7 @@
 		/* Source Files */
 		SRC001 /* ClaudeWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWatchApp.swift; sourceTree = "<group>"; };
 		SRC004 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+		SRC005 /* PairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingView.swift; sourceTree = "<group>"; };
 		SRC011 /* WatchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchService.swift; sourceTree = "<group>"; };
 		SRC014 /* ComplicationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationViews.swift; sourceTree = "<group>"; };
 
@@ -107,6 +109,7 @@
 			isa = PBXGroup;
 			children = (
 				SRC004 /* MainView.swift */,
+				SRC005 /* PairingView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -219,6 +222,7 @@
 			files = (
 				APP001,
 				VIEW001,
+				VIEW002,
 				SVC001,
 				CMP002,
 			);
