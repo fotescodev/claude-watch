@@ -21,17 +21,42 @@
 
 		/* Resources */
 		RES001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = RES_ASSETS; };
+
+		/* Test Files */
+		TEST001 /* ReconnectionConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC001; };
+		TEST002 /* ConnectionStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC002; };
+		TEST003 /* WebSocketErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC003; };
+		TEST004 /* QueuedMessageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC004; };
+		TEST005 /* WatchServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC005; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		PROXY001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = PROJECT001;
+			proxyType = 1;
+			remoteGlobalIDString = TARGET001;
+			remoteInfo = ClaudeWatch;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		/* Product */
 		PROD001 /* ClaudeWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClaudeWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		PROD002 /* ClaudeWatchTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaudeWatchTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 
 		/* Source Files */
 		SRC001 /* ClaudeWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWatchApp.swift; sourceTree = "<group>"; };
 		SRC004 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		SRC011 /* WatchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchService.swift; sourceTree = "<group>"; };
 		SRC014 /* ComplicationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationViews.swift; sourceTree = "<group>"; };
+
+		/* Test Files */
+		TEST_SRC001 /* ReconnectionConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconnectionConfigTests.swift; sourceTree = "<group>"; };
+		TEST_SRC002 /* ConnectionStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatusTests.swift; sourceTree = "<group>"; };
+		TEST_SRC003 /* WebSocketErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketErrorTests.swift; sourceTree = "<group>"; };
+		TEST_SRC004 /* QueuedMessageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueuedMessageTests.swift; sourceTree = "<group>"; };
+		TEST_SRC005 /* WatchServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchServiceTests.swift; sourceTree = "<group>"; };
 
 		/* Resources */
 		RES_ASSETS /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -51,6 +76,7 @@
 			isa = PBXGroup;
 			children = (
 				PROD001 /* ClaudeWatch.app */,
+				PROD002 /* ClaudeWatchTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -62,6 +88,7 @@
 				GRP_VIEWS /* Views */,
 				GRP_SERVICES /* Services */,
 				GRP_COMPLICATIONS /* Complications */,
+				GRP_TESTS /* Tests */,
 				RES_ASSETS /* Assets.xcassets */,
 				RES_INFO /* Info.plist */,
 			);
@@ -100,6 +127,18 @@
 			path = Complications;
 			sourceTree = "<group>";
 		};
+		GRP_TESTS /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				TEST_SRC001 /* ReconnectionConfigTests.swift */,
+				TEST_SRC002 /* ConnectionStatusTests.swift */,
+				TEST_SRC003 /* WebSocketErrorTests.swift */,
+				TEST_SRC004 /* QueuedMessageTests.swift */,
+				TEST_SRC005 /* WatchServiceTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -119,6 +158,22 @@
 			productReference = PROD001;
 			productType = "com.apple.product-type.application";
 		};
+		TARGET002 /* ClaudeWatchTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CFG_LIST002;
+			buildPhases = (
+				PHASE_TEST_SOURCES,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DEP001,
+			);
+			name = ClaudeWatchTests;
+			productName = ClaudeWatchTests;
+			productReference = PROD002;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -131,6 +186,10 @@
 				TargetAttributes = {
 					TARGET001 = {
 						CreatedOnToolsVersion = 15.0;
+					};
+					TARGET002 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = TARGET001;
 					};
 				};
 			};
@@ -148,6 +207,7 @@
 			projectRoot = "";
 			targets = (
 				TARGET001,
+				TARGET002,
 			);
 		};
 /* End PBXProject section */
@@ -164,6 +224,18 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		PHASE_TEST_SOURCES = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				TEST001,
+				TEST002,
+				TEST003,
+				TEST004,
+				TEST005,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXResourcesBuildPhase section */
@@ -176,6 +248,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		DEP001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = TARGET001;
+			targetProxy = PROXY001;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		CFG_DEBUG_PROJECT = {
@@ -283,6 +363,46 @@
 			};
 			name = Release;
 		};
+		CFG_DEBUG_TEST = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.anthropic.claudecode.watchkitapp.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClaudeWatch.app/ClaudeWatch";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		CFG_RELEASE_TEST = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.anthropic.claudecode.watchkitapp.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClaudeWatch.app/ClaudeWatch";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -300,6 +420,15 @@
 			buildConfigurations = (
 				CFG_DEBUG_TARGET,
 				CFG_RELEASE_TARGET,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CFG_LIST002 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CFG_DEBUG_TEST,
+				CFG_RELEASE_TEST,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -144,6 +144,7 @@ class WatchService: ObservableObject {
         webSocket?.cancel(with: .goingAway, reason: nil)
         webSocket = nil
         hasCompletedHandshake = false
+        connectionStatus = .disconnected
     }
 
     // MARK: - WebSocket Communication
