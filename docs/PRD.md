@@ -482,7 +482,7 @@ Modern AI-assisted development promises to dramatically accelerate coding workfl
 
 ## Release Phases
 
-### Phase 1: MVP (Current)
+### Phase 1: MVP (Complete)
 
 - [x] WebSocket real-time connection
 - [x] Action approval/rejection
@@ -490,18 +490,29 @@ Modern AI-assisted development promises to dramatically accelerate coding workfl
 - [x] Basic UI with status display
 - [x] Connection recovery
 
-### Phase 2: Cloud Ready
+### Phase 2: Cloud Ready (Complete)
 
 - [x] Cloudflare Worker relay
 - [x] 6-character pairing flow
 - [x] Polling-based updates
-- [ ] APNs push notification delivery
+- [x] APNs push notification code (Worker: `index.js:24-104`)
 
-### Phase 3: Polish
+### Phase 3: Polish (In Progress)
 
-- [ ] Watch face complications (all families)
-- [ ] Voice command improvements
-- [ ] Settings refinements
+**Infrastructure Built**:
+- [x] Watch face complications UI (all 4 families: `ComplicationViews.swift`)
+- [x] Voice command sending (`sendPrompt()` in WatchService)
+- [x] Settings UI (`SettingsSheet` in MainView)
+
+**Remaining Work** (~75 lines of code):
+- [ ] Configure APNs credentials in Cloudflare
+- [ ] Add APNs error handling (BadDeviceToken, Unregistered)
+- [ ] Add security: pairingId verification on /respond endpoint
+- [ ] Connect complications to live data (App Groups)
+- [ ] Add voice command "Sent" feedback UI
+- [ ] Add version/privacy links to settings
+- [ ] App Store assets (screenshots, metadata)
+- [ ] TestFlight beta testing
 - [ ] App Store submission
 
 ### Phase 4: Future
@@ -555,6 +566,7 @@ Modern AI-assisted development promises to dramatically accelerate coding workfl
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | Jan 2026 | Claude | Initial PRD derived from implementation |
+| 1.1 | Jan 2026 | Claude | Updated Release Phases after code review - Phase 2 complete, Phase 3 mostly built |
 
 ---
 
