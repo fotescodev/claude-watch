@@ -1,0 +1,96 @@
+{
+  "env": {
+    "PROJECT_NAME": "ClaudeWatch",
+    "PLATFORM": "watchOS",
+    "SWIFT_VERSION": "5.9",
+    "WATCHOS_DEPLOYMENT_TARGET": "10.0",
+    "DEFAULT_SIMULATOR": "Apple Watch Series 9 (45mm)"
+  },
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "Bash(xcodebuild:*)",
+      "Bash(xcrun simctl:*)",
+      "Bash(open:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git checkout:*)",
+      "Bash(git branch:*)",
+      "Bash(swift:*)",
+      "Bash(swiftlint:*)",
+      "Bash(swift-format:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(pip:*)",
+      "Bash(pip3:*)",
+      "Bash(source:*)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)",
+      "Bash(plutil:*)",
+      "Bash(ls:*)",
+      "Bash(ipconfig:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Read(.env*)",
+      "Write(.env*)",
+      "Edit(.env*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/post-swift-edit.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/file-protection.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/watch-approval-cloud.py"
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "compound-engineering@every-marketplace": true,
+    "superpowers@superpowers-marketplace": true
+  }
+}
