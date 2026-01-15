@@ -13,41 +13,37 @@ struct ClaudeEntry: TimelineEntry {
 
 // MARK: - Provider
 struct ClaudeProvider: TimelineProvider {
+    private let defaults = UserDefaults(suiteName: "group.com.claudewatch")
+
     func placeholder(in context: Context) -> ClaudeEntry {
         ClaudeEntry(
-            date: Date(),
-            taskName: "TASK",
-            progress: 0.6,
-            pendingCount: 3,
-            model: "OPUS",
+            date: .now,
+            taskName: "Claude",
+            progress: 0.5,
+            pendingCount: 0,
+            model: "opus",
             isConnected: true
         )
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ClaudeEntry) -> Void) {
-        let entry = ClaudeEntry(
-            date: Date(),
-            taskName: "REFACTOR",
-            progress: 0.6,
-            pendingCount: 3,
-            model: "OPUS",
-            isConnected: true
-        )
-        completion(entry)
+        completion(currentEntry())
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ClaudeEntry>) -> Void) {
-        let entry = ClaudeEntry(
-            date: Date(),
-            taskName: "CODE",
-            progress: 0.6,
-            pendingCount: 2,
-            model: "OPUS",
-            isConnected: true
-        )
-
-        let timeline = Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(60)))
+        let timeline = Timeline(entries: [currentEntry()], policy: .after(Date().addingTimeInterval(900)))
         completion(timeline)
+    }
+
+    private func currentEntry() -> ClaudeEntry {
+        ClaudeEntry(
+            date: .now,
+            taskName: defaults?.string(forKey: "taskName") ?? "Claude",
+            progress: defaults?.double(forKey: "progress") ?? 0,
+            pendingCount: defaults?.integer(forKey: "pendingCount") ?? 0,
+            model: defaults?.string(forKey: "model") ?? "opus",
+            isConnected: defaults?.bool(forKey: "isConnected") ?? false
+        )
     }
 }
 

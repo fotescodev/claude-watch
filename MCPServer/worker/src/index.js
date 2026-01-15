@@ -62,7 +62,27 @@ async function sendAPNs(env, deviceToken, payload) {
       }
     );
 
-    return { success: response.ok, status: response.status };
+    const responseBody = await response.text();
+
+    if (response.ok) {
+      return { success: true };
+    }
+
+    // Handle specific APNs errors
+    const errorData = responseBody ? JSON.parse(responseBody) : {};
+    const reason = errorData.reason || 'Unknown';
+
+    if (reason === 'BadDeviceToken' || reason === 'Unregistered') {
+      // Token is invalid - should clear from storage
+      return { success: false, error: reason, shouldClearToken: true };
+    }
+
+    if (reason === 'TooManyRequests') {
+      // Rate limited - caller should retry with backoff
+      return { success: false, error: reason, retryAfter: response.headers.get('Retry-After') };
+    }
+
+    return { success: false, error: reason, status: response.status };
   } catch (error) {
     console.error('APNs error:', error);
     return { success: false, error: error.message };
@@ -327,10 +347,15 @@ export default {
       // POST /respond/:id - Watch sends response
       if (path.startsWith('/respond/') && request.method === 'POST') {
         const requestId = path.split('/')[2];
-        const { approved } = await request.json();
+        const { approved, pairingId } = await request.json();
 
         if (typeof approved !== 'boolean') {
           return jsonResponse({ error: 'Missing approved field' }, 400);
+        }
+
+        // Verify pairingId is provided
+        if (!pairingId) {
+          return jsonResponse({ error: 'Missing pairingId' }, 400);
         }
 
         const requestData = await env.REQUESTS.get(`request:${requestId}`);
@@ -339,6 +364,11 @@ export default {
         }
 
         const approvalRequest = JSON.parse(requestData);
+
+        // Verify the responder owns this request
+        if (approvalRequest.pairingId !== pairingId) {
+          return jsonResponse({ error: 'Unauthorized' }, 403);
+        }
 
         // Update request with response
         approvalRequest.status = approved ? 'approved' : 'rejected';

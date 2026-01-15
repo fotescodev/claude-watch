@@ -779,6 +779,7 @@ struct VoiceInputSheet: View {
     @Environment(\.dismiss) var dismiss
     @State private var transcribedText = ""
     @State private var isListening = false
+    @State private var showSentConfirmation = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -819,6 +820,27 @@ struct VoiceInputSheet: View {
                 .lineLimit(3)
                 .frame(minHeight: 40)
 
+            // Sending/Sent status feedback
+            if service.isSendingPrompt {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: Claude.info))
+                        .scaleEffect(0.7)
+                    Text("Sending...")
+                        .font(.system(size: 12))
+                        .foregroundColor(Claude.textSecondary)
+                }
+            } else if showSentConfirmation {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(Claude.success)
+                    Text("Sent")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Claude.success)
+                }
+            }
+
             // Action buttons
             HStack(spacing: 12) {
                 Button {
@@ -834,11 +856,14 @@ struct VoiceInputSheet: View {
                 }
                 .buttonStyle(.plain)
 
-                if !transcribedText.isEmpty {
+                if !transcribedText.isEmpty && !showSentConfirmation {
                     Button {
                         service.sendPrompt(transcribedText)
-                        WKInterfaceDevice.current().play(.success)
-                        dismiss()
+                        showSentConfirmation = true
+                        Task {
+                            try? await Task.sleep(nanoseconds: 1_000_000_000)
+                            dismiss()
+                        }
                     } label: {
                         Text("Send")
                             .font(.system(size: 13, weight: .semibold))
@@ -1001,6 +1026,78 @@ struct SettingsSheet: View {
                         .buttonStyle(.plain)
                     }
                 }
+
+                // About section
+                VStack(spacing: 10) {
+                    HStack {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("About")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundColor(Claude.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Version
+                    HStack {
+                        Text("Version")
+                            .font(.system(size: 12))
+                            .foregroundColor(Claude.textSecondary)
+                        Spacer()
+                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Claude.textPrimary)
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(Claude.surface1)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                    // Privacy Policy
+                    if let privacyURL = URL(string: "https://claude-watch.example.com/privacy") {
+                        Link(destination: privacyURL) {
+                            HStack {
+                                Image(systemName: "hand.raised")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Claude.info)
+                                Text("Privacy Policy")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Claude.textPrimary)
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(Claude.textTertiary)
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(Claude.surface1)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                    }
+
+                    // Support
+                    if let supportURL = URL(string: "https://claude-watch.example.com/support") {
+                        Link(destination: supportURL) {
+                            HStack {
+                                Image(systemName: "questionmark.circle")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Claude.info)
+                                Text("Support")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(Claude.textPrimary)
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(Claude.textTertiary)
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(Claude.surface1)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                    }
+                }
+                .padding(.top, 8)
 
                 // Done button for cloud mode
                 if service.useCloudMode {
