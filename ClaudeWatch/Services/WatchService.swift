@@ -4,6 +4,7 @@ import SwiftUI
 import WatchKit
 import UserNotifications
 import Network
+import WidgetKit
 
 /// Main service for communicating with Claude Watch MCP Server
 /// Uses WebSocket for real-time updates, with REST fallback
@@ -15,6 +16,7 @@ class WatchService: ObservableObject {
     @Published var state = WatchState()
     @Published var connectionStatus: ConnectionStatus = .disconnected
     @Published var lastError: String?
+    @Published var isSendingPrompt = false
 
     // MARK: - Configuration
     @AppStorage("serverURL") var serverURLString = "ws://192.168.1.165:8787"
@@ -30,6 +32,7 @@ class WatchService: ObservableObject {
     // MARK: - Private
     private var webSocket: URLSessionWebSocketTask?
     private var urlSession: URLSession!
+    private let sharedDefaults = UserDefaults(suiteName: "group.com.claudewatch")
     private var reconnectTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
     private var handshakeTimeoutTask: Task<Void, Never>?
@@ -220,6 +223,7 @@ class WatchService: ObservableObject {
                 if let taskName = json["task_name"] as? String {
                     state.taskName = taskName
                 }
+                updateComplicationData()
 
             case "task_started":
                 state.taskName = json["task_name"] as? String ?? ""
@@ -285,6 +289,8 @@ class WatchService: ObservableObject {
         if let actionsData = data["pending_actions"] as? [[String: Any]] {
             state.pendingActions = actionsData.compactMap { PendingAction(from: $0) }
         }
+
+        updateComplicationData()
     }
 
     private func handleActionRequested(_ data: [String: Any]) {
@@ -298,6 +304,7 @@ class WatchService: ObservableObject {
 
         // Play haptic
         playHaptic(.notification)
+        updateComplicationData()
     }
 
     private func handleDisconnection(error: Error) {
@@ -322,6 +329,7 @@ class WatchService: ObservableObject {
         flushMessageQueue()
 
         playHaptic(.success)
+        updateComplicationData()
     }
 
     private func handlePongReceived() {
@@ -345,6 +353,7 @@ class WatchService: ObservableObject {
         // Check if we should retry
         guard error.isRecoverable else {
             connectionStatus = .disconnected
+            updateComplicationData()
             return
         }
 
@@ -603,12 +612,15 @@ class WatchService: ObservableObject {
     }
 
     func sendPrompt(_ text: String) {
+        isSendingPrompt = true
+
         send([
             "type": "prompt",
             "text": text
         ])
 
-        playHaptic(.click)
+        isSendingPrompt = false
+        playHaptic(.success)
     }
 
     // MARK: - Cloud Mode (Production)
@@ -664,7 +676,10 @@ class WatchService: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: Any] = ["approved": approved]
+        let body: [String: Any] = [
+            "approved": approved,
+            "pairingId": pairingId
+        ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (_, response) = try await urlSession.data(for: request)
@@ -832,6 +847,17 @@ class WatchService: ObservableObject {
     // MARK: - Haptics
     func playHaptic(_ type: WKHapticType) {
         WKInterfaceDevice.current().play(type)
+    }
+
+    // MARK: - Complication Data
+    private func updateComplicationData() {
+        sharedDefaults?.set(state.pendingActions.count, forKey: "pendingCount")
+        sharedDefaults?.set(state.progress, forKey: "progress")
+        sharedDefaults?.set(state.taskName, forKey: "taskName")
+        sharedDefaults?.set(state.model, forKey: "model")
+        sharedDefaults?.set(connectionStatus == .connected, forKey: "isConnected")
+
+        WidgetCenter.shared.reloadTimelines(ofKind: "ClaudeWatchWidget")
     }
 
     // MARK: - Push Token Registration

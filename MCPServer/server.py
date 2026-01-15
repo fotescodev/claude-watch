@@ -803,7 +803,9 @@ async def main():
                 async with ws_serve(
                     lambda ws: websocket_handler(ws, watch_manager),
                     args.host,
-                    args.port
+                    args.port,
+                    ping_interval=30,  # Send ping every 30s
+                    ping_timeout=60,   # Wait 60s for pong before closing
                 ):
                     logger.info(f"WebSocket server running on ws://{args.host}:{args.port}")
                     await asyncio.Future()  # Run forever
@@ -848,7 +850,9 @@ async def main():
                 async with ws_serve(
                     lambda ws: websocket_handler(ws, watch_manager),
                     "0.0.0.0",
-                    args.port
+                    args.port,
+                    ping_interval=30,
+                    ping_timeout=60,
                 ):
                     await asyncio.Future()
 
