@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "xcodebuild": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/xcodebuild-mcp"],
+      "env": {
+        "XCODEBUILD_SCHEME": "ClaudeWatch",
+        "XCODEBUILD_PROJECT": "/Users/dfotesco/claude-watch/claude-watch/ClaudeWatch/ClaudeWatch.xcodeproj"
+      }
+    },
+    "watch": {
+      "command": "python3",
+      "args": ["MCPServer/server.py"]
+    }
+  }
+}

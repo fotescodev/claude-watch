@@ -697,6 +697,60 @@ def create_rest_app(watch_manager: WatchConnectionManager) -> web.Application:
         })
         return web.json_response({"success": True})
 
+    async def post_wait_for_response(request):
+        """Block until action is approved or rejected by watch.
+
+        This endpoint is used by the PreToolUse hook to wait for
+        watch approval before allowing Claude Code to proceed.
+        """
+        data = await request.json()
+        action_id = data.get("action_id")
+        timeout = data.get("timeout", 300)
+
+        if not action_id:
+            return web.json_response({"error": "action_id required"}, status=400)
+
+        # Check if we have a pending future for this action
+        if action_id not in watch_manager.action_responses:
+            # Action might have already been processed or doesn't exist
+            # Check if it's in pending actions
+            pending_ids = [a.id for a in watch_manager.state.pending_actions]
+            if action_id not in pending_ids:
+                return web.json_response({
+                    "action_id": action_id,
+                    "approved": True,  # Assume approved if not found (already processed)
+                    "status": "not_found"
+                })
+            # Action exists but no future yet, wait a moment and retry
+            await asyncio.sleep(0.1)
+            if action_id not in watch_manager.action_responses:
+                return web.json_response({
+                    "error": "Action response handler not ready",
+                    "action_id": action_id
+                }, status=500)
+
+        try:
+            # Wait for the approval response
+            future = watch_manager.action_responses[action_id]
+            status = await asyncio.wait_for(future, timeout=timeout)
+            return web.json_response({
+                "action_id": action_id,
+                "approved": status == ActionStatus.APPROVED,
+                "status": status.value
+            })
+        except asyncio.TimeoutError:
+            return web.json_response({
+                "action_id": action_id,
+                "approved": False,
+                "status": "timeout"
+            })
+        except asyncio.CancelledError:
+            return web.json_response({
+                "action_id": action_id,
+                "approved": False,
+                "status": "cancelled"
+            })
+
     app = web.Application()
     app.router.add_get("/state", get_state)
     app.router.add_post("/action/respond", post_action_response)
@@ -706,6 +760,7 @@ def create_rest_app(watch_manager: WatchConnectionManager) -> web.Application:
     app.router.add_get("/health", get_health)
     app.router.add_post("/test/action", post_test_action)
     app.router.add_post("/test/notify", post_test_notify)
+    app.router.add_post("/action/wait", post_wait_for_response)
 
     return app
 
