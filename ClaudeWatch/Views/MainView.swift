@@ -802,123 +802,108 @@ struct VoiceInputSheet: View {
     @ObservedObject private var service = WatchService.shared
     @Environment(\.dismiss) var dismiss
     @State private var transcribedText = ""
-    @State private var isListening = false
     @State private var showSentConfirmation = false
 
+    // Quick suggestions for common commands
+    private let suggestions = ["Continue", "Run tests", "Fix errors", "Commit"]
+
     var body: some View {
-        VStack(spacing: 16) {
-            // Header
-            Text("Voice Command")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(Claude.textPrimary)
+        ScrollView {
+            VStack(spacing: 12) {
+                // Header
+                Text("Voice Command")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Claude.textPrimary)
 
-            // Microphone visualization
-            ZStack {
-                // Outer rings
-                ForEach(0..<3, id: \.self) { i in
-                    Circle()
-                        .stroke(Claude.info.opacity(isListening ? 0.4 : 0.1), lineWidth: 1.5)
-                        .frame(width: CGFloat(44 + i * 14), height: CGFloat(44 + i * 14))
-                        .scaleEffect(isListening ? 1.1 : 1.0)
-                        .animation(.easeInOut(duration: 0.6).delay(Double(i) * 0.1).repeatForever(autoreverses: true), value: isListening)
-                }
+                // Text input with dictation support (watchOS 10+ native)
+                TextField("Tap to speak...", text: $transcribedText)
+                    .font(.system(size: 14))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(Claude.surface1)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                // Center mic
-                ZStack {
-                    Circle()
-                        .fill(Claude.info.opacity(0.2))
-                        .frame(width: 44, height: 44)
-
-                    Image(systemName: isListening ? "waveform" : "mic.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(Claude.info)
-                }
-            }
-            .frame(height: 80)
-
-            // Transcribed text or prompt
-            Text(transcribedText.isEmpty ? "Tap to speak..." : transcribedText)
-                .font(.system(size: 13))
-                .foregroundColor(transcribedText.isEmpty ? Claude.textTertiary : Claude.textPrimary)
-                .multilineTextAlignment(.center)
-                .lineLimit(3)
-                .frame(minHeight: 40)
-
-            // Sending/Sent status feedback
-            if service.isSendingPrompt {
-                HStack(spacing: 6) {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: Claude.info))
-                        .scaleEffect(0.7)
-                    Text("Sending...")
-                        .font(.system(size: 12))
-                        .foregroundColor(Claude.textSecondary)
-                }
-            } else if showSentConfirmation {
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(Claude.success)
-                    Text("Sent")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Claude.success)
-                }
-            }
-
-            // Action buttons
-            HStack(spacing: 12) {
-                Button {
-                    dismiss()
-                } label: {
-                    Text("Cancel")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Claude.danger)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Claude.danger.opacity(0.15))
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-
-                if !transcribedText.isEmpty && !showSentConfirmation {
-                    Button {
-                        service.sendPrompt(transcribedText)
-                        showSentConfirmation = true
-                        Task {
-                            try? await Task.sleep(nanoseconds: 1_000_000_000)
-                            dismiss()
+                // Quick suggestion chips
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    ForEach(suggestions, id: \.self) { suggestion in
+                        Button {
+                            transcribedText = suggestion
+                        } label: {
+                            Text(suggestion)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(Claude.textSecondary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .frame(maxWidth: .infinity)
+                                .background(Claude.surface2)
+                                .clipShape(Capsule())
                         }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                // Sending/Sent status feedback
+                if service.isSendingPrompt {
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: Claude.info))
+                            .scaleEffect(0.7)
+                        Text("Sending...")
+                            .font(.system(size: 12))
+                            .foregroundColor(Claude.textSecondary)
+                    }
+                } else if showSentConfirmation {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(Claude.success)
+                        Text("Sent")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Claude.success)
+                    }
+                }
+
+                // Action buttons
+                HStack(spacing: 12) {
+                    Button {
+                        dismiss()
                     } label: {
-                        Text("Send")
+                        Text("Cancel")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 20)
+                            .foregroundColor(Claude.danger)
+                            .padding(.horizontal, 16)
                             .padding(.vertical, 10)
-                            .background(Claude.success)
+                            .background(Claude.danger.opacity(0.15))
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
+
+                    if !transcribedText.isEmpty && !showSentConfirmation {
+                        Button {
+                            service.sendPrompt(transcribedText)
+                            showSentConfirmation = true
+                            WKInterfaceDevice.current().play(.success)
+                            Task {
+                                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                                dismiss()
+                            }
+                        } label: {
+                            Text("Send")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+                                .background(Claude.success)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
+            .padding()
         }
-        .padding()
         .background(Claude.background)
-        .onAppear {
-            presentTextInputController()
-        }
-    }
-
-    private func presentTextInputController() {
-        isListening = true
-        WKExtension.shared().visibleInterfaceController?.presentTextInputController(
-            withSuggestions: ["Continue", "Run tests", "Fix errors", "Explain", "Commit", "Undo"],
-            allowedInputMode: .allowEmoji
-        ) { results in
-            isListening = false
-            if let result = results?.first as? String {
-                transcribedText = result
-            }
-        }
     }
 }
 

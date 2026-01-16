@@ -67,7 +67,7 @@ class AppDelegate: NSObject, WKApplicationDelegate {
     }
 
     private func registerForRemoteNotifications() {
-        WKExtension.shared().registerForRemoteNotifications()
+        WKApplication.shared().registerForRemoteNotifications()
     }
 
     func didRegisterForRemoteNotifications(withDeviceToken deviceToken: Data) {
