@@ -179,8 +179,11 @@ export default {
           return jsonResponse({ error: 'Missing code or deviceToken' }, 400);
         }
 
+        // Normalize code to uppercase for lookup
+        const normalizedCode = code.toUpperCase().trim();
+
         // Look up the pairing by code
-        const pairingData = await env.PAIRINGS.get(`code:${code}`);
+        const pairingData = await env.PAIRINGS.get(`code:${normalizedCode}`);
         if (!pairingData) {
           return jsonResponse({ error: 'Invalid or expired code' }, 404);
         }

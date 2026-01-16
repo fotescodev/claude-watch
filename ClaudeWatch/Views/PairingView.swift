@@ -91,10 +91,16 @@ struct PairingView: View {
         Task {
             do {
                 try await service.completePairing(code: code)
+                await MainActor.run {
+                    isSubmitting = false
+                    WKInterfaceDevice.current().play(.success)
+                    // View will auto-dismiss since service.isPaired becomes true
+                }
             } catch {
                 await MainActor.run {
                     errorMessage = error.localizedDescription
                     isSubmitting = false
+                    WKInterfaceDevice.current().play(.failure)
                 }
             }
         }
