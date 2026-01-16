@@ -20,17 +20,17 @@ Welcome to Ralph! This directory contains everything needed for autonomous watch
 |----------|---------|-----------|
 | **[QUICK_START.md](QUICK_START.md)** | How to run and watch Ralph | Ready to start |
 | **[MONITORING_GUIDE.md](MONITORING_GUIDE.md)** | All monitoring options | Want visibility details |
-| **[tasks.yaml](tasks.yaml)** | Complete task list (12 tasks) | Want task details |
+| `../tasks.yaml` | Complete task list (12 tasks) | Want task details |
 
 ### For Ralph Itself (Don't Edit)
 
 | File | Purpose | Ralph Uses This To |
 |------|---------|-------------------|
-| **[PROMPT.md](PROMPT.md)** | Ralph's instructions | Know how to work |
-| **[ralph.sh](ralph.sh)** | Execution harness | Run sessions |
-| **[tasks.yaml](tasks.yaml)** | Task tracking | Know what's done |
-| **[session-log.md](session-log.md)** | Session history | Handoff context |
-| **[metrics.json](metrics.json)** | Statistics | Track progress |
+| `../PROMPT.md` | Ralph's instructions | Know how to work |
+| `../ralph.sh` | Execution harness | Run sessions |
+| `../tasks.yaml` | Task tracking | Know what's done |
+| `../session-log.md` | Session history | Handoff context |
+| `../metrics.json` | Statistics | Track progress |
 
 ---
 
@@ -38,7 +38,7 @@ Welcome to Ralph! This directory contains everything needed for autonomous watch
 
 Ralph is an **autonomous coding loop** that:
 
-1. ✅ Reads tasks from SHIPPING_ROADMAP.md
+1. ✅ Reads tasks from tasks.yaml
 2. ✅ Implements code changes in Swift/SwiftUI
 3. ✅ Runs verifications (build, tests, grep)
 4. ✅ Creates git commits
@@ -110,9 +110,9 @@ cat tasks.yaml | grep completed
 - **LG1-LG2** - Liquid Glass materials, spring animations
 - **T1** - UI tests
 
-**Total: 9 required tasks, 6 optional tasks**
+**Total: 9 required tasks, 3 optional tasks**
 
-See [SHIPPING_ROADMAP.md](SHIPPING_ROADMAP.md) for full details on each task.
+See `../tasks.yaml` for complete task definitions with verification commands.
 
 ---
 
@@ -158,26 +158,23 @@ git push origin main
 
 ```
 .claude/ralph/
-├── README.md                    ← You are here
-├── QUICK_START.md              ← Start here for 2-min guide
-├── SUMMARY.md                  ← Overview of Ralph
-├── MONITORING_GUIDE.md         ← How to watch Ralph
-├── SHIPPING_ROADMAP.md         ← All 15 tasks defined
-├── TASK_BREAKDOWN.md           ← Detailed task specs
+├── PROMPT.md                   ← Ralph's instructions (Ralph reads)
+├── INITIALIZER.md              ← Setup guide (Ralph reads)
+├── tasks.yaml                  ← Task definitions (Ralph reads)
 │
-├── PROMPT.md                   ← Ralph's instructions
-├── ralph.sh                    ← Execution script
+├── session-log.md              ← Session history (Ralph writes)
+├── metrics.json                ← Statistics (Ralph writes)
+├── current-progress.log        ← Live progress (Ralph writes)
+│
+├── ralph.sh                    ← Execution harness
 ├── monitor-ralph.sh            ← Live monitoring dashboard
 ├── watchos-verify.sh           ← Verification helper
 │
-├── tasks.yaml                  ← Task tracking (Ralph updates)
-├── session-log.md              ← Session history (Ralph updates)
-├── metrics.json                ← Statistics (Ralph updates)
-├── current-progress.log        ← Live progress (Ralph writes)
-│
-└── SPEC.md                     ← Original specification
-    TESTING.md                  ← Testing checklist
-    INITIALIZER.md              ← Setup guide
+└── ralph-context-docs/         ← Human documentation
+    ├── README.md               ← This file (overview + testing)
+    ├── QUICK_START.md          ← 2-minute start guide
+    ├── MONITORING_GUIDE.md     ← Monitoring details
+    └── DOC_AUDIT.md            ← Documentation cleanup history
 ```
 
 ---
@@ -220,7 +217,7 @@ If Ralph encounters errors:
 ### 5. Autonomous Operation
 Ralph requires zero human intervention:
 - Reads instructions from PROMPT.md
-- Selects tasks from SHIPPING_ROADMAP.md
+- Selects tasks from tasks.yaml
 - Modifies Swift files
 - Runs builds
 - Creates commits
@@ -232,29 +229,30 @@ Ralph requires zero human intervention:
 
 ### Add New Tasks
 
-Edit `SHIPPING_ROADMAP.md`:
-```markdown
-### NEW_TASK_ID: Task Title
-
-**Priority:** CRITICAL/HIGH/MEDIUM/LOW
-**Effort:** X minutes
-**Dependencies:** OTHER_TASK_ID
-
-**Changes Required:**
-1. Step 1
-2. Step 2
-
-**Verification:**
-```bash
-# Verification command
+Edit `../tasks.yaml` and add a new task entry:
+```yaml
+- id: "NEW1"
+  title: "Task title"
+  description: |
+    Detailed description of what needs to be done.
+  priority: critical  # or high, medium, low
+  parallel_group: 1
+  completed: false
+  verification: |
+    # Bash command that exits 0 if task is complete
+    grep -q "expectedPattern" ClaudeWatch/File.swift
+  acceptance_criteria:
+    - "Criterion 1"
+    - "Criterion 2"
+  files:
+    - "ClaudeWatch/Path/To/File.swift"
+  tags:
+    - tag1
+    - tag2
+  commit_template: "type(scope): description"
 ```
 
-**Definition of Done:**
-- [ ] Criterion 1
-- [ ] Criterion 2
-```
-
-Ralph will pick it up automatically.
+Ralph will pick it up automatically on next run.
 
 ### Adjust Priorities
 
@@ -338,19 +336,19 @@ cat session-log.md | tail -100
 ## 📖 Reading Order
 
 **For first-time users:**
-1. This README (overview)
+1. This README (overview + testing)
 2. [QUICK_START.md](QUICK_START.md) (how to run)
 3. [MONITORING_GUIDE.md](MONITORING_GUIDE.md) (how to watch)
 
-**For understanding the plan:**
-1. [SUMMARY.md](SUMMARY.md) (high-level overview)
-2. [SHIPPING_ROADMAP.md](SHIPPING_ROADMAP.md) (all tasks)
-3. [TASK_BREAKDOWN.md](TASK_BREAKDOWN.md) (first 3 tasks in detail)
+**For understanding tasks:**
+1. `../tasks.yaml` (complete task definitions)
+2. This README "The Task List" section
+3. `.claude/APPSTORE-ROADMAP.md` (high-level roadmap in project root)
 
 **For Ralph developers:**
-1. [PROMPT.md](PROMPT.md) (Ralph's instructions)
-2. `ralph.sh` (execution harness)
-3. [SPEC.md](SPEC.md) (original specification)
+1. `../PROMPT.md` (Ralph's instructions)
+2. `../ralph.sh` (execution harness)
+3. `../INITIALIZER.md` (setup guide)
 
 ---
 
@@ -363,6 +361,80 @@ Unlike typical automation:
 3. **Verified** - Every task has automated checks
 4. **Self-fixing** - Ralph improves itself first (R1, R2)
 5. **Complete** - Goes from "not started" to "ready to ship"
+
+---
+
+## ✅ Validation & Testing
+
+### Prerequisites
+
+- macOS with Xcode 15+ installed
+- watchOS Simulator available (`xcrun simctl list devices | grep -i watch`)
+- Claude CLI installed (`claude --version`)
+- Python 3 with PyYAML (`python3 -c "import yaml; print('OK')"`)
+
+### Quick Validation
+
+Run this for a quick validation (no Claude execution):
+
+```bash
+./.claude/ralph/ralph.sh --help && \
+./.claude/ralph/watchos-verify.sh --quick && \
+python3 -c "import yaml; d=yaml.safe_load(open('.claude/ralph/tasks.yaml')); print(f'Ready: {len([t for t in d[\"tasks\"] if not t[\"completed\"]])} tasks pending')"
+```
+
+Expected output:
+```
+[help text]
+[verification results]
+Ready: 12 tasks pending
+```
+
+### Testing Phases
+
+**Phase 1: File Validation**
+- Verify script permissions (`ralph.sh`, `watchos-verify.sh` are executable)
+- Validate `tasks.yaml` syntax (`python3 -c "import yaml; yaml.safe_load(open('.claude/ralph/tasks.yaml'))"`)
+- Validate `metrics.json` format
+
+**Phase 2: Script Testing**
+- Help command: `./.claude/ralph/ralph.sh --help`
+- Dry run: `./.claude/ralph/ralph.sh --dry-run --single`
+- Verification harness: `./.claude/ralph/watchos-verify.sh --quick`
+
+**Phase 3: Integration Testing**
+- Initialize: `./.claude/ralph/ralph.sh --init`
+- Single session: `./.claude/ralph/ralph.sh --single`
+- Verify task completion in `tasks.yaml`
+
+**Phase 4: Loop Testing**
+- Multi-iteration: `./.claude/ralph/ralph.sh --max-iterations 3`
+- Error recovery with `--max-retries`
+
+### Success Criteria
+
+Ralph Loop is fully functional when:
+1. Initialization completes without errors
+2. Single session completes one task
+3. Verification runs all checks
+4. Loop completes multiple tasks
+5. Error handling logs failures correctly
+6. Skills and agents invoke properly
+
+### Troubleshooting
+
+**Build Fails:**
+- Check Xcode: `xcode-select -p`
+- Check simulator: `xcrun simctl list devices | grep -i watch`
+- Try manual build: `xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch build`
+
+**Claude Not Found:**
+- Install: `npm install -g @anthropic-ai/claude-code`
+- Verify: `claude --version`
+
+**YAML Parse Errors:**
+- Validate: `python3 -c "import yaml; yaml.safe_load(open('.claude/ralph/tasks.yaml'))"`
+- Check for tab characters (use spaces only)
 
 ---
 
@@ -385,17 +457,18 @@ Ralph will autonomously build your watchOS app! 🎉
 ## 📞 Support
 
 **Documentation:**
-- All guides in `.claude/ralph/`
-- See MONITORING_GUIDE.md for visibility options
-- See SHIPPING_ROADMAP.md for task details
+- This README - Complete overview and testing guide
+- [QUICK_START.md](QUICK_START.md) - Quick start guide
+- [MONITORING_GUIDE.md](MONITORING_GUIDE.md) - Visibility options
+- `../tasks.yaml` - Complete task definitions
 
 **Logs:**
-- `session-log.md` - What Ralph did
-- `current-progress.log` - Live progress
-- `metrics.json` - Statistics
+- `../session-log.md` - What Ralph did
+- `../current-progress.log` - Live progress
+- `../metrics.json` - Statistics
 
 **Issues:**
-- Check session-log.md for errors
+- Check `../session-log.md` for errors
 - Review verification command output
 - Ensure Xcode/simulator available
 
