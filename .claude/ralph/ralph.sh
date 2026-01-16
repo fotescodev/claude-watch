@@ -10,6 +10,7 @@
 # Options:
 #   -h, --help              Show this help message
 #   -v, --verbose           Enable verbose output
+#   -d, --debug             Enable debug mode (shows thinking, tool calls)
 #   --dry-run               Show prompts without executing Claude
 #   --init                  Run initializer instead of main loop
 #   --single                Run single session then exit
@@ -52,6 +53,7 @@ MAX_ITERATIONS=0  # 0 = unlimited
 MAX_RETRIES=3
 RETRY_DELAY=5
 VERBOSE=false
+DEBUG=false
 DRY_RUN=false
 INIT_MODE=false
 SINGLE_MODE=false
@@ -108,6 +110,7 @@ Usage: ./ralph.sh [OPTIONS]
 Options:
   -h, --help              Show this help message
   -v, --verbose           Enable verbose output
+  -d, --debug             Enable debug mode (shows thinking, tool calls)
   --dry-run               Show prompts without executing Claude
   --init                  Run initializer instead of main loop
   --single                Run single session then exit
@@ -123,6 +126,7 @@ Examples:
   ./ralph.sh                      # Run autonomous loop
   ./ralph.sh --init               # Initialize Ralph (first time)
   ./ralph.sh --single             # Run one session then exit
+  ./ralph.sh --debug              # Run with full visibility (thinking, tool calls)
   ./ralph.sh --dry-run            # Preview without executing
   ./ralph.sh --branch-per-task    # Create feature branches
 
@@ -367,7 +371,13 @@ run_claude_session() {
     # Run Claude with the prompt
     # Using --print to output results, piping the prompt via stdin
     # Tee output to both console and progress log
-    if cat "$prompt_file" | claude --print 2>&1 | tee -a "$progress_log"; then
+    local claude_args="--print"
+    if [[ "$DEBUG" == "true" ]]; then
+        claude_args="--print --debug"
+        log "Debug mode enabled - showing thinking and tool calls"
+    fi
+
+    if cat "$prompt_file" | claude $claude_args 2>&1 | tee -a "$progress_log"; then
         echo "✓ Session $session_id completed at $(date '+%H:%M:%S')" >> "$progress_log"
         log_success "Session $session_id completed"
         return 0
@@ -631,6 +641,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -v|--verbose)
             VERBOSE=true
+            shift
+            ;;
+        -d|--debug)
+            DEBUG=true
             shift
             ;;
         --dry-run)
