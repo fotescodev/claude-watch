@@ -7,8 +7,14 @@ When Claude Code tries to use Bash, Edit, Write, etc., this hook:
 2. Sends a simulated push notification to the watch simulator
 3. Waits for approval from the watch (polling)
 4. Returns allow/deny decision to Claude Code
+
+Configuration:
+- Set CLAUDE_WATCH_PAIRING_ID environment variable, OR
+- Create ~/.claude-watch-pairing file with your pairing ID
+- Run: claude-watch-pair to set up pairing interactively
 """
 import json
+import os
 import sys
 import time
 import subprocess
@@ -17,7 +23,7 @@ import urllib.error
 
 # Cloud server configuration
 CLOUD_SERVER = "https://claude-watch.fotescodev.workers.dev"
-PAIRING_ID = "0a7c5684-24a1-49b0-9c20-67ca7056d0c6"
+PAIRING_CONFIG_FILE = os.path.expanduser("~/.claude-watch-pairing")
 
 # Simulator configuration
 SIMULATOR_NAME = "Apple Watch Series 11 (46mm)"
@@ -25,6 +31,32 @@ BUNDLE_ID = "com.edgeoftrust.claudewatch"
 
 # Tools that require watch approval
 TOOLS_REQUIRING_APPROVAL = {"Bash", "Edit", "Write", "MultiEdit", "NotebookEdit"}
+
+
+def get_pairing_id() -> str | None:
+    """
+    Load pairing ID from (in order of priority):
+    1. CLAUDE_WATCH_PAIRING_ID environment variable
+    2. ~/.claude-watch-pairing config file
+
+    Returns None if not configured.
+    """
+    # Priority 1: Environment variable
+    env_pairing = os.environ.get("CLAUDE_WATCH_PAIRING_ID", "").strip()
+    if env_pairing:
+        return env_pairing
+
+    # Priority 2: Config file
+    if os.path.exists(PAIRING_CONFIG_FILE):
+        try:
+            with open(PAIRING_CONFIG_FILE, 'r') as f:
+                file_pairing = f.read().strip()
+                if file_pairing:
+                    return file_pairing
+        except (IOError, OSError) as e:
+            print(f"Warning: Could not read {PAIRING_CONFIG_FILE}: {e}", file=sys.stderr)
+
+    return None
 
 
 def main():
@@ -40,9 +72,16 @@ def main():
     if tool_name not in TOOLS_REQUIRING_APPROVAL:
         sys.exit(0)
 
+    # Get pairing ID from config
+    pairing_id = get_pairing_id()
+    if not pairing_id:
+        print("Claude Watch not configured. Run 'claude-watch-pair' or set CLAUDE_WATCH_PAIRING_ID", file=sys.stderr)
+        # Allow the action to proceed if watch is not configured (fail open)
+        sys.exit(0)
+
     # Build approval request
     request_data = {
-        "pairingId": PAIRING_ID,
+        "pairingId": pairing_id,
         "type": map_tool_type(tool_name),
         "title": build_title(tool_name, tool_input),
         "description": build_description(tool_name, tool_input),
