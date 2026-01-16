@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "project": "ClaudeWatch",
+  "platform": "watchOS",
+  "initialized": "",
+  "lastSession": "",
+  "totalSessions": 0,
+  "totalTokens": {
+    "input": 0,
+    "output": 0
+  },
+  "estimatedCost": 0.00,
+  "tasksCompleted": 0,
+  "tasksFailed": 0,
+  "totalRetries": 0,
+  "buildFailures": 0,
+  "sessions": []
+}
