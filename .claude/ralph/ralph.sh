@@ -10,7 +10,7 @@
 # Options:
 #   -h, --help              Show this help message
 #   -v, --verbose           Enable verbose output
-#   -d, --debug             Enable debug mode (shows thinking, tool calls)
+#   -d, --debug             Enable verbose mode (shows all Claude output)
 #   --dry-run               Show prompts without executing Claude
 #   --init                  Run initializer instead of main loop
 #   --single                Run single session then exit
@@ -110,7 +110,7 @@ Usage: ./ralph.sh [OPTIONS]
 Options:
   -h, --help              Show this help message
   -v, --verbose           Enable verbose output
-  -d, --debug             Enable debug mode (shows thinking, tool calls)
+  -d, --debug             Enable verbose mode (shows all Claude output)
   --dry-run               Show prompts without executing Claude
   --init                  Run initializer instead of main loop
   --single                Run single session then exit
@@ -126,7 +126,7 @@ Examples:
   ./ralph.sh                      # Run autonomous loop
   ./ralph.sh --init               # Initialize Ralph (first time)
   ./ralph.sh --single             # Run one session then exit
-  ./ralph.sh --debug              # Run with full visibility (thinking, tool calls)
+  ./ralph.sh --debug              # Run with verbose output
   ./ralph.sh --dry-run            # Preview without executing
   ./ralph.sh --branch-per-task    # Create feature branches
 
@@ -371,13 +371,12 @@ run_claude_session() {
     # Run Claude with the prompt
     # Using --print to output results, piping the prompt via stdin
     # Tee output to both console and progress log
-    local claude_args="--print"
+    # Note: Thinking blocks are not available in --print mode (automation)
     if [[ "$DEBUG" == "true" ]]; then
-        claude_args="--print --debug"
-        log "Debug mode enabled - showing thinking and tool calls"
+        log "Verbose mode: showing all output including TodoWrite progress"
     fi
 
-    if cat "$prompt_file" | claude $claude_args 2>&1 | tee -a "$progress_log"; then
+    if cat "$prompt_file" | claude --print 2>&1 | tee -a "$progress_log"; then
         echo "✓ Session $session_id completed at $(date '+%H:%M:%S')" >> "$progress_log"
         log_success "Session $session_id completed"
         return 0

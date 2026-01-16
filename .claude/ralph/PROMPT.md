@@ -162,6 +162,30 @@ TodoWrite([...update first item to completed, second to in_progress...])
 
 This allows humans to see your progress in real-time via the monitoring dashboard.
 
+**IMPORTANT: Verbose Commentary**
+
+Provide running commentary as you work to give maximum visibility:
+
+```
+// Good - Verbose:
+"I'm reading MainView.swift to identify all interactive elements..."
+[reads file]
+"Found 15 Button views and 3 NavigationLinks that need accessibility labels."
+"Starting with the settings button on line 42..."
+[makes edit]
+"✓ Added accessibilityLabel to settings button"
+"Moving to connection status indicator on line 58..."
+```
+
+```
+// Bad - Silent:
+[reads file]
+[makes edits]
+"Done"
+```
+
+Every time you use a tool (Read, Edit, Bash), explain what you're doing and why. This helps humans understand your reasoning in real-time.
+
 ### Required Practices
 For EVERY implementation:
 
