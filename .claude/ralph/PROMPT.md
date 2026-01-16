@@ -25,7 +25,49 @@ Make the code changes required by the task description:
 
 1. **Read** all files in the task's `files` list
 2. **Edit** those files to implement the task requirements
-3. **Build** to verify changes compile: `xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm)' build 2>&1 | tail -20`
+3. **CRITICAL: If creating NEW Swift files, you MUST also add them to project.pbxproj** (see Xcode Project Sync below)
+4. **Build** to verify changes compile (see Build Verification below)
+
+### Xcode Project Sync (CRITICAL)
+
+**Xcode projects require explicit file registration.** Files on disk don't automatically get compiled.
+
+When creating a NEW `.swift` file:
+1. Create the file with Write tool
+2. Add it to `ClaudeWatch.xcodeproj/project.pbxproj`:
+   - Add a `PBXFileReference` entry (e.g., `SRC007 /* NewFile.swift */`)
+   - Add a `PBXBuildFile` entry (e.g., `VIEW004 /* NewFile.swift in Sources */`)
+   - Add the file reference to the appropriate `PBXGroup` (e.g., `GRP_VIEWS`)
+   - Add the build file to `PHASE_SOURCES`
+
+**Verify sync before building:**
+```bash
+# Check all Swift files are in project
+for f in $(find ClaudeWatch -name "*.swift" ! -path "*/Tests/*"); do
+  grep -q "$(basename $f)" ClaudeWatch.xcodeproj/project.pbxproj || echo "MISSING: $f"
+done
+```
+
+### Build Verification (MANDATORY)
+
+Build verification is **required** before marking any task complete.
+
+**Step 1: Discover available simulator:**
+```bash
+xcrun simctl list devices available | grep -i "Apple Watch" | head -1
+```
+
+**Step 2: Build with discovered simulator:**
+```bash
+# Use the simulator name from step 1 (e.g., "Apple Watch Series 11 (42mm)")
+SIMULATOR=$(xcrun simctl list devices available | grep -i "Apple Watch" | head -1 | sed 's/^ *//' | sed 's/ (.*//')
+xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination "platform=watchOS Simulator,name=$SIMULATOR" build 2>&1 | tail -30
+```
+
+**The build MUST succeed before proceeding.** If it fails:
+1. Check for missing files in project.pbxproj
+2. Check for Swift compilation errors
+3. Fix the issues and rebuild
 
 ### Code Standards
 
@@ -93,8 +135,15 @@ Commit: [commit hash]
 # Run task verification
 ./.claude/ralph/state-manager.sh verify C1
 
-# Build project
-xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm)' build
+# Check project sync (all Swift files in Xcode project)
+./.claude/ralph/watchos-verify.sh --quick
+
+# Build project (dynamic simulator)
+SIMULATOR=$(xcrun simctl list devices available | grep -i "Apple Watch" | head -1 | sed 's/^ *//' | sed 's/ (.*//')
+xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination "platform=watchOS Simulator,name=$SIMULATOR" build
+
+# Full verification (includes build)
+./.claude/ralph/watchos-verify.sh
 ```
 
 ---

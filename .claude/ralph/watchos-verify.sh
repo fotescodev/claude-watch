@@ -91,14 +91,16 @@ check_build() {
 
     cd "$PROJECT_ROOT"
 
-    # Find available watch simulator
+    # Find available watch simulator dynamically
     local simulator
-    simulator=$(xcrun simctl list devices available 2>/dev/null | grep -i "Apple Watch" | head -1 | sed 's/.*(\([^)]*\)).*/\1/' || echo "")
+    simulator=$(xcrun simctl list devices available 2>/dev/null | grep -i "Apple Watch" | head -1 | sed 's/^ *//' | sed 's/ (.*$//')
 
     if [[ -z "$simulator" ]]; then
         log_warn "No watchOS simulator found, using generic destination"
-        simulator="Apple Watch Series 9 (45mm)"
+        simulator="Apple Watch Series 11 (42mm)"
     fi
+
+    log_info "Using simulator: $simulator"
 
     local build_output
     build_output=$(mktemp)
@@ -301,6 +303,54 @@ check_entitlements() {
     fi
 }
 
+check_project_sync() {
+    log_check "Checking Xcode project sync (all Swift files in project)..."
+
+    cd "$PROJECT_ROOT"
+
+    local project_file="ClaudeWatch.xcodeproj/project.pbxproj"
+    local missing_files=()
+    local checked=0
+
+    # Find all .swift files in ClaudeWatch/ (excluding Tests for now)
+    while IFS= read -r -d '' swift_file; do
+        local filename
+        filename=$(basename "$swift_file")
+        ((checked++))
+
+        # Check if filename appears in project.pbxproj
+        if ! grep -q "$filename" "$project_file" 2>/dev/null; then
+            missing_files+=("$swift_file")
+        fi
+    done < <(find ClaudeWatch -name "*.swift" ! -path "*/Tests/*" -print0 2>/dev/null)
+
+    log_info "Checked $checked Swift files against project.pbxproj"
+
+    if [[ ${#missing_files[@]} -gt 0 ]]; then
+        log_fail "Found ${#missing_files[@]} Swift files NOT in Xcode project:"
+        for f in "${missing_files[@]}"; do
+            log_info "  MISSING: $f"
+        done
+        log_info "Files exist on disk but won't compile - add them to the Xcode project!"
+        return 1
+    else
+        log_pass "All Swift files are in Xcode project"
+        return 0
+    fi
+}
+
+get_available_simulator() {
+    # Return the first available watchOS simulator name
+    local sim_name
+    sim_name=$(xcrun simctl list devices available 2>/dev/null | grep -i "Apple Watch" | head -1 | sed 's/^ *//' | sed 's/ (.*$//')
+
+    if [[ -z "$sim_name" ]]; then
+        echo "Apple Watch Series 11 (42mm)"  # Fallback
+    else
+        echo "$sim_name"
+    fi
+}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -312,7 +362,9 @@ main() {
     echo "╚═══════════════════════════════════════════════════════════════╝"
     echo ""
 
-    # Run all checks
+    # Run all checks - project sync FIRST (before build, catches missing files)
+    check_project_sync || { echo ""; echo "Project sync failed - files missing from Xcode project!"; exit 3; }
+    echo ""
     check_build || { echo ""; echo "Build failed - stopping verification"; exit 2; }
     echo ""
     check_deprecated_apis
