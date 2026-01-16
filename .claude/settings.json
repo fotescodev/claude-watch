@@ -1,0 +1,27 @@
+{
+  "$schema": "https://claude.ai/schemas/claude-code-settings.json",
+  "mcpServers": {
+    "apple-docs": {
+      "command": "npx",
+      "args": ["-y", "@kimsungwhee/apple-docs-mcp"],
+      "description": "Apple Developer Documentation, WWDC videos, framework APIs, and platform compatibility"
+    },
+    "claude-watch": {
+      "command": "python",
+      "args": ["MCPServer/server.py"],
+      "description": "Claude Watch bridge server for Apple Watch integration"
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(python:*)",
+      "Bash(xcodebuild:*)",
+      "Bash(xcrun:*)",
+      "Bash(swift:*)",
+      "Bash(swiftc:*)",
+      "Bash(git:*)"
+    ]
+  }
+}
