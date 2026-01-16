@@ -46,6 +46,8 @@ struct PairingView: View {
                         // Clear error when typing
                         errorMessage = nil
                     }
+                    .accessibilityLabel("Pairing code input")
+                    .accessibilityHint("Enter the 7-character code shown in your terminal")
 
                 // Error message
                 if let error = errorMessage {
@@ -66,6 +68,8 @@ struct PairingView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(code.count != codeLength || isSubmitting)
+                .accessibilityLabel(isSubmitting ? "Connecting to Claude Code" : "Connect to Claude Code")
+                .accessibilityHint("Submits the pairing code to connect")
 
                 // Skip button for demo mode
                 Button("Use Demo Mode") {
@@ -74,6 +78,8 @@ struct PairingView: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .accessibilityLabel("Use demo mode")
+                .accessibilityHint("Skip pairing and use sample data")
             }
             .padding()
         }

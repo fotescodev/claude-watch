@@ -10,6 +10,7 @@
 # Options:
 #   -h, --help              Show this help message
 #   -v, --verbose           Enable verbose output
+#   -d, --debug             Enable verbose mode (shows all Claude output)
 #   --dry-run               Show prompts without executing Claude
 #   --init                  Run initializer instead of main loop
 #   --single                Run single session then exit
@@ -52,9 +53,11 @@ MAX_ITERATIONS=0  # 0 = unlimited
 MAX_RETRIES=3
 RETRY_DELAY=5
 VERBOSE=false
+DEBUG=false
 DRY_RUN=false
 INIT_MODE=false
 SINGLE_MODE=false
+STATUS_MODE=false
 BRANCH_PER_TASK=false
 CREATE_PR=false
 DRAFT_PR=false
@@ -108,9 +111,11 @@ Usage: ./ralph.sh [OPTIONS]
 Options:
   -h, --help              Show this help message
   -v, --verbose           Enable verbose output
+  -d, --debug             Enable verbose mode (shows all Claude output)
   --dry-run               Show prompts without executing Claude
   --init                  Run initializer instead of main loop
   --single                Run single session then exit
+  --status                Show task completion status
   --max-iterations N      Limit total loop iterations (default: unlimited)
   --max-retries N         Retries per failed task (default: 3)
   --retry-delay N         Seconds between retries (default: 5)
@@ -123,6 +128,8 @@ Examples:
   ./ralph.sh                      # Run autonomous loop
   ./ralph.sh --init               # Initialize Ralph (first time)
   ./ralph.sh --single             # Run one session then exit
+  ./ralph.sh --status             # Show task status
+  ./ralph.sh --debug              # Run with verbose output
   ./ralph.sh --dry-run            # Preview without executing
   ./ralph.sh --branch-per-task    # Create feature branches
 
@@ -192,6 +199,83 @@ preflight_check() {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# CODE CHANGE DETECTION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Check for actual code changes (not just docs/logs)
+# Returns 0 if ClaudeWatch/ has changes, 1 otherwise
+git_has_code_changes() {
+    cd "$PROJECT_ROOT"
+
+    # Check for changes in code-related directories:
+    # - ClaudeWatch/ (Swift source code)
+    # - ClaudeWatch.xcodeproj/ (project settings, build configs)
+    # - MCPServer/ (Python backend)
+    # This excludes .claude/, .specstory/, docs, etc.
+    local code_paths="ClaudeWatch/ ClaudeWatch.xcodeproj/ MCPServer/"
+
+    # First check uncommitted changes (staged or unstaged)
+    for path in $code_paths; do
+        if ! git diff --cached --quiet -- "$path" 2>/dev/null || ! git diff --quiet -- "$path" 2>/dev/null; then
+            log_verbose "  Code changes detected (uncommitted) in: $path"
+            return 0  # Code changes detected
+        fi
+    done
+
+    # Also check the LAST COMMIT - Claude commits before we validate!
+    # This catches the case where Claude has already committed the changes
+    local last_commit_files
+    last_commit_files=$(git log -1 --name-only --pretty=format: HEAD 2>/dev/null)
+    if echo "$last_commit_files" | grep -qE '^ClaudeWatch/|^ClaudeWatch\.xcodeproj/|^MCPServer/'; then
+        log_verbose "  Code changes detected in last commit"
+        return 0  # Code changes in last commit
+    fi
+
+    return 1  # No code changes
+}
+
+# Check if specific task files were modified
+git_has_task_file_changes() {
+    local task_id="$1"
+
+    cd "$PROJECT_ROOT"
+
+    # Get expected files from task definition
+    local expected_files
+    expected_files=$(yq ".tasks[] | select(.id == \"$task_id\") | .files[]" "$TASKS_FILE" 2>/dev/null || echo "")
+
+    if [[ -z "$expected_files" ]]; then
+        # No specific files defined, fall back to general code check
+        git_has_code_changes
+        return $?
+    fi
+
+    # Check if at least one expected file was modified (uncommitted)
+    while IFS= read -r file; do
+        [[ -z "$file" ]] && continue
+        if ! git diff --quiet -- "$file" 2>/dev/null || ! git diff --cached --quiet -- "$file" 2>/dev/null; then
+            log_verbose "  Modified (uncommitted): $file"
+            return 0  # Found a change
+        fi
+    done <<< "$expected_files"
+
+    # Also check the LAST COMMIT for expected files
+    local last_commit_files
+    last_commit_files=$(git log -1 --name-only --pretty=format: HEAD 2>/dev/null)
+    while IFS= read -r file; do
+        [[ -z "$file" ]] && continue
+        # Remove quotes if present from YAML parsing
+        file=$(echo "$file" | tr -d '"')
+        if echo "$last_commit_files" | grep -qF "$file"; then
+            log_verbose "  Modified (last commit): $file"
+            return 0  # Found in last commit
+        fi
+    done <<< "$expected_files"
+
+    return 1  # No expected files modified
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # METRICS TRACKING
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -257,6 +341,56 @@ update_metrics() {
         jq '.tasksCompleted += 1' "$METRICS_FILE" > "$METRICS_FILE.tmp" && mv "$METRICS_FILE.tmp" "$METRICS_FILE"
     elif [[ "$status" == "failed" ]]; then
         jq '.tasksFailed += 1' "$METRICS_FILE" > "$METRICS_FILE.tmp" && mv "$METRICS_FILE.tmp" "$METRICS_FILE"
+    fi
+}
+
+# Parse token usage from Claude output and update metrics
+parse_and_update_tokens() {
+    local output_file="$1"
+
+    [[ ! -f "$output_file" ]] && return
+
+    # Claude outputs various formats, try to capture them
+    # Format 1: "Total cost: $X.XX"
+    # Format 2: "XXX input tokens, XXX output tokens"
+    # Format 3: "↓ XXX ↑ XXX" (input/output)
+
+    local input_tokens=0
+    local output_tokens=0
+    local cost=0
+
+    # Try to parse tokens (various formats Claude might use)
+    if grep -qE '[0-9]+ input' "$output_file" 2>/dev/null; then
+        input_tokens=$(grep -oE '[0-9]+ input' "$output_file" | tail -1 | grep -oE '[0-9]+' || echo 0)
+    fi
+    if grep -qE '[0-9]+ output' "$output_file" 2>/dev/null; then
+        output_tokens=$(grep -oE '[0-9]+ output' "$output_file" | tail -1 | grep -oE '[0-9]+' || echo 0)
+    fi
+
+    # Try arrow format: "↓ XXX ↑ XXX"
+    if grep -qE '↓ [0-9]+' "$output_file" 2>/dev/null; then
+        input_tokens=$(grep -oE '↓ [0-9]+' "$output_file" | tail -1 | grep -oE '[0-9]+' || echo 0)
+    fi
+    if grep -qE '↑ [0-9]+' "$output_file" 2>/dev/null; then
+        output_tokens=$(grep -oE '↑ [0-9]+' "$output_file" | tail -1 | grep -oE '[0-9]+' || echo 0)
+    fi
+
+    # Try to parse cost
+    if grep -qE '\$[0-9]+\.[0-9]+' "$output_file" 2>/dev/null; then
+        cost=$(grep -oE '\$[0-9]+\.[0-9]+' "$output_file" | tail -1 | tr -d '$' || echo 0)
+    fi
+
+    # Update metrics if we found any token data
+    if [[ $input_tokens -gt 0 ]] || [[ $output_tokens -gt 0 ]] || [[ "$cost" != "0" ]]; then
+        log_verbose "Tokens: $input_tokens input, $output_tokens output, cost: \$$cost"
+
+        jq --argjson inp "$input_tokens" \
+           --argjson out "$output_tokens" \
+           --argjson c "${cost:-0}" \
+           '.totalTokens.input += $inp |
+            .totalTokens.output += $out |
+            .estimatedCost = ((.estimatedCost // 0) + $c | . * 100 | floor / 100)' \
+           "$METRICS_FILE" > "$METRICS_FILE.tmp" && mv "$METRICS_FILE.tmp" "$METRICS_FILE"
     fi
 }
 
@@ -360,14 +494,39 @@ run_claude_session() {
     # Change to project root
     cd "$PROJECT_ROOT"
 
+    # Create progress log for monitoring
+    local progress_log="$RALPH_DIR/current-progress.log"
+    echo "→ Starting session $session_id at $(date '+%H:%M:%S')" > "$progress_log"
+
     # Run Claude with the prompt
     # Using --print to output results, piping the prompt via stdin
-    if cat "$prompt_file" | claude --print 2>&1; then
+    # Tee output to both console and progress log
+    # Note: Thinking blocks are not available in --print mode (automation)
+    if [[ "$DEBUG" == "true" ]]; then
+        log "Verbose mode: showing all output including TodoWrite progress"
+    fi
+
+    # Capture output to temp file for token parsing
+    local output_file="/tmp/ralph-claude-output-$$.log"
+
+    if cat "$prompt_file" | claude --print --verbose 2>&1 | tee -a "$progress_log" "$output_file"; then
+        echo "✓ Session $session_id completed at $(date '+%H:%M:%S')" >> "$progress_log"
         log_success "Session $session_id completed"
+
+        # Parse and update token metrics from Claude output
+        parse_and_update_tokens "$output_file"
+
+        rm -f "$output_file"
         return 0
     else
         local exit_code=$?
+        echo "✗ Session $session_id failed at $(date '+%H:%M:%S')" >> "$progress_log"
         log_error "Session $session_id failed with exit code $exit_code"
+
+        # Still try to capture tokens even on failure
+        parse_and_update_tokens "$output_file"
+
+        rm -f "$output_file"
         return $exit_code
     fi
 }
@@ -445,6 +604,40 @@ run_verification() {
     fi
 }
 
+# Run task-specific verification from tasks.yaml
+run_task_verification() {
+    local task_id="$1"
+
+    if ! command -v yq &> /dev/null; then
+        log_warning "yq not found, skipping task verification"
+        return 0
+    fi
+
+    # Get verification script from tasks.yaml
+    local verification
+    verification=$(yq ".tasks[] | select(.id == \"$task_id\") | .verification" "$TASKS_FILE" 2>/dev/null || echo "")
+
+    if [[ -z "$verification" || "$verification" == "null" ]]; then
+        log_verbose "No task-specific verification defined for $task_id"
+        return 0
+    fi
+
+    log "Running task-specific verification for $task_id..."
+    log_verbose "Verification script:"
+    echo "$verification" | sed 's/^/    /' | head -5
+
+    # Execute verification in project root
+    cd "$PROJECT_ROOT"
+    if eval "$verification"; then
+        log_success "Task verification PASSED"
+        return 0
+    else
+        log_error "Task verification FAILED"
+        log_error "Task $task_id did not meet acceptance criteria"
+        return 1
+    fi
+}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN LOOP
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -464,7 +657,9 @@ run_init() {
     if [[ $result -eq 0 ]]; then
         log_session_end "$session_id" "COMPLETED" "Initialization successful"
         update_metrics "$session_id" "completed" "init"
+
         log_success "Initialization complete. Run ./ralph.sh to start the loop."
+        log "View task status with: ./ralph.sh --status"
     else
         log_session_end "$session_id" "FAILED" "Initialization failed"
         update_metrics "$session_id" "failed" "init"
@@ -510,19 +705,105 @@ run_loop() {
 
         log_session_start "$session_id"
 
+        # Select next task from tasks.yaml
+        local next_task_id
+        next_task_id=$(yq '.tasks[] | select(.completed == false) | .id' "$TASKS_FILE" 2>/dev/null | head -1)
+        if [[ -z "$next_task_id" ]]; then
+            log_error "No incomplete tasks found in tasks.yaml"
+            break
+        fi
+
+        log "Selected task: $next_task_id"
+
         # Run Claude session
         if run_claude_session "$PROMPT_FILE" "$session_id"; then
+            # ═══════════════════════════════════════════════════════════════
+            # VALIDATION PHASE - All checks must pass before metrics update
+            # ═══════════════════════════════════════════════════════════════
+
+            # CHECK 1: Verify actual code changes (not just docs/logs)
+            log "Checking for Swift code changes in ClaudeWatch/..."
+            if ! git_has_code_changes; then
+                log_error "CRITICAL: No Swift code changes detected in ClaudeWatch/"
+                log_error "Documentation changes don't count - must modify actual code"
+                log_error "This session will be marked as FAILED"
+                log_session_end "$session_id" "FAILED" "No code changes in ClaudeWatch/"
+                update_metrics "$session_id" "failed" "$next_task_id"
+                ((consecutive_failures++))
+
+                if [[ $consecutive_failures -ge $MAX_RETRIES ]]; then
+                    log_error "Too many consecutive failures ($consecutive_failures). Stopping."
+                    return 1
+                fi
+
+                log "Waiting ${RETRY_DELAY}s before retry..."
+                sleep "$RETRY_DELAY"
+                continue
+            fi
+            log_success "Swift code changes detected in ClaudeWatch/"
+
+            # CHECK 2: Verify task-specific files were modified
+            log "Checking if expected task files were modified..."
+            if ! git_has_task_file_changes "$next_task_id"; then
+                log_warning "Expected task files not modified, but ClaudeWatch/ has changes"
+                # Continue anyway - they may have modified different but related files
+            else
+                log_success "Task-specific files modified"
+            fi
+
+            # CHECK 3: Run task-specific verification
+            if ! run_task_verification "$next_task_id"; then
+                log_error "Task verification FAILED - work may be incomplete"
+                log_session_end "$session_id" "FAILED" "Task verification failed"
+                update_metrics "$session_id" "failed" "$next_task_id"
+                ((consecutive_failures++))
+
+                if [[ $consecutive_failures -ge $MAX_RETRIES ]]; then
+                    log_error "Too many consecutive failures ($consecutive_failures). Stopping."
+                    return 1
+                fi
+
+                log "Waiting ${RETRY_DELAY}s before retry..."
+                sleep "$RETRY_DELAY"
+                continue
+            fi
+
+            # CHECK 4: Verify tasks.yaml was updated (via state-manager or manually)
+            local task_completed
+            task_completed=$(yq ".tasks[] | select(.id == \"$next_task_id\") | .completed" "$TASKS_FILE" 2>/dev/null || echo "false")
+
+            if [[ "$task_completed" != "true" ]]; then
+                log_warning "tasks.yaml not updated by agent, auto-updating..."
+                # Auto-update using state-manager
+                if "$RALPH_DIR/state-manager.sh" complete "$next_task_id"; then
+                    log_success "Task $next_task_id auto-marked complete"
+                else
+                    log_error "Failed to auto-update task status"
+                    log_session_end "$session_id" "FAILED" "Could not mark task complete"
+                    update_metrics "$session_id" "failed" "$next_task_id"
+                    ((consecutive_failures++))
+                    continue
+                fi
+            else
+                log_success "Task $next_task_id marked complete in tasks.yaml"
+            fi
+
+            # CHECK 5: Run general verification harness
+            if ! run_verification; then
+                log_warning "General verification had issues (non-blocking)"
+            fi
+
+            # ═══════════════════════════════════════════════════════════════
+            # ALL CHECKS PASSED - Now safe to update metrics
+            # ═══════════════════════════════════════════════════════════════
+            log_success "All validation checks passed for task $next_task_id"
             log_session_end "$session_id" "COMPLETED" "Session completed successfully"
-            update_metrics "$session_id" "completed"
+            update_metrics "$session_id" "completed" "$next_task_id"
             consecutive_failures=0
 
-            # Run verification
-            if ! run_verification; then
-                log_warning "Post-session verification had issues"
-            fi
         else
             log_session_end "$session_id" "FAILED" "Session failed"
-            update_metrics "$session_id" "failed"
+            update_metrics "$session_id" "failed" "$next_task_id"
             ((consecutive_failures++))
 
             if [[ $consecutive_failures -ge $MAX_RETRIES ]]; then
@@ -555,11 +836,32 @@ run_loop() {
 
 cleanup() {
     echo ""
-    log "Received interrupt signal, cleaning up..."
+    log "Received interrupt signal (Ctrl+C), shutting down gracefully..."
+    echo ""
 
-    # Any cleanup needed here
+    # Show current progress
+    if [[ -f "$METRICS_FILE" ]] && command -v jq &> /dev/null; then
+        local sessions
+        local completed
+        sessions=$(jq '.totalSessions' "$METRICS_FILE" 2>/dev/null || echo "0")
+        completed=$(jq '.tasksCompleted' "$METRICS_FILE" 2>/dev/null || echo "0")
+        log "Session Summary:"
+        log "  - Total sessions run: $sessions"
+        log "  - Tasks completed: $completed"
+    fi
 
-    log "Goodbye!"
+    # Show incomplete task count
+    if [[ -f "$TASKS_FILE" ]]; then
+        local incomplete
+        incomplete=$(get_incomplete_task_count)
+        log "  - Tasks remaining: $incomplete"
+    fi
+
+    echo ""
+    log "Progress saved. Resume anytime with: ./ralph.sh"
+    log "View progress: ./ralph.sh --status"
+    echo ""
+    log_success "Shutdown complete"
     exit 130
 }
 
@@ -579,6 +881,10 @@ while [[ $# -gt 0 ]]; do
             VERBOSE=true
             shift
             ;;
+        -d|--debug)
+            DEBUG=true
+            shift
+            ;;
         --dry-run)
             DRY_RUN=true
             shift
@@ -589,6 +895,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --single)
             SINGLE_MODE=true
+            shift
+            ;;
+        --status)
+            STATUS_MODE=true
             shift
             ;;
         --max-iterations)
@@ -645,7 +955,9 @@ main() {
     fi
 
     # Run appropriate mode
-    if [[ "$INIT_MODE" == "true" ]]; then
+    if [[ "$STATUS_MODE" == "true" ]]; then
+        "$RALPH_DIR/state-manager.sh" list
+    elif [[ "$INIT_MODE" == "true" ]]; then
         run_init
     else
         run_loop

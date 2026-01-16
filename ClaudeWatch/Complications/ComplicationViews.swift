@@ -71,56 +71,66 @@ struct ClaudeWidgetEntryView: View {
 // MARK: - Circular Widget
 struct CircularWidgetView: View {
     let entry: ClaudeEntry
+    @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
     var body: some View {
         ZStack {
-            // Progress Ring
+            // Progress Ring - dimmed in always-on mode
             Circle()
-                .stroke(Color.green.opacity(0.3), lineWidth: 4)
+                .stroke(progressColor.opacity(isLuminanceReduced ? 0.15 : 0.3), lineWidth: 4)
 
             Circle()
                 .trim(from: 0, to: entry.progress)
-                .stroke(Color.green, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .stroke(progressColor.opacity(isLuminanceReduced ? 0.5 : 1.0), style: StrokeStyle(lineWidth: 4, lineCap: .round))
                 .rotationEffect(.degrees(-90))
 
             // Center Content
             VStack(spacing: 0) {
                 Image(systemName: entry.pendingCount > 0 ? "hand.raised.fill" : "terminal.fill")
                     .font(.system(size: 14))
-                    .foregroundColor(entry.pendingCount > 0 ? .orange : .green)
+                    .foregroundColor(iconColor.opacity(isLuminanceReduced ? 0.6 : 1.0))
 
                 if entry.pendingCount > 0 {
                     Text("\(entry.pendingCount)")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundColor(.orange)
+                        .font(.caption2.weight(.bold).monospaced())
+                        .foregroundColor(Color.orange.opacity(isLuminanceReduced ? 0.6 : 1.0))
                 }
             }
         }
         .padding(2)
+    }
+
+    private var progressColor: Color {
+        .green
+    }
+
+    private var iconColor: Color {
+        entry.pendingCount > 0 ? .orange : .green
     }
 }
 
 // MARK: - Rectangular Widget
 struct RectangularWidgetView: View {
     let entry: ClaudeEntry
+    @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             // Header
             HStack {
                 Image(systemName: "terminal.fill")
-                    .font(.system(size: 10))
-                    .foregroundColor(.green)
+                    .font(.caption2)
+                    .foregroundColor(greenColor)
 
                 Text("CLAUDE")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundColor(.green)
+                    .font(.caption2.weight(.bold).monospaced())
+                    .foregroundColor(greenColor)
 
                 Spacer()
 
                 if entry.isConnected {
                     Circle()
-                        .fill(Color.green)
+                        .fill(greenColor)
                         .frame(width: 6, height: 6)
                 }
             }
@@ -129,24 +139,25 @@ struct RectangularWidgetView: View {
             HStack {
                 Text(entry.taskName)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(isLuminanceReduced ? .gray : .white)
 
                 Spacer()
 
                 Text("\(Int(entry.progress * 100))%")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundColor(.green)
+                    .foregroundColor(greenColor)
             }
 
-            // Progress Bar
+            // Progress Bar - dimmed in always-on mode
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Rectangle()
-                        .fill(Color.gray.opacity(0.3))
+                        .fill(Color.gray.opacity(isLuminanceReduced ? 0.15 : 0.3))
                         .frame(height: 3)
                         .cornerRadius(1.5)
 
                     Rectangle()
-                        .fill(Color.green)
+                        .fill(greenColor)
                         .frame(width: geometry.size.width * entry.progress, height: 3)
                         .cornerRadius(1.5)
                 }
@@ -157,63 +168,85 @@ struct RectangularWidgetView: View {
             HStack {
                 if entry.pendingCount > 0 {
                     Text("\(entry.pendingCount) pending")
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundColor(.orange)
+                        .font(.caption2.monospaced())
+                        .foregroundColor(orangeColor)
                 } else {
                     Text("All clear")
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundColor(.green)
+                        .font(.caption2.monospaced())
+                        .foregroundColor(greenColor)
                 }
 
                 Spacer()
 
                 Text(entry.model)
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundColor(.purple)
+                    .font(.caption2.weight(.medium).monospaced())
+                    .foregroundColor(purpleColor)
             }
         }
         .padding(4)
+    }
+
+    // Dimmed colors for always-on mode
+    private var greenColor: Color {
+        Color.green.opacity(isLuminanceReduced ? 0.5 : 1.0)
+    }
+
+    private var orangeColor: Color {
+        Color.orange.opacity(isLuminanceReduced ? 0.5 : 1.0)
+    }
+
+    private var purpleColor: Color {
+        Color.purple.opacity(isLuminanceReduced ? 0.5 : 1.0)
     }
 }
 
 // MARK: - Corner Widget
 struct CornerWidgetView: View {
     let entry: ClaudeEntry
+    @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
     var body: some View {
         ZStack {
-            // Arc Progress
+            // Arc Progress - dimmed in always-on mode
             Circle()
                 .trim(from: 0, to: entry.progress)
-                .stroke(Color.green, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .stroke(greenColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                 .rotationEffect(.degrees(-90))
 
             VStack(spacing: 0) {
                 Text("\(Int(entry.progress * 100))")
                     .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .foregroundColor(isLuminanceReduced ? .gray : .white)
 
                 Text("%")
-                    .font(.system(size: 8, design: .monospaced))
+                    .font(.caption2.monospaced())
                     .foregroundColor(.gray)
             }
         }
+    }
+
+    private var greenColor: Color {
+        Color.green.opacity(isLuminanceReduced ? 0.5 : 1.0)
     }
 }
 
 // MARK: - Inline Widget
 struct InlineWidgetView: View {
     let entry: ClaudeEntry
+    @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "terminal.fill")
+                .foregroundColor(isLuminanceReduced ? .gray : .white)
 
             Text("\(entry.taskName) \(Int(entry.progress * 100))%")
                 .font(.system(size: 12, design: .monospaced))
+                .foregroundColor(isLuminanceReduced ? .gray : .white)
 
             if entry.pendingCount > 0 {
                 Text("• \(entry.pendingCount)")
-                    .foregroundColor(.orange)
+                    .foregroundColor(Color.orange.opacity(isLuminanceReduced ? 0.5 : 1.0))
             }
         }
     }

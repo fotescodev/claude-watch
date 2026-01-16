@@ -5,11 +5,16 @@ import UserNotifications
 @main
 struct ClaudeWatchApp: App {
     @WKApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    @AppStorage("hasAcceptedConsent") private var hasAcceptedConsent = false
 
     var body: some Scene {
         WindowGroup {
-            NavigationStack {
-                MainView()
+            if hasAcceptedConsent {
+                NavigationStack {
+                    MainView()
+                }
+            } else {
+                ConsentView()
             }
         }
     }
