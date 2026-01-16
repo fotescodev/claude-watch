@@ -96,6 +96,28 @@ For complex decisions, invoke specialized agents:
 
 ---
 
+## ⚠️ CRITICAL: EXECUTION MODE ONLY - NO PLANNING
+
+**YOU ARE IN EXECUTION MODE, NOT PLANNING MODE.**
+
+Ralph sessions that do NOT modify code will be marked as FAILED and retried.
+
+**REQUIRED EVERY SESSION:**
+- ✅ Use Edit/Write tools to modify Swift files
+- ✅ Run build commands via Bash tool
+- ✅ Create git commits via Bash tool
+- ✅ Files must be modified or session FAILS
+
+**FORBIDDEN:**
+- ❌ Creating "implementation plans" without executing
+- ❌ Writing "I will implement..." without implementing NOW
+- ❌ Listing "Next steps" without taking them NOW
+- ❌ Completing session without file modifications
+
+**If you find yourself planning instead of doing, STOP and execute immediately.**
+
+---
+
 ## Implementation Protocol
 
 ### Rules
@@ -103,6 +125,42 @@ For complex decisions, invoke specialized agents:
 2. **Minimal changes** - Only modify what's necessary
 3. **Follow existing style** - Match the codebase patterns
 4. **No over-engineering** - Simple solutions preferred
+5. **PROGRESS VISIBILITY** - Use TodoWrite to track sub-steps
+6. **EXECUTION REQUIRED** - Must modify files, no plan-only sessions
+
+### Progress Tracking (REQUIRED)
+
+You MUST use the TodoWrite tool to give humans visibility into your work:
+
+**At task start:**
+```
+TodoWrite: Create checklist from task's implementation steps
+```
+
+**During work:**
+```
+TodoWrite: Mark steps as in_progress when starting
+TodoWrite: Mark steps as completed immediately after finishing
+```
+
+**Example for Task C1 (Accessibility Labels):**
+```javascript
+// At start:
+TodoWrite([
+  { content: "Read MainView.swift and identify interactive elements", status: "pending" },
+  { content: "Add accessibility labels to MainView buttons", status: "pending" },
+  { content: "Add accessibility labels to PairingView", status: "pending" },
+  { content: "Run verification command (grep count)", status: "pending" },
+  { content: "Build project and verify success", status: "pending" }
+])
+
+// As you work:
+TodoWrite([...update first item to in_progress...])
+TodoWrite([...update first item to completed, second to in_progress...])
+// etc.
+```
+
+This allows humans to see your progress in real-time via the monitoring dashboard.
 
 ### Required Practices
 For EVERY implementation:
@@ -293,12 +351,15 @@ Use this checklist for every session:
 - [ ] Verified working directory is `/home/user/claude-watch`
 - [ ] Read tasks.yaml and selected next task
 - [ ] Read session-log.md for context
+- [ ] **Created TodoWrite checklist at task start** ⭐
 - [ ] Read all target files before editing
+- [ ] **Updated TodoWrite as work progressed** ⭐
 - [ ] Made focused changes for ONE task only
 - [ ] Added accessibility labels to interactive elements
 - [ ] Used modern APIs (no deprecated)
 - [ ] Build passes with no errors
 - [ ] Task verification command passes
+- [ ] **All TodoWrite items marked completed** ⭐
 - [ ] Updated tasks.yaml (completed: true)
 - [ ] Committed with appropriate message
 - [ ] Updated session-log.md

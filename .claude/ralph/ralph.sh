@@ -360,13 +360,20 @@ run_claude_session() {
     # Change to project root
     cd "$PROJECT_ROOT"
 
+    # Create progress log for monitoring
+    local progress_log="$RALPH_DIR/current-progress.log"
+    echo "→ Starting session $session_id at $(date '+%H:%M:%S')" > "$progress_log"
+
     # Run Claude with the prompt
     # Using --print to output results, piping the prompt via stdin
-    if cat "$prompt_file" | claude --print 2>&1; then
+    # Tee output to both console and progress log
+    if cat "$prompt_file" | claude --print 2>&1 | tee -a "$progress_log"; then
+        echo "✓ Session $session_id completed at $(date '+%H:%M:%S')" >> "$progress_log"
         log_success "Session $session_id completed"
         return 0
     else
         local exit_code=$?
+        echo "✗ Session $session_id failed at $(date '+%H:%M:%S')" >> "$progress_log"
         log_error "Session $session_id failed with exit code $exit_code"
         return $exit_code
     fi
@@ -510,10 +517,40 @@ run_loop() {
 
         log_session_start "$session_id"
 
+        # Select next task from tasks.yaml
+        local next_task_id
+        next_task_id=$(yq '.tasks[] | select(.completed == false) | .id' "$TASKS_FILE" 2>/dev/null | head -1)
+        if [[ -z "$next_task_id" ]]; then
+            log_error "No incomplete tasks found in tasks.yaml"
+            break
+        fi
+
+        log "Selected task: $next_task_id"
+
         # Run Claude session
         if run_claude_session "$PROMPT_FILE" "$session_id"; then
+            # CRITICAL: Verify files were actually modified (prevent plan-only behavior)
+            if git diff --cached --quiet && git diff --quiet; then
+                log_error "CRITICAL: No code changes detected after session"
+                log_error "Ralph must IMPLEMENT changes, not just plan"
+                log_error "This session will be marked as FAILED"
+                log_session_end "$session_id" "FAILED" "No code changes made"
+                update_metrics "$session_id" "failed" "$next_task_id"
+                ((consecutive_failures++))
+
+                if [[ $consecutive_failures -ge $MAX_RETRIES ]]; then
+                    log_error "Too many consecutive failures ($consecutive_failures). Stopping."
+                    return 1
+                fi
+
+                log "Waiting ${RETRY_DELAY}s before retry..."
+                sleep "$RETRY_DELAY"
+                continue
+            fi
+
+            log_success "Code changes detected - session valid"
             log_session_end "$session_id" "COMPLETED" "Session completed successfully"
-            update_metrics "$session_id" "completed"
+            update_metrics "$session_id" "completed" "$next_task_id"
             consecutive_failures=0
 
             # Run verification
@@ -522,7 +559,7 @@ run_loop() {
             fi
         else
             log_session_end "$session_id" "FAILED" "Session failed"
-            update_metrics "$session_id" "failed"
+            update_metrics "$session_id" "failed" "$next_task_id"
             ((consecutive_failures++))
 
             if [[ $consecutive_failures -ge $MAX_RETRIES ]]; then
