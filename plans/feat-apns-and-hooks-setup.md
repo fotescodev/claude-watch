@@ -82,35 +82,51 @@ curl -X POST https://claude-watch.fotescodev.workers.dev/request \
 
 ## Part 2: Enable Claude Code Hook
 
-### 2.1 Update Hook Configuration
+### 2.1 Pairing Setup (One-Time)
 
-The hook at `.claude/hooks/watch-approval-cloud.py` has a hardcoded `PAIRING_ID`. Update it:
+The hook now reads the pairing ID from a config file. Run the pairing helper:
 
-**File: `.claude/hooks/watch-approval-cloud.py` (line 21)**
-```python
-# Change from:
-PAIRING_ID = "0a7c5684-24a1-49b0-9c20-67ca7056d0c6"
-
-# To your current pairing ID:
-PAIRING_ID = "cbc5e577-a96d-4393-ad22-a57d13f4908a"  # From today's session
+```bash
+# Run the interactive pairing script
+python3 .claude/hooks/claude-watch-pair.py
 ```
 
-### 2.2 Enable Hook in Settings
+This will:
+1. Generate a pairing code from the cloud server
+2. Display the code for you to enter on your watch
+3. Wait for pairing completion
+4. Save the pairing ID to `~/.claude-watch-pairing`
 
-**File: `.claude/settings.local.json`**
+**Alternative: Manual Setup**
+```bash
+# Generate pairing code
+curl -X POST https://claude-watch.fotescodev.workers.dev/pair
+# Returns: {"code":"ABC-123","pairingId":"your-uuid-here",...}
 
-Update the `hooks` section:
+# Enter code on watch, then save the pairingId:
+echo "your-uuid-here" > ~/.claude-watch-pairing
+chmod 600 ~/.claude-watch-pairing
+```
+
+**Alternative: Environment Variable**
+```bash
+export CLAUDE_WATCH_PAIRING_ID="your-uuid-here"
+```
+
+### 2.2 Hook Configuration (Already Enabled)
+
+The hook is already enabled in `.claude/settings.json`:
 
 ```json
 {
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|Edit|Write|MultiEdit",
+        "matcher": "Bash|Write|Edit|MultiEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/watch-approval-cloud.py"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/watch-approval-cloud.py"
           }
         ]
       }
@@ -129,12 +145,14 @@ Update the `hooks` section:
 
 ---
 
-## Files to Modify
+## Files Modified
 
 | File | Change |
 |------|--------|
-| `.claude/hooks/watch-approval-cloud.py:21` | Update `PAIRING_ID` |
-| `.claude/settings.local.json` | Add `hooks` configuration |
+| `.claude/hooks/watch-approval-cloud.py` | ✅ Now reads pairing ID from `~/.claude-watch-pairing` or env var |
+| `.claude/hooks/claude-watch-pair.py` | ✅ NEW: Interactive pairing helper script |
+| `.claude/hooks/test_watch_approval.py` | ✅ NEW: Unit tests (22 tests) |
+| `.claude/settings.json` | ✅ Hook already enabled |
 
 ## External Actions Required
 
@@ -150,13 +168,20 @@ Update the `hooks` section:
 
 ## Verification Checklist
 
+### APNs Setup (Cloud)
 - [ ] APNs key created in Apple Developer Portal
 - [ ] Cloudflare secrets configured (`wrangler secret list` shows 3 secrets)
 - [ ] Worker deployed
 - [ ] Test request returns `apnsSent: true`
 - [ ] Physical watch receives push notification
-- [ ] Hook pairing ID updated
-- [ ] Hook enabled in settings
+
+### Hook Setup (Local)
+- [ ] Run unit tests: `python3 .claude/hooks/test_watch_approval.py` (22 tests pass)
+- [ ] Run pairing: `python3 .claude/hooks/claude-watch-pair.py`
+- [ ] Verify config saved: `cat ~/.claude-watch-pairing`
+- [ ] Hook enabled in settings (already done)
+
+### End-to-End Test
 - [ ] Claude Code bash command triggers watch notification
 - [ ] Approve on watch allows command to proceed
 - [ ] Reject on watch blocks command
@@ -165,7 +190,94 @@ Update the `hooks` section:
 
 ## Optional Improvements (Future)
 
-1. **Dynamic Pairing ID** - Read from a config file or environment variable instead of hardcoding
+1. ~~**Dynamic Pairing ID** - Read from a config file or environment variable instead of hardcoding~~ ✅ DONE
 2. **YOLO Mode Toggle** - Add way to temporarily bypass watch approval
 3. **Selective Approval** - Only require approval for certain commands (e.g., destructive ones)
 4. **Approval History** - Log approvals for audit trail
+
+---
+
+## TODO: Manual macOS Testing
+
+**Status**: Pending user testing on macOS environment
+
+### Prerequisites
+- macOS with Xcode installed
+- Apple Watch (physical or simulator)
+- Claude Code CLI installed
+
+### Test Steps
+
+#### 1. Run Unit Tests
+```bash
+cd /path/to/claude-watch
+python3 .claude/hooks/test_watch_approval.py
+# Expected: 22 tests pass
+```
+
+#### 2. Test Pairing Flow (Simulator)
+```bash
+# Start watch simulator
+open -a Simulator
+
+# Build and install app
+xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
+  -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm)' \
+  build
+
+# Run pairing helper
+python3 .claude/hooks/claude-watch-pair.py
+
+# Enter the displayed code in the watch app
+# Verify: ~/.claude-watch-pairing contains the pairing ID
+```
+
+#### 3. Test Hook Without Watch (Fail-Open)
+```bash
+# Remove pairing config temporarily
+mv ~/.claude-watch-pairing ~/.claude-watch-pairing.bak
+
+# In a Claude Code session, try a Bash command
+# Expected: Command runs immediately (no watch configured = fail open)
+# Expected stderr: "Claude Watch not configured..."
+
+# Restore config
+mv ~/.claude-watch-pairing.bak ~/.claude-watch-pairing
+```
+
+#### 4. Test Hook With Watch (Full Flow)
+```bash
+# Ensure watch app is running in simulator
+# Ensure ~/.claude-watch-pairing exists
+
+# In Claude Code, run: echo "test"
+# Expected: Request appears on watch simulator
+# Approve → command runs
+# Reject → command blocked
+
+# Test with Edit tool too
+```
+
+#### 5. Test Environment Variable Override
+```bash
+export CLAUDE_WATCH_PAIRING_ID="test-override-id"
+# Hook should use env var instead of file
+# Unset to restore normal behavior
+unset CLAUDE_WATCH_PAIRING_ID
+```
+
+### Expected Results
+
+| Test | Pass Criteria |
+|------|---------------|
+| Unit tests | 22/22 pass |
+| Pairing helper | Creates `~/.claude-watch-pairing` |
+| No config = fail open | Commands proceed with warning |
+| With config + approve | Commands proceed |
+| With config + reject | Commands blocked (exit 2) |
+| Env var override | Uses env var over file |
+
+### Notes
+- Physical watch requires APNs configuration (see Part 1)
+- Simulator uses `xcrun simctl push` for notifications
+- Hook timeout is 5 minutes (300 seconds)
