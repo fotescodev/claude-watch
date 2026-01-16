@@ -567,6 +567,30 @@ run_loop() {
             fi
 
             log_success "Code changes detected - session valid"
+
+            # CRITICAL: Verify tasks.yaml was updated
+            local task_completed
+            task_completed=$(yq ".tasks[] | select(.id == \"$next_task_id\") | .completed" "$TASKS_FILE" 2>/dev/null || echo "false")
+
+            if [[ "$task_completed" != "true" ]]; then
+                log_error "CRITICAL: tasks.yaml NOT updated for task $next_task_id"
+                log_error "Ralph must mark completed: true in tasks.yaml"
+                log_error "This session will be marked as FAILED"
+                log_session_end "$session_id" "FAILED" "Task not marked complete in tasks.yaml"
+                update_metrics "$session_id" "failed" "$next_task_id"
+                ((consecutive_failures++))
+
+                if [[ $consecutive_failures -ge $MAX_RETRIES ]]; then
+                    log_error "Too many consecutive failures ($consecutive_failures). Stopping."
+                    return 1
+                fi
+
+                log "Waiting ${RETRY_DELAY}s before retry..."
+                sleep "$RETRY_DELAY"
+                continue
+            fi
+
+            log_success "Task $next_task_id marked complete in tasks.yaml"
             log_session_end "$session_id" "COMPLETED" "Session completed successfully"
             update_metrics "$session_id" "completed" "$next_task_id"
             consecutive_failures=0
@@ -618,11 +642,32 @@ run_loop() {
 
 cleanup() {
     echo ""
-    log "Received interrupt signal, cleaning up..."
+    log "Received interrupt signal (Ctrl+C), shutting down gracefully..."
+    echo ""
 
-    # Any cleanup needed here
+    # Show current progress
+    if [[ -f "$METRICS_FILE" ]] && command -v jq &> /dev/null; then
+        local sessions
+        local completed
+        sessions=$(jq '.totalSessions' "$METRICS_FILE" 2>/dev/null || echo "0")
+        completed=$(jq '.tasksCompleted' "$METRICS_FILE" 2>/dev/null || echo "0")
+        log "Session Summary:"
+        log "  - Total sessions run: $sessions"
+        log "  - Tasks completed: $completed"
+    fi
 
-    log "Goodbye!"
+    # Show incomplete task count
+    if [[ -f "$TASKS_FILE" ]]; then
+        local incomplete
+        incomplete=$(get_incomplete_task_count)
+        log "  - Tasks remaining: $incomplete"
+    fi
+
+    echo ""
+    log "Progress saved. Resume anytime with: ./ralph.sh"
+    log "View progress: cat ralph-context-docs/TASKS.md"
+    echo ""
+    log_success "Shutdown complete"
     exit 130
 }
 
