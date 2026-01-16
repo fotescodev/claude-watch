@@ -130,6 +130,11 @@ class WatchService: ObservableObject {
 
     // MARK: - Connection
     func connect() {
+        // Skip WebSocket connection in cloud mode - use polling instead
+        if useCloudMode {
+            return
+        }
+
         // Cancel any existing reconnect attempt
         reconnectTask?.cancel()
 
