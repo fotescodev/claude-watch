@@ -471,6 +471,15 @@ run_init() {
     if [[ $result -eq 0 ]]; then
         log_session_end "$session_id" "COMPLETED" "Initialization successful"
         update_metrics "$session_id" "completed" "init"
+
+        # Generate initial TASKS.md
+        log "Generating initial TASKS.md..."
+        if python3 "$RALPH_DIR/generate-tasks-md.py" 2>&1 | grep -q "successfully"; then
+            log_success "TASKS.md generated"
+        else
+            log_warning "Failed to generate TASKS.md"
+        fi
+
         log_success "Initialization complete. Run ./ralph.sh to start the loop."
     else
         log_session_end "$session_id" "FAILED" "Initialization failed"
@@ -552,6 +561,14 @@ run_loop() {
             log_session_end "$session_id" "COMPLETED" "Session completed successfully"
             update_metrics "$session_id" "completed" "$next_task_id"
             consecutive_failures=0
+
+            # Regenerate TASKS.md from tasks.yaml
+            log "Updating TASKS.md from tasks.yaml..."
+            if python3 "$RALPH_DIR/generate-tasks-md.py" 2>&1 | grep -q "successfully"; then
+                log_success "TASKS.md updated"
+            else
+                log_warning "Failed to update TASKS.md"
+            fi
 
             # Run verification
             if ! run_verification; then
