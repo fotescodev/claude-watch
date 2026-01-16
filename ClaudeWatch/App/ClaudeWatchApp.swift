@@ -8,7 +8,9 @@ struct ClaudeWatchApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainView()
+            NavigationStack {
+                MainView()
+            }
         }
     }
 }

@@ -871,6 +871,9 @@ class WatchService: ObservableObject {
 
     // MARK: - Demo Mode (for UI testing)
     func loadDemoData() {
+        // Enable demo mode flag
+        isDemoMode = true
+
         // Simulate connected state
         connectionStatus = .connected
 

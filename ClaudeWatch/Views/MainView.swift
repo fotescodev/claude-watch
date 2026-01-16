@@ -243,6 +243,7 @@ struct StatusHeader: View {
 // MARK: - Empty State
 struct EmptyStateView: View {
     @ObservedObject private var service = WatchService.shared
+    @State private var showingPairing = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -252,43 +253,66 @@ struct EmptyStateView: View {
                     .fill(Claude.surface1)
                     .frame(width: 80, height: 80)
 
-                Image(systemName: "tray")
+                Image(systemName: service.isPaired ? "tray" : "link.circle")
                     .font(.system(size: 32, weight: .light))
                     .foregroundColor(Claude.textTertiary)
             }
 
             // Text
-            Text("All Clear")
+            Text(service.isPaired ? "All Clear" : "Not Paired")
                 .font(.system(size: 24, weight: .bold))
                 .foregroundColor(Claude.textPrimary)
 
-            Text("No pending actions")
+            Text(service.isPaired ? "No pending actions" : "Connect to Claude Code")
                 .font(.system(size: 13))
                 .foregroundColor(Claude.textSecondary)
 
             // Connection status
             HStack(spacing: 6) {
                 Circle()
-                    .fill(Claude.success)
+                    .fill(service.isPaired ? Claude.success : Claude.warning)
                     .frame(width: 6, height: 6)
-                Text("Connected")
+                Text(service.isPaired ? "Connected" : "Awaiting pairing")
                     .font(.system(size: 11))
                     .foregroundColor(Claude.textTertiary)
             }
             .padding(.top, 8)
 
-            // Demo button (for testing)
-            Button {
-                service.loadDemoData()
-            } label: {
-                Text("Load Demo")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(Claude.orange)
+            // Pair button (when not paired) or Demo button
+            if !service.isPaired && service.useCloudMode {
+                Button {
+                    showingPairing = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "link")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Pair with Code")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Claude.orange)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
+            } else {
+                Button {
+                    service.loadDemoData()
+                } label: {
+                    Text("Load Demo")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Claude.orange)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
             }
-            .buttonStyle(.plain)
-            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .sheet(isPresented: $showingPairing) {
+            PairingView(service: service)
+        }
     }
 }
 
@@ -929,8 +953,40 @@ struct SettingsSheet: View {
                 }
                 .padding(.vertical, 4)
 
+                // Demo Mode Section
+                if service.isDemoMode {
+                    VStack(spacing: 12) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "play.circle.fill")
+                                .foregroundColor(Claude.warning)
+                            Text("Demo Mode Active")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Claude.warning)
+                        }
+
+                        Button {
+                            service.isDemoMode = false
+                            service.state = WatchState()
+                            service.connectionStatus = .disconnected
+                            service.pairingId = ""  // Reset pairing to show PairingView
+                            WKInterfaceDevice.current().play(.click)
+                            dismiss()
+                        } label: {
+                            Text("Exit Demo Mode")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Claude.orange)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.vertical, 8)
+                }
+
                 // Cloud Mode Section
-                if service.useCloudMode {
+                if service.useCloudMode && !service.isDemoMode {
                     VStack(spacing: 12) {
                         if service.isPaired {
                             // Show paired status

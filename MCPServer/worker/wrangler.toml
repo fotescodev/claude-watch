@@ -19,4 +19,5 @@ id = "a96675a4ff09467f82f3044fcbb728ab"
 # APNS_BUNDLE_ID - App bundle ID
 
 [vars]
-APNS_BUNDLE_ID = "com.anthropic.claudecode.watchkitapp"
+APNS_BUNDLE_ID = "com.edgeoftrust.claudewatch"
+APNS_SANDBOX = "true"  # Use sandbox for dev builds, set to "false" for App Store

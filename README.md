@@ -495,10 +495,6 @@ curl -X POST http://localhost:8788/action/respond \
 
 ---
 
-
-
----
-
 <br/>
 
 ## 📜 License
@@ -515,14 +511,6 @@ MIT License — see [LICENSE](LICENSE) for details.
   <strong>Built for developers who code on the move.</strong>
   <br/>
   <em>Inspired by the <a href="https://reddit.com/r/vibecoding">vibecoding</a> hardware control deck.</em>
-</p>
-
-<p align="center">
-  <a href="https://github.com/anthropics/claude-watch/stargazers">⭐ Star us on GitHub</a>
-  •
-  <a href="https://twitter.com/anthropaboromicclaude">🐦 Follow for updates</a>
-  •
-  <a href="https://discord.gg/claudecode">💬 Join Discord</a>
 </p>
 
 <br/>

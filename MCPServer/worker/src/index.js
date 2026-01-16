@@ -47,9 +47,12 @@ async function sendAPNs(env, deviceToken, payload) {
 
     const token = await createJWT(header, claims, privateKey);
 
-    // Send to APNs
+    // Send to APNs (sandbox for dev builds, production for App Store)
+    const apnsHost = env.APNS_SANDBOX === 'true'
+      ? 'api.sandbox.push.apple.com'
+      : 'api.push.apple.com';
     const response = await fetch(
-      `https://api.push.apple.com/3/device/${deviceToken}`,
+      `https://${apnsHost}/3/device/${deviceToken}`,
       {
         method: 'POST',
         headers: {
