@@ -1,0 +1,357 @@
+# watchOS Ralph Loop - Task Definition
+# This file defines all tasks for the autonomous coding loop.
+# Tasks are processed by priority within parallel groups.
+
+version: "1.0"
+project: "ClaudeWatch"
+platform: "watchOS"
+min_deployment: "10.6"
+swift_version: "5.9"
+
+settings:
+  require_build_pass: true
+  require_accessibility: true
+  require_hig_compliance: true
+  auto_liquid_glass: true
+
+tasks:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 1: CRITICAL - App Store Blockers
+  # Parallel Group 1: Can run concurrently
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: "C1"
+    title: "Add accessibility labels to all interactive elements"
+    description: |
+      Add .accessibilityLabel() modifiers to all Button, NavigationLink,
+      and interactive elements in MainView.swift and SettingsView.swift.
+      This is required for App Store approval and VoiceOver support.
+    priority: critical
+    parallel_group: 1
+    completed: false
+    verification: |
+      count=$(grep -r 'accessibilityLabel' ClaudeWatch/Views/*.swift 2>/dev/null | wc -l);
+      [ "$count" -ge 10 ] && exit 0 || exit 1
+    acceptance_criteria:
+      - "Every Button has .accessibilityLabel()"
+      - "Every NavigationLink has .accessibilityLabel()"
+      - "VoiceOver announces all elements correctly"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Views/SettingsView.swift"
+    tags:
+      - accessibility
+      - app-store
+      - hig
+    commit_template: "fix(a11y): Add accessibility labels to interactive elements"
+
+  - id: "C2"
+    title: "Create app icon assets for all required sizes"
+    description: |
+      Generate PNG app icons for all 16 required watchOS sizes.
+      Use the Claude logo or create appropriate branding.
+      Icons must be provided for all sizes in Contents.json.
+    priority: critical
+    parallel_group: 1
+    completed: false
+    verification: |
+      count=$(ls ClaudeWatch/Assets.xcassets/AppIcon.appiconset/*.png 2>/dev/null | wc -l);
+      [ "$count" -ge 8 ] && exit 0 || exit 1
+    acceptance_criteria:
+      - "PNG files exist for all required sizes"
+      - "Icons render correctly in simulator"
+      - "No placeholder or missing images"
+    files:
+      - "ClaudeWatch/Assets.xcassets/AppIcon.appiconset/"
+    tags:
+      - assets
+      - app-store
+    commit_template: "feat(assets): Add watchOS app icon assets"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Parallel Group 2: Depends on Group 1
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: "C3"
+    title: "Add AI data consent dialog on first launch"
+    description: |
+      Display consent dialog on first launch explaining:
+      - Data sent to Claude API for processing
+      - Voice transcription handling
+      - No data sold to third parties
+      Use @AppStorage to track consent state.
+    priority: critical
+    parallel_group: 2
+    completed: false
+    depends_on:
+      - "C1"
+    verification: |
+      grep -q 'hasAcceptedConsent\|ConsentView\|privacyConsent' ClaudeWatch/ -r && exit 0 || exit 1
+    acceptance_criteria:
+      - "Consent view shown on first launch"
+      - "@AppStorage tracks consent state"
+      - "User can review consent in Settings"
+    files:
+      - "ClaudeWatch/Views/ConsentView.swift"
+      - "ClaudeWatch/App/ClaudeWatchApp.swift"
+      - "ClaudeWatch/Views/SettingsView.swift"
+    tags:
+      - privacy
+      - app-store
+      - onboarding
+    commit_template: "feat(privacy): Add AI data consent dialog"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 2: HIGH PRIORITY - Quality & Polish
+  # Parallel Group 3: Can run concurrently
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: "H1"
+    title: "Fix font sizes below 11pt minimum"
+    description: |
+      Replace hardcoded font sizes in ComplicationViews.swift with
+      semantic styles. Ensure all text meets 11pt minimum per HIG.
+      Use .caption, .caption2, .footnote instead of explicit sizes.
+    priority: high
+    parallel_group: 3
+    completed: false
+    verification: |
+      ! grep -E '\.font\(.*size:\s*([0-9]|10)\.' ClaudeWatch/ -r 2>/dev/null
+    acceptance_criteria:
+      - "No font sizes below 11pt"
+      - "Use semantic styles where possible"
+      - "Complications remain readable"
+    files:
+      - "ClaudeWatch/Complications/ComplicationViews.swift"
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - hig
+      - typography
+      - accessibility
+    commit_template: "fix(hig): Ensure minimum 11pt font sizes"
+
+  - id: "H2"
+    title: "Wire App Groups for complication data sharing"
+    description: |
+      Configure App Groups entitlement and use UserDefaults(suiteName:)
+      for sharing state between main app and complications.
+    priority: high
+    parallel_group: 3
+    completed: false
+    verification: |
+      grep -q 'group.com' ClaudeWatch/*.entitlements 2>/dev/null || \
+      grep -q 'suiteName' ClaudeWatch/Services/*.swift 2>/dev/null
+    acceptance_criteria:
+      - "App Groups entitlement configured"
+      - "Complications can read shared state"
+      - "State persists across app launches"
+    files:
+      - "ClaudeWatch/ClaudeWatch.entitlements"
+      - "ClaudeWatch/Services/WatchService.swift"
+      - "ClaudeWatch/Complications/ComplicationViews.swift"
+    tags:
+      - entitlements
+      - complications
+      - state
+    commit_template: "feat(complications): Wire App Groups for data sharing"
+
+  - id: "H3"
+    title: "Add recording indicator for voice input"
+    description: |
+      Show visual indicator when microphone is active.
+      Required by App Store guidelines for privacy.
+      Include haptic feedback on start/stop.
+    priority: high
+    parallel_group: 3
+    completed: false
+    verification: |
+      grep -q 'isRecording\|RecordingIndicator\|recordingState' ClaudeWatch/Views/ -r
+    acceptance_criteria:
+      - "Red dot or pulsing indicator during recording"
+      - "Indicator visible in all lighting conditions"
+      - "Haptic feedback on recording start/stop"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Views/Components/RecordingIndicator.swift"
+    tags:
+      - voice
+      - privacy
+      - app-store
+    commit_template: "feat(voice): Add recording indicator"
+
+  - id: "H4"
+    title: "Update Swift version to 5.9+ in build settings"
+    description: |
+      Update SWIFT_VERSION in project.pbxproj from 5.0 to 5.9.
+      Enable strict concurrency checking for better safety.
+    priority: high
+    parallel_group: 3
+    completed: false
+    verification: |
+      grep -q 'SWIFT_VERSION = 5\.[9]' ClaudeWatch.xcodeproj/project.pbxproj || \
+      grep -q 'SWIFT_VERSION = 6' ClaudeWatch.xcodeproj/project.pbxproj
+    acceptance_criteria:
+      - "Swift 5.9+ in build settings"
+      - "No compilation errors"
+      - "Strict concurrency warnings addressed"
+    files:
+      - "ClaudeWatch.xcodeproj/project.pbxproj"
+    tags:
+      - build
+      - swift
+      - quality
+    commit_template: "build: Update Swift version to 5.9"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 3: MEDIUM PRIORITY - Enhancement
+  # Parallel Group 4: Can run concurrently
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: "M1"
+    title: "Implement Digital Crown support"
+    description: |
+      Add .digitalCrownRotation() for scrolling lists and adjusting values.
+      Provide haptic feedback on detent boundaries.
+    priority: medium
+    parallel_group: 4
+    completed: false
+    verification: |
+      grep -q 'digitalCrownRotation\|DigitalCrown' ClaudeWatch/Views/ -r
+    acceptance_criteria:
+      - "Crown scrolls message history"
+      - "Haptic feedback on boundaries"
+      - "Smooth rotation feel"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - hig
+      - input
+      - haptics
+    commit_template: "feat(input): Add Digital Crown support"
+
+  - id: "M2"
+    title: "Add Always-On Display support"
+    description: |
+      Detect .isLuminanceReduced environment and show simplified UI.
+      Reduce colors, hide animations, show essential info only.
+    priority: medium
+    parallel_group: 4
+    completed: false
+    verification: |
+      grep -q 'isLuminanceReduced' ClaudeWatch/Views/ -r
+    acceptance_criteria:
+      - "Simplified UI in always-on mode"
+      - "No bright colors or animations"
+      - "Connection status always visible"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Complications/ComplicationViews.swift"
+    tags:
+      - always-on
+      - hig
+      - battery
+    commit_template: "feat(display): Add Always-On Display support"
+
+  - id: "M3"
+    title: "Add Dynamic Type support"
+    description: |
+      Use .dynamicTypeSize environment and prefer semantic fonts.
+      Test with all accessibility sizes.
+      Use @ScaledMetric for custom sizes.
+    priority: medium
+    parallel_group: 4
+    completed: false
+    verification: |
+      grep -q 'dynamicTypeSize\|@ScaledMetric\|DynamicType' ClaudeWatch/Views/ -r
+    acceptance_criteria:
+      - "Text scales with system setting"
+      - "Layout adapts to larger sizes"
+      - "No text truncation at largest size"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Views/SettingsView.swift"
+    tags:
+      - accessibility
+      - typography
+      - hig
+    commit_template: "feat(a11y): Add Dynamic Type support"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 4: WATCHOS 26 / LIQUID GLASS
+  # Parallel Group 5: Can run concurrently
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: "LG1"
+    title: "Adopt Liquid Glass materials"
+    description: |
+      Replace .opacity() backgrounds with .glassBackgroundEffect().
+      Update to translucent, depth-aware UI components.
+      Ensure fallback for older watchOS versions if needed.
+    priority: medium
+    parallel_group: 5
+    completed: false
+    verification: |
+      grep -q 'glassBackgroundEffect\|\.glass\|ultraThinMaterial' ClaudeWatch/Views/ -r
+    acceptance_criteria:
+      - "Glass materials on primary containers"
+      - "Proper light refraction effects"
+      - "Maintains readability"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Views/Components/"
+    tags:
+      - liquid-glass
+      - watchos26
+      - design
+    commit_template: "feat(design): Adopt Liquid Glass materials"
+
+  - id: "LG2"
+    title: "Add spring animations"
+    description: |
+      Replace linear animations with .spring() for natural feel.
+      Use .interpolatingSpring() for interactive elements.
+    priority: low
+    parallel_group: 5
+    completed: false
+    verification: |
+      grep -q '\.spring\|interpolatingSpring\|\.bouncy' ClaudeWatch/Views/ -r
+    acceptance_criteria:
+      - "Buttons use spring animations"
+      - "Transitions feel natural"
+      - "No jarring or abrupt motion"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - animation
+      - liquid-glass
+      - hig
+    commit_template: "feat(animation): Add spring animations"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 5: TESTING & DOCUMENTATION
+  # Parallel Group 6
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: "T1"
+    title: "Add UI tests for critical flows"
+    description: |
+      Create XCUITest cases for:
+      - App launch and consent flow
+      - Connection status display
+      - Approval/rejection actions
+      - Settings navigation
+    priority: medium
+    parallel_group: 6
+    completed: false
+    verification: |
+      ls ClaudeWatch/Tests/UI*.swift 2>/dev/null | wc -l | grep -q '[1-9]'
+    acceptance_criteria:
+      - "UI tests for main user flows"
+      - "Tests pass on simulator"
+      - "Good coverage of critical paths"
+    files:
+      - "ClaudeWatch/Tests/UITests/"
+    tags:
+      - testing
+      - quality
+    commit_template: "test(ui): Add UI tests for critical flows"
