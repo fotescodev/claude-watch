@@ -587,6 +587,88 @@ create_pull_request() {
 # VERIFICATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Get available watchOS simulator dynamically
+get_watch_simulator() {
+    local sim_name
+    sim_name=$(xcrun simctl list devices available 2>/dev/null | grep -i "Apple Watch" | head -1 | sed 's/^ *//' | sed 's/ (.*//')
+
+    if [[ -z "$sim_name" ]]; then
+        echo "Apple Watch Series 11 (42mm)"  # Fallback
+    else
+        echo "$sim_name"
+    fi
+}
+
+# Check all Swift files are in Xcode project
+run_project_sync_check() {
+    log "Checking Xcode project sync..."
+
+    cd "$PROJECT_ROOT"
+
+    local project_file="ClaudeWatch.xcodeproj/project.pbxproj"
+    local missing=0
+
+    while IFS= read -r -d '' swift_file; do
+        local filename
+        filename=$(basename "$swift_file")
+
+        if ! grep -q "$filename" "$project_file" 2>/dev/null; then
+            log_error "MISSING from Xcode project: $swift_file"
+            ((missing++))
+        fi
+    done < <(find ClaudeWatch -name "*.swift" ! -path "*/Tests/*" -print0 2>/dev/null)
+
+    if [[ $missing -gt 0 ]]; then
+        log_error "Found $missing Swift files not in Xcode project!"
+        log_error "Files exist on disk but won't compile - add them to project.pbxproj"
+        return 1
+    fi
+
+    log_success "All Swift files are in Xcode project"
+    return 0
+}
+
+# Run xcodebuild to verify the project compiles
+run_build_check() {
+    log "Running mandatory build verification..."
+
+    cd "$PROJECT_ROOT"
+
+    # Check if xcodebuild is available
+    if ! command -v xcodebuild &> /dev/null; then
+        log_warning "xcodebuild not available, skipping build check"
+        return 0
+    fi
+
+    # Get available simulator
+    local simulator
+    simulator=$(get_watch_simulator)
+    log_verbose "Using simulator: $simulator"
+
+    # Run build
+    local build_output
+    build_output=$(mktemp)
+
+    if xcodebuild -project ClaudeWatch.xcodeproj \
+        -scheme ClaudeWatch \
+        -destination "platform=watchOS Simulator,name=$simulator" \
+        -quiet \
+        build 2>&1 | tee "$build_output" | tail -10; then
+
+        if grep -qE "BUILD SUCCEEDED|Build Succeeded" "$build_output"; then
+            log_success "Build succeeded"
+            rm -f "$build_output"
+            return 0
+        fi
+    fi
+
+    log_error "Build FAILED"
+    log_error "Last 20 lines of build output:"
+    tail -20 "$build_output"
+    rm -f "$build_output"
+    return 2
+}
+
 run_verification() {
     if [[ ! -x "$VERIFY_SCRIPT" ]]; then
         log_warning "Verification script not executable or not found"
@@ -720,6 +802,43 @@ run_loop() {
             # ═══════════════════════════════════════════════════════════════
             # VALIDATION PHASE - All checks must pass before metrics update
             # ═══════════════════════════════════════════════════════════════
+
+            # CHECK 0: Project sync - all Swift files must be in Xcode project
+            if ! run_project_sync_check; then
+                log_error "CRITICAL: Swift files missing from Xcode project!"
+                log_error "Files exist on disk but won't compile"
+                log_session_end "$session_id" "FAILED" "Project sync failed - missing files"
+                update_metrics "$session_id" "failed" "$next_task_id"
+                jq '.buildFailures += 1' "$METRICS_FILE" > "$METRICS_FILE.tmp" && mv "$METRICS_FILE.tmp" "$METRICS_FILE"
+                ((consecutive_failures++))
+
+                if [[ $consecutive_failures -ge $MAX_RETRIES ]]; then
+                    log_error "Too many consecutive failures ($consecutive_failures). Stopping."
+                    return 1
+                fi
+
+                log "Waiting ${RETRY_DELAY}s before retry..."
+                sleep "$RETRY_DELAY"
+                continue
+            fi
+
+            # CHECK 0.5: Mandatory build verification
+            if ! run_build_check; then
+                log_error "CRITICAL: Build failed!"
+                log_session_end "$session_id" "FAILED" "Build verification failed"
+                update_metrics "$session_id" "failed" "$next_task_id"
+                jq '.buildFailures += 1' "$METRICS_FILE" > "$METRICS_FILE.tmp" && mv "$METRICS_FILE.tmp" "$METRICS_FILE"
+                ((consecutive_failures++))
+
+                if [[ $consecutive_failures -ge $MAX_RETRIES ]]; then
+                    log_error "Too many consecutive failures ($consecutive_failures). Stopping."
+                    return 1
+                fi
+
+                log "Waiting ${RETRY_DELAY}s before retry..."
+                sleep "$RETRY_DELAY"
+                continue
+            fi
 
             # CHECK 1: Verify actual code changes (not just docs/logs)
             log "Checking for Swift code changes in ClaudeWatch/..."
