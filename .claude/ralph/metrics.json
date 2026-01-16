@@ -3,15 +3,15 @@
   "project": "ClaudeWatch",
   "platform": "watchOS",
   "initialized": "",
-  "lastSession": "2026-01-16T17:28:10Z",
-  "totalSessions": 6,
+  "lastSession": "2026-01-16T19:56:56Z",
+  "totalSessions": 21,
   "totalTokens": {
     "input": 0,
     "output": 0
   },
   "estimatedCost": 0.00,
-  "tasksCompleted": 0,
-  "tasksFailed": 0,
+  "tasksCompleted": 6,
+  "tasksFailed": 9,
   "totalRetries": 0,
   "buildFailures": 0,
   "sessions": [
@@ -49,6 +49,96 @@
       "id": "session-001",
       "timestamp": "2026-01-16T17:28:10Z",
       "taskId": "C1",
+      "status": "completed"
+    },
+    {
+      "id": "session-002",
+      "timestamp": "2026-01-16T17:31:32Z",
+      "taskId": "C1",
+      "status": "completed"
+    },
+    {
+      "id": "session-003",
+      "timestamp": "2026-01-16T17:36:13Z",
+      "taskId": "C1",
+      "status": "completed"
+    },
+    {
+      "id": "session-004",
+      "timestamp": "2026-01-16T17:39:24Z",
+      "taskId": "C1",
+      "status": "completed"
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-16T18:27:54Z",
+      "taskId": "C1",
+      "status": "failed"
+    },
+    {
+      "id": "session-002",
+      "timestamp": "2026-01-16T18:30:25Z",
+      "taskId": "C2",
+      "status": "failed"
+    },
+    {
+      "id": "session-003",
+      "timestamp": "2026-01-16T18:34:46Z",
+      "taskId": "C3",
+      "status": "failed"
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-16T18:45:07Z",
+      "taskId": "H1",
+      "status": "failed"
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-16T18:59:31Z",
+      "taskId": "H3",
+      "status": "failed"
+    },
+    {
+      "id": "session-002",
+      "timestamp": "2026-01-16T19:02:08Z",
+      "taskId": "H4",
+      "status": "failed"
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-16T19:05:25Z",
+      "taskId": "M1",
+      "status": "failed"
+    },
+    {
+      "id": "session-002",
+      "timestamp": "2026-01-16T19:09:27Z",
+      "taskId": "M2",
+      "status": "failed"
+    },
+    {
+      "id": "session-003",
+      "timestamp": "2026-01-16T19:16:07Z",
+      "taskId": "M3",
+      "status": "failed"
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-16T19:48:08Z",
+      "taskId": "LG1",
+      "status": "completed"
+    },
+    {
+      "id": "session-002",
+      "timestamp": "2026-01-16T19:52:39Z",
+      "taskId": "LG2",
+      "status": "completed"
+    },
+    {
+      "id": "session-003",
+      "timestamp": "2026-01-16T19:56:56Z",
+      "taskId": "T1",
       "status": "completed"
     }
   ]

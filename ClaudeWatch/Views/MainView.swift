@@ -1,6 +1,8 @@
 import SwiftUI
 import WatchKit
 
+// RALPH_TEST: Loop verification successful
+
 // MARK: - Design System (watchOS Native)
 private enum Claude {
     // Primary & Accent - Orange as Claude identity
@@ -33,12 +35,32 @@ struct MainView: View {
     @State private var showingSettings = false
     @State private var pulsePhase: CGFloat = 0
 
+    // Digital Crown state for scrolling
+    @State private var crownValue: Double = 0.0
+    @State private var lastHapticValue: Double = 0.0
+    private let hapticInterval: Double = 0.1  // Trigger haptic every 0.1 units
+
+    // Always-On Display support
+    @Environment(\.isLuminanceReduced) var isLuminanceReduced
+
+    // Dynamic Type support
+    @Environment(\.dynamicTypeSize) var dynamicTypeSize
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 12
+
     var body: some View {
         ZStack {
             Claude.background.ignoresSafeArea()
 
+            // Always-On Display: Show simplified view
+            if isLuminanceReduced {
+                AlwaysOnDisplayView(
+                    connectionStatus: service.connectionStatus,
+                    pendingCount: service.state.pendingActions.count,
+                    status: service.state.status
+                )
+            }
             // Content based on state
-            if service.useCloudMode && !service.isPaired && !service.isDemoMode {
+            else if service.useCloudMode && !service.isPaired && !service.isDemoMode {
                 PairingView(service: service)
             } else if service.connectionStatus == .disconnected && !service.isDemoMode {
                 OfflineStateView()
@@ -64,6 +86,7 @@ struct MainView: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(connectionColor)
                 }
+                .accessibilityLabel("Settings and connection status")
             }
         }
         .sheet(isPresented: $showingVoiceInput) {
@@ -110,6 +133,27 @@ struct MainView: View {
             .padding(.horizontal, 4)
             .padding(.bottom, 12)
         }
+        .focusable()
+        .digitalCrownRotation(
+            $crownValue,
+            from: 0.0,
+            through: 1.0,
+            sensitivity: .medium,
+            isContinuous: false,
+            isHapticFeedbackEnabled: true
+        )
+        .onChange(of: crownValue) { oldValue, newValue in
+            // Provide haptic feedback at boundaries
+            if newValue <= 0.01 || newValue >= 0.99 {
+                WKInterfaceDevice.current().play(.directionUp)
+            }
+            // Provide subtle haptic feedback at regular intervals
+            else if abs(newValue - lastHapticValue) >= hapticInterval {
+                lastHapticValue = newValue
+                WKInterfaceDevice.current().play(.click)
+            }
+        }
+        .accessibilityLabel("Main content, use Digital Crown to scroll")
     }
 
     private var connectionIcon: String {
@@ -136,10 +180,34 @@ struct MainView: View {
     }
 }
 
+// MARK: - Spring Animation Extensions
+extension Animation {
+    /// Standard spring animation for interactive button feedback
+    static var buttonSpring: Animation {
+        .spring(response: 0.35, dampingFraction: 0.7, blendDuration: 0)
+    }
+
+    /// Bouncy spring for attention-grabbing elements
+    static var bouncySpring: Animation {
+        .interpolatingSpring(stiffness: 200, damping: 15)
+    }
+
+    /// Gentle spring for subtle transitions
+    static var gentleSpring: Animation {
+        .spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0)
+    }
+}
+
 // MARK: - Status Header
 struct StatusHeader: View {
     @ObservedObject private var service = WatchService.shared
     let pulsePhase: CGFloat
+
+    // Dynamic Type support - scale icon sizes with text
+    @ScaledMetric(relativeTo: .headline) private var statusIconContainerSize: CGFloat = 32
+    @ScaledMetric(relativeTo: .headline) private var statusIconSize: CGFloat = 14
+    @ScaledMetric(relativeTo: .body) private var badgeSize: CGFloat = 28
+    @ScaledMetric(relativeTo: .caption) private var badgeFontSize: CGFloat = 13
 
     var body: some View {
         VStack(spacing: 8) {
@@ -149,28 +217,28 @@ struct StatusHeader: View {
                 ZStack {
                     Circle()
                         .fill(statusColor.opacity(0.2))
-                        .frame(width: 32, height: 32)
+                        .frame(width: statusIconContainerSize, height: statusIconContainerSize)
 
                     if service.state.status == .running || service.state.status == .waiting {
                         Circle()
                             .fill(statusColor.opacity(0.3))
-                            .frame(width: 32, height: 32)
+                            .frame(width: statusIconContainerSize, height: statusIconContainerSize)
                             .scaleEffect(1 + pulsePhase * 0.2)
                     }
 
                     Image(systemName: statusIcon)
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: statusIconSize, weight: .bold))
                         .foregroundColor(statusColor)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(statusText)
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.headline)
                         .foregroundColor(Claude.textPrimary)
 
                     if !service.state.taskName.isEmpty {
                         Text(service.state.taskName)
-                            .font(.system(size: 11))
+                            .font(.caption2)
                             .foregroundColor(Claude.textSecondary)
                             .lineLimit(1)
                     }
@@ -181,9 +249,9 @@ struct StatusHeader: View {
                 // Pending badge
                 if !service.state.pendingActions.isEmpty {
                     Text("\(service.state.pendingActions.count)")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.system(size: badgeFontSize, weight: .bold))
                         .foregroundColor(.white)
-                        .frame(width: 28, height: 28)
+                        .frame(width: badgeSize, height: badgeSize)
                         .background(Claude.orange)
                         .clipShape(Circle())
                 }
@@ -199,7 +267,7 @@ struct StatusHeader: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Claude.surface1)
+                .fill(.ultraThinMaterial)
         )
     }
 
@@ -245,26 +313,31 @@ struct EmptyStateView: View {
     @ObservedObject private var service = WatchService.shared
     @State private var showingPairing = false
 
+    // Dynamic Type support
+    @ScaledMetric(relativeTo: .title) private var iconContainerSize: CGFloat = 80
+    @ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 32
+
     var body: some View {
         VStack(spacing: 16) {
             // Icon
             ZStack {
                 Circle()
-                    .fill(Claude.surface1)
-                    .frame(width: 80, height: 80)
+                    .fill(.ultraThinMaterial)
+                    .frame(width: iconContainerSize, height: iconContainerSize)
 
                 Image(systemName: service.isPaired ? "tray" : "link.circle")
-                    .font(.system(size: 32, weight: .light))
+                    .font(.system(size: iconSize, weight: .light))
                     .foregroundColor(Claude.textTertiary)
             }
 
             // Text
             Text(service.isPaired ? "All Clear" : "Not Paired")
-                .font(.system(size: 24, weight: .bold))
+                .font(.title2)
+                .fontWeight(.bold)
                 .foregroundColor(Claude.textPrimary)
 
             Text(service.isPaired ? "No pending actions" : "Connect to Claude Code")
-                .font(.system(size: 13))
+                .font(.footnote)
                 .foregroundColor(Claude.textSecondary)
 
             // Connection status
@@ -273,7 +346,7 @@ struct EmptyStateView: View {
                     .fill(service.isPaired ? Claude.success : Claude.warning)
                     .frame(width: 6, height: 6)
                 Text(service.isPaired ? "Connected" : "Awaiting pairing")
-                    .font(.system(size: 11))
+                    .font(.caption2)
                     .foregroundColor(Claude.textTertiary)
             }
             .padding(.top, 8)
@@ -285,9 +358,9 @@ struct EmptyStateView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "link")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.caption.weight(.semibold))
                         Text("Pair with Code")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.footnote.weight(.semibold))
                     }
                     .foregroundColor(.white)
                     .padding(.horizontal, 16)
@@ -297,16 +370,18 @@ struct EmptyStateView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 4)
+                .accessibilityLabel("Pair with Claude Code")
             } else {
                 Button {
                     service.loadDemoData()
                 } label: {
                     Text("Load Demo")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.footnote.weight(.semibold))
                         .foregroundColor(Claude.orange)
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 4)
+                .accessibilityLabel("Load demo data")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -320,16 +395,20 @@ struct EmptyStateView: View {
 struct OfflineStateView: View {
     @ObservedObject private var service = WatchService.shared
 
+    // Dynamic Type support
+    @ScaledMetric(relativeTo: .title) private var iconContainerSize: CGFloat = 80
+    @ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 32
+
     var body: some View {
         VStack(spacing: 16) {
             // Icon (tap to load demo)
             ZStack {
                 Circle()
-                    .fill(Claude.surface1)
-                    .frame(width: 80, height: 80)
+                    .fill(.ultraThinMaterial)
+                    .frame(width: iconContainerSize, height: iconContainerSize)
 
                 Image(systemName: "wifi.slash")
-                    .font(.system(size: 32, weight: .light))
+                    .font(.system(size: iconSize, weight: .light))
                     .foregroundColor(Claude.textTertiary)
             }
             .onTapGesture(count: 3) {
@@ -339,11 +418,12 @@ struct OfflineStateView: View {
 
             // Text
             Text("Offline")
-                .font(.system(size: 24, weight: .bold))
+                .font(.title2)
+                .fontWeight(.bold)
                 .foregroundColor(Claude.textPrimary)
 
             Text("Can't connect to Claude")
-                .font(.system(size: 13))
+                .font(.footnote)
                 .foregroundColor(Claude.textSecondary)
 
             // Buttons
@@ -354,7 +434,7 @@ struct OfflineStateView: View {
                     WKInterfaceDevice.current().play(.click)
                 } label: {
                     Text("Retry")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.body.weight(.semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -362,16 +442,18 @@ struct OfflineStateView: View {
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Retry connection")
 
                 // Demo button
                 Button {
                     service.loadDemoData()
                 } label: {
                     Text("Demo Mode")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.footnote.weight(.semibold))
                         .foregroundColor(Claude.orange)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Enter demo mode")
             }
             .padding(.horizontal, 24)
             .padding(.top, 8)
@@ -394,15 +476,15 @@ struct ReconnectingView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     if case .reconnecting(let attempt, let nextRetryIn) = status {
                         Text("Reconnecting...")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.subheadline.weight(.semibold))
                             .foregroundColor(Claude.textPrimary)
 
                         Text("Attempt \(attempt) • \(Int(nextRetryIn))s")
-                            .font(.system(size: 11))
+                            .font(.caption2)
                             .foregroundColor(Claude.textSecondary)
                     } else {
                         Text("Connecting...")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.subheadline.weight(.semibold))
                             .foregroundColor(Claude.textPrimary)
                     }
                 }
@@ -411,8 +493,7 @@ struct ReconnectingView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Claude.surface1)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
         }
         .padding(.horizontal)
         .padding(.top, 8)
@@ -422,6 +503,9 @@ struct ReconnectingView: View {
 // MARK: - Action Queue
 struct ActionQueue: View {
     @ObservedObject private var service = WatchService.shared
+
+    // Spring animation state
+    @State private var approveAllPressed = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -439,7 +523,7 @@ struct ActionQueue: View {
 
                     if service.state.pendingActions.count > 3 {
                         Text("+\(service.state.pendingActions.count - 3) more")
-                            .font(.system(size: 11))
+                            .font(.caption2)
                             .foregroundColor(Claude.textTertiary)
                     }
                 }
@@ -450,7 +534,7 @@ struct ActionQueue: View {
                     WKInterfaceDevice.current().play(.success)
                 } label: {
                     Text("Approve All (\(service.state.pendingActions.count))")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.body.weight(.bold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -462,8 +546,16 @@ struct ActionQueue: View {
                             )
                         )
                         .clipShape(Capsule())
+                        .scaleEffect(approveAllPressed ? 0.95 : 1.0)
+                        .animation(.bouncySpring, value: approveAllPressed)
                 }
                 .buttonStyle(.plain)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in approveAllPressed = true }
+                        .onEnded { _ in approveAllPressed = false }
+                )
+                .accessibilityLabel("Approve all \(service.state.pendingActions.count) pending actions")
             }
         }
     }
@@ -473,6 +565,14 @@ struct ActionQueue: View {
 struct PrimaryActionCard: View {
     @ObservedObject private var service = WatchService.shared
     let action: PendingAction
+
+    // Dynamic Type support
+    @ScaledMetric(relativeTo: .body) private var iconContainerSize: CGFloat = 40
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 18
+
+    // Spring animation states for buttons
+    @State private var rejectPressed = false
+    @State private var approvePressed = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -488,22 +588,22 @@ struct PrimaryActionCard: View {
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .frame(width: 40, height: 40)
+                        .frame(width: iconContainerSize, height: iconContainerSize)
 
                     Image(systemName: action.icon)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.system(size: iconSize, weight: .semibold))
                         .foregroundColor(.white)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(action.title)
-                        .font(.system(size: 17, weight: .bold))
+                        .font(.headline)
                         .foregroundColor(Claude.textPrimary)
                         .lineLimit(1)
 
                     if let path = action.filePath {
                         Text(truncatePath(path))
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(.caption2.monospaced())
                             .foregroundColor(Claude.textSecondary)
                             .lineLimit(1)
                     }
@@ -527,9 +627,9 @@ struct PrimaryActionCard: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.subheadline.weight(.bold))
                         Text("Reject")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.body.weight(.bold))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
@@ -542,8 +642,16 @@ struct PrimaryActionCard: View {
                         )
                     )
                     .clipShape(Capsule())
+                    .scaleEffect(rejectPressed ? 0.92 : 1.0)
+                    .animation(.buttonSpring, value: rejectPressed)
                 }
                 .buttonStyle(.plain)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in rejectPressed = true }
+                        .onEnded { _ in rejectPressed = false }
+                )
+                .accessibilityLabel("Reject \(action.title)")
 
                 // Approve
                 Button {
@@ -558,9 +666,9 @@ struct PrimaryActionCard: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.subheadline.weight(.bold))
                         Text("Approve")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.body.weight(.bold))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
@@ -573,14 +681,22 @@ struct PrimaryActionCard: View {
                         )
                     )
                     .clipShape(Capsule())
+                    .scaleEffect(approvePressed ? 0.92 : 1.0)
+                    .animation(.buttonSpring, value: approvePressed)
                 }
                 .buttonStyle(.plain)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in approvePressed = true }
+                        .onEnded { _ in approvePressed = false }
+                )
+                .accessibilityLabel("Approve \(action.title)")
             }
         }
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(Claude.surface1)
+                .fill(.thinMaterial)
         )
     }
 
@@ -607,21 +723,25 @@ struct PrimaryActionCard: View {
 struct CompactActionCard: View {
     let action: PendingAction
 
+    // Dynamic Type support
+    @ScaledMetric(relativeTo: .footnote) private var iconContainerSize: CGFloat = 28
+    @ScaledMetric(relativeTo: .footnote) private var iconSize: CGFloat = 12
+
     var body: some View {
         HStack(spacing: 8) {
             // Type icon
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(typeColor.opacity(0.2))
-                    .frame(width: 28, height: 28)
+                    .frame(width: iconContainerSize, height: iconContainerSize)
 
                 Image(systemName: action.icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: iconSize, weight: .semibold))
                     .foregroundColor(typeColor)
             }
 
             Text(action.title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundColor(Claude.textPrimary)
                 .lineLimit(1)
 
@@ -630,7 +750,7 @@ struct CompactActionCard: View {
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Claude.surface1)
+                .fill(.ultraThinMaterial)
         )
     }
 
@@ -673,26 +793,27 @@ struct CommandGrid: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "waveform")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.subheadline.weight(.semibold))
                         .foregroundColor(Claude.info)
 
                     Text("Voice Command")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.footnote.weight(.semibold))
                         .foregroundColor(Claude.textPrimary)
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.caption2.weight(.semibold))
                         .foregroundColor(Claude.textTertiary)
                 }
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 14)
-                        .fill(Claude.surface1)
+                        .fill(.ultraThinMaterial)
                 )
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Open voice command input")
         }
     }
 }
@@ -704,6 +825,13 @@ struct CommandButton: View {
     let label: String
     let prompt: String
 
+    // Dynamic Type support
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 18
+    @ScaledMetric(relativeTo: .body) private var buttonHeight: CGFloat = 52
+
+    // Spring animation state
+    @State private var isPressed = false
+
     var body: some View {
         Button {
             service.sendPrompt(prompt)
@@ -711,27 +839,42 @@ struct CommandButton: View {
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: iconSize, weight: .semibold))
                     .foregroundColor(Claude.orange)
 
                 Text(label)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundColor(Claude.textSecondary)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 52)
+            .frame(minHeight: buttonHeight)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Claude.surface1)
+                    .fill(.ultraThinMaterial)
             )
+            .scaleEffect(isPressed ? 0.92 : 1.0)
+            .animation(.buttonSpring, value: isPressed)
         }
         .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
+        .accessibilityLabel("\(label) command, sends \(prompt)")
     }
 }
 
 // MARK: - Mode Selector
 struct ModeSelector: View {
     @ObservedObject private var service = WatchService.shared
+
+    // Dynamic Type support
+    @ScaledMetric(relativeTo: .footnote) private var modeIconContainerSize: CGFloat = 28
+    @ScaledMetric(relativeTo: .footnote) private var modeIconSize: CGFloat = 12
+
+    // Spring animation state
+    @State private var isPressed = false
 
     var body: some View {
         Button {
@@ -743,20 +886,20 @@ struct ModeSelector: View {
                 ZStack {
                     Circle()
                         .fill(modeColor.opacity(0.2))
-                        .frame(width: 28, height: 28)
+                        .frame(width: modeIconContainerSize, height: modeIconContainerSize)
 
                     Image(systemName: service.state.mode.icon)
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: modeIconSize, weight: .bold))
                         .foregroundColor(modeColor)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(service.state.mode.displayName)
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.footnote.weight(.bold))
                         .foregroundColor(modeColor)
 
                     Text(service.state.mode.description)
-                        .font(.system(size: 10))
+                        .font(.caption2)
                         .foregroundColor(Claude.textSecondary)
                 }
 
@@ -764,20 +907,32 @@ struct ModeSelector: View {
 
                 // Next mode hint
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundColor(Claude.textTertiary)
             }
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(modeBackground)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(modeBackground)
+                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
                             .strokeBorder(modeColor.opacity(0.3), lineWidth: 1)
                     )
             )
+            .scaleEffect(isPressed ? 0.96 : 1.0)
+            .animation(.buttonSpring, value: isPressed)
         }
         .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
+        .accessibilityLabel("Current mode: \(service.state.mode.displayName). Tap to change mode")
     }
 
     private var modeColor: Color {
@@ -803,6 +958,7 @@ struct VoiceInputSheet: View {
     @Environment(\.dismiss) var dismiss
     @State private var transcribedText = ""
     @State private var showSentConfirmation = false
+    @State private var isRecording = false
 
     // Quick suggestions for common commands
     private let suggestions = ["Continue", "Run tests", "Fix errors", "Commit"]
@@ -810,19 +966,43 @@ struct VoiceInputSheet: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 12) {
-                // Header
-                Text("Voice Command")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(Claude.textPrimary)
+                // Recording indicator banner
+                if isRecording {
+                    RecordingBanner(recordingState: .recording)
+                }
+
+                // Header with recording indicator
+                HStack(spacing: 8) {
+                    Text("Voice Command")
+                        .font(.body.weight(.bold))
+                        .foregroundColor(Claude.textPrimary)
+
+                    if isRecording {
+                        RecordingIndicator(isRecording: true)
+                    }
+                }
 
                 // Text input with dictation support (watchOS 10+ native)
                 TextField("Tap to speak...", text: $transcribedText)
-                    .font(.system(size: 14))
+                    .font(.subheadline)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
-                    .background(Claude.surface1)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                    .onChange(of: transcribedText) { oldValue, newValue in
+                        // Detect dictation activity (text changing indicates recording)
+                        if newValue.count > oldValue.count && !isRecording {
+                            isRecording = true
+                            WKInterfaceDevice.current().play(.start)
+                        }
+                    }
+                    .onSubmit {
+                        // Recording stopped when text is submitted
+                        if isRecording {
+                            isRecording = false
+                            WKInterfaceDevice.current().play(.stop)
+                        }
+                    }
 
                 // Quick suggestion chips
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
@@ -831,15 +1011,15 @@ struct VoiceInputSheet: View {
                             transcribedText = suggestion
                         } label: {
                             Text(suggestion)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.caption2.weight(.medium))
                                 .foregroundColor(Claude.textSecondary)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
                                 .frame(maxWidth: .infinity)
-                                .background(Claude.surface2)
-                                .clipShape(Capsule())
+                                .background(.thinMaterial, in: Capsule())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Quick suggestion: \(suggestion)")
                     }
                 }
 
@@ -850,16 +1030,16 @@ struct VoiceInputSheet: View {
                             .progressViewStyle(CircularProgressViewStyle(tint: Claude.info))
                             .scaleEffect(0.7)
                         Text("Sending...")
-                            .font(.system(size: 12))
+                            .font(.caption)
                             .foregroundColor(Claude.textSecondary)
                     }
                 } else if showSentConfirmation {
                     HStack(spacing: 6) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 14))
+                            .font(.subheadline)
                             .foregroundColor(Claude.success)
                         Text("Sent")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.caption.weight(.semibold))
                             .foregroundColor(Claude.success)
                     }
                 }
@@ -870,7 +1050,7 @@ struct VoiceInputSheet: View {
                         dismiss()
                     } label: {
                         Text("Cancel")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.footnote.weight(.semibold))
                             .foregroundColor(Claude.danger)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
@@ -878,6 +1058,7 @@ struct VoiceInputSheet: View {
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Cancel voice command")
 
                     if !transcribedText.isEmpty && !showSentConfirmation {
                         Button {
@@ -890,7 +1071,7 @@ struct VoiceInputSheet: View {
                             }
                         } label: {
                             Text("Send")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.footnote.weight(.semibold))
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 10)
@@ -898,6 +1079,7 @@ struct VoiceInputSheet: View {
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Send voice command")
                     }
                 }
             }
@@ -913,6 +1095,7 @@ struct SettingsSheet: View {
     @Environment(\.dismiss) var dismiss
     @State private var serverURL: String = ""
     @State private var showingPairing = false
+    @State private var showingPrivacy = false
 
     var body: some View {
         ScrollView {
@@ -920,9 +1103,9 @@ struct SettingsSheet: View {
                 // Header
                 HStack {
                     Image(systemName: "antenna.radiowaves.left.and.right")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.subheadline.weight(.semibold))
                     Text("Connection")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.body.weight(.bold))
                 }
                 .foregroundColor(Claude.textPrimary)
 
@@ -933,7 +1116,7 @@ struct SettingsSheet: View {
                         .frame(width: 8, height: 8)
 
                     Text(service.connectionStatus.displayName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.footnote.weight(.semibold))
                         .foregroundColor(statusColor)
                 }
                 .padding(.vertical, 4)
@@ -945,7 +1128,7 @@ struct SettingsSheet: View {
                             Image(systemName: "play.circle.fill")
                                 .foregroundColor(Claude.warning)
                             Text("Demo Mode Active")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.footnote.weight(.semibold))
                                 .foregroundColor(Claude.warning)
                         }
 
@@ -958,7 +1141,7 @@ struct SettingsSheet: View {
                             dismiss()
                         } label: {
                             Text("Exit Demo Mode")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.footnote.weight(.semibold))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
@@ -966,6 +1149,7 @@ struct SettingsSheet: View {
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Exit demo mode and disconnect")
                     }
                     .padding(.vertical, 8)
                 }
@@ -979,7 +1163,7 @@ struct SettingsSheet: View {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundColor(Claude.success)
                                 Text("Paired")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.footnote.weight(.semibold))
                                     .foregroundColor(Claude.success)
                             }
 
@@ -989,7 +1173,7 @@ struct SettingsSheet: View {
                                 WKInterfaceDevice.current().play(.click)
                             } label: {
                                 Text("Unpair")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.footnote.weight(.semibold))
                                     .foregroundColor(Claude.danger)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 10)
@@ -997,6 +1181,7 @@ struct SettingsSheet: View {
                                     .clipShape(Capsule())
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("Unpair from Claude Code")
                         } else {
                             // Pair button
                             Button {
@@ -1004,9 +1189,9 @@ struct SettingsSheet: View {
                             } label: {
                                 HStack(spacing: 6) {
                                     Image(systemName: "link")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .font(.caption.weight(.semibold))
                                     Text("Pair with Code")
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(.footnote.weight(.semibold))
                                 }
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
@@ -1015,6 +1200,7 @@ struct SettingsSheet: View {
                                 .clipShape(Capsule())
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("Pair with Claude Code")
                         }
                     }
                     .padding(.vertical, 8)
@@ -1024,15 +1210,14 @@ struct SettingsSheet: View {
                 if !service.useCloudMode {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Server URL")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.caption2.weight(.semibold))
                             .foregroundColor(Claude.textSecondary)
 
                         TextField("ws://...", text: $serverURL)
-                            .font(.system(size: 13))
+                            .font(.footnote)
                             .textContentType(.URL)
                             .padding(10)
-                            .background(Claude.surface1)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
                     }
 
                     // Action buttons
@@ -1041,7 +1226,7 @@ struct SettingsSheet: View {
                             dismiss()
                         } label: {
                             Text("Cancel")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.footnote.weight(.semibold))
                                 .foregroundColor(Claude.danger)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
@@ -1049,6 +1234,7 @@ struct SettingsSheet: View {
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Cancel and close settings")
 
                         Button {
                             service.serverURLString = serverURL
@@ -1057,7 +1243,7 @@ struct SettingsSheet: View {
                             dismiss()
                         } label: {
                             Text("Save")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.footnote.weight(.semibold))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
@@ -1065,6 +1251,7 @@ struct SettingsSheet: View {
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Save server URL and connect")
                     }
                 }
 
@@ -1072,9 +1259,9 @@ struct SettingsSheet: View {
                 VStack(spacing: 10) {
                     HStack {
                         Image(systemName: "info.circle")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.caption.weight(.semibold))
                         Text("About")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.footnote.weight(.bold))
                     }
                     .foregroundColor(Claude.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1082,37 +1269,58 @@ struct SettingsSheet: View {
                     // Version
                     HStack {
                         Text("Version")
-                            .font(.system(size: 12))
+                            .font(.caption)
                             .foregroundColor(Claude.textSecondary)
                         Spacer()
                         Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.caption.weight(.semibold))
                             .foregroundColor(Claude.textPrimary)
                     }
                     .padding(.vertical, 8)
                     .padding(.horizontal, 12)
-                    .background(Claude.surface1)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+
+                    // Privacy Consent (review in app)
+                    Button {
+                        showingPrivacy = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "hand.raised.fill")
+                                .font(.caption)
+                                .foregroundColor(Claude.orange)
+                            Text("Privacy & Consent")
+                                .font(.caption)
+                                .foregroundColor(Claude.textPrimary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption2)
+                                .foregroundColor(Claude.textTertiary)
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Review privacy settings and consent")
 
                     // Privacy Policy
                     if let privacyURL = URL(string: "https://claude-watch.example.com/privacy") {
                         Link(destination: privacyURL) {
                             HStack {
-                                Image(systemName: "hand.raised")
-                                    .font(.system(size: 12))
+                                Image(systemName: "doc.text")
+                                    .font(.caption)
                                     .foregroundColor(Claude.info)
                                 Text("Privacy Policy")
-                                    .font(.system(size: 12))
+                                    .font(.caption)
                                     .foregroundColor(Claude.textPrimary)
                                 Spacer()
                                 Image(systemName: "arrow.up.right")
-                                    .font(.system(size: 10))
+                                    .font(.caption2)
                                     .foregroundColor(Claude.textTertiary)
                             }
                             .padding(.vertical, 8)
                             .padding(.horizontal, 12)
-                            .background(Claude.surface1)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
                         }
                     }
 
@@ -1121,20 +1329,19 @@ struct SettingsSheet: View {
                         Link(destination: supportURL) {
                             HStack {
                                 Image(systemName: "questionmark.circle")
-                                    .font(.system(size: 12))
+                                    .font(.caption)
                                     .foregroundColor(Claude.info)
                                 Text("Support")
-                                    .font(.system(size: 12))
+                                    .font(.caption)
                                     .foregroundColor(Claude.textPrimary)
                                 Spacer()
                                 Image(systemName: "arrow.up.right")
-                                    .font(.system(size: 10))
+                                    .font(.caption2)
                                     .foregroundColor(Claude.textTertiary)
                             }
                             .padding(.vertical, 8)
                             .padding(.horizontal, 12)
-                            .background(Claude.surface1)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
                         }
                     }
                 }
@@ -1146,7 +1353,7 @@ struct SettingsSheet: View {
                         dismiss()
                     } label: {
                         Text("Done")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.footnote.weight(.semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
@@ -1154,6 +1361,7 @@ struct SettingsSheet: View {
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Done, close settings")
                 }
             }
             .padding()
@@ -1165,6 +1373,9 @@ struct SettingsSheet: View {
         .sheet(isPresented: $showingPairing) {
             PairingView(service: service)
         }
+        .sheet(isPresented: $showingPrivacy) {
+            PrivacyInfoView()
+        }
     }
 
     private var statusColor: Color {
@@ -1172,6 +1383,84 @@ struct SettingsSheet: View {
         case .connected: return Claude.success
         case .connecting, .reconnecting: return Claude.warning
         case .disconnected: return Claude.danger
+        }
+    }
+}
+
+// MARK: - Always-On Display View
+struct AlwaysOnDisplayView: View {
+    let connectionStatus: ConnectionStatus
+    let pendingCount: Int
+    let status: SessionStatus
+
+    // Dynamic Type support
+    @ScaledMetric(relativeTo: .title) private var statusIconSize: CGFloat = 36
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Connection status indicator (always visible per HIG)
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(connectionColor)
+                    .frame(width: 10, height: 10)
+
+                Text(connectionStatus.displayName)
+                    .font(.headline)
+                    .foregroundColor(Claude.textSecondary)
+            }
+
+            // Simplified status display
+            VStack(spacing: 8) {
+                Image(systemName: statusIcon)
+                    .font(.system(size: statusIconSize, weight: .light))
+                    .foregroundColor(Claude.textSecondary)
+
+                Text(statusText)
+                    .font(.title3)
+                    .foregroundColor(Claude.textPrimary)
+
+                // Pending count (if any)
+                if pendingCount > 0 {
+                    Text("\(pendingCount) pending")
+                        .font(.caption)
+                        .foregroundColor(Claude.textSecondary)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var connectionColor: Color {
+        switch connectionStatus {
+        case .connected: return Claude.textSecondary  // Dimmed green for AOD
+        case .connecting, .reconnecting: return Claude.textTertiary
+        case .disconnected: return Claude.textTertiary
+        }
+    }
+
+    private var statusIcon: String {
+        if pendingCount > 0 {
+            return "hand.raised"
+        }
+        switch status {
+        case .idle: return "checkmark"
+        case .running: return "play"
+        case .waiting: return "clock"
+        case .completed: return "checkmark.circle"
+        case .failed: return "exclamationmark.triangle"
+        }
+    }
+
+    private var statusText: String {
+        if pendingCount > 0 {
+            return "Pending"
+        }
+        switch status {
+        case .idle: return "Ready"
+        case .running: return "Active"
+        case .waiting: return "Waiting"
+        case .completed: return "Done"
+        case .failed: return "Error"
         }
     }
 }
