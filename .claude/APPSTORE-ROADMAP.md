@@ -18,26 +18,16 @@
 ## Phase 1: Foundation (Week 1-2)
 *"Make it work on your watch"*
 
-### 1.1 Critical Code Fixes
+**Focus:** Critical code fixes and Xcode configuration
 
-| Task | File | Priority | Est. Time |
-|------|------|----------|-----------|
-| Remove `WKExtension.shared()` (deprecated) | ClaudeWatchApp.swift:68 | BLOCKER | 30min |
-| Replace `presentTextInputController` | MainView.swift:439 | BLOCKER | 2hr |
-| Set `DEVELOPMENT_TEAM` | project.pbxproj | BLOCKER | 5min |
-| Add state persistence (Codable) | WatchService.swift | HIGH | 2hr |
-| Fix widget data (App Groups) | ComplicationViews.swift | HIGH | 3hr |
+**Key Tasks:** (See `.claude/ralph/tasks.yaml` for detailed implementation)
+- Remove deprecated WKExtension APIs
+- Fix text input controllers
+- Configure development team
+- Add state persistence
+- Wire complications to live data
 
-### 1.2 Xcode Configuration
-
-```bash
-# Required changes in project.pbxproj:
-DEVELOPMENT_TEAM = "YOUR_TEAM_ID"  # Currently empty
-SWIFT_VERSION = 5.10               # Currently 5.0
-WATCHOS_DEPLOYMENT_TARGET = 11.0   # Currently 10.0
-```
-
-### 1.3 Deliverables
+**Deliverables:**
 - [ ] App runs on physical Apple Watch
 - [ ] WebSocket connects to your Mac
 - [ ] Actions can be approved/rejected
@@ -50,12 +40,11 @@ WATCHOS_DEPLOYMENT_TARGET = 11.0   # Currently 10.0
 
 ### 2.1 Privacy & Legal
 
-| Requirement | Status | Action |
-|-------------|--------|--------|
-| Privacy Policy | MISSING | Create and host publicly |
-| Recording Indicator | MISSING | Add visual indicator when mic active |
-| AI Data Disclosure | MISSING | Add consent UI for Claude API data sharing |
-| Privacy Descriptions | Needs work | Make more specific in Info.plist |
+**Requirements:**
+- Privacy policy (public URL)
+- Recording indicator when mic active
+- AI data disclosure consent UI
+- Specific privacy descriptions in Info.plist
 
 **Privacy Policy Must Include:**
 - Data collected (voice input, interactions)
@@ -64,16 +53,12 @@ WATCHOS_DEPLOYMENT_TARGET = 11.0   # Currently 10.0
 - User deletion rights
 - GDPR/CCPA compliance
 
-### 2.2 Accessibility (16+ items)
+### 2.2 Accessibility
 
-Every interactive element needs:
-```swift
-.accessibilityLabel("Approve Action")
-.accessibilityHint("Approves the pending file edit")
-```
+**Requirement:** All interactive elements need `.accessibilityLabel()` and `.accessibilityHint()`
 
 **Priority Elements:**
-- Settings gear button
+- Settings button
 - Approve/Reject buttons
 - Quick action buttons
 - Voice command button
@@ -82,15 +67,15 @@ Every interactive element needs:
 
 ### 2.3 App Icons
 
-Currently: Only `Contents.json` metadata exists
-Required: Actual PNG files for all 16 sizes
+**Status:** Only metadata exists, need actual PNG files
 
-| Size | Role | Format |
-|------|------|--------|
-| 1024x1024 | Marketing | PNG, no alpha |
-| 24-33pt @2x | Notification | PNG, opaque |
-| 40-54pt | App Launcher | PNG, opaque |
-| 86-129pt | Quick Look | PNG, opaque |
+**Required Sizes:**
+- 1024x1024 (Marketing)
+- 24-33pt @2x (Notification)
+- 40-54pt (Launcher)
+- 86-129pt (Quick Look)
+
+**Format:** PNG, no transparency, RGB color space
 
 ### 2.4 Deliverables
 - [ ] Privacy policy URL live
@@ -106,15 +91,7 @@ Required: Actual PNG files for all 16 sizes
 
 ### 3.1 Liquid Glass Migration
 
-Replace all opacity-based backgrounds:
-
-```swift
-// BEFORE (14 instances)
-.background(Color.green.opacity(0.2))
-
-// AFTER
-.background(.liquidGlass)
-```
+Replace opacity-based backgrounds with `.background(.liquidGlass)`
 
 **Files to update:**
 - MainView.swift: 10 instances
@@ -122,7 +99,7 @@ Replace all opacity-based backgrounds:
 
 ### 3.2 Spring Animations
 
-Add to all interactive buttons:
+Add natural spring animations to all interactive buttons:
 ```swift
 .scaleEffect(isPressed ? 0.95 : 1.0)
 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
@@ -130,20 +107,12 @@ Add to all interactive buttons:
 
 ### 3.3 Code Structure Refactor
 
-Split MainView.swift (526 lines) into:
+Split MainView.swift (526 lines) into focused components:
 ```
 Views/
 ├── MainView.swift (50 lines)
-├── Components/
-│   ├── StatusHeader.swift
-│   ├── PendingActionsSection.swift
-│   ├── ActionCard.swift
-│   ├── QuickActionsBar.swift
-│   ├── VoiceButton.swift
-│   └── ModeSwitcher.swift
-└── Sheets/
-    ├── VoiceInputSheet.swift
-    └── SettingsSheet.swift
+├── Components/ (6 files)
+└── Sheets/ (2 files)
 ```
 
 ### 3.4 Deliverables
@@ -159,27 +128,25 @@ Views/
 
 ### 4.1 Unit Tests (75%+ coverage)
 
-| Component | Test File | Priority |
-|-----------|-----------|----------|
-| WatchService | WatchServiceTests.swift | CRITICAL |
-| Data Models | DataModelTests.swift | HIGH |
-| AppDelegate | AppDelegateTests.swift | HIGH |
-| Widget Provider | ComplicationProviderTests.swift | MEDIUM |
+| Component | Priority |
+|-----------|----------|
+| WatchService | CRITICAL |
+| Data Models | HIGH |
+| AppDelegate | HIGH |
+| Widget Provider | MEDIUM |
 
-### 4.2 UI Tests
+### 4.2 UI Test Flows
 
-| Flow | Test Cases |
-|------|------------|
-| Initial connection | Connect → state sync → display |
-| Action approval | Receive → display → approve → clear |
-| Mode cycling | Normal → Auto → Plan → Normal |
-| Voice command | Open sheet → input → send → close |
-| Settings | Open → edit URL → save → reconnect |
+- Initial connection flow
+- Action approval flow
+- Mode cycling
+- Voice commands
+- Settings management
 
 ### 4.3 Device Testing Matrix
 
-| Device | Priority | Notes |
-|--------|----------|-------|
+| Device | Priority | Reason |
+|--------|----------|--------|
 | Series 6 (40mm) | HIGH | Oldest supported, smallest |
 | Series 9 (41mm) | HIGH | Latest watchOS |
 | Ultra 2 (49mm) | HIGH | Largest display |
@@ -206,9 +173,9 @@ Views/
 
 ### 5.2 Feedback Collection
 
-**In-app prompt after each session:**
+**In-app prompt:**
 - "How was your experience?" [Great/OK/Poor]
-- On Poor: "What went wrong?" (multiple choice + text)
+- On Poor: "What went wrong?"
 
 **Weekly survey:**
 - Usage frequency
@@ -239,15 +206,15 @@ Views/
 
 ### 6.1 App Store Connect Setup
 
-| Item | Status | Action |
-|------|--------|--------|
-| App Record | TODO | Create in App Store Connect |
-| Screenshots | TODO | 396x484px watchOS screenshots |
-| Description | TODO | Write compelling copy |
-| Keywords | TODO | 100 chars max |
-| Category | TODO | Productivity or Developer Tools |
-| Privacy Policy URL | TODO | Add public URL |
-| Age Rating | TODO | Complete questionnaire (likely 9+) |
+| Item | Action |
+|------|--------|
+| App Record | Create in App Store Connect |
+| Screenshots | 396x484px watchOS screenshots (5 required) |
+| Description | Write compelling copy |
+| Keywords | 100 chars max, optimize for search |
+| Category | Productivity or Developer Tools |
+| Privacy Policy URL | Add public URL |
+| Age Rating | Complete questionnaire (likely 9+) |
 
 ### 6.2 Marketing Assets
 
@@ -364,3 +331,12 @@ Week 10+:   Launch & monetization
 - [ ] $1M+ ARR
 - [ ] Anthropic partnership
 - [ ] Android Wear OS port started
+
+---
+
+## Implementation Notes
+
+**For detailed task implementations, see:**
+- `.claude/ralph/tasks.yaml` - Complete task definitions with verification commands
+- `docs/PRD.md` - Product requirements
+- `plans/` - Specific feature implementation plans
