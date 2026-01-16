@@ -71,6 +71,17 @@ struct PairingView: View {
                 .accessibilityLabel(isSubmitting ? "Connecting to Claude Code" : "Connect to Claude Code")
                 .accessibilityHint("Submits the pairing code to connect")
 
+                // Local mode button (for testing with local server)
+                Button("Use Local Mode") {
+                    service.useCloudMode = false
+                    service.objectWillChange.send()  // Trigger view refresh
+                    service.connect()
+                }
+                .font(.caption)
+                .foregroundStyle(.blue)
+                .accessibilityLabel("Use local mode")
+                .accessibilityHint("Connect directly to local WebSocket server")
+
                 // Skip button for demo mode
                 Button("Use Demo Mode") {
                     service.isDemoMode = true
@@ -83,9 +94,7 @@ struct PairingView: View {
             }
             .padding()
         }
-        .onAppear {
-            isCodeFocused = true
-        }
+        // Removed auto-focus - let user tap to enter code
     }
 
     private func submitCode() {

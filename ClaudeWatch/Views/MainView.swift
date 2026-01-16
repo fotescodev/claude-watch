@@ -35,11 +35,6 @@ struct MainView: View {
     @State private var showingSettings = false
     @State private var pulsePhase: CGFloat = 0
 
-    // Digital Crown state for scrolling
-    @State private var crownValue: Double = 0.0
-    @State private var lastHapticValue: Double = 0.0
-    private let hapticInterval: Double = 0.1  // Trigger haptic every 0.1 units
-
     // Always-On Display support
     @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
@@ -133,27 +128,6 @@ struct MainView: View {
             .padding(.horizontal, 4)
             .padding(.bottom, 12)
         }
-        .focusable()
-        .digitalCrownRotation(
-            $crownValue,
-            from: 0.0,
-            through: 1.0,
-            sensitivity: .medium,
-            isContinuous: false,
-            isHapticFeedbackEnabled: true
-        )
-        .onChange(of: crownValue) { oldValue, newValue in
-            // Provide haptic feedback at boundaries
-            if newValue <= 0.01 || newValue >= 0.99 {
-                WKInterfaceDevice.current().play(.directionUp)
-            }
-            // Provide subtle haptic feedback at regular intervals
-            else if abs(newValue - lastHapticValue) >= hapticInterval {
-                lastHapticValue = newValue
-                WKInterfaceDevice.current().play(.click)
-            }
-        }
-        .accessibilityLabel("Main content, use Digital Crown to scroll")
     }
 
     private var connectionIcon: String {
