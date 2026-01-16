@@ -3,14 +3,14 @@
   "project": "ClaudeWatch",
   "platform": "watchOS",
   "initialized": "",
-  "lastSession": "2026-01-16T16:19:38Z",
-  "totalSessions": 3,
+  "lastSession": "2026-01-16T17:16:21Z",
+  "totalSessions": 4,
   "totalTokens": {
     "input": 0,
     "output": 0
   },
   "estimatedCost": 0.00,
-  "tasksCompleted": 3,
+  "tasksCompleted": 4,
   "tasksFailed": 0,
   "totalRetries": 0,
   "buildFailures": 0,
@@ -31,6 +31,12 @@
       "id": "session-001",
       "timestamp": "2026-01-16T16:19:38Z",
       "taskId": "unknown",
+      "status": "completed"
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-16T17:16:21Z",
+      "taskId": "C1",
       "status": "completed"
     }
   ]
