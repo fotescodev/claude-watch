@@ -1965,7 +1965,7 @@ tasks:
       ```
     priority: medium
     parallel_group: 18
-    completed: false
+    completed: true
     verification: |
       ! grep -q 'ScrollView' ClaudeWatch/Views/SheetViews.swift 2>/dev/null || \
       grep -q 'TabView\|NavigationStack' ClaudeWatch/Views/SheetViews.swift && exit 0 || exit 1

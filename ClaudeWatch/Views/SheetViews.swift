@@ -13,127 +13,110 @@ struct VoiceInputSheet: View {
     private let suggestions = ["Continue", "Run tests", "Fix errors", "Commit"]
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                // Recording indicator banner
+        VStack(spacing: Claude.Spacing.sm) {
+            // Header with recording indicator
+            HStack(spacing: 6) {
+                Text("Voice")
+                    .font(.claudeHeadline)
+                    .foregroundColor(Claude.textPrimary)
+
                 if isRecording {
-                    RecordingBanner(recordingState: .recording)
+                    RecordingIndicator(isRecording: true)
                 }
 
-                // Header with recording indicator
-                HStack(spacing: 8) {
-                    Text("Voice Command")
-                        .font(.body.weight(.bold))
-                        .foregroundColor(Claude.textPrimary)
+                Spacer()
 
-                    if isRecording {
-                        RecordingIndicator(isRecording: true)
-                    }
-                }
-
-                // Text input with dictation support (watchOS 10+ native)
-                TextField("Tap to speak...", text: $transcribedText)
-                    .font(.subheadline)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-                    .onChange(of: transcribedText) { oldValue, newValue in
-                        // Detect dictation activity (text changing indicates recording)
-                        if newValue.count > oldValue.count && !isRecording {
-                            isRecording = true
-                            WKInterfaceDevice.current().play(.start)
-                        }
-                    }
-                    .onSubmit {
-                        // Recording stopped when text is submitted
-                        if isRecording {
-                            isRecording = false
-                            WKInterfaceDevice.current().play(.stop)
-                        }
-                    }
-
-                // Quick suggestion chips
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    ForEach(suggestions, id: \.self) { suggestion in
-                        Button {
-                            transcribedText = suggestion
-                        } label: {
-                            Text(suggestion)
-                                .font(.caption2.weight(.medium))
-                                .foregroundColor(Claude.textSecondary)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .frame(maxWidth: .infinity)
-                                .background(.thinMaterial, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Quick suggestion: \(suggestion)")
-                    }
-                }
-
-                // Sending/Sent status feedback
+                // Status indicator
                 if service.isSendingPrompt {
-                    HStack(spacing: 6) {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: Claude.info))
-                            .scaleEffect(0.7)
-                        Text("Sending...")
-                            .font(.caption)
-                            .foregroundColor(Claude.textSecondary)
-                    }
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: Claude.info))
+                        .scaleEffect(0.7)
                 } else if showSentConfirmation {
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.subheadline)
-                            .foregroundColor(Claude.success)
-                        Text("Sent")
-                            .font(.caption.weight(.semibold))
-                            .foregroundColor(Claude.success)
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(Claude.success)
+                }
+            }
+
+            // Text input with dictation support (watchOS 10+ native)
+            TextField("Tap to speak...", text: $transcribedText)
+                .font(.claudeBody)
+                .multilineTextAlignment(.center)
+                .padding(Claude.Spacing.sm)
+                .background(Claude.surface1, in: RoundedRectangle(cornerRadius: Claude.Radius.small))
+                .onChange(of: transcribedText) { oldValue, newValue in
+                    if newValue.count > oldValue.count && !isRecording {
+                        isRecording = true
+                        WKInterfaceDevice.current().play(.start)
+                    }
+                }
+                .onSubmit {
+                    if isRecording {
+                        isRecording = false
+                        WKInterfaceDevice.current().play(.stop)
                     }
                 }
 
-                // Action buttons
-                HStack(spacing: 12) {
+            // Quick suggestion chips - 2x2 compact grid
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 4) {
+                ForEach(suggestions, id: \.self) { suggestion in
                     Button {
-                        dismiss()
+                        transcribedText = suggestion
                     } label: {
-                        Text("Cancel")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundColor(Claude.danger)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(Claude.danger.opacity(0.15))
+                        Text(suggestion)
+                            .font(.claudeCaption)
+                            .foregroundColor(Claude.textSecondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .frame(maxWidth: .infinity)
+                            .background(Claude.surface1, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Quick suggestion: \(suggestion)")
+                }
+            }
+
+            Spacer()
+
+            // Action buttons
+            HStack(spacing: Claude.Spacing.sm) {
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Cancel")
+                        .font(.claudeFootnote)
+                        .foregroundColor(Claude.danger)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Claude.danger.opacity(0.15))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Cancel voice command")
+
+                if !transcribedText.isEmpty && !showSentConfirmation {
+                    Button {
+                        service.sendPrompt(transcribedText)
+                        showSentConfirmation = true
+                        WKInterfaceDevice.current().play(.success)
+                        Task {
+                            try? await Task.sleep(nanoseconds: 1_000_000_000)
+                            dismiss()
+                        }
+                    } label: {
+                        Text("Send")
+                            .font(.claudeFootnote)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Claude.success)
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Cancel voice command")
-
-                    if !transcribedText.isEmpty && !showSentConfirmation {
-                        Button {
-                            service.sendPrompt(transcribedText)
-                            showSentConfirmation = true
-                            WKInterfaceDevice.current().play(.success)
-                            Task {
-                                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                                dismiss()
-                            }
-                        } label: {
-                            Text("Send")
-                                .font(.footnote.weight(.semibold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 10)
-                                .background(Claude.success)
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Send voice command")
-                    }
+                    .accessibilityLabel("Send voice command")
                 }
             }
-            .padding()
         }
+        .padding(Claude.Spacing.md)
         .background(Claude.background)
     }
 }
@@ -145,303 +128,23 @@ struct SettingsSheet: View {
     @State private var serverURL: String = ""
     @State private var showingPairing = false
     @State private var showingPrivacy = false
+    @State private var selectedPage = 0
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                // Header
-                HStack {
-                    Image(systemName: "antenna.radiowaves.left.and.right")
-                        .font(.subheadline.weight(.semibold))
-                    Text("Connection")
-                        .font(.body.weight(.bold))
-                }
-                .foregroundColor(Claude.textPrimary)
+        TabView(selection: $selectedPage) {
+            // Page 1: Connection Status
+            connectionPage
+                .tag(0)
 
-                // Status indicator
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(statusColor)
-                        .frame(width: 8, height: 8)
+            // Page 2: Actions
+            actionsPage
+                .tag(1)
 
-                    Text(service.connectionStatus.displayName)
-                        .font(.footnote.weight(.semibold))
-                        .foregroundColor(statusColor)
-                }
-                .padding(.vertical, 4)
-
-                // Demo Mode Section
-                VStack(spacing: 8) {
-                    if service.isDemoMode {
-                        HStack(spacing: 8) {
-                            Image(systemName: "play.circle.fill")
-                                .foregroundColor(Claude.warning)
-                            Text("Demo Mode Active")
-                                .font(.footnote.weight(.semibold))
-                                .foregroundColor(Claude.warning)
-                        }
-
-                        // Reload demo data button
-                        Button {
-                            service.loadDemoData()
-                            WKInterfaceDevice.current().play(.click)
-                            dismiss()
-                        } label: {
-                            Text("Reload Demo")
-                                .font(.footnote.weight(.semibold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(Claude.info)
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-
-                        Button {
-                            service.isDemoMode = false
-                            service.state = WatchState()
-                            service.connectionStatus = .disconnected
-                            service.pairingId = ""
-                            WKInterfaceDevice.current().play(.click)
-                            dismiss()
-                        } label: {
-                            Text("Exit Demo")
-                                .font(.footnote.weight(.semibold))
-                                .foregroundColor(Claude.orange)
-                        }
-                        .buttonStyle(.plain)
-                    } else {
-                        // Enter demo mode button (always visible when not in demo)
-                        Button {
-                            service.loadDemoData()
-                            WKInterfaceDevice.current().play(.click)
-                            dismiss()
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "play.circle")
-                                    .font(.caption.weight(.semibold))
-                                Text("Try Demo")
-                                    .font(.footnote.weight(.semibold))
-                            }
-                            .foregroundColor(Claude.warning)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.vertical, 8)
-
-                // Cloud Mode Section
-                if service.useCloudMode && !service.isDemoMode {
-                    VStack(spacing: 12) {
-                        if service.isPaired {
-                            // Show paired status
-                            HStack(spacing: 8) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(Claude.success)
-                                Text("Paired")
-                                    .font(.footnote.weight(.semibold))
-                                    .foregroundColor(Claude.success)
-                            }
-
-                            // Unpair button
-                            Button {
-                                service.unpair()
-                                WKInterfaceDevice.current().play(.click)
-                            } label: {
-                                Text("Unpair")
-                                    .font(.footnote.weight(.semibold))
-                                    .foregroundColor(Claude.danger)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
-                                    .background(Claude.danger.opacity(0.15))
-                                    .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Unpair from Claude Code")
-                        } else {
-                            // Pair button
-                            Button {
-                                showingPairing = true
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "link")
-                                        .font(.caption.weight(.semibold))
-                                    Text("Pair with Code")
-                                        .font(.footnote.weight(.semibold))
-                                }
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(Claude.orange)
-                                .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Pair with Claude Code")
-                        }
-                    }
-                    .padding(.vertical, 8)
-                }
-
-                // Server URL input (WebSocket mode)
-                if !service.useCloudMode {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Server URL")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundColor(Claude.textSecondary)
-
-                        TextField("ws://...", text: $serverURL)
-                            .font(.footnote)
-                            .textContentType(.URL)
-                            .padding(10)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-                    }
-
-                    // Action buttons
-                    HStack(spacing: 10) {
-                        Button {
-                            dismiss()
-                        } label: {
-                            Text("Cancel")
-                                .font(.footnote.weight(.semibold))
-                                .foregroundColor(Claude.danger)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(Claude.danger.opacity(0.15))
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Cancel and close settings")
-
-                        Button {
-                            service.serverURLString = serverURL
-                            service.connect()
-                            WKInterfaceDevice.current().play(.success)
-                            dismiss()
-                        } label: {
-                            Text("Save")
-                                .font(.footnote.weight(.semibold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(Claude.success)
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Save server URL and connect")
-                    }
-                }
-
-                // About section
-                VStack(spacing: 10) {
-                    HStack {
-                        Image(systemName: "info.circle")
-                            .font(.caption.weight(.semibold))
-                        Text("About")
-                            .font(.footnote.weight(.bold))
-                    }
-                    .foregroundColor(Claude.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    // Version
-                    HStack {
-                        Text("Version")
-                            .font(.caption)
-                            .foregroundColor(Claude.textSecondary)
-                        Spacer()
-                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
-                            .font(.caption.weight(.semibold))
-                            .foregroundColor(Claude.textPrimary)
-                    }
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-
-                    // Privacy Consent (review in app)
-                    Button {
-                        showingPrivacy = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "hand.raised.fill")
-                                .font(.caption)
-                                .foregroundColor(Claude.orange)
-                            Text("Privacy & Consent")
-                                .font(.caption)
-                                .foregroundColor(Claude.textPrimary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption2)
-                                .foregroundColor(Claude.textTertiary)
-                        }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Review privacy settings and consent")
-
-                    // Privacy Policy
-                    if let privacyURL = URL(string: "https://claude-watch.example.com/privacy") {
-                        Link(destination: privacyURL) {
-                            HStack {
-                                Image(systemName: "doc.text")
-                                    .font(.caption)
-                                    .foregroundColor(Claude.info)
-                                Text("Privacy Policy")
-                                    .font(.caption)
-                                    .foregroundColor(Claude.textPrimary)
-                                Spacer()
-                                Image(systemName: "arrow.up.right")
-                                    .font(.caption2)
-                                    .foregroundColor(Claude.textTertiary)
-                            }
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-                        }
-                    }
-
-                    // Support
-                    if let supportURL = URL(string: "https://claude-watch.example.com/support") {
-                        Link(destination: supportURL) {
-                            HStack {
-                                Image(systemName: "questionmark.circle")
-                                    .font(.caption)
-                                    .foregroundColor(Claude.info)
-                                Text("Support")
-                                    .font(.caption)
-                                    .foregroundColor(Claude.textPrimary)
-                                Spacer()
-                                Image(systemName: "arrow.up.right")
-                                    .font(.caption2)
-                                    .foregroundColor(Claude.textTertiary)
-                            }
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-                        }
-                    }
-                }
-                .padding(.top, 8)
-
-                // Done button for cloud mode
-                if service.useCloudMode {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Text("Done")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(Claude.info)
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Done, close settings")
-                }
-            }
-            .padding()
+            // Page 3: About (only if needed)
+            aboutPage
+                .tag(2)
         }
+        .tabViewStyle(.verticalPage)
         .background(Claude.background)
         .onAppear {
             serverURL = service.serverURLString
@@ -454,12 +157,245 @@ struct SettingsSheet: View {
         }
     }
 
+    // MARK: - Page 1: Connection Status
+    private var connectionPage: some View {
+        VStack(spacing: Claude.Spacing.md) {
+            // Header
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 8, height: 8)
+                Text(service.connectionStatus.displayName)
+                    .font(.claudeFootnote)
+                    .foregroundColor(statusColor)
+                Spacer()
+            }
+
+            // Status card
+            VStack(spacing: Claude.Spacing.sm) {
+                Image(systemName: statusIcon)
+                    .font(.system(size: 28))
+                    .foregroundStyle(statusColor)
+
+                if service.isDemoMode {
+                    Text("Demo Mode")
+                        .font(.claudeHeadline)
+                        .foregroundStyle(Claude.warning)
+                } else if service.isPaired {
+                    Text("Paired")
+                        .font(.claudeHeadline)
+                        .foregroundStyle(Claude.success)
+                } else {
+                    Text("Not Paired")
+                        .font(.claudeHeadline)
+                        .foregroundStyle(Claude.textPrimary)
+                }
+            }
+            .padding(Claude.Spacing.md)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: Claude.Radius.medium)
+                    .fill(Claude.surface1)
+            )
+
+            Spacer()
+
+            // Page indicator hint
+            Text("Swipe for actions")
+                .font(.claudeCaption)
+                .foregroundStyle(Claude.textTertiary)
+        }
+        .padding(Claude.Spacing.md)
+    }
+
+    // MARK: - Page 2: Actions
+    private var actionsPage: some View {
+        VStack(spacing: Claude.Spacing.sm) {
+            // Demo Mode Actions
+            if service.isDemoMode {
+                Button {
+                    service.loadDemoData()
+                    WKInterfaceDevice.current().play(.click)
+                    dismiss()
+                } label: {
+                    SettingsActionRow(
+                        icon: "arrow.clockwise",
+                        title: "Reload Demo",
+                        color: Claude.info
+                    )
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    service.isDemoMode = false
+                    service.state = WatchState()
+                    service.connectionStatus = .disconnected
+                    service.pairingId = ""
+                    WKInterfaceDevice.current().play(.click)
+                    dismiss()
+                } label: {
+                    SettingsActionRow(
+                        icon: "xmark.circle",
+                        title: "Exit Demo",
+                        color: Claude.orange
+                    )
+                }
+                .buttonStyle(.plain)
+            } else {
+                // Pairing/Unpairing
+                if service.isPaired {
+                    Button {
+                        service.unpair()
+                        WKInterfaceDevice.current().play(.click)
+                    } label: {
+                        SettingsActionRow(
+                            icon: "link.badge.plus",
+                            title: "Unpair",
+                            color: Claude.danger
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Unpair from Claude Code")
+                } else {
+                    Button {
+                        showingPairing = true
+                    } label: {
+                        SettingsActionRow(
+                            icon: "link",
+                            title: "Pair Now",
+                            color: Claude.orange
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Pair with Claude Code")
+                }
+
+                // Demo mode entry
+                Button {
+                    service.loadDemoData()
+                    WKInterfaceDevice.current().play(.click)
+                    dismiss()
+                } label: {
+                    SettingsActionRow(
+                        icon: "play.circle",
+                        title: "Try Demo",
+                        color: Claude.warning
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer()
+
+            // Done button
+            Button {
+                dismiss()
+            } label: {
+                Text("Done")
+                    .font(.claudeFootnote)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(Claude.info)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Done, close settings")
+        }
+        .padding(Claude.Spacing.md)
+    }
+
+    // MARK: - Page 3: About
+    private var aboutPage: some View {
+        VStack(spacing: Claude.Spacing.sm) {
+            HStack {
+                Text("About")
+                    .font(.claudeHeadline)
+                    .foregroundStyle(Claude.textPrimary)
+                Spacer()
+            }
+
+            // Version
+            HStack {
+                Text("Version")
+                    .font(.claudeFootnote)
+                    .foregroundColor(Claude.textSecondary)
+                Spacer()
+                Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+                    .font(.claudeFootnote)
+                    .foregroundColor(Claude.textPrimary)
+            }
+            .padding(Claude.Spacing.sm)
+            .background(Claude.surface1, in: RoundedRectangle(cornerRadius: Claude.Radius.small))
+
+            // Privacy
+            Button {
+                showingPrivacy = true
+            } label: {
+                HStack {
+                    Image(systemName: "hand.raised.fill")
+                        .font(.caption)
+                        .foregroundColor(Claude.orange)
+                    Text("Privacy")
+                        .font(.claudeFootnote)
+                        .foregroundColor(Claude.textPrimary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                        .foregroundColor(Claude.textTertiary)
+                }
+                .padding(Claude.Spacing.sm)
+                .background(Claude.surface1, in: RoundedRectangle(cornerRadius: Claude.Radius.small))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Review privacy settings")
+
+            Spacer()
+        }
+        .padding(Claude.Spacing.md)
+    }
+
     private var statusColor: Color {
         switch service.connectionStatus {
         case .connected: return Claude.success
         case .connecting, .reconnecting: return Claude.warning
         case .disconnected: return Claude.danger
         }
+    }
+
+    private var statusIcon: String {
+        if service.isDemoMode {
+            return "play.circle.fill"
+        }
+        switch service.connectionStatus {
+        case .connected: return "checkmark.circle.fill"
+        case .connecting, .reconnecting: return "arrow.triangle.2.circlepath"
+        case .disconnected: return "xmark.circle"
+        }
+    }
+}
+
+// MARK: - Settings Action Row
+private struct SettingsActionRow: View {
+    let icon: String
+    let title: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: Claude.Spacing.sm) {
+            Image(systemName: icon)
+                .font(.subheadline)
+                .foregroundStyle(color)
+                .frame(width: 24)
+
+            Text(title)
+                .font(.claudeBody)
+                .foregroundStyle(Claude.textPrimary)
+
+            Spacer()
+        }
+        .padding(Claude.Spacing.sm)
+        .background(Claude.surface1, in: RoundedRectangle(cornerRadius: Claude.Radius.small))
     }
 }
 
