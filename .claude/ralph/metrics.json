@@ -10,6 +10,8 @@
     "output": 0
   },
   "estimatedCost": 0.00,
+  "tokenHistory": [],
+  "costHistory": [],
   "tasksCompleted": 6,
   "tasksFailed": 11,
   "totalRetries": 0,
