@@ -406,6 +406,178 @@ parse_and_update_tokens() {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# SKILL HARVESTING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+SKILLS_DIR="$PROJECT_ROOT/.claude/commands"
+
+# Check if a task is harvestable (non-trivial, reusable pattern)
+# Args: task_id
+is_harvestable_task() {
+    local task_id="$1"
+
+    # Get task tags
+    local tags
+    tags=$(get_task_tags "$task_id" 2>/dev/null || echo "")
+
+    # Skip trivial tasks (test, config, typo fixes)
+    if echo "$tags" | grep -qE "test|config|typo|trivial"; then
+        return 1  # Not harvestable
+    fi
+
+    # Skip meta tasks (like this one)
+    if echo "$tags" | grep -qE "^meta$|loop-verification"; then
+        return 1
+    fi
+
+    # Get task complexity (file count as proxy)
+    local files_count
+    files_count=$(yq ".tasks[] | select(.id == \"$task_id\") | .files | length" "$TASKS_FILE" 2>/dev/null || echo "0")
+
+    # Harvest if >= 2 files or has specific harvestable tags
+    if [[ "$files_count" -ge 2 ]]; then
+        return 0  # Harvestable
+    fi
+
+    # Check for harvestable patterns in tags
+    if echo "$tags" | grep -qE "pattern|insight|discovery|undocumented|fix"; then
+        return 0  # Harvestable
+    fi
+
+    return 1  # Not harvestable
+}
+
+# Generate skill name from task
+# Args: task_id, task_title
+generate_skill_name() {
+    local task_id="$1"
+    local task_title="$2"
+
+    # Convert to lowercase kebab-case
+    echo "$task_title" | \
+        tr '[:upper:]' '[:lower:]' | \
+        sed 's/[^a-z0-9]/-/g' | \
+        sed 's/--*/-/g' | \
+        sed 's/^-//' | \
+        sed 's/-$//' | \
+        cut -c1-40
+}
+
+# Extract skill from completed task session
+# Args: task_id, session_log_content
+skill_extraction() {
+    local task_id="$1"
+
+    if ! command -v yq &> /dev/null; then
+        log_warning "yq not found, skipping skill extraction"
+        return 1
+    fi
+
+    # Get task details
+    local task_title
+    local task_desc
+    local task_tags
+    task_title=$(yq ".tasks[] | select(.id == \"$task_id\") | .title" "$TASKS_FILE" 2>/dev/null | tr -d '"')
+    task_desc=$(yq ".tasks[] | select(.id == \"$task_id\") | .description" "$TASKS_FILE" 2>/dev/null)
+    task_tags=$(get_task_tags "$task_id" | tr '\n' ', ' | sed 's/,$//')
+
+    if [[ -z "$task_title" ]]; then
+        log_warning "Could not get task title for $task_id"
+        return 1
+    fi
+
+    # Generate skill name
+    local skill_name
+    skill_name=$(generate_skill_name "$task_id" "$task_title")
+
+    # Check if skill already exists
+    if [[ -f "$SKILLS_DIR/$skill_name.md" ]]; then
+        log_verbose "Skill already exists: $skill_name"
+        return 0
+    fi
+
+    log "Extracting skill from task: $task_id"
+
+    # Create skill file
+    mkdir -p "$SKILLS_DIR"
+
+    cat > "$SKILLS_DIR/$skill_name.md" << EOF
+---
+name: $skill_name
+description: Harvested from Ralph task $task_id - $task_title
+tags: [$task_tags, auto-harvested]
+harvested_from: $task_id
+harvested_at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+---
+
+# $task_title
+
+## When to Use
+This skill was automatically harvested from a successful Ralph task completion.
+Use when facing similar patterns in watchOS development.
+
+## Context
+$task_desc
+
+## Implementation Pattern
+This skill was harvested automatically. Review the commit history for task $task_id
+to understand the specific implementation details.
+
+## Files Affected
+$(yq ".tasks[] | select(.id == \"$task_id\") | .files[]" "$TASKS_FILE" 2>/dev/null | sed 's/^/- /')
+
+## Verification
+\`\`\`bash
+$(yq ".tasks[] | select(.id == \"$task_id\") | .verification" "$TASKS_FILE" 2>/dev/null)
+\`\`\`
+EOF
+
+    log_success "Skill harvested: $skill_name"
+    return 0
+}
+
+# Main skill harvesting function
+# Called after successful task completion
+# Args: task_id
+harvest_skill() {
+    local task_id="$1"
+
+    log_verbose "Checking if task $task_id is harvestable..."
+
+    # Check if task is harvestable
+    if ! is_harvestable_task "$task_id"; then
+        log_verbose "Task $task_id not harvestable (trivial or meta)"
+        return 0
+    fi
+
+    # Run skill extraction
+    if skill_extraction "$task_id"; then
+        # Update metrics with harvested skill
+        if command -v jq &> /dev/null && [[ -f "$METRICS_FILE" ]]; then
+            local skill_name
+            skill_name=$(generate_skill_name "$task_id" "$(yq ".tasks[] | select(.id == \"$task_id\") | .title" "$TASKS_FILE" 2>/dev/null | tr -d '"')")
+
+            # Add harvestedSkills array if it doesn't exist, then append
+            jq --arg name "$skill_name" \
+               --arg tid "$task_id" \
+               --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+               'if .harvestedSkills == null then .harvestedSkills = [] else . end |
+                .harvestedSkills += [{
+                  "name": $name,
+                  "taskId": $tid,
+                  "harvestedAt": $ts
+                }]' "$METRICS_FILE" > "$METRICS_FILE.tmp" && mv "$METRICS_FILE.tmp" "$METRICS_FILE"
+
+            log_verbose "Skill logged in metrics.json"
+        fi
+        return 0
+    else
+        log_warning "Skill extraction failed for $task_id"
+        return 1
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # SESSION LOGGING
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1132,6 +1304,8 @@ run_parallel_loop() {
             [[ -z "$task_id" ]] && continue
             task_id=$(echo "$task_id" | tr -d '"')
             update_metrics "parallel-$current_group" "completed" "$task_id"
+            # Harvest skills from completed tasks
+            harvest_skill "$task_id"
         done
 
         # Brief pause before next group
@@ -1320,6 +1494,11 @@ run_loop() {
             log_session_end "$session_id" "COMPLETED" "Session completed successfully"
             update_metrics "$session_id" "completed" "$next_task_id"
             consecutive_failures=0
+
+            # ═══════════════════════════════════════════════════════════════
+            # SKILL HARVESTING - Extract reusable patterns from completed task
+            # ═══════════════════════════════════════════════════════════════
+            harvest_skill "$next_task_id"
 
         else
             # Clean up temp prompt file
