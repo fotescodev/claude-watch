@@ -52,6 +52,9 @@ struct ActionQueue: View {
     @State private var approveAllPressed = false
     @State private var didApproveAll = false
 
+    // Confirmation dialog state
+    @State private var showApproveAllConfirmation = false
+
     var body: some View {
         VStack(spacing: 8) {
             // Primary action card
@@ -75,8 +78,7 @@ struct ActionQueue: View {
 
                 // Approve All button
                 Button {
-                    service.approveAll()
-                    didApproveAll.toggle()
+                    showApproveAllConfirmation = true
                 } label: {
                     Text("Approve All (\(service.state.pendingActions.count))")
                         .font(.body.weight(.bold))
@@ -102,6 +104,20 @@ struct ActionQueue: View {
                 )
                 .accessibilityLabel("Approve all \(service.state.pendingActions.count) pending actions")
                 .sensoryFeedback(.success, trigger: didApproveAll)
+                .confirmationDialog(
+                    "Approve All?",
+                    isPresented: $showApproveAllConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Approve \(service.state.pendingActions.count) Actions", role: .destructive) {
+                        service.approveAll()
+                        didApproveAll.toggle()
+                        AccessibilityNotification.Announcement("Approved all \(service.state.pendingActions.count) actions").post()
+                    }
+                    Button("Cancel", role: .cancel) { }
+                } message: {
+                    Text("This will approve all pending actions at once.")
+                }
             }
         }
     }
