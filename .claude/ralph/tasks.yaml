@@ -1085,7 +1085,7 @@ tasks:
       4. Ensure fallback for older watchOS versions if needed
     priority: medium
     parallel_group: 13
-    completed: false
+    completed: true
     verification: |
       grep -rq 'glassEffect\|liquidGlass' ClaudeWatch/ && exit 0 || exit 1
     acceptance_criteria:

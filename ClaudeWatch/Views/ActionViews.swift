@@ -1,6 +1,46 @@
 import SwiftUI
 import WatchKit
 
+// MARK: - Error Banner
+struct ErrorBanner: View {
+    let message: String
+    @Binding var isVisible: Bool
+
+    // Accessibility: High Contrast support
+    @Environment(\.colorSchemeContrast) var colorSchemeContrast
+
+    var body: some View {
+        if isVisible {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(.white)
+
+                Text(message)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(Claude.danger)
+            )
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .onAppear {
+                // Auto-dismiss after 3 seconds
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        isVisible = false
+                    }
+                }
+            }
+            .accessibilityLabel("Error: \(message)")
+        }
+    }
+}
+
 // MARK: - Action Queue
 struct ActionQueue: View {
     @ObservedObject private var service = WatchService.shared
@@ -87,8 +127,15 @@ struct PrimaryActionCard: View {
     @State private var didReject = false
     @State private var didApprove = false
 
+    // Error handling state
+    @State private var showError = false
+    @State private var errorMessage = ""
+    @State private var didError = false
+
     var body: some View {
         VStack(spacing: 12) {
+            // Error banner
+            ErrorBanner(message: errorMessage, isVisible: $showError)
             // Action info
             HStack(spacing: 10) {
                 // Type icon
@@ -130,16 +177,23 @@ struct PrimaryActionCard: View {
             HStack(spacing: 8) {
                 // Reject (visually first, VoiceOver reads second)
                 Button {
-                    Task {
-                        if service.useCloudMode && service.isPaired {
-                            try? await service.respondToCloudRequest(action.id, approved: false)
-                        } else {
-                            service.rejectAction(action.id)
+                    Task { @MainActor in
+                        do {
+                            if service.useCloudMode && service.isPaired {
+                                try await service.respondToCloudRequest(action.id, approved: false)
+                            } else {
+                                service.rejectAction(action.id)
+                            }
+                            didReject.toggle()
+                            AccessibilityNotification.Announcement("Rejected \(action.title)").post()
+                        } catch {
+                            errorMessage = "Failed to reject"
+                            withAnimation(.easeIn(duration: 0.2)) {
+                                showError = true
+                            }
+                            didError.toggle()
                         }
                     }
-                    didReject.toggle()
-                    // VoiceOver announcement
-                    AccessibilityNotification.Announcement("Rejected \(action.title)").post()
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "xmark")
@@ -173,16 +227,23 @@ struct PrimaryActionCard: View {
 
                 // Approve (VoiceOver reads first due to higher sort priority)
                 Button {
-                    Task {
-                        if service.useCloudMode && service.isPaired {
-                            try? await service.respondToCloudRequest(action.id, approved: true)
-                        } else {
-                            service.approveAction(action.id)
+                    Task { @MainActor in
+                        do {
+                            if service.useCloudMode && service.isPaired {
+                                try await service.respondToCloudRequest(action.id, approved: true)
+                            } else {
+                                service.approveAction(action.id)
+                            }
+                            didApprove.toggle()
+                            AccessibilityNotification.Announcement("Approved \(action.title)").post()
+                        } catch {
+                            errorMessage = "Failed to approve"
+                            withAnimation(.easeIn(duration: 0.2)) {
+                                showError = true
+                            }
+                            didError.toggle()
                         }
                     }
-                    didApprove.toggle()
-                    // VoiceOver announcement
-                    AccessibilityNotification.Announcement("Approved \(action.title)").post()
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark")
@@ -217,6 +278,7 @@ struct PrimaryActionCard: View {
         }
         .padding(14)
         .glassEffectCompat(RoundedRectangle(cornerRadius: 20))
+        .sensoryFeedback(.error, trigger: didError)
     }
 
     private var typeColor: Color {
@@ -310,4 +372,10 @@ struct CompactActionCard: View {
         timestamp: Date()
     ))
     .padding()
+}
+
+#Preview("Error Banner") {
+    @Previewable @State var showError = true
+    ErrorBanner(message: "Failed to approve", isVisible: $showError)
+        .padding()
 }
