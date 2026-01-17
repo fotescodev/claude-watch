@@ -433,7 +433,7 @@ tasks:
       on the watch side to support faster numeric input.
     priority: high
     parallel_group: 7
-    completed: false
+    completed: true
     verification: |
       grep -qE 'TextFieldLink|isNumericCode|numericFormat|oneTimeCode|validateCode' ClaudeWatch/Views/PairingView.swift && exit 0 || exit 1
     acceptance_criteria:
