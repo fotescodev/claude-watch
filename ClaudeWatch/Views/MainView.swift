@@ -3,31 +3,6 @@ import WatchKit
 
 // RALPH_TEST: Loop verification successful
 
-// MARK: - Design System (watchOS Native)
-private enum Claude {
-    // Primary & Accent - Orange as Claude identity
-    static let orange = Color(red: 1.0, green: 0.584, blue: 0.0)        // #FF9500
-    static let orangeLight = Color(red: 1.0, green: 0.702, blue: 0.251) // #FFB340
-    static let orangeDark = Color(red: 0.8, green: 0.467, blue: 0.0)    // #CC7700
-
-    // Semantic colors (Apple system colors)
-    static let success = Color(red: 0.204, green: 0.780, blue: 0.349)   // #34C759
-    static let danger = Color(red: 1.0, green: 0.231, blue: 0.188)      // #FF3B30
-    static let warning = Color(red: 1.0, green: 0.584, blue: 0.0)       // #FF9500
-    static let info = Color(red: 0.0, green: 0.478, blue: 1.0)          // #007AFF
-
-    // Surface colors
-    static let background = Color.black
-    static let surface1 = Color(red: 0.110, green: 0.110, blue: 0.118)  // #1C1C1E
-    static let surface2 = Color(red: 0.173, green: 0.173, blue: 0.180)  // #2C2C2E
-    static let surface3 = Color(red: 0.227, green: 0.227, blue: 0.235)  // #3A3A3C
-
-    // Text colors
-    static let textPrimary = Color.white
-    static let textSecondary = Color(white: 0.6)
-    static let textTertiary = Color(white: 0.4)
-}
-
 // MARK: - Main View
 struct MainView: View {
     @ObservedObject private var service = WatchService.shared
@@ -151,24 +126,6 @@ struct MainView: View {
         withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
             pulsePhase = 1
         }
-    }
-}
-
-// MARK: - Spring Animation Extensions
-extension Animation {
-    /// Standard spring animation for interactive button feedback
-    static var buttonSpring: Animation {
-        .spring(response: 0.35, dampingFraction: 0.7, blendDuration: 0)
-    }
-
-    /// Bouncy spring for attention-grabbing elements
-    static var bouncySpring: Animation {
-        .interpolatingSpring(stiffness: 200, damping: 15)
-    }
-
-    /// Gentle spring for subtle transitions
-    static var gentleSpring: Animation {
-        .spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0)
     }
 }
 

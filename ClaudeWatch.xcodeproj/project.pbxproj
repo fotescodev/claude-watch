@@ -20,6 +20,7 @@
 		VIEW002 /* PairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC005 /* PairingView.swift */; };
 		VIEW003 /* ConsentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC006 /* ConsentView.swift */; };
 		VIEW004 /* RecordingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC007 /* RecordingIndicator.swift */; };
+		DS001 /* Claude.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_DS001 /* Claude.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,9 +51,18 @@
 		TEST_SRC003 /* WebSocketErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketErrorTests.swift; sourceTree = "<group>"; };
 		TEST_SRC004 /* QueuedMessageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueuedMessageTests.swift; sourceTree = "<group>"; };
 		TEST_SRC005 /* WatchServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchServiceTests.swift; sourceTree = "<group>"; };
+		SRC_DS001 /* Claude.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Claude.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		GRP_DESIGNSYSTEM /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				SRC_DS001 /* Claude.swift */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
 		GRP_APP /* App */ = {
 			isa = PBXGroup;
 			children = (
@@ -122,6 +132,7 @@
 			children = (
 				86B9C9412F1965EB005C3830 /* ClaudeWatch.entitlements */,
 				GRP_APP /* App */,
+				GRP_DESIGNSYSTEM /* DesignSystem */,
 				GRP_VIEWS /* Views */,
 				GRP_SERVICES /* Services */,
 				GRP_COMPLICATIONS /* Complications */,
@@ -230,6 +241,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				APP001 /* ClaudeWatchApp.swift in Sources */,
+				DS001 /* Claude.swift in Sources */,
 				VIEW001 /* MainView.swift in Sources */,
 				VIEW002 /* PairingView.swift in Sources */,
 				VIEW003 /* ConsentView.swift in Sources */,

@@ -1,19 +1,6 @@
 import SwiftUI
 import WatchKit
 
-// MARK: - Design System Reference
-private enum Claude {
-    static let orange = Color(red: 1.0, green: 0.584, blue: 0.0)
-    static let success = Color(red: 0.204, green: 0.780, blue: 0.349)
-    static let info = Color(red: 0.0, green: 0.478, blue: 1.0)
-    static let background = Color.black
-    static let surface1 = Color(red: 0.110, green: 0.110, blue: 0.118)
-    static let surface2 = Color(red: 0.173, green: 0.173, blue: 0.180)
-    static let textPrimary = Color.white
-    static let textSecondary = Color(white: 0.6)
-    static let textTertiary = Color(white: 0.4)
-}
-
 // MARK: - Consent View
 struct ConsentView: View {
     @AppStorage("hasAcceptedConsent") private var hasAcceptedConsent = false

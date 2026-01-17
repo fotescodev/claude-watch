@@ -577,21 +577,21 @@ tasks:
       - qr-code
       - deferred
     commit_template: "feat(api): Add QR-scannable deep link URL to pairing response"
-  # ═══════════════════════════════════════════════════════════════════════════
-  # PHASE 7: UX IMPROVEMENTS - Component Architecture & Design System (FLATTENED)
-  # From: plans/feat-ux-improvement-watchos.md (DEEPENED + SIMPLIFIED)
-  # Updated: 2026-01-17 - Flattened from 14 files to 5 files per plan review
-  # Parallel Groups 10-14
-  #
-  # KEY LEARNINGS APPLIED:
-  # - Over-engineering prevention: Read existing code before designing new components
-  # - watchOS 26: Liquid Glass, native TextField for dictation, WKApplication
-  # - Async state: Always use @MainActor Task with defer for loading states
-  # - NavigationStack: Required at outermost level for toolbar visibility
-  # ═══════════════════════════════════════════════════════════════════════════
-
   # --- Phase 7.0: Pre-Planning Verification (parallel_group: 9) ---
   - id: "UX0"
+    # ═══════════════════════════════════════════════════════════════════════════
+    # PHASE 7: UX IMPROVEMENTS - Component Architecture & Design System (FLATTENED)
+    # From: plans/feat-ux-improvement-watchos.md (DEEPENED + SIMPLIFIED)
+    # Updated: 2026-01-17 - Flattened from 14 files to 5 files per plan review
+    # Parallel Groups 10-14
+    #
+    # KEY LEARNINGS APPLIED:
+    # - Over-engineering prevention: Read existing code before designing new components
+    # - watchOS 26: Liquid Glass, native TextField for dictation, WKApplication
+    # - Async state: Always use @MainActor Task with defer for loading states
+    # - NavigationStack: Required at outermost level for toolbar visibility
+    # ═══════════════════════════════════════════════════════════════════════════
+
     title: "Verify existing code before component extraction"
     description: |
       CRITICAL: Pre-planning code review to prevent over-engineering.
@@ -649,7 +649,7 @@ tasks:
       3. Add file to project.pbxproj
     priority: critical
     parallel_group: 10
-    completed: false
+    completed: true
     verification: |
       [ -f "ClaudeWatch/DesignSystem/Claude.swift" ] && \
       grep -q 'enum Claude' ClaudeWatch/DesignSystem/Claude.swift && \
@@ -686,7 +686,7 @@ tasks:
     parallel_group: 10
     depends_on:
       - "UX1"
-    completed: false
+    completed: true
     verification: |
       ! grep -q 'private enum Claude' ClaudeWatch/Views/ConsentView.swift && \
       ! grep -q 'private enum Claude' ClaudeWatch/Complications/ComplicationViews.swift && exit 0 || exit 1
