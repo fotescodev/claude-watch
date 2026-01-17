@@ -925,7 +925,23 @@ render_costs() {
 }
 
 render() {
-    render_details
+    case "$CURRENT_VIEW" in
+        dashboard)
+            render_details
+            ;;
+        metrics)
+            render_costs
+            ;;
+        sessions)
+            render_sessions
+            ;;
+        tasks)
+            render_details
+            ;;
+        *)
+            render_details
+            ;;
+    esac
 }
 
 #───────────────────────────────────────────────────────────────────────────────
