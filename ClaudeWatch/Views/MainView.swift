@@ -200,56 +200,43 @@ struct StatusHeader: View {
     // Accessibility: High Contrast support
     @Environment(\.colorSchemeContrast) var colorSchemeContrast
 
-    // Dynamic Type support
-    @ScaledMetric(relativeTo: .body) private var statusIconContainerSize: CGFloat = 36
-    @ScaledMetric(relativeTo: .body) private var statusIconSize: CGFloat = 16
-
     var body: some View {
-        VStack(spacing: 8) {
-            // Status icon with pulse
-            ZStack {
-                Circle()
-                    .fill(statusColor.opacity(0.2))
-                    .frame(width: statusIconContainerSize, height: statusIconContainerSize)
-
-                if (service.state.status == .running || service.state.status == .waiting) && !reduceMotion {
-                    Circle()
-                        .fill(statusColor.opacity(0.3))
-                        .frame(width: statusIconContainerSize, height: statusIconContainerSize)
-                        .scaleEffect(1 + pulsePhase * 0.2)
-                }
-
-                Image(systemName: statusIcon)
-                    .font(.system(size: statusIconSize, weight: .bold))
-                    .foregroundColor(statusColor)
-                    .symbolEffect(.pulse, options: .repeating, isActive: isStatusActive && !reduceMotion)
-                    .contentTransition(.symbolEffect(.replace))
-            }
-
-            // Status text
-            Text(statusText)
-                .font(.claudeHeadline)
-                .foregroundColor(Claude.textPrimary)
-
-            // Task name or subtitle
+        VStack(spacing: 10) {
+            // Task name is primary (what Claude is doing)
             if !service.state.taskName.isEmpty {
                 Text(service.state.taskName)
-                    .font(.claudeFootnote)
-                    .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
+                    .font(.claudeHeadline)
+                    .foregroundColor(Claude.textPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
             } else {
-                Text(statusSubtitle)
-                    .font(.claudeFootnote)
-                    .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
+                Text(idleMessage)
+                    .font(.claudeHeadline)
+                    .foregroundColor(Claude.textPrimary)
                     .multilineTextAlignment(.center)
             }
 
-            // Progress bar when running
+            // Progress bar with percentage when running
             if service.state.status == .running || service.state.status == .waiting {
-                ProgressView(value: service.state.progress)
-                    .tint(Claude.orange)
-                    .padding(.horizontal, 20)
+                VStack(spacing: 4) {
+                    ProgressView(value: service.state.progress)
+                        .tint(Claude.orange)
+
+                    Text("\(Int(service.state.progress * 100))%")
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundColor(Claude.textSecondary)
+                }
+            }
+
+            // Status indicator - subtle, secondary info
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 6, height: 6)
+
+                Text(statusText)
+                    .font(.claudeFootnote)
+                    .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
             }
         }
         .frame(maxWidth: .infinity)
@@ -257,33 +244,14 @@ struct StatusHeader: View {
         .glassEffectCompat(RoundedRectangle(cornerRadius: 16))
     }
 
-    private var statusSubtitle: String {
-        switch service.state.status {
-        case .idle: return "Waiting for actions"
-        case .running: return "Claude is working..."
-        case .waiting: return "Waiting for approval"
-        case .completed: return "Task completed"
-        case .failed: return "Something went wrong"
-        }
-    }
-
-    private var statusIcon: String {
-        switch service.state.status {
-        case .idle: return "checkmark"
-        case .running: return "play.fill"
-        case .waiting: return "clock.fill"
-        case .completed: return "checkmark.circle.fill"
-        case .failed: return "exclamationmark.triangle.fill"
-        }
+    private var idleMessage: String {
+        "Ready for tasks"
     }
 
     private var statusText: String {
-        if !service.state.pendingActions.isEmpty {
-            return "Pending"
-        }
         switch service.state.status {
-        case .idle: return "Ready"
-        case .running: return "Active"
+        case .idle: return "Idle"
+        case .running: return "Working"
         case .waiting: return "Waiting"
         case .completed: return "Done"
         case .failed: return "Error"
@@ -291,20 +259,13 @@ struct StatusHeader: View {
     }
 
     private var statusColor: Color {
-        if !service.state.pendingActions.isEmpty {
-            return Claude.orange
-        }
         switch service.state.status {
-        case .idle: return Claude.success
+        case .idle: return Claude.textSecondary
         case .running: return Claude.orange
         case .waiting: return Claude.warning
         case .completed: return Claude.success
         case .failed: return Claude.danger
         }
-    }
-
-    private var isStatusActive: Bool {
-        service.state.status == .running || service.state.status == .waiting
     }
 }
 

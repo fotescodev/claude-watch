@@ -56,27 +56,14 @@ struct ActionQueue: View {
     @State private var showApproveAllConfirmation = false
 
     var body: some View {
-        VStack(spacing: 4) {
-            // Primary action card
+        VStack(spacing: 6) {
+            // Primary action card only
             if let action = service.state.pendingActions.first {
-                PrimaryActionCard(action: action)
+                PrimaryActionCard(action: action, totalCount: service.state.pendingActions.count)
             }
 
-            // Additional pending items - show just 1 + count
+            // Approve All button - only if more than 1 action
             if service.state.pendingActions.count > 1 {
-                // Show one more action preview
-                if let nextAction = service.state.pendingActions.dropFirst().first {
-                    CompactActionCard(action: nextAction)
-                }
-
-                // Show count if more than 2
-                if service.state.pendingActions.count > 2 {
-                    Text("+\(service.state.pendingActions.count - 2) more")
-                        .font(.system(size: 10))
-                        .foregroundColor(Claude.textTertiary)
-                }
-
-                // Approve All button - compact
                 Button {
                     showApproveAllConfirmation = true
                 } label: {
@@ -121,6 +108,7 @@ struct ActionQueue: View {
 struct PrimaryActionCard: View {
     @ObservedObject private var service = WatchService.shared
     let action: PendingAction
+    var totalCount: Int = 1
 
     // Accessibility: Reduce Motion support
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -175,6 +163,16 @@ struct PrimaryActionCard: View {
                 }
 
                 Spacer()
+
+                // Show count badge if more than 1 action
+                if totalCount > 1 {
+                    Text("\(totalCount)")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 22, height: 22)
+                        .background(Claude.orange)
+                        .clipShape(Circle())
+                }
             }
 
             // Action buttons - compact with icons only
@@ -327,7 +325,92 @@ struct CompactActionCard: View {
     }
 }
 
+// MARK: - Compact Status Header
+/// Single-line status header for glanceable design (under 40pt height)
+struct CompactStatusHeader: View {
+    @ObservedObject private var service = WatchService.shared
+
+    var body: some View {
+        HStack(spacing: 6) {
+            // Status dot (8pt)
+            Circle()
+                .fill(statusColor)
+                .frame(width: 8, height: 8)
+
+            // Status text
+            Text(statusText)
+                .font(.caption.weight(.semibold))
+                .foregroundColor(Claude.textPrimary)
+
+            Spacer()
+
+            // Pending badge (if any)
+            if pendingCount > 0 {
+                Text("\(pendingCount)")
+                    .font(.caption2.weight(.bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Claude.orange)
+                    .clipShape(Capsule())
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityDescription)
+    }
+
+    private var pendingCount: Int {
+        service.state.pendingActions.count
+    }
+
+    private var statusText: String {
+        switch service.state.status {
+        case .idle:
+            return "Idle"
+        case .running:
+            return "Running"
+        case .waiting:
+            return "Waiting"
+        case .completed:
+            return "Done"
+        case .failed:
+            return "Error"
+        }
+    }
+
+    private var statusColor: Color {
+        switch service.state.status {
+        case .idle:
+            return Claude.textSecondary
+        case .running:
+            return Claude.info
+        case .waiting:
+            return Claude.orange
+        case .completed:
+            return Claude.success
+        case .failed:
+            return Claude.danger
+        }
+    }
+
+    private var accessibilityDescription: String {
+        if pendingCount > 0 {
+            return "\(statusText), \(pendingCount) pending actions"
+        }
+        return statusText
+    }
+}
+
 // MARK: - Previews
+#Preview("Compact Status Header") {
+    VStack(spacing: 10) {
+        CompactStatusHeader()
+    }
+    .padding()
+}
+
 #Preview("Action Queue") {
     ActionQueue()
 }

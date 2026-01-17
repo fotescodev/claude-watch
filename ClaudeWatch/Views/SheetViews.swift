@@ -171,12 +171,12 @@ struct SettingsSheet: View {
                 .padding(.vertical, 4)
 
                 // Demo Mode Section
-                if service.isDemoMode {
-                    VStack(spacing: 8) {
+                VStack(spacing: 8) {
+                    if service.isDemoMode {
                         HStack(spacing: 8) {
                             Image(systemName: "play.circle.fill")
                                 .foregroundColor(Claude.warning)
-                            Text("Demo Mode")
+                            Text("Demo Mode Active")
                                 .font(.footnote.weight(.semibold))
                                 .foregroundColor(Claude.warning)
                         }
@@ -201,7 +201,7 @@ struct SettingsSheet: View {
                             service.isDemoMode = false
                             service.state = WatchState()
                             service.connectionStatus = .disconnected
-                            service.pairingId = ""  // Reset pairing to show PairingView
+                            service.pairingId = ""
                             WKInterfaceDevice.current().play(.click)
                             dismiss()
                         } label: {
@@ -210,9 +210,25 @@ struct SettingsSheet: View {
                                 .foregroundColor(Claude.orange)
                         }
                         .buttonStyle(.plain)
+                    } else {
+                        // Enter demo mode button (always visible when not in demo)
+                        Button {
+                            service.loadDemoData()
+                            WKInterfaceDevice.current().play(.click)
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "play.circle")
+                                    .font(.caption.weight(.semibold))
+                                Text("Try Demo")
+                                    .font(.footnote.weight(.semibold))
+                            }
+                            .foregroundColor(Claude.warning)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.vertical, 8)
                 }
+                .padding(.vertical, 8)
 
                 // Cloud Mode Section
                 if service.useCloudMode && !service.isDemoMode {
