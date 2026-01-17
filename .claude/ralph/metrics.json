@@ -1,5 +1,5 @@
 {
-  "totalSessions": 26,
+  "totalSessions": 28,
   "totalTokens": {
     "input": 45230,
     "output": 23840
@@ -207,10 +207,22 @@
       "timestamp": "2026-01-17T19:46:22Z",
       "taskId": "META1",
       "status": "failed"
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-17T23:38:11Z",
+      "taskId": "META3",
+      "status": "failed"
+    },
+    {
+      "id": "session-002",
+      "timestamp": "2026-01-17T23:40:08Z",
+      "taskId": "DX1",
+      "status": "failed"
     }
   ],
   "successRate": 80.0,
-  "lastSession": "2026-01-17T19:46:22Z",
-  "tasksFailed": 14,
+  "lastSession": "2026-01-17T23:40:08Z",
+  "tasksFailed": 16,
   "buildFailures": 14
 }

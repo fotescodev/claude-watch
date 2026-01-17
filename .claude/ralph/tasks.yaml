@@ -2093,7 +2093,7 @@ tasks:
       - RecordingBanner references in SheetViews.swift
     priority: high
     parallel_group: 19
-    completed: false
+    completed: true
     verification: |
       ! grep -q 'RecordingBanner' ClaudeWatch/Views/SheetViews.swift 2>/dev/null || \
       [ -f "ClaudeWatch/Views/Components/RecordingBanner.swift" ] && exit 0 || exit 1
