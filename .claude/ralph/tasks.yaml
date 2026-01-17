@@ -2016,7 +2016,7 @@ tasks:
       --aggregate, --show-learnings, --generate-skills, --skill-stats
     priority: high
     parallel_group: 17
-    completed: false
+    completed: true
     depends_on:
       - "META1"
       - "META2"
