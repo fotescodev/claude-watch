@@ -1425,50 +1425,778 @@ Button { showingSheet = true } label: { Text("Open") }
 
 ## Accessibility
 
+Claude Watch follows **Accessibility First** design principles, ensuring all users can interact with the app regardless of visual ability, motor skills, or environmental conditions. This section provides comprehensive guidelines for VoiceOver, Dynamic Type, Always-On Display, and Haptic Feedback.
+
+---
+
 ### VoiceOver Support
 
-All interactive elements include:
-- `.accessibilityLabel()` - Describes the element
-- `.accessibilityHint()` - Explains the action result
-- `.accessibilityAddTraits()` - Adds role semantics
+VoiceOver is Apple's screen reader technology that enables visually impaired users to navigate apps through audio descriptions. Every interactive element in Claude Watch must be accessible to VoiceOver users.
 
-**Example:**
+#### Core Principles
+
+1. **Every interactive element MUST have an accessibility label**
+2. **Labels should describe WHAT the element is, not HOW to interact with it**
+3. **Hints should explain WHAT HAPPENS when activated**
+4. **Avoid redundant phrases like "button" or "tap" - VoiceOver adds these automatically**
+
+#### Accessibility Modifiers
+
+**`.accessibilityLabel()`**
+- Describes the element's purpose or content
+- Required for all buttons, links, and custom controls
+- Should be concise (1-5 words)
+- Do NOT include the element type ("button", "image")
+
+**`.accessibilityHint()`**
+- Optional - explains the result of activation
+- Use when the action isn't obvious from the label
+- Should be a brief sentence (3-8 words)
+- Examples: "Opens voice input", "Approves all pending actions"
+
+**`.accessibilityAddTraits()`**
+- Adds semantic role information
+- Common traits: `.isButton`, `.isHeader`, `.isSelected`, `.isLink`
+- SwiftUI adds traits automatically for most native controls
+
+**`.accessibilityValue()`**
+- Provides dynamic state information
+- Use for progress indicators, toggles, sliders
+- Examples: "50 percent", "3 pending", "Connected"
+
+**`.accessibilityHidden()`**
+- Hides decorative elements from VoiceOver
+- Use sparingly - only for purely visual elements
+- Examples: background shapes, decorative dividers, redundant icons
+
+#### Label Patterns from Codebase
+
+**Pattern 1: Descriptive Action Labels**
+
 ```swift
-Button { service.approveAction(id) } label: {
-    Text("Approve")
+// ✅ GOOD - Describes purpose + context
+Button { showingSettings = true } label: {
+    Image(systemName: connectionIcon)
 }
-.accessibilityLabel("Approve file edit")
-.accessibilityHint("Approves the pending file change")
+.accessibilityLabel("Settings and connection status")
+
+// ❌ BAD - Too generic
+.accessibilityLabel("Settings")
+
+// ❌ BAD - Includes element type
+.accessibilityLabel("Settings button")
 ```
+
+**Pattern 2: Action Cards with Context**
+
+```swift
+// Primary action card - include action type + target
+Button { service.approveAction(action.id) } label: {
+    HStack {
+        Image(systemName: "checkmark")
+        Text("Approve")
+    }
+}
+.accessibilityLabel("Approve \(action.title)")
+.accessibilityHint("Approves \(action.filePath.filename)")
+
+// Examples:
+// - "Approve file edit" + "Approves MainView.swift"
+// - "Approve bash command" + "Approves npm install"
+// - "Approve file create" + "Approves NewComponent.tsx"
+```
+
+**Pattern 3: Status Indicators**
+
+```swift
+// Connection status with value
+HStack {
+    Circle()
+        .fill(connectionColor)
+        .frame(width: 8, height: 8)
+    Text(connectionText)
+}
+.accessibilityElement(children: .ignore)  // Combine children
+.accessibilityLabel("Connection status")
+.accessibilityValue(connectionText)  // "Connected", "Disconnected", etc.
+```
+
+**Pattern 4: Mode Selector with State**
+
+```swift
+// Mode selector - include current mode and action
+Button { service.cycleMode() } label: {
+    // Mode icon + label
+}
+.accessibilityLabel("Permission mode")
+.accessibilityValue(service.state.mode.name)  // "Normal", "Auto-Accept", "Plan"
+.accessibilityHint("Cycles to next permission mode")
+.accessibilityAddTraits(.isButton)  // Redundant but explicit
+```
+
+**Pattern 5: Progress Indicators**
+
+```swift
+// Progress bar with percentage
+ProgressView(value: service.state.progress)
+    .accessibilityLabel("Task progress")
+    .accessibilityValue("\(Int(service.state.progress * 100)) percent")
+```
+
+**Pattern 6: Badges and Counts**
+
+```swift
+// Pending count badge
+ZStack {
+    Circle().fill(Claude.orange)
+    Text("\(count)")
+}
+.accessibilityElement(children: .combine)
+.accessibilityLabel("\(count) pending actions")
+```
+
+**Pattern 7: Hiding Decorative Elements**
+
+```swift
+// Decorative background pulse - hide from VoiceOver
+Circle()
+    .fill(statusColor.opacity(0.3))
+    .scaleEffect(1 + pulsePhase * 0.2)
+    .accessibilityHidden(true)
+```
+
+#### VoiceOver Testing Checklist
+
+Before marking a feature complete, verify:
+
+- [ ] Every button has a descriptive label
+- [ ] Labels describe purpose, not interaction method
+- [ ] Dynamic content (counts, status) uses `.accessibilityValue()`
+- [ ] Decorative elements are hidden with `.accessibilityHidden(true)`
+- [ ] Complex views group related elements with `.accessibilityElement(children: .combine)`
+- [ ] Navigation flows logically (top-to-bottom, left-to-right)
+- [ ] VoiceOver focus doesn't get stuck in loops
+- [ ] All state changes announce updates (automatic with `@Published`)
+
+#### Testing on Device
+
+Enable VoiceOver on Apple Watch:
+1. Open **Settings** → **Accessibility** → **VoiceOver**
+2. Toggle **VoiceOver** on
+3. Rotate Digital Crown to navigate
+4. Double-tap to activate
+
+**Common Issues:**
+- Missing labels → VoiceOver reads "Button, Button, Button"
+- Redundant labels → "Settings button button" (don't include "button")
+- Hidden content → Use `.accessibilityHidden()` for decorative elements only
+- Complex layouts → Use `.accessibilityElement(children: .combine)` to group
+
+---
+
+### Dynamic Type Support
+
+Dynamic Type allows users to customize text size system-wide (Settings → Accessibility → Text Size). All text and associated UI elements MUST scale proportionally to respect user preferences.
+
+#### Core Principles
+
+1. **ALL text uses native SwiftUI fonts** (`.body`, `.headline`, `.caption`, etc.)
+2. **ALL fixed-size elements use `@ScaledMetric`** (icons, spacing, containers)
+3. **Icons scale with their associated text** using `relativeTo:` parameter
+4. **Layout adapts for accessibility sizes** (vertical stacking when needed)
+
+#### @ScaledMetric Property Wrapper
+
+`@ScaledMetric` scales fixed CGFloat values proportionally with the user's Dynamic Type setting.
+
+**Syntax:**
+```swift
+@ScaledMetric(relativeTo: .textStyle) private var metricName: CGFloat = baseValue
+```
+
+**Parameters:**
+- `relativeTo:` - The text style this metric scales with (`.body`, `.headline`, `.caption`, etc.)
+- Base value - The default size at standard Dynamic Type setting
+
+#### Scaling Relationships
+
+**Golden Rule:** Icons and containers should scale with the text they accompany.
+
+| Text Style | Icon Size (Base) | Container Size (Base) | Use Case |
+|------------|------------------|----------------------|----------|
+| `.title` | 32-36pt | 80pt | Empty state icons, AOD status |
+| `.title2` | 24-28pt | 60pt | Large headers |
+| `.title3` | 20-24pt | 50pt | Page headers |
+| `.headline` | 14-18pt | 32-40pt | Status header, card headers |
+| `.body` | 16-18pt | 40-52pt | Action cards, buttons |
+| `.footnote` | 12-14pt | 28-32pt | Compact cards, chips |
+| `.caption` | 10-12pt | 20-28pt | Metadata, badges |
+
+#### @ScaledMetric Patterns from Codebase
+
+**Pattern 1: Icon Sizes Relative to Text**
+
+```swift
+// MainView toolbar icon (body text in toolbar)
+@ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 12
+
+// Status header icon (headline text)
+@ScaledMetric(relativeTo: .headline) private var statusIconContainerSize: CGFloat = 32
+@ScaledMetric(relativeTo: .headline) private var statusIconSize: CGFloat = 14
+
+// Action card icon (body text)
+@ScaledMetric(relativeTo: .body) private var iconContainerSize: CGFloat = 40
+@ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 18
+
+// Compact card icon (footnote text)
+@ScaledMetric(relativeTo: .footnote) private var compactIconContainerSize: CGFloat = 28
+@ScaledMetric(relativeTo: .footnote) private var compactIconSize: CGFloat = 12
+
+// Empty state icon (title text for prominence)
+@ScaledMetric(relativeTo: .title) private var iconContainerSize: CGFloat = 80
+@ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 32
+```
+
+**Pattern 2: Component Heights**
+
+```swift
+// Button height scales with body text
+@ScaledMetric(relativeTo: .body) private var buttonHeight: CGFloat = 52
+
+// Badge size scales with badge text (caption)
+@ScaledMetric(relativeTo: .caption) private var badgeFontSize: CGFloat = 13
+@ScaledMetric(relativeTo: .body) private var badgeSize: CGFloat = 28
+```
+
+**Pattern 3: Usage in Layout**
+
+```swift
+struct StatusHeader: View {
+    @ScaledMetric(relativeTo: .headline) private var statusIconContainerSize: CGFloat = 32
+    @ScaledMetric(relativeTo: .headline) private var statusIconSize: CGFloat = 14
+
+    var body: some View {
+        HStack(spacing: 8) {
+            // Icon container automatically scales with user's text size
+            ZStack {
+                Circle()
+                    .fill(statusColor.opacity(0.2))
+                    .frame(width: statusIconContainerSize, height: statusIconContainerSize)
+
+                Image(systemName: statusIcon)
+                    .font(.system(size: statusIconSize, weight: .bold))
+                    .foregroundColor(statusColor)
+            }
+
+            // Text scales automatically with .headline
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Running")
+                    .font(.headline)  // Scales automatically
+                Text("Refactoring code...")
+                    .font(.caption2)  // Scales automatically
+            }
+        }
+    }
+}
+```
+
+#### Dynamic Type Environment Variable
+
+Access the user's current Dynamic Type setting when needed:
+
+```swift
+@Environment(\.dynamicTypeSize) var dynamicTypeSize
+
+var body: some View {
+    if dynamicTypeSize >= .accessibility1 {
+        // Accessibility size (very large) - use vertical layout
+        VStack(spacing: 16) {
+            Image(systemName: "checkmark")
+            Text("Approve")
+        }
+    } else {
+        // Standard size - use horizontal layout
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark")
+            Text("Approve")
+        }
+    }
+}
+```
+
+**Dynamic Type Size Scale:**
+- `.xSmall` to `.xxxLarge` - Standard sizes
+- `.accessibility1` to `.accessibility5` - Accessibility sizes (enabled in Settings)
+
+#### Font Scaling Best Practices
+
+**✅ DO:**
+- Use native SwiftUI text styles (`.body`, `.headline`, `.caption`)
+- Use `@ScaledMetric(relativeTo:)` for all fixed sizes
+- Match icon scaling to associated text style
+- Test with accessibility sizes enabled (`.accessibility3` and above)
+- Allow layout to reflow for large text (vertical stacking)
+
+**❌ DON'T:**
+- Use `.font(.system(size: 14))` without `.scaledMetric`
+- Hardcode frame sizes without `@ScaledMetric`
+- Use `.minimumScaleFactor()` or `.lineLimit(1)` to prevent wrapping
+- Assume fixed layout will work at all sizes
+- Ignore accessibility sizes in testing
+
+#### Testing Dynamic Type
+
+**Simulator:**
+1. Settings → Accessibility → Larger Text
+2. Enable "Larger Accessibility Sizes"
+3. Drag slider to test extreme sizes
+
+**Device:**
+1. iPhone Settings → Display & Brightness → Text Size
+2. Apple Watch Settings → Accessibility → Text Size
+
+**What to Test:**
+- [ ] Text doesn't truncate at largest size
+- [ ] Icons scale proportionally with text
+- [ ] Buttons remain tappable (44pt minimum)
+- [ ] Layout doesn't break (vertical stacking if needed)
+- [ ] No overlapping elements
+- [ ] Scrollable when content overflows
+
+---
+
+### Always-On Display (AOD) Patterns
+
+When the Apple Watch enters Always-On Display mode, the screen dims to conserve battery and reduce burn-in. Claude Watch detects this state and adapts the UI accordingly.
+
+#### Core Principles
+
+1. **Detect AOD with `@Environment(\.isLuminanceReduced)`**
+2. **Dim colors to 50-60% opacity**
+3. **Show simplified UI** (optional - use a dedicated AOD view)
+4. **No animations** (system pauses animations automatically)
+5. **High contrast text** (white → gray transition)
+
+#### AOD Detection
+
+```swift
+@Environment(\.isLuminanceReduced) var isLuminanceReduced
+
+var body: some View {
+    if isLuminanceReduced {
+        // Always-On Display mode - show simplified view
+        AlwaysOnDisplayView(...)
+    } else {
+        // Normal mode - show full interactive UI
+        MainContentView(...)
+    }
+}
+```
+
+#### Dimming Strategies
+
+**Strategy 1: Opacity Modifiers**
+
+Apply opacity reduction to colors when in AOD mode:
+
+```swift
+// Primary colors dim to 50-60%
+.foregroundColor(Claude.success.opacity(isLuminanceReduced ? 0.5 : 1.0))
+
+// Background shapes dim to 15-20%
+Circle()
+    .fill(Claude.orange.opacity(isLuminanceReduced ? 0.15 : 0.3))
+
+// Icons dim to 60%
+Image(systemName: "checkmark")
+    .foregroundColor(iconColor.opacity(isLuminanceReduced ? 0.6 : 1.0))
+
+// Text transitions to gray
+Text("Status")
+    .foregroundColor(isLuminanceReduced ? .gray : .white)
+```
+
+**Strategy 2: Color Substitution**
+
+Replace bright colors with muted alternatives:
+
+```swift
+var displayColor: Color {
+    if isLuminanceReduced {
+        return .gray  // Muted color for AOD
+    } else {
+        return statusColor  // Full color (orange, green, red)
+    }
+}
+
+Circle()
+    .fill(displayColor)
+```
+
+#### Dimming Reference Table
+
+| Element Type | Normal Opacity | AOD Opacity | Example |
+|--------------|----------------|-------------|---------|
+| **Primary Colors** | 1.0 | 0.5 - 0.6 | Status icons, progress rings |
+| **Background Shapes** | 0.2 - 0.3 | 0.15 | Icon container backgrounds |
+| **Icons** | 1.0 | 0.6 | SF Symbols |
+| **Primary Text** | 1.0 (white) | 1.0 (gray) | Headings, labels |
+| **Secondary Text** | 0.6 (gray) | 0.5 (darker gray) | Metadata, captions |
+| **Strokes/Borders** | 0.5 | 0.3 | Progress ring strokes |
+
+#### Real Examples from Codebase
+
+**Complication Progress Ring:**
+```swift
+// Full-color progress ring dims to 50% in AOD
+Circle()
+    .stroke(
+        progressColor.opacity(isLuminanceReduced ? 0.5 : 1.0),
+        style: StrokeStyle(lineWidth: 4, lineCap: .round)
+    )
+```
+
+**Circular Complication Icon:**
+```swift
+// Icon dims to 60% in AOD
+Image(systemName: icon)
+    .font(.system(size: 18, weight: .bold))
+    .foregroundColor(iconColor.opacity(isLuminanceReduced ? 0.6 : 1.0))
+```
+
+**Rectangular Widget Text:**
+```swift
+// Text transitions from white to gray
+VStack(alignment: .leading, spacing: 2) {
+    Text("Status")
+        .foregroundColor(isLuminanceReduced ? .gray : .white)
+    Text("Running")
+        .foregroundColor(isLuminanceReduced ? Color.gray.opacity(0.6) : Claude.textSecondary)
+}
+```
+
+**Status Header Background:**
+```swift
+// Background shape dims significantly
+Circle()
+    .fill(statusColor.opacity(isLuminanceReduced ? 0.15 : 0.3))
+    .frame(width: statusIconContainerSize, height: statusIconContainerSize)
+```
+
+#### Simplified AOD View
+
+For complex screens, show a simplified view in AOD mode:
+
+```swift
+@Environment(\.isLuminanceReduced) var isLuminanceReduced
+
+var body: some View {
+    if isLuminanceReduced {
+        // Minimal AOD view - no interactive elements
+        AlwaysOnDisplayView(
+            connectionStatus: service.connectionStatus,
+            pendingCount: service.state.pendingActions.count,
+            status: service.state.status
+        )
+    } else {
+        // Full interactive UI
+        mainContentView
+    }
+}
+```
+
+**AlwaysOnDisplayView Features:**
+- Large status icon with dimmed color
+- Connection status (dimmed)
+- Pending count (if > 0)
+- No buttons or interactive elements
+- Maximum legibility with minimal power usage
+
+#### AOD Best Practices
+
+**✅ DO:**
+- Dim all colors to 50-60% opacity
+- Simplify complex UIs (show essential info only)
+- Use high-contrast text (white or gray on black)
+- Test on device (Simulator doesn't accurately show AOD)
+- Follow Apple's AOD guidelines for watchOS
+
+**❌ DON'T:**
+- Show interactive elements (buttons won't work in AOD)
+- Use bright colors (causes burn-in, drains battery)
+- Animate (system disables animations automatically)
+- Display excessive text (hard to read when dimmed)
+- Forget to test AOD mode on physical device
+
+#### Testing AOD Mode
+
+**On Device:**
+1. Deploy app to Apple Watch
+2. Launch app
+3. Lower wrist → watch enters AOD mode
+4. Verify colors dim appropriately
+5. Raise wrist → watch exits AOD mode
+
+**Simulator Limitation:**
+- Xcode Simulator DOES NOT accurately simulate AOD dimming
+- Always test on physical device for final verification
+
+**What to Test:**
+- [ ] Colors dim to 50-60% opacity
+- [ ] Text remains legible (high contrast)
+- [ ] No interactive elements shown (or disabled)
+- [ ] Layout doesn't shift between AOD and normal mode
+- [ ] Animations pause automatically
+- [ ] UI appears within 2-3 seconds of wrist raise
+
+---
 
 ### Haptic Feedback
 
-WatchKit haptics provide tactile confirmation.
+Haptic feedback provides tactile confirmation of actions, especially important on a small watch screen where visual feedback may be subtle. WatchKit provides five distinct haptic types via `WKInterfaceDevice`.
 
-| Haptic | Use Case |
-|--------|----------|
-| `.click` | Button taps, mode changes |
-| `.success` | Approve action, successful pairing |
-| `.failure` | Reject action, pairing error |
-| `.start` | Recording begins |
-| `.stop` | Recording ends |
+#### Core Principles
 
-**Usage:**
+1. **Every user action MUST have haptic feedback**
+2. **Match haptic type to action semantics** (success = success haptic, reject = failure)
+3. **Play haptics synchronously** with visual feedback (same frame)
+4. **Don't overuse** - avoid rapid repeated haptics (jarring)
+5. **Test on device** - Simulator cannot play haptics
+
+#### Haptic Types
+
+| Haptic | Intensity | Use Case | Example |
+|--------|-----------|----------|---------|
+| **`.click`** | Light | General button taps, toggles, mode changes | Settings button, mode selector, voice command |
+| **`.success`** | Medium | Positive confirmations, successful operations | Approve action, successful pairing, send prompt |
+| **`.failure`** | Medium | Negative confirmations, errors | Reject action, pairing error, connection failure |
+| **`.start`** | Medium | Beginning of ongoing operation | Voice recording starts, task begins |
+| **`.stop`** | Medium | End of ongoing operation | Voice recording ends, task completes |
+| **`.notification`** | Strong | Alert, important event | Incoming approval request (via system notification) |
+
+**Note:** `.notification` is typically triggered by system notifications (APNs), not in-app.
+
+#### Haptic Usage Patterns
+
+**Pattern 1: Approve Action (Success)**
+
 ```swift
 Button {
-    service.approveAction(id)
-    WKInterfaceDevice.current().play(.success)
-} label: { /* ... */ }
+    service.approveAction(action.id)
+    WKInterfaceDevice.current().play(.success)  // ✅ Positive action
+} label: {
+    Text("Approve")
+}
 ```
 
-### Dynamic Type
+**Pattern 2: Reject Action (Failure)**
 
-Use `@ScaledMetric` for all fixed sizes:
 ```swift
-@ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 18
+Button {
+    service.rejectAction(action.id)
+    WKInterfaceDevice.current().play(.failure)  // ❌ Negative action
+} label: {
+    Text("Reject")
+}
 ```
 
-This ensures icons and spacing scale with user-preferred text size.
+**Pattern 3: General Button (Click)**
+
+```swift
+Button {
+    showingSettings = true
+    WKInterfaceDevice.current().play(.click)  // Generic tap
+} label: {
+    Image(systemName: "gear")
+}
+.accessibilityLabel("Settings and connection status")
+```
+
+**Pattern 4: Mode Cycle (Click)**
+
+```swift
+Button {
+    service.cycleMode()
+    WKInterfaceDevice.current().play(.click)  // State change
+} label: {
+    // Mode selector UI
+}
+```
+
+**Pattern 5: Voice Recording Start/Stop**
+
+```swift
+// Recording starts
+.onChanged { _ in
+    isRecording = true
+    WKInterfaceDevice.current().play(.start)  // Operation begins
+}
+
+// Recording ends (onSubmit)
+.onSubmit {
+    isRecording = false
+    WKInterfaceDevice.current().play(.stop)  // Operation ends
+}
+```
+
+**Pattern 6: Send Prompt (Success)**
+
+```swift
+func sendPrompt() {
+    service.sendPrompt(transcribedText)
+    WKInterfaceDevice.current().play(.success)  // Action completed
+    showSentConfirmation = true
+
+    // Auto-dismiss after 1 second
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+        dismiss()
+    }
+}
+```
+
+**Pattern 7: Approve All (Success)**
+
+```swift
+Button {
+    service.approveAll()
+    WKInterfaceDevice.current().play(.success)  // Bulk positive action
+} label: {
+    Text("Approve All")
+}
+```
+
+**Pattern 8: Pairing Success/Failure**
+
+```swift
+func completePairing(success: Bool) {
+    if success {
+        WKInterfaceDevice.current().play(.success)  // ✅ Pairing succeeded
+        isPaired = true
+    } else {
+        WKInterfaceDevice.current().play(.failure)  // ❌ Pairing failed
+        showError = true
+    }
+}
+```
+
+#### Haptic Decision Tree
+
+```
+User Action
+├── Positive Outcome? → `.success`
+│   ├── Approve action
+│   ├── Send prompt
+│   ├── Successful pairing
+│   └── Approve all
+├── Negative Outcome? → `.failure`
+│   ├── Reject action
+│   ├── Pairing error
+│   └── Connection failure
+├── Start Operation? → `.start`
+│   ├── Recording begins
+│   ├── Task starts
+│   └── Timer starts
+├── Stop Operation? → `.stop`
+│   ├── Recording ends
+│   ├── Task completes
+│   └── Timer stops
+└── General Interaction? → `.click`
+    ├── Settings button
+    ├── Mode selector
+    ├── Retry button
+    └── Voice command button
+```
+
+#### Haptic Best Practices
+
+**✅ DO:**
+- Play haptic immediately on user action (same frame as visual feedback)
+- Match haptic to action semantics (success/failure/click)
+- Use `.success` for positive confirmations
+- Use `.failure` for negative confirmations or errors
+- Use `.click` for neutral interactions (settings, mode changes)
+- Test on physical device (Simulator doesn't play haptics)
+
+**❌ DON'T:**
+- Play multiple haptics in rapid succession (< 200ms apart)
+- Use `.success` for destructive actions (use `.click` or `.failure`)
+- Play haptics for system-triggered events (notifications already have haptics)
+- Forget to add haptics to custom buttons
+- Use `.notification` in-app (reserved for system notifications)
+
+#### Accessibility Considerations
+
+Haptic feedback is especially important for:
+- **VoiceOver users** - Confirms action when audio feedback may be unclear
+- **Low vision users** - Tactile confirmation when visual feedback is hard to see
+- **Noisy environments** - Tactile feedback works when audio is inaudible
+
+**Reduced Motion:**
+- Haptics are NOT affected by Reduce Motion accessibility setting
+- Continue to play haptics even when animations are disabled
+- Haptics provide confirmation when visual animations are reduced
+
+#### Testing Haptics
+
+**On Device:**
+1. Deploy app to Apple Watch
+2. Ensure watch is NOT in Silent Mode (or muted)
+3. Tap each interactive element
+4. Feel for haptic feedback
+
+**Common Issues:**
+- No haptic → Verify `WKInterfaceDevice.current().play()` is called
+- Wrong haptic type → Review decision tree above
+- Haptic too subtle → Watch may be in Silent Mode or battery saver
+- Simulator shows haptic logs → Simulator CANNOT play haptics (device only)
+
+**What to Test:**
+- [ ] Every button plays a haptic
+- [ ] Approve actions use `.success`
+- [ ] Reject actions use `.failure`
+- [ ] General buttons use `.click`
+- [ ] Recording start/stop uses `.start`/`.stop`
+- [ ] Haptic timing matches visual feedback (synchronous)
+- [ ] No rapid repeated haptics (< 200ms apart)
+
+---
+
+### Accessibility Testing Checklist
+
+Before shipping any feature, verify:
+
+**VoiceOver:**
+- [ ] Every interactive element has `.accessibilityLabel()`
+- [ ] Labels describe purpose, not interaction ("Settings" not "Settings button")
+- [ ] Complex views group elements with `.accessibilityElement(children: .combine)`
+- [ ] Decorative elements use `.accessibilityHidden(true)`
+- [ ] Navigation flow is logical (top-to-bottom, left-to-right)
+
+**Dynamic Type:**
+- [ ] All text uses native SwiftUI fonts (`.body`, `.headline`, `.caption`)
+- [ ] All icons use `@ScaledMetric(relativeTo:)`
+- [ ] Layout tested at `.accessibility3` size
+- [ ] No text truncation at largest size
+- [ ] Buttons remain tappable (44pt minimum)
+
+**Always-On Display:**
+- [ ] AOD detected with `@Environment(\.isLuminanceReduced)`
+- [ ] Colors dim to 50-60% opacity in AOD mode
+- [ ] Text remains legible (high contrast)
+- [ ] Tested on physical device (Simulator inaccurate)
+
+**Haptic Feedback:**
+- [ ] Every button plays a haptic
+- [ ] Haptic type matches action semantics (success/failure/click)
+- [ ] Haptic timing is synchronous with visual feedback
+- [ ] Tested on physical device (Simulator cannot play haptics)
+
+**Device Testing:**
+- [ ] Tested on Apple Watch (Simulator is insufficient for AOD and haptics)
+- [ ] VoiceOver navigation works correctly
+- [ ] Dynamic Type tested at multiple sizes
+- [ ] AOD appearance verified
+- [ ] Haptic feedback felt on all interactions
 
 ---
 
