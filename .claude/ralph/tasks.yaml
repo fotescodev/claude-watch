@@ -1397,7 +1397,7 @@ tasks:
       - Privacy-preserving action classification
     priority: medium
     parallel_group: 16
-    completed: false
+    completed: true
     verification: |
       grep -q 'FoundationModels\|SystemLanguageModel' ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
     acceptance_criteria:

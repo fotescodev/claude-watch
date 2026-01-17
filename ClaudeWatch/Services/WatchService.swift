@@ -5,6 +5,9 @@ import WatchKit
 import UserNotifications
 import Network
 import WidgetKit
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
 
 /// Main service for communicating with Claude Watch MCP Server
 /// Uses WebSocket for real-time updates, with REST fallback
@@ -17,6 +20,9 @@ class WatchService: ObservableObject {
     @Published var connectionStatus: ConnectionStatus = .disconnected
     @Published var lastError: String?
     @Published var isSendingPrompt = false
+
+    // MARK: - Foundation Models (On-Device AI)
+    @Published var foundationModelsStatus: FoundationModelsStatus = .checking
 
     // MARK: - Configuration
     @AppStorage("serverURL") var serverURLString = "ws://192.168.1.165:8787"
@@ -73,6 +79,57 @@ class WatchService: ObservableObject {
         if isDemoMode {
             loadDemoData()
         }
+
+        // Check Foundation Models availability
+        checkFoundationModelsAvailability()
+    }
+
+    // MARK: - Foundation Models Availability
+
+    /// Check if Foundation Models (on-device AI) is available
+    func checkFoundationModelsAvailability() {
+        #if canImport(FoundationModels)
+        let model = SystemLanguageModel.default
+        switch model.availability {
+        case .available:
+            foundationModelsStatus = .available
+        case .unavailable(.deviceNotEligible):
+            foundationModelsStatus = .unavailable(.deviceNotSupported)
+        case .unavailable(.appleIntelligenceNotEnabled):
+            foundationModelsStatus = .unavailable(.appleIntelligenceDisabled)
+        case .unavailable(.modelNotReady):
+            foundationModelsStatus = .downloading
+            // Start observing for when the model becomes ready
+            observeFoundationModelsReadiness()
+        case .unavailable:
+            foundationModelsStatus = .unavailable(.unknown)
+        }
+        #else
+        // FoundationModels framework not available on this platform (e.g., watchOS)
+        foundationModelsStatus = .unavailable(.platformNotSupported)
+        #endif
+    }
+
+    /// Observe for Foundation Models readiness changes
+    private func observeFoundationModelsReadiness() {
+        #if canImport(FoundationModels)
+        // Periodically check if the model becomes ready
+        Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self = self else { return }
+
+                let model = SystemLanguageModel.default
+                if case .available = model.availability {
+                    await MainActor.run {
+                        self.foundationModelsStatus = .available
+                    }
+                    return
+                }
+
+                try? await Task.sleep(nanoseconds: 5_000_000_000) // Check every 5 seconds
+            }
+        }
+        #endif
     }
 
     nonisolated deinit {
@@ -1175,6 +1232,81 @@ struct PendingAction: Identifiable {
         case "file_delete": return "red"
         case "bash": return "orange"
         default: return "purple"
+        }
+    }
+}
+
+// MARK: - Foundation Models Status
+
+/// Status of Foundation Models (on-device AI) availability
+enum FoundationModelsStatus: Equatable {
+    case checking
+    case available
+    case downloading
+    case unavailable(FoundationModelsUnavailabilityReason)
+
+    var displayName: String {
+        switch self {
+        case .checking:
+            return "Checking..."
+        case .available:
+            return "Ready"
+        case .downloading:
+            return "Downloading..."
+        case .unavailable(let reason):
+            return reason.displayName
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .checking:
+            return "arrow.triangle.2.circlepath"
+        case .available:
+            return "brain"
+        case .downloading:
+            return "arrow.down.circle"
+        case .unavailable:
+            return "brain.head.profile.slash"
+        }
+    }
+
+    var isAvailable: Bool {
+        if case .available = self { return true }
+        return false
+    }
+}
+
+/// Reasons why Foundation Models may be unavailable
+enum FoundationModelsUnavailabilityReason: Equatable {
+    case deviceNotSupported
+    case appleIntelligenceDisabled
+    case platformNotSupported
+    case unknown
+
+    var displayName: String {
+        switch self {
+        case .deviceNotSupported:
+            return "Device not supported"
+        case .appleIntelligenceDisabled:
+            return "Enable Apple Intelligence"
+        case .platformNotSupported:
+            return "Not available on watchOS"
+        case .unknown:
+            return "Unavailable"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .deviceNotSupported:
+            return "This device doesn't support Apple Intelligence. Requires iPhone 15 Pro or later, or M1 Mac."
+        case .appleIntelligenceDisabled:
+            return "Turn on Apple Intelligence in Settings to use on-device AI features."
+        case .platformNotSupported:
+            return "Foundation Models are not available on watchOS. AI features work on iPhone, iPad, and Mac."
+        case .unknown:
+            return "On-device AI is currently unavailable."
         }
     }
 }
