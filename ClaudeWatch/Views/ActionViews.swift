@@ -283,44 +283,137 @@ struct PrimaryActionCard: View {
 }
 
 // MARK: - Compact Action Card
+/// Glanceable action card showing only the first pending action with approve/reject buttons
 struct CompactActionCard: View {
-    let action: PendingAction
+    @ObservedObject private var service = WatchService.shared
 
-    // Dynamic Type support - very compact
-    @ScaledMetric(relativeTo: .caption) private var iconContainerSize: CGFloat = 22
-    @ScaledMetric(relativeTo: .caption) private var iconSize: CGFloat = 10
+    // Accessibility: Reduce Motion support
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
-    var body: some View {
-        HStack(spacing: 6) {
-            // Type icon - tiny
-            ZStack {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(typeColor.opacity(0.2))
-                    .frame(width: iconContainerSize, height: iconContainerSize)
+    // Haptic feedback triggers
+    @State private var didReject = false
+    @State private var didApprove = false
+    @State private var didError = false
 
-                Image(systemName: action.icon)
-                    .font(.system(size: iconSize, weight: .semibold))
-                    .foregroundColor(typeColor)
-            }
+    // Error handling
+    @State private var showError = false
+    @State private var errorMessage = ""
 
-            Text(action.title)
-                .font(.claudeFootnote)
-                .foregroundColor(Claude.textPrimary)
-                .lineLimit(1)
-
-            Spacer()
-        }
-        .padding(8)
-        .glassEffectInteractive(RoundedRectangle(cornerRadius: 10))
+    var action: PendingAction? {
+        service.state.pendingActions.first
     }
 
-    private var typeColor: Color {
+    var body: some View {
+        if let action = action {
+            VStack(spacing: 8) {
+                // Error banner
+                ErrorBanner(message: errorMessage, isVisible: $showError)
+
+                // Action info
+                HStack {
+                    Image(systemName: action.icon)
+                        .foregroundColor(typeColor(for: action))
+                    Text(action.title)
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+                    Spacer()
+                }
+
+                // File path
+                if let path = action.filePath {
+                    Text(truncatePath(path))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                // Approve/Reject buttons (side by side)
+                HStack(spacing: 12) {
+                    Button {
+                        reject(action)
+                    } label: {
+                        Image(systemName: "xmark")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.red)
+                    .accessibilityLabel("Reject \(action.title)")
+                    .sensoryFeedback(.error, trigger: didReject)
+
+                    Button {
+                        approve(action)
+                    } label: {
+                        Image(systemName: "checkmark")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Claude.orange)
+                    .accessibilityLabel("Approve \(action.title)")
+                    .sensoryFeedback(.success, trigger: didApprove)
+                }
+            }
+            .padding(12)
+            .glassEffectCompat(RoundedRectangle(cornerRadius: 12))
+            .sensoryFeedback(.error, trigger: didError)
+        }
+    }
+
+    private func typeColor(for action: PendingAction) -> Color {
         switch action.type {
         case "file_edit": return Claude.orange
         case "file_create": return Claude.info
         case "file_delete": return Claude.danger
         case "bash": return Color.purple
         default: return Claude.orange
+        }
+    }
+
+    private func truncatePath(_ path: String) -> String {
+        let components = path.split(separator: "/")
+        if let last = components.last {
+            return String(last)
+        }
+        return path
+    }
+
+    private func reject(_ action: PendingAction) {
+        Task { @MainActor in
+            do {
+                if service.useCloudMode && service.isPaired {
+                    try await service.respondToCloudRequest(action.id, approved: false)
+                } else {
+                    service.rejectAction(action.id)
+                }
+                didReject.toggle()
+                AccessibilityNotification.Announcement("Rejected \(action.title)").post()
+            } catch {
+                errorMessage = "Failed to reject"
+                withAnimation(.easeIn(duration: 0.2)) {
+                    showError = true
+                }
+                didError.toggle()
+            }
+        }
+    }
+
+    private func approve(_ action: PendingAction) {
+        Task { @MainActor in
+            do {
+                if service.useCloudMode && service.isPaired {
+                    try await service.respondToCloudRequest(action.id, approved: true)
+                } else {
+                    service.approveAction(action.id)
+                }
+                didApprove.toggle()
+                AccessibilityNotification.Announcement("Approved \(action.title)").post()
+            } catch {
+                errorMessage = "Failed to approve"
+                withAnimation(.easeIn(duration: 0.2)) {
+                    showError = true
+                }
+                didError.toggle()
+            }
         }
     }
 }
@@ -429,16 +522,8 @@ struct CompactStatusHeader: View {
 }
 
 #Preview("Compact Action Card") {
-    CompactActionCard(action: PendingAction(
-        id: "2",
-        type: "bash",
-        title: "npm install",
-        description: "Installing dependencies",
-        filePath: nil,
-        command: "npm install",
-        timestamp: Date()
-    ))
-    .padding()
+    CompactActionCard()
+        .padding()
 }
 
 #Preview("Error Banner") {
