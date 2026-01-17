@@ -1262,3 +1262,112 @@ tasks:
       - critical-fix
       - recovery
     commit_template: "fix(state): Add complete state reset for Exit Demo Mode"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # INFRASTRUCTURE: Ralph Parallel Execution
+  # Parallel Group 15: Tooling improvements
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "INFRA1"
+    title: "Implement parallel worker infrastructure for Ralph"
+    description: |
+      Implement the parallel execution system as specified in PARALLEL-IMPL-SPEC.md.
+
+      Phase 1 - Create parallel infrastructure:
+      1. Create .claude/ralph/parallel/ directory structure
+      2. Create parallel-utils.sh with locking and queue functions
+      3. Create ralph-worker.sh worker process script
+
+      Phase 2 - Extend ralph.sh:
+      1. Add --parallel, --max-workers, --parallel-group arguments
+      2. Add run_parallel_loop() coordinator function
+      3. Add worker spawning and shutdown logic
+
+      Phase 3 - Add validation pipeline:
+      1. Implement validate_parallel_batch() with syntax check
+      2. Add merge_worktree_to_main() for git coordination
+      3. Integrate with existing build verification
+
+      Reference: .claude/ralph/PARALLEL-IMPL-SPEC.md
+    priority: high
+    parallel_group: 15
+    completed: false
+    verification: |
+      [[ -f ".claude/ralph/parallel-utils.sh" ]] && \
+      [[ -f ".claude/ralph/ralph-worker.sh" ]] && \
+      grep -q 'parallel' .claude/ralph/ralph.sh && exit 0 || exit 1
+    acceptance_criteria:
+      - "parallel-utils.sh exists with locking functions"
+      - "ralph-worker.sh exists and is executable"
+      - "ralph.sh supports --parallel flag"
+      - "Workers can claim and execute tasks"
+    files:
+      - ".claude/ralph/parallel-utils.sh"
+      - ".claude/ralph/ralph-worker.sh"
+      - ".claude/ralph/ralph.sh"
+    tags:
+      - infrastructure
+      - parallel
+      - tooling
+    commit_template: "feat(ralph): Implement parallel worker execution system"
+
+  - id: "INFRA2"
+    title: "Add parallel thread visualization to monitor-ralph.sh"
+    description: |
+      Update monitor-ralph.sh to display parallel execution status with
+      visual thread representation to help developers understand which
+      tasks are grouped into which threads.
+
+      Visualization requirements:
+      1. Show 3 worker threads with status (idle/running/paused)
+      2. Display current task ID and title for each active worker
+      3. Show progress bar estimation for running tasks
+      4. Visualize task queue grouped by parallel_group
+      5. Show file locks held by each worker
+      6. Use color coding: green=running, yellow=idle, red=stopped
+
+      ASCII layout for parallel threads:
+      ```
+      ┌─────────────────────────────────────────────────────────┐
+      │  WORKER THREADS                                          │
+      ├─────────────────────────────────────────────────────────┤
+      │  ▶ Thread 1 ─── UX3: Create StateViews.swift            │
+      │              [████████████░░░░░░░░] 60%                  │
+      │                                                          │
+      │  ▶ Thread 2 ─── UX4: Create ActionViews.swift           │
+      │              [██████░░░░░░░░░░░░░░] 30%                  │
+      │                                                          │
+      │  ○ Thread 3 ─── waiting for task...                      │
+      └─────────────────────────────────────────────────────────┘
+
+      TASK QUEUE BY PARALLEL GROUP
+      ├─────────────────────────────────────────────────────────┤
+      │  ✓ Group 10 [2/2] ───────────────────────────────────── │
+      │    [UX1] [UX2]                                           │
+      │                                                          │
+      │  ► Group 11 [1/4] ───────────────────────────────────── │
+      │    [UX3] [UX4] [UX5] [UX6]                               │
+      │    └── Can run in parallel (no file conflicts)          │
+      └─────────────────────────────────────────────────────────┘
+      ```
+
+      Reference: .claude/ralph/PARALLEL-IMPL-SPEC.md section 2.1
+    priority: medium
+    parallel_group: 15
+    completed: false
+    depends_on:
+      - "INFRA1"
+    verification: |
+      grep -q 'show_parallel_threads\|WORKER THREADS' .claude/ralph/monitor-ralph.sh && exit 0 || exit 1
+    acceptance_criteria:
+      - "Monitor shows worker thread status visualization"
+      - "Task queue displays by parallel_group"
+      - "File locks are visible when held"
+      - "Color coding matches status"
+    files:
+      - ".claude/ralph/monitor-ralph.sh"
+    tags:
+      - infrastructure
+      - parallel
+      - monitoring
+      - visualization
+    commit_template: "feat(ralph): Add parallel thread visualization to monitor"
