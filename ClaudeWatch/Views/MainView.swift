@@ -98,11 +98,6 @@ struct MainView: View {
                     ActionQueue()
                 }
 
-                // Quick commands (only when not showing pending)
-                if service.state.pendingActions.isEmpty {
-                    CommandGrid(showingVoiceInput: $showingVoiceInput)
-                }
-
                 // Mode selector
                 ModeSelector()
             }

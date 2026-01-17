@@ -83,6 +83,9 @@ class WatchService: ObservableObject {
     // MARK: - App Lifecycle
 
     func handleAppDidBecomeActive() {
+        // Don't try to connect in demo mode
+        guard !isDemoMode else { return }
+
         // Reset backoff when coming to foreground
         reconnectAttempt = 0
 

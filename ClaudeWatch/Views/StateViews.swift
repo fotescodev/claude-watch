@@ -9,76 +9,53 @@ struct EmptyStateView: View {
     // Accessibility: High Contrast support
     @Environment(\.colorSchemeContrast) var colorSchemeContrast
 
-    // Dynamic Type support
-    @ScaledMetric(relativeTo: .title) private var iconContainerSize: CGFloat = 80
-    @ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 32
-
     var body: some View {
-        VStack(spacing: 16) {
-            // Icon with Liquid Glass
-            ZStack {
-                Image(systemName: service.isPaired ? "tray" : "link.circle")
-                    .font(.system(size: iconSize, weight: .light))
-                    .foregroundColor(Claude.textTertiaryContrast(colorSchemeContrast))
-            }
-            .frame(width: iconContainerSize, height: iconContainerSize)
-            .glassEffectCompat(Circle())
+        VStack(spacing: 12) {
+            Spacer()
 
-            // Text
+            // Icon
+            Image(systemName: service.isPaired ? "tray" : "link.circle")
+                .font(.system(size: 36, weight: .light))
+                .foregroundColor(Claude.textTertiaryContrast(colorSchemeContrast))
+
+            // Title
             Text(service.isPaired ? "All Clear" : "Not Paired")
-                .font(.title2)
-                .fontWeight(.bold)
+                .font(.headline)
                 .foregroundColor(Claude.textPrimary)
 
-            Text(service.isPaired ? "No pending actions" : "Connect to Claude Code")
-                .font(.footnote)
-                .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
+            Spacer()
 
-            // Connection status
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(service.isPaired ? Claude.success : Claude.warning)
-                    .frame(width: 6, height: 6)
-                Text(service.isPaired ? "Connected" : "Awaiting pairing")
-                    .font(.caption2)
-                    .foregroundColor(Claude.textTertiaryContrast(colorSchemeContrast))
-            }
-            .padding(.top, 8)
-
-            // Pair button (when not paired) or Demo button
-            if !service.isPaired && service.useCloudMode {
-                Button {
-                    showingPairing = true
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "link")
-                            .font(.caption.weight(.semibold))
+            // Action buttons
+            VStack(spacing: 6) {
+                if !service.isPaired {
+                    Button {
+                        showingPairing = true
+                    } label: {
                         Text("Pair with Code")
-                            .font(.footnote.weight(.semibold))
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Claude.orange)
+                            .clipShape(Capsule())
                     }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Claude.orange)
-                    .clipShape(Capsule())
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Pair with Claude Code")
                 }
-                .buttonStyle(.plain)
-                .padding(.top, 4)
-                .accessibilityLabel("Pair with Claude Code")
-            } else {
+
                 Button {
                     service.loadDemoData()
                 } label: {
-                    Text("Load Demo")
-                        .font(.footnote.weight(.semibold))
+                    Text("Try Demo")
+                        .font(.caption.weight(.semibold))
                         .foregroundColor(Claude.orange)
                 }
                 .buttonStyle(.plain)
-                .padding(.top, 4)
-                .accessibilityLabel("Load demo data")
+                .accessibilityLabel("Try demo mode")
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 8)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sheet(isPresented: $showingPairing) {
             PairingView(service: service)
         }
