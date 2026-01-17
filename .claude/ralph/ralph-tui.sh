@@ -60,6 +60,15 @@ cleanup() {
     exit 0
 }
 
+read_key() {
+    # Non-blocking read of a single keypress
+    # Returns: the key pressed, or empty string if no key available
+    local key=""
+    if IFS= read -t 0.01 -r -s -n 1 key 2>/dev/null; then
+        echo "$key"
+    fi
+}
+
 trap cleanup INT TERM EXIT
 
 #───────────────────────────────────────────────────────────────────────────────
