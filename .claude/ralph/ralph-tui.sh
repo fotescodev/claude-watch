@@ -490,6 +490,208 @@ render_details() {
     tput ed 2>/dev/null
 }
 
+render_sessions() {
+    local W=$(tput cols 2>/dev/null || echo 80)
+    local H=$(tput lines 2>/dev/null || echo 24)
+    local pad="  "
+
+    tput cup 0 0
+
+    # Advance animation frame
+    FRAME_IDX=$(( (FRAME_IDX + 1) % 8 ))
+    local spin="${SPIN_FRAMES[$FRAME_IDX]}"
+    local pulse="${PULSE_FRAMES[$((FRAME_IDX % 4))]}"
+
+    #═══════════════════════════════════════════════════════════════════════════
+    # HEADER — The Ralph Logo
+    #═══════════════════════════════════════════════════════════════════════════
+
+    echo ""
+    echo -e "${pad}${CORAL}    ╭──────────╮${NC}"
+    echo -e "${pad}${CORAL}    │${NC}          ${CORAL}├${CORAL_DIM}╤╮${NC}"
+    echo -e "${pad}${CORAL}    │${NC}  ${WHITE}◠${NC}    ${WHITE}■${NC}  ${CORAL}│${CORAL_DIM}││${NC}"
+    echo -e "${pad}${CORAL}    │${NC}          ${CORAL}├${CORAL_DIM}╧╯${NC}"
+    echo -e "${pad}${CORAL}    │${NC}  ${WHITE}╰────╯${NC}  ${CORAL}│${NC}"
+    echo -e "${pad}${CORAL}    │${NC}          ${CORAL}│${NC}"
+    echo -e "${pad}${CORAL}    ╰──────────╯${NC}"
+    echo ""
+
+    #═══════════════════════════════════════════════════════════════════════════
+    # TITLE + STATUS BAR
+    #═══════════════════════════════════════════════════════════════════════════
+
+    local session=$(get_session)
+    local running=$(is_ralph_running)
+    local status_icon status_text time_display
+
+    if [[ "$running" == "1" ]]; then
+        status_icon="${GREEN}●${NC}"
+        status_text="${GREEN}running${NC}"
+        time_display="${DIM}$(date '+%H:%M:%S')${NC}"
+    else
+        status_icon="${GRAY}○${NC}"
+        status_text="${GRAY}idle${NC}"
+        local last_session=$(jq -r '.lastSession // ""' "$METRICS_FILE" 2>/dev/null)
+        if [[ -n "$last_session" && "$last_session" != "null" ]]; then
+            time_display="${DIM}stopped${NC}"
+        else
+            time_display="${DIM}--:--:--${NC}"
+        fi
+    fi
+
+    echo -e "${pad}${CORAL}${BOLD}    R  A  L  P  H${NC}"
+    echo -e "${pad}${GRAY}    autonomous coding loop${NC}"
+    echo ""
+    echo -e "${pad}${DARK}    ┌───────────────────────────────────────────────────┐${NC}"
+    echo -e "${pad}${DARK}    │${NC} ${status_icon} ${status_text}  ${GRAY}│${NC}  ${CORAL}${spin}${NC} ${WHITE}${session}${NC}  ${GRAY}│${NC}  ${time_display}             ${DARK}│${NC}"
+    echo -e "${pad}${DARK}    └───────────────────────────────────────────────────┘${NC}"
+    echo ""
+
+    #═══════════════════════════════════════════════════════════════════════════
+    # VIEW INDICATOR
+    #═══════════════════════════════════════════════════════════════════════════
+
+    echo -e "${pad}    ${CYAN}${BOLD}📊 SESSION ANALYTICS${NC}"
+    echo ""
+
+    #═══════════════════════════════════════════════════════════════════════════
+    # SESSION HISTORY — Last 10 Sessions
+    #═══════════════════════════════════════════════════════════════════════════
+
+    local total_sessions=$(get_total_sessions)
+
+    # Get session data from metrics.json
+    local session_data=$(jq -r '.sessions[]? | [.id, .timestamp, .taskId // "N/A", .status, .tasksCompleted // 0, .tokensUsed // 0, .cost // 0] | @tsv' "$METRICS_FILE" 2>/dev/null | tail -10)
+
+    if [[ -z "$session_data" ]]; then
+        echo -e "${pad}    ${GRAY}○  No session data yet${NC}"
+        echo ""
+    else
+        printf "${pad}${CORAL}    "
+        for ((i=0; i<52; i++)); do printf "─"; done
+        printf "${NC}\n"
+        echo ""
+
+        echo -e "${pad}    ${WHITE}${BOLD}Recent Sessions${NC} ${GRAY}(last 10 of ${total_sessions})${NC}"
+        echo ""
+
+        # Header row
+        printf "${pad}    ${DIM}%-16s  %-12s  %-8s  %-8s  %-8s${NC}\n" "SESSION" "TIME" "TASK" "STATUS" "TOKENS"
+        echo ""
+
+        # Data rows
+        local row_count=0
+        while IFS=$'\t' read -r sid stimestamp staskid sstatus stasks stokens scost; do
+            [[ -z "$sid" ]] && continue
+            ((row_count++))
+
+            # Format timestamp (convert ISO to human-readable)
+            local time_str="N/A"
+            if [[ -n "$stimestamp" ]]; then
+                # Extract time portion (HH:MM) from ISO timestamp
+                time_str=$(echo "$stimestamp" | sed -E 's/.*T([0-9]{2}:[0-9]{2}).*/\1/' || echo "N/A")
+            fi
+
+            # Format session ID (truncate if too long)
+            local sid_short="${sid:0:15}"
+
+            # Format task ID
+            local task_short="${staskid:0:8}"
+
+            # Status color
+            local status_color="$GRAY"
+            local status_icon="○"
+            if [[ "$sstatus" == "completed" ]]; then
+                status_color="$GREEN"
+                status_icon="✓"
+            elif [[ "$sstatus" == "failed" ]]; then
+                status_color="$RED"
+                status_icon="✗"
+            fi
+
+            # Format tokens (K for thousands)
+            local tokens_fmt="$stokens"
+            if [[ $stokens -ge 1000 ]]; then
+                tokens_fmt="$(echo "scale=1; $stokens/1000" | bc 2>/dev/null || echo "$stokens")K"
+            fi
+            [[ "$stokens" == "0" ]] && tokens_fmt="${DIM}--${NC}"
+
+            # Print row
+            printf "${pad}    ${WHITE}%-16s${NC}  ${CYAN}%-12s${NC}  ${GRAY}%-8s${NC}  ${status_color}${status_icon} %-6s${NC}  ${GRAY}%-8s${NC}\n" \
+                "$sid_short" "$time_str" "$task_short" "${sstatus:0:6}" "$tokens_fmt"
+
+        done <<< "$session_data"
+
+        echo ""
+    fi
+
+    #═══════════════════════════════════════════════════════════════════════════
+    # TOKEN USAGE TREND — Sparkline
+    #═══════════════════════════════════════════════════════════════════════════
+
+    printf "${pad}${CORAL}    "
+    for ((i=0; i<52; i++)); do printf "─"; done
+    printf "${NC}\n"
+    echo ""
+
+    local token_history=$(get_token_history)
+    if [[ -n "$token_history" ]]; then
+        # Convert newline-separated to space-separated for sparkline
+        local token_data=$(echo "$token_history" | tr '\n' ' ')
+        local sparkline=$(generate_sparkline "$token_data")
+
+        echo -e "${pad}    ${CYAN}${BOLD}Token Usage Trend${NC}"
+        echo ""
+        echo -e "${pad}    ${WHITE}${sparkline}${NC}"
+        echo ""
+    else
+        echo -e "${pad}    ${CYAN}${BOLD}Token Usage Trend${NC}"
+        echo ""
+        echo -e "${pad}    ${GRAY}No historical data yet${NC}"
+        echo ""
+    fi
+
+    #═══════════════════════════════════════════════════════════════════════════
+    # SUMMARY STATS
+    #═══════════════════════════════════════════════════════════════════════════
+
+    printf "${pad}${CORAL}    "
+    for ((i=0; i<52; i++)); do printf "─"; done
+    printf "${NC}\n"
+    echo ""
+
+    local tasks_completed=$(jq -r '.tasksCompleted // 0' "$METRICS_FILE" 2>/dev/null || echo "0")
+    local tasks_failed=$(jq -r '.tasksFailed // 0' "$METRICS_FILE" 2>/dev/null || echo "0")
+    local total_tasks=$((tasks_completed + tasks_failed))
+    local success_rate=0
+    [[ $total_tasks -gt 0 ]] && success_rate=$((tasks_completed * 100 / total_tasks))
+
+    # Success rate color coding
+    local success_color="$RED"
+    [[ $success_rate -ge 50 ]] && success_color="$YELLOW"
+    [[ $success_rate -ge 80 ]] && success_color="$GREEN"
+
+    echo -e "${pad}    ${GREEN}✓ ${tasks_completed} completed${NC}  ${GRAY}│${NC}  ${RED}✗ ${tasks_failed} failed${NC}  ${GRAY}│${NC}  ${success_color}${success_rate}% success${NC}"
+    echo ""
+
+    #═══════════════════════════════════════════════════════════════════════════
+    # FOOTER — Navigation
+    #═══════════════════════════════════════════════════════════════════════════
+
+    printf "${pad}${CORAL}    "
+    for ((i=0; i<52; i++)); do printf "─"; done
+    printf "${NC}\n"
+    echo ""
+
+    if [[ $SPARK_MISSING -eq 1 ]]; then
+        echo -e "${pad}    ${DIM}[1] Dashboard  [2] Metrics  [3] Sessions  [4] Tasks  [Q] Quit${NC}  ${YELLOW}⚠ spark missing${NC}"
+    else
+        echo -e "${pad}    ${DIM}[1] Dashboard  [2] Metrics  [3] Sessions  [4] Tasks  [Q] Quit${NC}"
+    fi
+
+    tput ed 2>/dev/null
+}
+
 render() {
     render_details
 }
