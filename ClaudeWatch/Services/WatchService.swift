@@ -660,7 +660,12 @@ class WatchService: ObservableObject {
 
     // MARK: - Cloud Mode (Production)
 
-    /// Complete pairing with Claude Code using a 6-character code
+    /// Complete pairing with Claude Code using a 6-character code.
+    /// Sends the pairing code and device token to the cloud server to establish a persistent connection.
+    /// - Parameter code: The 6-character pairing code displayed in Claude Code
+    /// - Throws: `CloudError.invalidCode` if the code is invalid or expired,
+    ///           `CloudError.invalidResponse` if the server response is malformed,
+    ///           `CloudError.serverError` if the server returns an error status code
     func completePairing(code: String) async throws {
         let url = URL(string: "\(cloudServerURL)/pair/complete")!
         var request = URLRequest(url: url)
@@ -704,7 +709,11 @@ class WatchService: ObservableObject {
         startPolling()
     }
 
-    /// Respond to an approval request via cloud API
+    /// Respond to an approval request via cloud API.
+    /// Sends the user's approval or rejection decision to the cloud server for the specified request.
+    /// - Parameter requestId: The unique identifier of the pending request
+    /// - Parameter approved: Whether to approve (true) or reject (false) the request
+    /// - Throws: `CloudError.serverError` if the server returns an error status code or the response is invalid
     func respondToCloudRequest(_ requestId: String, approved: Bool) async throws {
         let url = URL(string: "\(cloudServerURL)/respond/\(requestId)")!
         var request = URLRequest(url: url)
