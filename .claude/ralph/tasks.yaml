@@ -1166,7 +1166,7 @@ tasks:
       4. Add haptic feedback on confirm
     priority: low
     parallel_group: 14
-    completed: false
+    completed: true
     verification: |
       grep -rq 'confirmationDialog\|confirmApproveAll' ClaudeWatch/Views/ && exit 0 || exit 1
     acceptance_criteria:
@@ -1206,7 +1206,7 @@ tasks:
       stuck in demo mode or other states with no escape.
     priority: critical
     parallel_group: 14
-    completed: false
+    completed: true
     verification: |
       grep -q 'NavigationStack' ClaudeWatch/App/ClaudeWatchApp.swift && exit 0 || exit 1
     acceptance_criteria:
@@ -1247,7 +1247,7 @@ tasks:
       Also ensure StateViews.swift EmptyStateView has "Pair with Code" button when unpaired.
     priority: high
     parallel_group: 14
-    completed: false
+    completed: true
     verification: |
       grep -q 'exitDemoMode\|pairingId.*=.*""' ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
     acceptance_criteria:
