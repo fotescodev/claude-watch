@@ -2712,6 +2712,573 @@ Before shipping any feature, verify:
 
 ---
 
+## Contribution Guidelines
+
+This section provides a comprehensive checklist and requirements for creating new SwiftUI components in Claude Watch. Follow these guidelines to ensure consistency, accessibility, and maintainability across the codebase.
+
+**Target Audience:** Developers contributing new UI components or modifying existing views.
+
+---
+
+### Component Creation Checklist
+
+Use this checklist when creating a new SwiftUI component:
+
+#### 1. Component Structure
+
+- [ ] **File Organization**: Component placed in `ClaudeWatch/Views/` directory
+- [ ] **MARK Comments**: Use `// MARK: - ComponentName` for primary sections
+- [ ] **Component Type**: Use `struct` (value type) for all SwiftUI views
+- [ ] **Preview Provider**: Include `#Preview { ComponentName() }` at bottom of file
+- [ ] **Import Statements**: Only import `SwiftUI` and `WatchKit` (minimize dependencies)
+- [ ] **Line Length**: Keep component under 150 lines; extract subviews if longer
+
+**Example Structure:**
+```swift
+import SwiftUI
+import WatchKit
+
+// MARK: - Status Badge Component
+struct StatusBadge: View {
+    let status: ConnectionStatus
+    @Environment(\.isLuminanceReduced) var isLuminanceReduced
+
+    var body: some View {
+        // Implementation
+    }
+}
+
+// MARK: - Preview
+#Preview {
+    StatusBadge(status: .connected)
+}
+```
+
+#### 2. State Management
+
+- [ ] **Local State**: Use `@State` only for view-local UI state (toggles, animations, presentation)
+- [ ] **Shared State**: Use `@ObservedObject private var service = WatchService.shared` for app state
+- [ ] **Environment Values**: Use `@Environment` for system values (`.isLuminanceReduced`, `.dynamicTypeSize`)
+- [ ] **Avoid Prop Drilling**: Access `WatchService.shared` directly in child views instead of passing props
+- [ ] **Immutable Props**: Component inputs should be `let` constants, not `@Binding` unless required
+
+**Example:**
+```swift
+struct ActionCard: View {
+    let action: PendingAction // Immutable input
+    @ObservedObject private var service = WatchService.shared // Shared state
+    @State private var isPressed = false // Local UI state
+    @Environment(\.isLuminanceReduced) var isLuminanceReduced // System state
+
+    var body: some View {
+        // Implementation
+    }
+}
+```
+
+#### 3. Design System Compliance
+
+- [ ] **Colors**: Use only `Claude.*` color tokens (no raw `Color.red` or hex values)
+- [ ] **Typography**: Use native SwiftUI font styles (`.body`, `.headline`, `.caption`, `.footnote`)
+- [ ] **Spacing**: Use multiples of 4pt from spacing scale (4, 8, 12, 16, 20, 24)
+- [ ] **Corner Radius**: Use standardized radii (8pt small, 12pt medium, 16pt large, 20pt extra-large)
+- [ ] **Shadows**: Avoid shadows (watchOS prefers flat design)
+- [ ] **Gradients**: Use subtle gradients for buttons (top: color, bottom: color.opacity(0.8))
+
+**Example:**
+```swift
+// ✅ GOOD - Uses design tokens
+Text("Status")
+    .font(.headline)
+    .foregroundColor(Claude.textPrimary)
+    .padding(12) // Multiple of 4
+
+RoundedRectangle(cornerRadius: 16)
+    .fill(Claude.surface1)
+
+// ❌ BAD - Raw values
+Text("Status")
+    .font(.system(size: 17))
+    .foregroundColor(Color(hex: "#FFFFFF"))
+    .padding(13) // Not on spacing scale
+```
+
+#### 4. Accessibility Requirements
+
+**All components MUST meet these accessibility criteria:**
+
+- [ ] **VoiceOver Labels**: Every interactive element has `.accessibilityLabel()`
+- [ ] **Label Quality**: Labels describe purpose, not interaction ("Settings" not "Settings button")
+- [ ] **Hints (Optional)**: Use `.accessibilityHint()` when action result isn't obvious
+- [ ] **Value (Dynamic State)**: Use `.accessibilityValue()` for progress, toggles, counts
+- [ ] **Hidden Decorations**: Decorative elements use `.accessibilityHidden(true)`
+- [ ] **Grouped Elements**: Complex cards use `.accessibilityElement(children: .combine)`
+- [ ] **Dynamic Type**: All text uses native fonts, all icons use `@ScaledMetric(relativeTo:)`
+- [ ] **Large Text Support**: Component tested at `.accessibility3` size (no truncation)
+- [ ] **Tap Target Size**: Interactive elements ≥ 44pt minimum hit area
+- [ ] **AOD Support**: Component dims gracefully with `isLuminanceReduced`
+- [ ] **Color Contrast**: Text meets WCAG AA (4.5:1) or AAA (7:1) contrast ratios
+
+**Example:**
+```swift
+Button {
+    service.approveAction(action.id)
+    WKInterfaceDevice.current().play(.success)
+} label: {
+    HStack(spacing: 8) {
+        Image(systemName: "checkmark")
+            .font(.system(size: iconSize, weight: .semibold))
+        Text("Approve")
+            .font(.body)
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 12)
+    .frame(minHeight: 44) // Minimum tap target
+}
+.accessibilityLabel("Approve \(action.title)")
+.accessibilityHint("Approves \(action.filePath.filename)")
+```
+
+#### 5. Animation & Interaction
+
+- [ ] **Haptic Feedback**: Every button calls `WKInterfaceDevice.current().play(.click)`
+- [ ] **Semantic Haptics**: Use `.success` for approve, `.failure` for reject, `.click` for navigation
+- [ ] **Spring Animations**: Use `.buttonSpring` for buttons, `.gentleSpring` for subtle transitions
+- [ ] **Animation Timing**: Keep animations under 0.5s (watchOS prefers quick interactions)
+- [ ] **No Over-Animation**: Limit simultaneous animations (max 2-3 elements animating together)
+- [ ] **Reduced Motion**: Respect `.accessibilityReduceMotion` for critical animations
+
+**Example:**
+```swift
+Button {
+    WKInterfaceDevice.current().play(.success) // Haptic
+    withAnimation(.buttonSpring) { // Spring animation
+        service.approveAction(action.id)
+    }
+} label: {
+    Text("Approve")
+}
+.scaleEffect(isPressed ? 0.95 : 1.0) // Subtle press effect
+.animation(.buttonSpring, value: isPressed)
+```
+
+#### 6. Code Style & Conventions
+
+- [ ] **Swift Style**: Follow Apple's Swift API Design Guidelines
+- [ ] **Naming**: Use descriptive names (`connectionStatus` not `cs`, `isLoading` not `loading`)
+- [ ] **Guard Statements**: Use `guard` for early exits and unwrapping
+- [ ] **Force Unwrapping**: Avoid `!` unless justified with comment
+- [ ] **Async/Await**: Use `async/await` for all async operations (no completion handlers)
+- [ ] **No Print**: Remove all `print()` statements (use proper logging if needed)
+- [ ] **No Debug Code**: Remove commented code, TODO markers before commit
+- [ ] **File Header**: No file headers (Xcode default template)
+
+**Example:**
+```swift
+// ✅ GOOD
+guard let action = service.state.pendingActions.first else {
+    return Text("No actions")
+}
+
+// ❌ BAD
+let action = service.state.pendingActions.first!
+```
+
+#### 7. Testing Requirements
+
+**All components MUST be tested:**
+
+- [ ] **Xcode Preview**: Component renders in Xcode Canvas preview
+- [ ] **Simulator Testing**: Tested on watchOS Simulator (Apple Watch Series 9 45mm minimum)
+- [ ] **Device Testing**: Tested on physical Apple Watch (for AOD and haptics)
+- [ ] **VoiceOver Testing**: Navigated with VoiceOver enabled (Settings → Accessibility → VoiceOver)
+- [ ] **Dynamic Type Testing**: Tested at `.accessibility3` size (largest accessibility size)
+- [ ] **AOD Testing**: Verified appearance in Always-On Display mode (physical device only)
+- [ ] **Haptic Testing**: Verified haptic feedback on physical device (Simulator cannot play haptics)
+- [ ] **State Variations**: Tested all component states (loading, success, error, empty)
+- [ ] **Edge Cases**: Tested with long text, missing data, extreme values
+
+**Testing Checklist:**
+```markdown
+## Component Testing Log
+
+### Xcode Preview
+- [ ] Renders without errors
+- [ ] All states visible in preview
+
+### Simulator Testing
+- [ ] Launches successfully
+- [ ] Interactions work correctly
+- [ ] Animations smooth (60 FPS)
+
+### Device Testing (Physical Watch)
+- [ ] AOD appearance verified
+- [ ] Haptics felt on interactions
+- [ ] VoiceOver navigation works
+- [ ] Dynamic Type scales correctly
+
+### Edge Cases
+- [ ] Long text (truncation/wrapping)
+- [ ] Empty state
+- [ ] Loading state
+- [ ] Error state
+```
+
+#### 8. Performance Requirements
+
+- [ ] **No Main Thread Blocking**: All network/disk operations run on background threads
+- [ ] **Efficient Rendering**: Minimize `body` re-evaluations (use `let` computed properties)
+- [ ] **List Performance**: Use `LazyVStack` for scrolling lists (>5 items)
+- [ ] **Image Optimization**: SF Symbols preferred over custom images
+- [ ] **No Memory Leaks**: No strong reference cycles (use `[weak self]` in closures)
+- [ ] **OLED Optimization**: Use pure black (`Claude.background`) to save battery
+
+---
+
+### Code Organization Patterns
+
+#### Component Hierarchy
+
+**Follow this component extraction pattern:**
+
+1. **Single-Screen Views** (e.g., `MainView.swift`)
+   - Orchestrates layout and state-based view switching
+   - Should NOT contain business logic (use `WatchService`)
+   - Maximum 200 lines
+
+2. **Feature Components** (e.g., `ActionQueue`, `StatusHeader`)
+   - Self-contained UI modules (50-150 lines)
+   - Extract when a section exceeds 50 lines or is reused
+   - Use `// MARK: - ComponentName` above definition
+
+3. **Primitive Components** (e.g., buttons, badges, cards)
+   - Highly reusable, single-purpose (20-50 lines)
+   - Should be stateless (accept inputs, render output)
+   - Example: `StatusBadge`, `ConnectionIndicator`
+
+**Example Hierarchy:**
+```
+MainView (orchestrator)
+├── StatusHeader (feature component)
+│   ├── ConnectionIndicator (primitive)
+│   └── StatusBadge (primitive)
+├── ActionQueue (feature component)
+│   └── ActionCard (primitive)
+└── CommandGrid (feature component)
+    └── CommandButton (primitive)
+```
+
+#### File Organization
+
+```
+ClaudeWatch/Views/
+├── MainView.swift              # Primary screen
+├── PairingView.swift           # Pairing flow
+├── OfflineStateView.swift      # Error states
+├── Components/                 # Shared components (future)
+│   ├── StatusBadge.swift
+│   ├── ActionCard.swift
+│   └── ConnectionIndicator.swift
+└── Sheets/                     # Modal presentations (future)
+    ├── SettingsSheet.swift
+    └── VoiceInputSheet.swift
+```
+
+**Current Structure:**
+- All components currently live in `MainView.swift` as inline subviews
+- Extract to separate files when a component:
+  - Exceeds 100 lines
+  - Is reused in multiple screens
+  - Has complex internal state
+
+---
+
+### Common Patterns
+
+#### Pattern 1: Action Card Component
+
+**Use Case:** Display a pending action with approve/reject buttons
+
+**Requirements:**
+- Uses semantic colors based on action type (file edit, bash command, etc.)
+- VoiceOver labels include action type and target
+- Haptic feedback on approve/reject
+- Accessible tap targets (≥44pt)
+
+**Example:**
+```swift
+struct ActionCard: View {
+    let action: PendingAction
+    @ObservedObject private var service = WatchService.shared
+    @Environment(\.isLuminanceReduced) var isLuminanceReduced
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 16
+
+    var body: some View {
+        VStack(spacing: 12) {
+            // Action info
+            HStack(spacing: 8) {
+                Image(systemName: action.icon)
+                    .font(.system(size: iconSize, weight: .semibold))
+                    .foregroundColor(actionColor)
+                Text(action.title)
+                    .font(.headline)
+                    .foregroundColor(Claude.textPrimary)
+                Spacer()
+            }
+
+            // Action buttons
+            HStack(spacing: 8) {
+                // Approve
+                Button {
+                    WKInterfaceDevice.current().play(.success)
+                    service.approveAction(action.id)
+                } label: {
+                    Label("Approve", systemImage: "checkmark")
+                        .font(.body)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .background(Claude.success)
+                .cornerRadius(12)
+                .accessibilityLabel("Approve \(action.title)")
+
+                // Reject
+                Button {
+                    WKInterfaceDevice.current().play(.failure)
+                    service.rejectAction(action.id)
+                } label: {
+                    Label("Reject", systemImage: "xmark")
+                        .font(.body)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .background(Claude.danger)
+                .cornerRadius(12)
+                .accessibilityLabel("Reject \(action.title)")
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Claude.surface1)
+        )
+        .accessibilityElement(children: .contain)
+    }
+
+    private var actionColor: Color {
+        switch action.actionType {
+        case .fileEdit: return Claude.orange
+        case .fileCreate: return Claude.info
+        case .fileDelete: return Claude.danger
+        case .bash: return Color.purple
+        default: return Claude.textSecondary
+        }
+    }
+}
+```
+
+#### Pattern 2: Status Indicator with Pulse
+
+**Use Case:** Display connection status with animated pulse effect
+
+**Requirements:**
+- Color reflects state (green = connected, red = disconnected, orange = reconnecting)
+- Pulse animation for active states
+- AOD dimming support
+- VoiceOver describes current state
+
+**Example:**
+```swift
+struct ConnectionIndicator: View {
+    let status: ConnectionStatus
+    @State private var pulsePhase: CGFloat = 0
+    @Environment(\.isLuminanceReduced) var isLuminanceReduced
+
+    var body: some View {
+        ZStack {
+            // Base circle
+            Circle()
+                .fill(statusColor.opacity(isLuminanceReduced ? 0.3 : 0.5))
+                .frame(width: 12, height: 12)
+
+            // Pulse ring (only when connecting/reconnecting)
+            if status == .connecting || status == .reconnecting {
+                Circle()
+                    .stroke(statusColor.opacity(0.3), lineWidth: 2)
+                    .frame(width: 12, height: 12)
+                    .scaleEffect(1 + pulsePhase * 0.5)
+                    .opacity(1 - pulsePhase)
+            }
+        }
+        .accessibilityLabel(statusText)
+        .accessibilityAddTraits(.isStaticText)
+        .onAppear { startPulse() }
+    }
+
+    private var statusColor: Color {
+        switch status {
+        case .connected: return Claude.success
+        case .connecting, .reconnecting: return Claude.warning
+        case .disconnected: return Claude.danger
+        }
+    }
+
+    private var statusText: String {
+        switch status {
+        case .connected: return "Connected"
+        case .connecting: return "Connecting"
+        case .reconnecting: return "Reconnecting"
+        case .disconnected: return "Disconnected"
+        }
+    }
+
+    private func startPulse() {
+        guard status == .connecting || status == .reconnecting else { return }
+        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: false)) {
+            pulsePhase = 1
+        }
+    }
+}
+```
+
+#### Pattern 3: Empty State View
+
+**Use Case:** Display when no data is available
+
+**Requirements:**
+- Uses tertiary text color
+- Includes SF Symbol icon
+- Provides contextual message
+- Accessible description
+
+**Example:**
+```swift
+struct EmptyStateView: View {
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 48
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "checkmark.circle")
+                .font(.system(size: iconSize, weight: .light))
+                .foregroundColor(Claude.success.opacity(0.5))
+
+            Text("All Clear")
+                .font(.headline)
+                .foregroundColor(Claude.textPrimary)
+
+            Text("No pending actions")
+                .font(.caption)
+                .foregroundColor(Claude.textTertiary)
+        }
+        .padding(24)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("All clear. No pending actions.")
+    }
+}
+```
+
+---
+
+### Pre-Commit Checklist
+
+**Before committing a new component, verify:**
+
+- [ ] Code compiles without warnings
+- [ ] Xcode preview works
+- [ ] Component tested in Simulator
+- [ ] Component tested on physical device (if modifying AOD/haptics)
+- [ ] All accessibility labels added
+- [ ] VoiceOver tested (if interactive)
+- [ ] Dynamic Type tested at `.accessibility3`
+- [ ] No `print()` or debug code
+- [ ] No force unwrapping (`!`) without justification
+- [ ] Follows design system (colors, typography, spacing)
+- [ ] Haptic feedback on all buttons
+- [ ] Commit message descriptive (`feat: Add status indicator component`)
+
+**Git Commit Format:**
+```bash
+# Feature
+git commit -m "feat: Add ActionCard component with approve/reject buttons"
+
+# Bug fix
+git commit -m "fix: Correct VoiceOver label for settings button"
+
+# Refactor
+git commit -m "refactor: Extract StatusHeader into separate component"
+
+# Documentation
+git commit -m "docs: Add accessibility guidelines for action cards"
+```
+
+---
+
+### Troubleshooting
+
+#### Issue: Component doesn't appear in Preview
+
+**Solution:**
+- Ensure `#Preview` is outside the component struct
+- Check for missing required properties in preview instantiation
+- Verify `import SwiftUI` is present
+
+```swift
+// ✅ GOOD
+struct MyComponent: View {
+    let title: String
+    var body: some View { Text(title) }
+}
+
+#Preview {
+    MyComponent(title: "Test")
+}
+
+// ❌ BAD - Missing required property
+#Preview {
+    MyComponent() // Error: Missing argument for parameter 'title'
+}
+```
+
+#### Issue: VoiceOver reads incorrect label
+
+**Solution:**
+- Use `.accessibilityElement(children: .combine)` to group elements
+- Ensure `.accessibilityLabel()` is on the correct element
+- Test with VoiceOver rotor to verify reading order
+
+#### Issue: Animation stutters or lags
+
+**Solution:**
+- Use `.animation(.buttonSpring, value: state)` instead of implicit animations
+- Avoid animating complex paths or large images
+- Reduce animation duration (watchOS prefers <0.5s)
+
+#### Issue: Tap targets too small
+
+**Solution:**
+- Add `.frame(minHeight: 44)` to button content
+- Increase padding: `.padding(.vertical, 12)`
+- Test with finger on physical device (not just Simulator)
+
+---
+
+### Additional Resources
+
+**Apple Documentation:**
+- [Human Interface Guidelines - watchOS](https://developer.apple.com/design/human-interface-guidelines/watchos)
+- [SwiftUI Views - Apple Developer](https://developer.apple.com/documentation/swiftui/views)
+- [Accessibility - Apple Developer](https://developer.apple.com/accessibility/)
+
+**Project Files:**
+- `ClaudeWatch/Views/MainView.swift` - Reference implementation
+- `CLAUDE.md` - Project coding standards
+- `docs/specs/SWIFTUI_DESIGN_SYSTEM.md` (this file) - Design system reference
+
+**Tools:**
+- **Accessibility Inspector** (Xcode → Open Developer Tool → Accessibility Inspector)
+- **VoiceOver Practice** (iPhone → Settings → Accessibility → VoiceOver → Practice Gestures)
+- **SF Symbols App** (Download from Apple Developer)
+
+---
+
 ## Mode-Specific Colors
 
 Claude Watch has three permission modes, each with distinct colors.
