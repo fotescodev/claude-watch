@@ -179,7 +179,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// JSON response helper
+/**
+ * Creates a standardized JSON response with CORS headers.
+ * Serializes the provided data to JSON and sets appropriate content-type headers.
+ *
+ * @param {*} data - The data to serialize as JSON (can be any type)
+ * @param {number} [status=200] - HTTP status code (default: 200)
+ * @returns {Response} A Response object with JSON content-type and CORS headers
+ */
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
