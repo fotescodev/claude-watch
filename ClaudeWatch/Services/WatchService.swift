@@ -643,6 +643,9 @@ class WatchService: ObservableObject {
         }
     }
 
+    /// Sends a voice prompt to Claude Code for processing.
+    /// Sets temporary state flag while sending and provides haptic feedback on completion.
+    /// - Parameter text: The transcribed voice input to send as a prompt
     func sendPrompt(_ text: String) {
         isSendingPrompt = true
 
