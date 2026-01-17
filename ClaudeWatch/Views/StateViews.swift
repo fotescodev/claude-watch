@@ -65,64 +65,53 @@ struct OfflineStateView: View {
     // Accessibility: High Contrast support
     @Environment(\.colorSchemeContrast) var colorSchemeContrast
 
-    // Dynamic Type support
-    @ScaledMetric(relativeTo: .title) private var iconContainerSize: CGFloat = 80
-    @ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 32
-
     var body: some View {
-        VStack(spacing: 16) {
-            // Icon with Liquid Glass (tap to load demo)
-            ZStack {
-                Image(systemName: "wifi.slash")
-                    .font(.system(size: iconSize, weight: .light))
-                    .foregroundColor(Claude.textTertiaryContrast(colorSchemeContrast))
-            }
-            .frame(width: iconContainerSize, height: iconContainerSize)
-            .glassEffectInteractive(Circle())
-            .onTapGesture(count: 3) {
-                // Triple-tap to load demo data
-                service.loadDemoData()
-            }
+        VStack(spacing: 12) {
+            Spacer()
 
-            // Text
+            // Icon - compact 40pt (triple-tap to load demo)
+            Image(systemName: "wifi.slash")
+                .font(.system(size: 40, weight: .light))
+                .foregroundColor(Claude.textTertiaryContrast(colorSchemeContrast))
+                .onTapGesture(count: 3) {
+                    service.loadDemoData()
+                }
+
+            // Title only - no subtitle
             Text("Offline")
-                .font(.title2)
-                .fontWeight(.bold)
+                .font(.headline)
                 .foregroundColor(Claude.textPrimary)
 
-            Text("Can't connect to Claude")
-                .font(.footnote)
-                .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
+            Spacer()
 
-            // Buttons
-            VStack(spacing: 10) {
-                // Retry button - using glass prominent style
+            // Action buttons
+            VStack(spacing: 6) {
+                // Full-width Retry button
                 Button {
                     service.connect()
                     WKInterfaceDevice.current().play(.click)
                 } label: {
                     Text("Retry")
-                        .font(.body.weight(.semibold))
+                        .font(.caption.weight(.semibold))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.glassProminentCompat)
                 .accessibilityLabel("Retry connection")
 
-                // Demo button - using glass style
+                // Demo as text link
                 Button {
                     service.loadDemoData()
                 } label: {
-                    Text("Demo Mode")
-                        .font(.footnote.weight(.semibold))
+                    Text("Demo")
+                        .font(.caption.weight(.semibold))
                         .foregroundColor(Claude.orange)
                 }
                 .buttonStyle(.glassCompat)
                 .accessibilityLabel("Enter demo mode")
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 8)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 8)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

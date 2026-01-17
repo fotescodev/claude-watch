@@ -1924,7 +1924,7 @@ tasks:
       4. Demo as text link below
     priority: medium
     parallel_group: 18
-    completed: false
+    completed: true
     verification: |
       lines=$(grep -A 50 'struct OfflineStateView' ClaudeWatch/Views/StateViews.swift | grep -c 'spacing');
       [ "$lines" -le 3 ] && exit 0 || exit 1
