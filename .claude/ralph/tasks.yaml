@@ -1637,3 +1637,62 @@ tasks:
       - skill-harvesting
       - automation
     commit_template: "feat(ralph): Add automatic skill harvesting"
+
+  - id: "META3"
+    title: "Implement self-improving feedback loop"
+    description: |
+      Make Ralph self-improving: each run captures learnings, aggregates patterns,
+      and generates/updates skills automatically.
+
+      Reference: .claude/ralph/SELF-IMPROVING-SPEC.md
+
+      Core components:
+      1. capture_learnings() - Extract what worked/failed after each task
+      2. load_relevant_skills() - Load skills matching task tags/files
+      3. aggregate_learnings() - Combine learnings by category (every 5 tasks)
+      4. generate_skill() - Create skills when patterns reach threshold (3+)
+
+      Learning capture structure:
+      ```yaml
+      task_id: "UX13"
+      outcome: success
+      successes:
+        - pattern: "Used .glassEffect()"
+          category: "ios26"
+          reusable: true
+      failures:
+        - pattern: "Tried deprecated material"
+          lesson: "Use .glassEffect() for iOS 26+"
+      missing_context:
+        - "Liquid Glass button styles"
+      ```
+
+      Feedback loop:
+      Task → Execute → Capture → Store → Aggregate → Generate Skills → Load → Better Execution
+
+      New CLI options:
+      --aggregate, --show-learnings, --generate-skills, --skill-stats
+    priority: high
+    parallel_group: 17
+    completed: false
+    depends_on:
+      - "META1"
+      - "META2"
+    verification: |
+      grep -q 'capture_learnings\|load_relevant_skills' .claude/ralph/ralph.sh && \
+      [[ -d ".claude/ralph/learnings" ]] && exit 0 || exit 1
+    acceptance_criteria:
+      - "capture_learnings() extracts patterns after each task"
+      - "load_relevant_skills() loads skills matching task tags"
+      - "aggregate_learnings() runs every 5 tasks"
+      - "Skills auto-generated when patterns reach threshold"
+      - "Learnings stored in .claude/ralph/learnings/"
+    files:
+      - ".claude/ralph/ralph.sh"
+      - ".claude/ralph/SELF-IMPROVING-SPEC.md"
+    tags:
+      - meta
+      - self-improvement
+      - machine-learning
+      - automation
+    commit_template: "feat(ralph): Implement self-improving feedback loop"
