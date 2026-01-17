@@ -172,14 +172,30 @@ struct SettingsSheet: View {
 
                 // Demo Mode Section
                 if service.isDemoMode {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 8) {
                         HStack(spacing: 8) {
                             Image(systemName: "play.circle.fill")
                                 .foregroundColor(Claude.warning)
-                            Text("Demo Mode Active")
+                            Text("Demo Mode")
                                 .font(.footnote.weight(.semibold))
                                 .foregroundColor(Claude.warning)
                         }
+
+                        // Reload demo data button
+                        Button {
+                            service.loadDemoData()
+                            WKInterfaceDevice.current().play(.click)
+                            dismiss()
+                        } label: {
+                            Text("Reload Demo")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Claude.info)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
 
                         Button {
                             service.isDemoMode = false
@@ -189,16 +205,11 @@ struct SettingsSheet: View {
                             WKInterfaceDevice.current().play(.click)
                             dismiss()
                         } label: {
-                            Text("Exit Demo Mode")
+                            Text("Exit Demo")
                                 .font(.footnote.weight(.semibold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(Claude.orange)
-                                .clipShape(Capsule())
+                                .foregroundColor(Claude.orange)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Exit demo mode and disconnect")
                     }
                     .padding(.vertical, 8)
                 }

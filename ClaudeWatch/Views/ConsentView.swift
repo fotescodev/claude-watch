@@ -1,95 +1,201 @@
 import SwiftUI
 import WatchKit
 
-// MARK: - Consent View
+// MARK: - Consent Flow (3 Pages)
 struct ConsentView: View {
     @AppStorage("hasAcceptedConsent") private var hasAcceptedConsent = false
     @State private var currentPage = 0
-
-    private let pages: [(icon: String, title: String, description: String)] = [
-        ("brain.head.profile", "AI Processing", "Your commands and voice input are sent to Claude API for processing."),
-        ("waveform", "Voice Handling", "Voice recordings are transcribed and processed to understand your requests."),
-        ("hand.raised.fill", "Your Privacy", "Your data is never sold to third parties. We only use it to provide the service.")
-    ]
 
     var body: some View {
         ZStack {
             Claude.background.ignoresSafeArea()
 
-            VStack(spacing: 12) {
-                // Header
-                Text("Welcome to Claude Watch")
-                    .font(.headline)
-                    .foregroundColor(Claude.textPrimary)
-                    .multilineTextAlignment(.center)
-
-                // Content pages
-                TabView(selection: $currentPage) {
-                    ForEach(0..<pages.count, id: \.self) { index in
-                        consentPage(
-                            icon: pages[index].icon,
-                            title: pages[index].title,
-                            description: pages[index].description
-                        )
-                        .tag(index)
-                    }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .automatic))
-                .frame(height: 120)
-
-                // Accept button (only on last page or always visible)
-                Button {
-                    acceptConsent()
-                } label: {
-                    Text(currentPage == pages.count - 1 ? "I Understand" : "Accept & Continue")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Claude.orange)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Accept privacy terms and continue")
-
-                // Learn more link
-                Text("You can review this in Settings")
-                    .font(.caption2)
-                    .foregroundColor(Claude.textTertiary)
+            TabView(selection: $currentPage) {
+                ConsentPage1Privacy(onContinue: { currentPage = 1 })
+                    .tag(0)
+                ConsentPage2Data(onContinue: { currentPage = 2 })
+                    .tag(1)
+                ConsentPage3Accept(onAccept: acceptConsent)
+                    .tag(2)
             }
-            .padding()
+            .tabViewStyle(.page(indexDisplayMode: .never))
         }
-    }
-
-    private func consentPage(icon: String, title: String, description: String) -> some View {
-        VStack(spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(Claude.surface1)
-                    .frame(width: 44, height: 44)
-
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(Claude.orange)
-            }
-            .accessibilityHidden(true)
-
-            Text(title)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(Claude.textPrimary)
-
-            Text(description)
-                .font(.system(size: 12))
-                .foregroundColor(Claude.textSecondary)
-                .multilineTextAlignment(.center)
-                .lineLimit(3)
-        }
-        .padding(.horizontal, 8)
     }
 
     private func acceptConsent() {
         WKInterfaceDevice.current().play(.success)
         hasAcceptedConsent = true
+    }
+}
+
+// MARK: - Page 1: Privacy First
+struct ConsentPage1Privacy: View {
+    let onContinue: () -> Void
+
+    var body: some View {
+        VStack(spacing: Claude.Spacing.sm) {
+            // Icon
+            ZStack {
+                Circle()
+                    .fill(Claude.orange.opacity(0.2))
+                    .frame(width: 44, height: 44)
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Claude.orange)
+            }
+
+            // Title
+            Text("Privacy First")
+                .font(.claudeHeadline)
+                .foregroundStyle(Claude.textPrimary)
+
+            // Content
+            Text("Connects to Claude Code for action approvals")
+                .font(.claudeFootnote)
+                .foregroundStyle(Claude.textSecondary)
+                .multilineTextAlignment(.center)
+
+            Spacer()
+
+            // Pagination dots
+            HStack(spacing: 6) {
+                Circle().fill(Claude.orange).frame(width: 5, height: 5)
+                Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
+                Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
+            }
+
+            // Continue button
+            Button(action: {
+                WKInterfaceDevice.current().play(.click)
+                onContinue()
+            }) {
+                Text("Continue →")
+                    .font(.claudeFootnote)
+                    .foregroundStyle(Claude.orange)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(Claude.Spacing.md)
+    }
+}
+
+// MARK: - Page 2: Data Handling
+struct ConsentPage2Data: View {
+    let onContinue: () -> Void
+
+    var body: some View {
+        VStack(spacing: Claude.Spacing.sm) {
+            // Icon
+            ZStack {
+                Circle()
+                    .fill(Claude.info.opacity(0.2))
+                    .frame(width: 44, height: 44)
+                Image(systemName: "antenna.radiowaves.left.and.right")
+                    .font(.system(size: 18))
+                    .foregroundStyle(Claude.info)
+            }
+
+            // Title
+            Text("Data Handling")
+                .font(.claudeHeadline)
+                .foregroundStyle(Claude.textPrimary)
+
+            // Bullet list - compact
+            VStack(alignment: .leading, spacing: 2) {
+                DataBullet(text: "Action titles only")
+                DataBullet(text: "No code content")
+                DataBullet(text: "Encrypted transit")
+            }
+
+            Spacer()
+
+            // Pagination dots
+            HStack(spacing: 6) {
+                Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
+                Circle().fill(Claude.orange).frame(width: 5, height: 5)
+                Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
+            }
+
+            // Continue button
+            Button(action: {
+                WKInterfaceDevice.current().play(.click)
+                onContinue()
+            }) {
+                Text("Continue →")
+                    .font(.claudeFootnote)
+                    .foregroundStyle(Claude.orange)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(Claude.Spacing.md)
+    }
+}
+
+// MARK: - Data Bullet Helper
+struct DataBullet: View {
+    let text: String
+
+    var body: some View {
+        HStack(spacing: Claude.Spacing.sm) {
+            Circle()
+                .fill(Claude.success)
+                .frame(width: 6, height: 6)
+            Text(text)
+                .font(.claudeCaption)
+                .foregroundStyle(Claude.textSecondary)
+        }
+    }
+}
+
+// MARK: - Page 3: Accept Terms
+struct ConsentPage3Accept: View {
+    let onAccept: () -> Void
+
+    var body: some View {
+        VStack(spacing: Claude.Spacing.sm) {
+            // Icon
+            ZStack {
+                Circle()
+                    .fill(Claude.success.opacity(0.2))
+                    .frame(width: 44, height: 44)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(Claude.success)
+            }
+
+            // Title
+            Text("Ready to Start")
+                .font(.claudeHeadline)
+                .foregroundStyle(Claude.textPrimary)
+
+            // Content
+            Text("By continuing you agree to Terms & Privacy Policy")
+                .font(.claudeFootnote)
+                .foregroundStyle(Claude.textSecondary)
+                .multilineTextAlignment(.center)
+
+            Spacer()
+
+            // Pagination dots
+            HStack(spacing: 6) {
+                Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
+                Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
+                Circle().fill(Claude.orange).frame(width: 5, height: 5)
+            }
+
+            // Accept button
+            Button(action: onAccept) {
+                Text("Accept")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Claude.orange)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(Claude.Spacing.md)
     }
 }
 
@@ -113,15 +219,15 @@ struct PrivacyInfoView: View {
                 // Privacy points
                 VStack(spacing: 12) {
                     privacyRow(
-                        icon: "brain.head.profile",
-                        title: "AI Processing",
-                        description: "Commands sent to Claude API"
+                        icon: "lock.fill",
+                        title: "Privacy First",
+                        description: "Secure connection to Claude"
                     )
 
                     privacyRow(
-                        icon: "waveform",
-                        title: "Voice Input",
-                        description: "Transcribed for processing"
+                        icon: "antenna.radiowaves.left.and.right",
+                        title: "Data Handling",
+                        description: "Only action titles, encrypted"
                     )
 
                     privacyRow(
@@ -156,7 +262,6 @@ struct PrivacyInfoView: View {
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Withdraw privacy consent")
                 }
 
                 // Done button
@@ -172,7 +277,6 @@ struct PrivacyInfoView: View {
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Close privacy settings")
             }
             .padding()
         }
@@ -190,7 +294,6 @@ struct PrivacyInfoView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(Claude.orange)
             }
-            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -210,6 +313,10 @@ struct PrivacyInfoView: View {
     }
 }
 
-#Preview {
+#Preview("Consent Flow") {
     ConsentView()
+}
+
+#Preview("Privacy Info") {
+    PrivacyInfoView()
 }

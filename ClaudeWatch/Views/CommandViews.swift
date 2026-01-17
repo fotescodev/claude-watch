@@ -107,9 +107,9 @@ struct ModeSelector: View {
     // Accessibility: Reduce Motion support
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
-    // Dynamic Type support
-    @ScaledMetric(relativeTo: .footnote) private var modeIconContainerSize: CGFloat = 28
-    @ScaledMetric(relativeTo: .footnote) private var modeIconSize: CGFloat = 12
+    // Dynamic Type support - compact
+    @ScaledMetric(relativeTo: .caption) private var modeIconContainerSize: CGFloat = 20
+    @ScaledMetric(relativeTo: .caption) private var modeIconSize: CGFloat = 10
 
     // Spring animation state
     @State private var isPressed = false
@@ -122,8 +122,8 @@ struct ModeSelector: View {
             // VoiceOver announcement for mode change
             announceModChange()
         } label: {
-            HStack(spacing: 10) {
-                // Mode icon
+            HStack(spacing: 6) {
+                // Mode icon - compact
                 ZStack {
                     Circle()
                         .fill(modeColor.opacity(0.2))
@@ -134,33 +134,26 @@ struct ModeSelector: View {
                         .foregroundColor(modeColor)
                 }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(service.state.mode.displayName)
-                        .font(.footnote.weight(.bold))
-                        .foregroundColor(modeColor)
-
-                    Text(service.state.mode.description)
-                        .font(.caption2)
-                        .foregroundColor(Claude.textSecondary)
-                }
+                Text(service.state.mode.displayName)
+                    .font(.claudeFootnote)
+                    .foregroundColor(modeColor)
 
                 Spacer()
 
                 // Next mode hint
                 Image(systemName: "chevron.right")
-                    .font(.caption2.weight(.semibold))
+                    .font(.system(size: 9, weight: .semibold))
                     .foregroundColor(Claude.textTertiary)
             }
-            .padding(12)
+            .padding(8)
             .background(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 10)
                     .fill(modeBackground)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 10)
                     .strokeBorder(modeColor.opacity(0.3), lineWidth: 1)
             )
-            .glassEffectCompat(RoundedRectangle(cornerRadius: 16))
             .scaleEffect(isPressed && !reduceMotion ? 0.96 : 1.0)
             .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: isPressed)
         }

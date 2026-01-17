@@ -1680,7 +1680,7 @@ tasks:
       ```
     priority: critical
     parallel_group: 18
-    completed: false
+    completed: true
     verification: |
       ! grep -q 'ScrollView' ClaudeWatch/Views/MainView.swift && exit 0 || exit 1
     acceptance_criteria:

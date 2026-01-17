@@ -93,7 +93,7 @@ check_build() {
 
     # Find available watch simulator dynamically
     local simulator
-    simulator=$(xcrun simctl list devices available 2>/dev/null | grep -i "Apple Watch" | head -1 | sed 's/^ *//' | sed 's/ (.*$//')
+    simulator=$(xcrun simctl list devices available 2>/dev/null | grep -i "Apple Watch" | head -1 | sed 's/^ *//' | sed 's/ ([A-F0-9-]*).*//')
 
     if [[ -z "$simulator" ]]; then
         log_warn "No watchOS simulator found, using generic destination"

@@ -1,12 +1,38 @@
 {
-  "totalSessions": 12,
+  "totalSessions": 26,
   "totalTokens": {
     "input": 45230,
     "output": 23840
   },
   "estimatedCost": "8.65",
-  "tokenHistory": [1200, 1850, 2200, 2650, 3100, 3800, 4200, 4900, 5500, 6100, 6800, 7400],
-  "costHistory": [0.15, 0.32, 0.58, 0.89, 1.24, 1.67, 2.15, 2.68, 3.25, 3.89, 4.58, 5.32],
+  "tokenHistory": [
+    1200,
+    1850,
+    2200,
+    2650,
+    3100,
+    3800,
+    4200,
+    4900,
+    5500,
+    6100,
+    6800,
+    7400
+  ],
+  "costHistory": [
+    0.15,
+    0.32,
+    0.58,
+    0.89,
+    1.24,
+    1.67,
+    2.15,
+    2.68,
+    3.25,
+    3.89,
+    4.58,
+    5.32
+  ],
   "sessions": [
     {
       "id": "session-001",
@@ -97,7 +123,94 @@
       "tasksCompleted": 4,
       "tokensUsed": 10100,
       "cost": 1.15
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-17T18:44:00Z",
+      "taskId": "INFRA1",
+      "status": "failed"
+    },
+    {
+      "id": "session-002",
+      "timestamp": "2026-01-17T18:48:39Z",
+      "taskId": "INFRA2",
+      "status": "failed"
+    },
+    {
+      "id": "session-003",
+      "timestamp": "2026-01-17T18:55:06Z",
+      "taskId": "FM1",
+      "status": "failed"
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-17T19:05:06Z",
+      "taskId": "FM2",
+      "status": "failed"
+    },
+    {
+      "id": "session-002",
+      "timestamp": "2026-01-17T19:11:36Z",
+      "taskId": "LG1",
+      "status": "failed"
+    },
+    {
+      "id": "session-003",
+      "timestamp": "2026-01-17T19:18:44Z",
+      "taskId": "LG2",
+      "status": "failed"
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-17T19:44:28Z",
+      "taskId": "META1",
+      "status": "failed"
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-17T19:44:54Z",
+      "taskId": "META1",
+      "status": "failed"
+    },
+    {
+      "id": "session-002",
+      "timestamp": "2026-01-17T19:45:01Z",
+      "taskId": "META1",
+      "status": "failed"
+    },
+    {
+      "id": "session-003",
+      "timestamp": "2026-01-17T19:45:07Z",
+      "taskId": "META1",
+      "status": "failed"
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-17T19:45:11Z",
+      "taskId": "META1",
+      "status": "failed"
+    },
+    {
+      "id": "session-002",
+      "timestamp": "2026-01-17T19:45:18Z",
+      "taskId": "META1",
+      "status": "failed"
+    },
+    {
+      "id": "session-003",
+      "timestamp": "2026-01-17T19:45:24Z",
+      "taskId": "META1",
+      "status": "failed"
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-17T19:46:22Z",
+      "taskId": "META1",
+      "status": "failed"
     }
   ],
-  "successRate": 80.0
+  "successRate": 80.0,
+  "lastSession": "2026-01-17T19:46:22Z",
+  "tasksFailed": 14,
+  "buildFailures": 14
 }

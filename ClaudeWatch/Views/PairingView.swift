@@ -1,151 +1,240 @@
 import SwiftUI
+import WatchKit
 
-/// View for pairing the watch with Claude Code via a pairing code
-/// Supports both alphanumeric (ABC-123) and numeric (123456) formats
+// MARK: - Pairing View
 struct PairingView: View {
     @ObservedObject var service: WatchService
+    @State private var showCodeEntry = false
+
+    var body: some View {
+        ZStack {
+            Claude.background.ignoresSafeArea()
+
+            if showCodeEntry {
+                PairingCodeEntryView(service: service, onBack: { showCodeEntry = false })
+            } else {
+                UnpairedMainView(
+                    onPairNow: { showCodeEntry = true },
+                    onLocalMode: {
+                        service.useCloudMode = false
+                        service.objectWillChange.send()
+                        service.connect()
+                    },
+                    onDemoMode: {
+                        service.isDemoMode = true
+                        service.loadDemoData()
+                    }
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Unpaired Main View
+struct UnpairedMainView: View {
+    let onPairNow: () -> Void
+    let onLocalMode: () -> Void
+    let onDemoMode: () -> Void
+
+    var body: some View {
+        VStack(spacing: Claude.Spacing.md) {
+            // Status indicator
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Claude.textTertiary)
+                    .frame(width: 6, height: 6)
+                Text("Not Connected")
+                    .font(.claudeFootnote)
+                    .foregroundStyle(Claude.textSecondary)
+                Spacer()
+            }
+
+            // Empty state card - compact
+            VStack(spacing: Claude.Spacing.sm) {
+                Image(systemName: "link")
+                    .font(.system(size: 28))
+                    .foregroundStyle(Claude.orange)
+
+                Text("Pair with Claude")
+                    .font(.claudeHeadline)
+                    .foregroundStyle(Claude.textPrimary)
+
+                Text("Enter code from terminal")
+                    .font(.claudeFootnote)
+                    .foregroundStyle(Claude.textSecondary)
+            }
+            .padding(Claude.Spacing.md)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: Claude.Radius.medium)
+                    .fill(Claude.surface1)
+            )
+
+            // Action buttons - compact
+            VStack(spacing: Claude.Spacing.xs) {
+                Button(action: {
+                    WKInterfaceDevice.current().play(.click)
+                    onPairNow()
+                }) {
+                    Text("Pair Now")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Claude.orange)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+
+                HStack(spacing: Claude.Spacing.sm) {
+                    Button(action: {
+                        WKInterfaceDevice.current().play(.click)
+                        onLocalMode()
+                    }) {
+                        Text("Local")
+                            .font(.claudeFootnote)
+                            .foregroundColor(Claude.orange)
+                    }
+                    .buttonStyle(.plain)
+
+                    Text("•").foregroundStyle(Claude.textTertiary)
+
+                    Button(action: {
+                        WKInterfaceDevice.current().play(.click)
+                        onDemoMode()
+                    }) {
+                        Text("Demo")
+                            .font(.claudeFootnote)
+                            .foregroundColor(Claude.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(Claude.Spacing.md)
+    }
+}
+
+// MARK: - Pairing Code Entry View
+struct PairingCodeEntryView: View {
+    @ObservedObject var service: WatchService
+    let onBack: () -> Void
+
     @State private var code: String = ""
     @State private var isSubmitting = false
     @State private var errorMessage: String?
+    @State private var showSuccess = false
     @FocusState private var isCodeFocused: Bool
 
-    /// Validates if the code is in numeric format (6 digits, preserves leading zeros)
-    private var isNumericCode: Bool {
-        code.count == 6 && code.allSatisfy { $0.isNumber }
-    }
-
-    /// Validates if the code is in alphanumeric format (ABC-123)
-    private var isAlphanumericCode: Bool {
-        code.count == 7 && code.contains("-")
-    }
-
-    /// Returns true if the code is valid (either format)
-    private func validateCode(_ input: String) -> Bool {
+    private var isValidCode: Bool {
         // Numeric format: exactly 6 digits
-        if input.count == 6 && input.allSatisfy({ $0.isNumber }) {
+        if code.count == 6 && code.allSatisfy({ $0.isNumber }) {
             return true
         }
         // Alphanumeric format: ABC-123 (7 chars with hyphen)
-        if input.count == 7 && input.contains("-") {
-            let parts = input.split(separator: "-")
+        if code.count == 7 && code.contains("-") {
+            let parts = code.split(separator: "-")
             return parts.count == 2 && parts[0].count == 3 && parts[1].count == 3
         }
         return false
     }
 
-    /// Check if code is valid for submission
-    private var isValidCode: Bool {
-        validateCode(code)
-    }
-
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                // Header
-                Image(systemName: "link.circle.fill")
-                    .font(.system(size: 40))
-                    .foregroundStyle(.blue)
+        if showSuccess {
+            ConnectedSuccessView()
+        } else {
+            VStack(spacing: Claude.Spacing.sm) {
+                // Header with back button
+                HStack {
+                    Button(action: {
+                        WKInterfaceDevice.current().play(.click)
+                        onBack()
+                    }) {
+                        HStack(spacing: 2) {
+                            Image(systemName: "chevron.left")
+                            Text("Back")
+                        }
+                        .font(.claudeFootnote)
+                        .foregroundStyle(Claude.orange)
+                    }
+                    .buttonStyle(.plain)
+                    Spacer()
+                }
 
-                Text("Pair with Claude")
-                    .font(.headline)
+                // Title
+                Text("Enter Code")
+                    .font(.claudeHeadline)
+                    .foregroundStyle(Claude.textPrimary)
 
-                Text("Enter the code shown in your terminal")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-
-                // Code input with support for both formats
-                TextField("123456 or ABC-123", text: $code)
-                    .font(.system(.title3, design: .monospaced))
+                // Code input
+                TextField("123456", text: $code)
+                    .font(.system(size: 20, weight: .medium, design: .monospaced))
                     .textCase(.uppercase)
                     .textContentType(.oneTimeCode)
                     .multilineTextAlignment(.center)
                     .focused($isCodeFocused)
                     .onChange(of: code) { _, newValue in
-                        let filtered = newValue.uppercased().filter { $0.isLetter || $0.isNumber || $0 == "-" }
-
-                        // Check if user is entering numeric-only code
-                        let digitsOnly = filtered.filter { $0.isNumber }
-                        let hasLetters = filtered.contains(where: { $0.isLetter })
-
-                        if !hasLetters && digitsOnly.count <= 6 {
-                            // Numeric format: just digits, max 6
-                            code = String(digitsOnly.prefix(6))
-                        } else {
-                            // Alphanumeric format: auto-add hyphen after 3 chars
-                            if filtered.count == 3 && !filtered.contains("-") && hasLetters {
-                                code = filtered + "-"
-                            } else if filtered.count <= 7 {
-                                code = filtered
-                            } else {
-                                code = String(filtered.prefix(7))
-                            }
-                        }
-
-                        // Clear error when typing
-                        errorMessage = nil
-
-                        // Provide haptic feedback on valid code
-                        if validateCode(code) {
-                            WKInterfaceDevice.current().play(.click)
-                        }
+                        formatCode(newValue)
                     }
-                    .accessibilityLabel("Pairing code input")
-                    .accessibilityHint("Enter the 6-digit numeric code or 7-character alphanumeric code from your terminal")
-
-                // Format hint
-                if !code.isEmpty && !isValidCode {
-                    Text(code.allSatisfy({ $0.isNumber }) ? "Enter 6 digits" : "Format: ABC-123")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                    .padding(Claude.Spacing.sm)
+                    .background(Claude.surface1)
+                    .clipShape(RoundedRectangle(cornerRadius: Claude.Radius.small))
 
                 // Error message
                 if let error = errorMessage {
                     Text(error)
-                        .font(.caption2)
-                        .foregroundStyle(.red)
+                        .font(.claudeFootnote)
+                        .foregroundStyle(Claude.danger)
                 }
 
-                // Submit button
+                Spacer()
+
+                // Connect button
                 Button(action: submitCode) {
-                    if isSubmitting {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                    } else {
-                        Text("Connect")
-                            .frame(maxWidth: .infinity)
+                    Group {
+                        if isSubmitting {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Text("Connect")
+                        }
                     }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(isValidCode ? Claude.orange : Claude.surface2)
+                    .clipShape(Capsule())
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.plain)
                 .disabled(!isValidCode || isSubmitting)
-                .accessibilityLabel(isSubmitting ? "Connecting to Claude Code" : "Connect to Claude Code")
-                .accessibilityHint("Submits the pairing code to connect")
-
-                // Local mode button (for testing with local server)
-                Button("Use Local Mode") {
-                    service.useCloudMode = false
-                    service.objectWillChange.send()  // Trigger view refresh
-                    service.connect()
-                }
-                .font(.caption)
-                .foregroundStyle(.blue)
-                .accessibilityLabel("Use local mode")
-                .accessibilityHint("Connect directly to local WebSocket server")
-
-                // Skip button for demo mode
-                Button("Use Demo Mode") {
-                    service.isDemoMode = true
-                    service.loadDemoData()
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Use demo mode")
-                .accessibilityHint("Skip pairing and use sample data")
             }
-            .padding()
+            .padding(Claude.Spacing.md)
         }
-        // Removed auto-focus - let user tap to enter code
+    }
+
+    private func formatCode(_ newValue: String) {
+        let filtered = newValue.uppercased().filter { $0.isLetter || $0.isNumber || $0 == "-" }
+        let digitsOnly = filtered.filter { $0.isNumber }
+        let hasLetters = filtered.contains(where: { $0.isLetter })
+
+        if !hasLetters && digitsOnly.count <= 6 {
+            code = String(digitsOnly.prefix(6))
+        } else {
+            if filtered.count == 3 && !filtered.contains("-") && hasLetters {
+                code = filtered + "-"
+            } else if filtered.count <= 7 {
+                code = filtered
+            } else {
+                code = String(filtered.prefix(7))
+            }
+        }
+
+        errorMessage = nil
+
+        if isValidCode {
+            WKInterfaceDevice.current().play(.click)
+        }
     }
 
     private func submitCode() {
@@ -163,8 +252,8 @@ struct PairingView: View {
                 try await service.completePairing(code: code)
                 await MainActor.run {
                     isSubmitting = false
+                    showSuccess = true
                     WKInterfaceDevice.current().play(.success)
-                    // View will auto-dismiss since service.isPaired becomes true
                 }
             } catch {
                 await MainActor.run {
@@ -177,6 +266,63 @@ struct PairingView: View {
     }
 }
 
-#Preview {
+// MARK: - Connected Success View
+struct ConnectedSuccessView: View {
+    var body: some View {
+        VStack(spacing: Claude.Spacing.md) {
+            Spacer()
+
+            // Success icon
+            ZStack {
+                Circle()
+                    .fill(Claude.success.opacity(0.2))
+                    .frame(width: 50, height: 50)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(Claude.success)
+            }
+
+            // Title
+            Text("Connected!")
+                .font(.claudeHeadline)
+                .foregroundStyle(Claude.textPrimary)
+
+            // Description
+            Text("Paired with Claude Code")
+                .font(.claudeFootnote)
+                .foregroundStyle(Claude.textSecondary)
+
+            Spacer()
+
+            // Pro tip
+            HStack(spacing: 6) {
+                Image(systemName: "lightbulb.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Claude.warning)
+                Text("Raise wrist to approve")
+                    .font(.claudeFootnote)
+                    .foregroundStyle(Claude.textSecondary)
+            }
+            .padding(Claude.Spacing.sm)
+            .background(Claude.surface1)
+            .clipShape(RoundedRectangle(cornerRadius: Claude.Radius.small))
+        }
+        .padding(Claude.Spacing.md)
+    }
+}
+
+#Preview("Pairing View") {
     PairingView(service: WatchService())
+}
+
+#Preview("Unpaired Main") {
+    UnpairedMainView(onPairNow: {}, onLocalMode: {}, onDemoMode: {})
+}
+
+#Preview("Code Entry") {
+    PairingCodeEntryView(service: WatchService(), onBack: {})
+}
+
+#Preview("Connected Success") {
+    ConnectedSuccessView()
 }

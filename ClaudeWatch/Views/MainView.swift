@@ -101,23 +101,20 @@ struct MainView: View {
     }
 
     private var mainContentView: some View {
-        ScrollView {
-            glassEffectContainerCompat {
-                VStack(spacing: 12) {
-                    // Status header
+        glassEffectContainerCompat {
+            VStack(spacing: 8) {
+                // Only show status header when NO pending actions
+                if service.state.pendingActions.isEmpty {
                     StatusHeader(pulsePhase: pulsePhase)
-
-                    // Pending actions
-                    if !service.state.pendingActions.isEmpty {
-                        ActionQueue()
-                    }
-
-                    // Mode selector
                     ModeSelector()
+                } else {
+                    // Pending actions take priority - show them directly
+                    ActionQueue()
                 }
-                .padding(.horizontal, 4)
-                .padding(.bottom, 12)
             }
+            .padding(.horizontal, 4)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
         }
     }
 
@@ -169,10 +166,10 @@ struct MainView: View {
 
     private var connectionIcon: String {
         switch service.connectionStatus {
-        case .connected: return "checkmark.circle.fill"
-        case .connecting: return "arrow.trianglehead.2.clockwise"
-        case .reconnecting: return "arrow.clockwise"
-        case .disconnected: return "wifi.slash"
+        case .connected: return "link.circle.fill"
+        case .connecting: return "antenna.radiowaves.left.and.right"
+        case .reconnecting: return "arrow.clockwise.circle"
+        case .disconnected: return "link.badge.plus"
         }
     }
 
@@ -203,71 +200,71 @@ struct StatusHeader: View {
     // Accessibility: High Contrast support
     @Environment(\.colorSchemeContrast) var colorSchemeContrast
 
-    // Dynamic Type support - scale icon sizes with text
-    @ScaledMetric(relativeTo: .headline) private var statusIconContainerSize: CGFloat = 32
-    @ScaledMetric(relativeTo: .headline) private var statusIconSize: CGFloat = 14
-    @ScaledMetric(relativeTo: .body) private var badgeSize: CGFloat = 28
-    @ScaledMetric(relativeTo: .caption) private var badgeFontSize: CGFloat = 13
+    // Dynamic Type support
+    @ScaledMetric(relativeTo: .body) private var statusIconContainerSize: CGFloat = 36
+    @ScaledMetric(relativeTo: .body) private var statusIconSize: CGFloat = 16
 
     var body: some View {
         VStack(spacing: 8) {
-            // Main status
-            HStack(spacing: 8) {
-                // Status icon with pulse (respects Reduce Motion)
-                ZStack {
+            // Status icon with pulse
+            ZStack {
+                Circle()
+                    .fill(statusColor.opacity(0.2))
+                    .frame(width: statusIconContainerSize, height: statusIconContainerSize)
+
+                if (service.state.status == .running || service.state.status == .waiting) && !reduceMotion {
                     Circle()
-                        .fill(statusColor.opacity(0.2))
+                        .fill(statusColor.opacity(0.3))
                         .frame(width: statusIconContainerSize, height: statusIconContainerSize)
-
-                    if (service.state.status == .running || service.state.status == .waiting) && !reduceMotion {
-                        Circle()
-                            .fill(statusColor.opacity(0.3))
-                            .frame(width: statusIconContainerSize, height: statusIconContainerSize)
-                            .scaleEffect(1 + pulsePhase * 0.2)
-                    }
-
-                    Image(systemName: statusIcon)
-                        .font(.system(size: statusIconSize, weight: .bold))
-                        .foregroundColor(statusColor)
-                        .symbolEffect(.pulse, options: .repeating, isActive: isStatusActive && !reduceMotion)
-                        .contentTransition(.symbolEffect(.replace))
+                        .scaleEffect(1 + pulsePhase * 0.2)
                 }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(statusText)
-                        .font(.headline)
-                        .foregroundColor(Claude.textPrimary)
-
-                    if !service.state.taskName.isEmpty {
-                        Text(service.state.taskName)
-                            .font(.caption2)
-                            .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
-                            .lineLimit(1)
-                    }
-                }
-
-                Spacer()
-
-                // Pending badge
-                if !service.state.pendingActions.isEmpty {
-                    Text("\(service.state.pendingActions.count)")
-                        .font(.system(size: badgeFontSize, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(width: badgeSize, height: badgeSize)
-                        .background(Claude.orange)
-                        .clipShape(Circle())
-                }
+                Image(systemName: statusIcon)
+                    .font(.system(size: statusIconSize, weight: .bold))
+                    .foregroundColor(statusColor)
+                    .symbolEffect(.pulse, options: .repeating, isActive: isStatusActive && !reduceMotion)
+                    .contentTransition(.symbolEffect(.replace))
             }
 
-            // Progress bar (when running)
+            // Status text
+            Text(statusText)
+                .font(.claudeHeadline)
+                .foregroundColor(Claude.textPrimary)
+
+            // Task name or subtitle
+            if !service.state.taskName.isEmpty {
+                Text(service.state.taskName)
+                    .font(.claudeFootnote)
+                    .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+            } else {
+                Text(statusSubtitle)
+                    .font(.claudeFootnote)
+                    .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
+                    .multilineTextAlignment(.center)
+            }
+
+            // Progress bar when running
             if service.state.status == .running || service.state.status == .waiting {
                 ProgressView(value: service.state.progress)
                     .tint(Claude.orange)
-                    .scaleEffect(y: 1.5)
+                    .padding(.horizontal, 20)
             }
         }
+        .frame(maxWidth: .infinity)
         .padding(12)
         .glassEffectCompat(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var statusSubtitle: String {
+        switch service.state.status {
+        case .idle: return "Waiting for actions"
+        case .running: return "Claude is working..."
+        case .waiting: return "Waiting for approval"
+        case .completed: return "Task completed"
+        case .failed: return "Something went wrong"
+        }
     }
 
     private var statusIcon: String {

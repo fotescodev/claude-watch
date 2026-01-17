@@ -764,24 +764,26 @@ run_build_check() {
     simulator=$(get_watch_simulator)
     log_verbose "Using simulator: $simulator"
 
-    # Run build
+    # Run build and capture exit code properly
+    # Note: -quiet suppresses "BUILD SUCCEEDED" output, so we trust the exit code
     local build_output
     build_output=$(mktemp)
+    local build_exit_code
 
-    if xcodebuild -project ClaudeWatch.xcodeproj \
+    xcodebuild -project ClaudeWatch.xcodeproj \
         -scheme ClaudeWatch \
         -destination "platform=watchOS Simulator,name=$simulator" \
         -quiet \
-        build 2>&1 | tee "$build_output" | tail -10; then
+        build 2>&1 > "$build_output"
+    build_exit_code=$?
 
-        if grep -qE "BUILD SUCCEEDED|Build Succeeded" "$build_output"; then
-            log_success "Build succeeded"
-            rm -f "$build_output"
-            return 0
-        fi
+    if [[ $build_exit_code -eq 0 ]]; then
+        log_success "Build succeeded"
+        rm -f "$build_output"
+        return 0
     fi
 
-    log_error "Build FAILED"
+    log_error "Build FAILED (exit code: $build_exit_code)"
     log_error "Last 20 lines of build output:"
     tail -20 "$build_output"
     rm -f "$build_output"

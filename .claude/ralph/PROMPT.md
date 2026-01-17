@@ -135,4 +135,18 @@ Commit: [commit hash]
 
 ---
 
+## Known Pitfalls (Learn from Past Failures)
+
+### Simulator Name Extraction
+`xcrun simctl list` outputs: `Apple Watch Series 11 (46mm) (17ED8A4B-...)`.
+- **Wrong**: `sed 's/ (.*//'` → `Apple Watch Series 11` (missing size, FAILS)
+- **Right**: `sed 's/ ([A-F0-9-]*).*//'` → `Apple Watch Series 11 (46mm)` (WORKS)
+
+### xcodebuild Exit Code vs Output
+Using `-quiet` flag suppresses "BUILD SUCCEEDED" output.
+- **Wrong**: Grep for "BUILD SUCCEEDED" (won't appear with `-quiet`)
+- **Right**: Check exit code: `xcodebuild ...; if [[ $? -eq 0 ]]; then ...`
+
+---
+
 **BEGIN EXECUTION NOW** - Read tasks.yaml and start Phase 0.

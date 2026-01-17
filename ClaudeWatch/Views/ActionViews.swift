@@ -56,42 +56,36 @@ struct ActionQueue: View {
     @State private var showApproveAllConfirmation = false
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             // Primary action card
             if let action = service.state.pendingActions.first {
                 PrimaryActionCard(action: action)
             }
 
-            // Additional pending items
+            // Additional pending items - show just 1 + count
             if service.state.pendingActions.count > 1 {
-                VStack(spacing: 6) {
-                    ForEach(service.state.pendingActions.dropFirst().prefix(2)) { action in
-                        CompactActionCard(action: action)
-                    }
-
-                    if service.state.pendingActions.count > 3 {
-                        Text("+\(service.state.pendingActions.count - 3) more")
-                            .font(.caption2)
-                            .foregroundColor(Claude.textTertiary)
-                    }
+                // Show one more action preview
+                if let nextAction = service.state.pendingActions.dropFirst().first {
+                    CompactActionCard(action: nextAction)
                 }
 
-                // Approve All button
+                // Show count if more than 2
+                if service.state.pendingActions.count > 2 {
+                    Text("+\(service.state.pendingActions.count - 2) more")
+                        .font(.system(size: 10))
+                        .foregroundColor(Claude.textTertiary)
+                }
+
+                // Approve All button - compact
                 Button {
                     showApproveAllConfirmation = true
                 } label: {
                     Text("Approve All (\(service.state.pendingActions.count))")
-                        .font(.body.weight(.bold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            LinearGradient(
-                                colors: [Claude.success, Claude.success.opacity(0.8)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .padding(.vertical, 8)
+                        .background(Claude.success)
                         .clipShape(Capsule())
                         .scaleEffect(approveAllPressed && !reduceMotion ? 0.95 : 1.0)
                         .animation(.bouncySpringIfAllowed(reduceMotion: reduceMotion), value: approveAllPressed)
@@ -131,9 +125,9 @@ struct PrimaryActionCard: View {
     // Accessibility: Reduce Motion support
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
-    // Dynamic Type support
-    @ScaledMetric(relativeTo: .body) private var iconContainerSize: CGFloat = 40
-    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 18
+    // Dynamic Type support - compact sizes for watch
+    @ScaledMetric(relativeTo: .footnote) private var iconContainerSize: CGFloat = 32
+    @ScaledMetric(relativeTo: .footnote) private var iconSize: CGFloat = 14
 
     // Spring animation states for buttons
     @State private var rejectPressed = false
@@ -149,21 +143,15 @@ struct PrimaryActionCard: View {
     @State private var didError = false
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             // Error banner
             ErrorBanner(message: errorMessage, isVisible: $showError)
-            // Action info
-            HStack(spacing: 10) {
-                // Type icon
+            // Action info - compact
+            HStack(spacing: 8) {
+                // Type icon - smaller
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(
-                            LinearGradient(
-                                colors: [typeColor, typeColor.opacity(0.7)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(typeColor)
                         .frame(width: iconContainerSize, height: iconContainerSize)
 
                     Image(systemName: action.icon)
@@ -172,15 +160,15 @@ struct PrimaryActionCard: View {
                         .symbolEffect(.bounce, options: .nonRepeating, isActive: !reduceMotion)
                 }
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(action.title)
-                        .font(.headline)
+                        .font(.claudeHeadline)
                         .foregroundColor(Claude.textPrimary)
                         .lineLimit(1)
 
                     if let path = action.filePath {
                         Text(truncatePath(path))
-                            .font(.caption2.monospaced())
+                            .font(.system(size: 10, design: .monospaced))
                             .foregroundColor(Claude.textSecondary)
                             .lineLimit(1)
                     }
@@ -189,9 +177,9 @@ struct PrimaryActionCard: View {
                 Spacer()
             }
 
-            // Action buttons (Approve first for VoiceOver priority)
-            HStack(spacing: 8) {
-                // Reject (visually first, VoiceOver reads second)
+            // Action buttons - compact with icons only
+            HStack(spacing: 6) {
+                // Reject button
                 Button {
                     Task { @MainActor in
                         do {
@@ -211,25 +199,15 @@ struct PrimaryActionCard: View {
                         }
                     }
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "xmark")
-                            .font(.subheadline.weight(.bold))
-                        Text("Reject")
-                            .font(.body.weight(.bold))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .foregroundColor(.white)
-                    .background(
-                        LinearGradient(
-                            colors: [Claude.danger, Claude.danger.opacity(0.8)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .clipShape(Capsule())
-                    .scaleEffect(rejectPressed && !reduceMotion ? 0.92 : 1.0)
-                    .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: rejectPressed)
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .foregroundColor(.white)
+                        .background(Claude.danger)
+                        .clipShape(Capsule())
+                        .scaleEffect(rejectPressed && !reduceMotion ? 0.92 : 1.0)
+                        .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: rejectPressed)
                 }
                 .buttonStyle(.plain)
                 .simultaneousGesture(
@@ -241,7 +219,7 @@ struct PrimaryActionCard: View {
                 .accessibilitySortPriority(1)
                 .sensoryFeedback(.error, trigger: didReject)
 
-                // Approve (VoiceOver reads first due to higher sort priority)
+                // Approve button
                 Button {
                     Task { @MainActor in
                         do {
@@ -261,25 +239,15 @@ struct PrimaryActionCard: View {
                         }
                     }
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark")
-                            .font(.subheadline.weight(.bold))
-                        Text("Approve")
-                            .font(.body.weight(.bold))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .foregroundColor(.white)
-                    .background(
-                        LinearGradient(
-                            colors: [Claude.success, Claude.success.opacity(0.8)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .clipShape(Capsule())
-                    .scaleEffect(approvePressed && !reduceMotion ? 0.92 : 1.0)
-                    .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: approvePressed)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 16, weight: .bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .foregroundColor(.white)
+                        .background(Claude.success)
+                        .clipShape(Capsule())
+                        .scaleEffect(approvePressed && !reduceMotion ? 0.92 : 1.0)
+                        .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: approvePressed)
                 }
                 .buttonStyle(.plain)
                 .simultaneousGesture(
@@ -292,8 +260,8 @@ struct PrimaryActionCard: View {
                 .sensoryFeedback(.success, trigger: didApprove)
             }
         }
-        .padding(14)
-        .glassEffectInteractive(RoundedRectangle(cornerRadius: 20))
+        .padding(10)
+        .glassEffectInteractive(RoundedRectangle(cornerRadius: 16))
         .sensoryFeedback(.error, trigger: didError)
     }
 
@@ -320,15 +288,15 @@ struct PrimaryActionCard: View {
 struct CompactActionCard: View {
     let action: PendingAction
 
-    // Dynamic Type support
-    @ScaledMetric(relativeTo: .footnote) private var iconContainerSize: CGFloat = 28
-    @ScaledMetric(relativeTo: .footnote) private var iconSize: CGFloat = 12
+    // Dynamic Type support - very compact
+    @ScaledMetric(relativeTo: .caption) private var iconContainerSize: CGFloat = 22
+    @ScaledMetric(relativeTo: .caption) private var iconSize: CGFloat = 10
 
     var body: some View {
-        HStack(spacing: 8) {
-            // Type icon
+        HStack(spacing: 6) {
+            // Type icon - tiny
             ZStack {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 6)
                     .fill(typeColor.opacity(0.2))
                     .frame(width: iconContainerSize, height: iconContainerSize)
 
@@ -338,14 +306,14 @@ struct CompactActionCard: View {
             }
 
             Text(action.title)
-                .font(.footnote.weight(.semibold))
+                .font(.claudeFootnote)
                 .foregroundColor(Claude.textPrimary)
                 .lineLimit(1)
 
             Spacer()
         }
-        .padding(10)
-        .glassEffectInteractive(RoundedRectangle(cornerRadius: 14))
+        .padding(8)
+        .glassEffectInteractive(RoundedRectangle(cornerRadius: 10))
     }
 
     private var typeColor: Color {
