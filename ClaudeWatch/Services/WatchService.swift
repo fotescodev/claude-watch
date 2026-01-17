@@ -889,6 +889,10 @@ class WatchService: ObservableObject {
     }
 
     // MARK: - Haptics
+
+    /// Triggers haptic feedback on the Apple Watch.
+    /// Provides tactile feedback for user actions and system events.
+    /// - Parameter type: The haptic pattern to play (success, failure, notification, click, etc.)
     func playHaptic(_ type: WKHapticType) {
         WKInterfaceDevice.current().play(type)
     }
@@ -905,6 +909,10 @@ class WatchService: ObservableObject {
     }
 
     // MARK: - Push Token Registration
+
+    /// Registers the APNs device token for push notifications.
+    /// Saves the token locally for cloud pairing and sends it to the server for remote notifications.
+    /// - Parameter token: The device token provided by APNs during notification registration
     func registerPushToken(_ token: Data) {
         let tokenString = token.map { String(format: "%02.2hhx", $0) }.joined()
 
@@ -918,6 +926,11 @@ class WatchService: ObservableObject {
     }
 
     // MARK: - Demo Mode (for UI testing)
+
+    /// Loads demonstration data for UI testing and preview purposes.
+    /// Populates the app with sample task state, pending actions, and simulated connection.
+    /// Sets demo mode flag, simulates connected state, and adds three sample pending actions.
+    /// Provides haptic feedback to confirm demo data loading.
     func loadDemoData() {
         // Enable demo mode flag
         isDemoMode = true
