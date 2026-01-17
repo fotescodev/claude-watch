@@ -6,18 +6,83 @@
  */
 
 /**
- * Generates a random 6-character pairing code for device registration.
+ * Generates a random 6-character alphanumeric pairing code for device registration.
  * Uses alphanumeric characters excluding confusing pairs (0/O, 1/I).
  *
  * @returns {string} A pairing code in format XXX-XXX (e.g., "A2B-C3D")
  */
-function generatePairingCode() {
+function generateAlphanumericCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No confusing chars (0/O, 1/I)
   let code = '';
   for (let i = 0; i < 6; i++) {
     code += chars[Math.floor(Math.random() * chars.length)];
   }
   return code.slice(0, 3) + '-' + code.slice(3);
+}
+
+/**
+ * Generates a random 6-digit numeric pairing code for device registration.
+ * Uses crypto.getRandomValues for secure randomness.
+ * Preserves leading zeros (e.g., "012345" not "12345").
+ *
+ * @returns {string} A 6-digit numeric code (e.g., "123456" or "012345")
+ */
+function generateNumericCode() {
+  const array = new Uint8Array(6);
+  crypto.getRandomValues(array);
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += (array[i] % 10).toString();
+  }
+  return code;
+}
+
+/**
+ * Rate limiting configuration for pairing attempts.
+ * Numeric codes have reduced entropy (~20 bits vs ~30 bits for alphanumeric),
+ * so rate limiting is required to prevent brute force attacks.
+ */
+const RATE_LIMIT = {
+  maxAttempts: 5,        // Max attempts per pairing ID
+  windowSeconds: 900     // 15 minutes
+};
+
+/**
+ * Checks rate limit for a pairing attempt and increments the counter.
+ * Returns whether the attempt is blocked and when to retry.
+ *
+ * @param {string} pairingId - The pairing ID being attempted
+ * @param {object} env - Cloudflare Worker environment with KV bindings
+ * @returns {Promise<{blocked: boolean, retryAfter?: number, attempts?: number}>}
+ */
+async function checkRateLimit(pairingId, env) {
+  const key = `rate:${pairingId}`;
+  const data = await env.PAIRINGS.get(key);
+
+  if (!data) {
+    // First attempt - create rate limit entry
+    await env.PAIRINGS.put(key, JSON.stringify({ attempts: 1 }), {
+      expirationTtl: RATE_LIMIT.windowSeconds
+    });
+    return { blocked: false, attempts: 1 };
+  }
+
+  const rateData = JSON.parse(data);
+
+  if (rateData.attempts >= RATE_LIMIT.maxAttempts) {
+    return {
+      blocked: true,
+      retryAfter: RATE_LIMIT.windowSeconds
+    };
+  }
+
+  // Increment attempts
+  rateData.attempts += 1;
+  await env.PAIRINGS.put(key, JSON.stringify(rateData), {
+    expirationTtl: RATE_LIMIT.windowSeconds
+  });
+
+  return { blocked: false, attempts: rateData.attempts };
 }
 
 /**
@@ -214,24 +279,28 @@ function jsonResponse(data, status = 200) {
  *
  * POST /pair
  *   Description: Generate a pairing code for Claude Code to display
+ *   Query params:
+ *     - format: 'numeric' for 6-digit code, omit for alphanumeric (default)
  *   Request: No body required
  *   Response: {
- *     code: string,          // 6-character pairing code (e.g., "A2B-C3D")
+ *     code: string,          // Pairing code (e.g., "A2B-C3D" or "123456")
  *     pairingId: string,     // UUID for this pairing session
- *     expiresIn: number      // Expiration time in seconds (600)
+ *     expiresIn: number,     // Expiration time in seconds (600)
+ *     format: string         // 'numeric' or 'alphanumeric'
  *   }
  *
  * POST /pair/complete
  *   Description: Complete pairing by submitting code and device token from Watch
  *   Request: {
- *     code: string,          // Pairing code entered on Watch
+ *     code: string,          // Pairing code entered on Watch (alphanumeric or numeric)
  *     deviceToken: string    // APNs device token (64-character hex)
  *   }
  *   Response: {
  *     success: boolean,
  *     pairingId: string      // UUID for the completed pairing
  *   }
- *   Errors: 400 (missing fields), 404 (invalid/expired code)
+ *   Errors: 400 (missing fields), 404 (invalid/expired code), 429 (rate limited)
+ *   Rate limiting: Max 5 attempts per pairing ID per 15 minutes
  *
  * GET /pair/:pairingId/status
  *   Description: Check if a pairing has been completed (for polling from Claude Code)
@@ -318,25 +387,35 @@ export default {
 
     try {
       // POST /pair - Generate pairing code for Claude Code
+      // Accepts optional ?format=numeric query param for 6-digit numeric codes
       if (path === '/pair' && request.method === 'POST') {
-        const code = generatePairingCode();
+        const format = url.searchParams.get('format');
+        const isNumeric = format === 'numeric';
+
+        // Generate code based on requested format
+        const code = isNumeric ? generateNumericCode() : generateAlphanumericCode();
         const pairingId = crypto.randomUUID();
 
         // Store pairing with code (expires in 10 minutes)
+        // Include format to help with lookup normalization
         await env.PAIRINGS.put(`code:${code}`, JSON.stringify({
           pairingId,
           createdAt: Date.now(),
-          status: 'pending'
+          status: 'pending',
+          format: isNumeric ? 'numeric' : 'alphanumeric'
         }), { expirationTtl: 600 });
 
         return jsonResponse({
           code,
           pairingId,
-          expiresIn: 600
+          expiresIn: 600,
+          format: isNumeric ? 'numeric' : 'alphanumeric'
         });
       }
 
       // POST /pair/complete - Watch completes pairing with code and device token
+      // Supports both alphanumeric (ABC-123) and numeric (123456) code formats
+      // Rate limited to prevent brute force attacks on numeric codes
       if (path === '/pair/complete' && request.method === 'POST') {
         const { code, deviceToken } = await request.json();
 
@@ -344,8 +423,12 @@ export default {
           return jsonResponse({ error: 'Missing code or deviceToken' }, 400);
         }
 
-        // Normalize code to uppercase for lookup
-        const normalizedCode = code.toUpperCase().trim();
+        // Normalize code based on format:
+        // - Numeric: trim only (preserve leading zeros like "012345")
+        // - Alphanumeric: uppercase and trim (e.g., "abc-123" -> "ABC-123")
+        const trimmedCode = code.trim();
+        const isNumeric = /^\d{6}$/.test(trimmedCode);
+        const normalizedCode = isNumeric ? trimmedCode : trimmedCode.toUpperCase();
 
         // Look up the pairing by code
         const pairingData = await env.PAIRINGS.get(`code:${normalizedCode}`);
@@ -354,6 +437,22 @@ export default {
         }
 
         const pairing = JSON.parse(pairingData);
+
+        // Check rate limit for this pairing ID
+        const rateCheck = await checkRateLimit(pairing.pairingId, env);
+        if (rateCheck.blocked) {
+          return new Response(JSON.stringify({
+            error: 'Too many attempts. Please try again later.',
+            retryAfter: rateCheck.retryAfter
+          }), {
+            status: 429,
+            headers: {
+              'Content-Type': 'application/json',
+              'Retry-After': String(rateCheck.retryAfter),
+              ...corsHeaders
+            }
+          });
+        }
 
         // Update pairing with device token
         const completedPairing = {
@@ -367,7 +466,10 @@ export default {
         await env.PAIRINGS.put(`pairing:${pairing.pairingId}`, JSON.stringify(completedPairing));
 
         // Delete the code entry
-        await env.PAIRINGS.delete(`code:${code}`);
+        await env.PAIRINGS.delete(`code:${normalizedCode}`);
+
+        // Clear rate limit on successful pairing
+        await env.PAIRINGS.delete(`rate:${pairing.pairingId}`);
 
         return jsonResponse({
           success: true,
