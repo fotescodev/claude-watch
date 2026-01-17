@@ -1369,3 +1369,187 @@ tasks:
       - monitoring
       - visualization
     commit_template: "feat(ralph): Add parallel thread visualization to monitor"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # iOS 26 / watchOS 13: Foundation Models & Liquid Glass
+  # Parallel Group 16: Platform modernization
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "FM1"
+    title: "Add Foundation Models availability check to WatchService"
+    description: |
+      Integrate Apple's on-device LLM (Foundation Models framework) for local
+      AI processing without cloud dependency.
+
+      Implementation:
+      1. Import FoundationModels framework
+      2. Add SystemLanguageModel.default availability check
+      3. Create graceful fallback for unsupported devices
+      4. Show download progress when .modelNotReady
+
+      Reference: Read Apple's hidden docs first:
+      /Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/
+        Versions/A/Resources/AdditionalDocumentation/
+        FoundationModels-Using-on-device-LLM-in-your-app.md
+
+      Use cases for Claude Watch:
+      - Parse notifications locally without network
+      - Summarize pending actions on-device
+      - Voice command processing offline
+      - Privacy-preserving action classification
+    priority: medium
+    parallel_group: 16
+    completed: false
+    verification: |
+      grep -q 'FoundationModels\|SystemLanguageModel' ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "FoundationModels imported in WatchService"
+      - "Availability check implemented"
+      - "Fallback UI for unsupported devices"
+      - "Download progress shown when model not ready"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - ios26
+      - foundation-models
+      - on-device-ai
+    commit_template: "feat(ai): Add Foundation Models availability check"
+
+  - id: "FM2"
+    title: "Create @Generable ApprovalRequest for structured parsing"
+    description: |
+      Use Foundation Models' @Generable macro for type-safe parsing of
+      incoming Claude Code actions.
+
+      Implementation:
+      ```swift
+      import FoundationModels
+
+      @Generable(description: "Parsed approval request from Claude Code")
+      struct ApprovalRequest {
+          @Guide(description: "Action type", .options("file_edit", "command", "api_call"))
+          var actionType: String
+
+          @Guide(description: "Risk level 1-5", .range(1...5))
+          var riskLevel: Int
+
+          @Guide(description: "One sentence summary")
+          var summary: String
+      }
+      ```
+
+      Benefits:
+      - Type-safe structured output from LLM
+      - No manual JSON parsing
+      - Automatic validation via @Guide constraints
+      - Works with streaming via PartiallyGenerated
+    priority: medium
+    parallel_group: 16
+    completed: false
+    depends_on:
+      - "FM1"
+    verification: |
+      grep -q '@Generable' ClaudeWatch/Models/*.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "@Generable struct defined for approval requests"
+      - "@Guide annotations for all fields"
+      - "Integration with LanguageModelSession"
+    files:
+      - "ClaudeWatch/Models/ApprovalRequest.swift"
+    tags:
+      - ios26
+      - foundation-models
+      - structured-generation
+    commit_template: "feat(ai): Add @Generable ApprovalRequest for structured parsing"
+
+  - id: "LG1"
+    title: "Adopt Liquid Glass design for main UI"
+    description: |
+      Replace custom materials with iOS 26 Liquid Glass for native feel.
+
+      Implementation:
+      1. Replace .background(.regularMaterial) with .glassEffect()
+      2. Use .buttonStyle(.glass) for action buttons
+      3. Use .buttonStyle(.glassProminent) for primary actions
+      4. Wrap related views in GlassEffectContainer
+      5. Add .interactive() for touch-responsive glass
+
+      Reference: Read Apple's hidden docs:
+      /Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/
+        Versions/A/Resources/AdditionalDocumentation/
+        SwiftUI-Implementing-Liquid-Glass-Design.md
+
+      Key patterns:
+      ```swift
+      // Before
+      Text("Status").background(.regularMaterial)
+
+      // After
+      Text("Status").glassEffect(.regular.interactive())
+      ```
+    priority: medium
+    parallel_group: 16
+    completed: false
+    verification: |
+      grep -rq 'glassEffect\|buttonStyle(.glass' ClaudeWatch/Views/ && exit 0 || exit 1
+    acceptance_criteria:
+      - "Main views use .glassEffect()"
+      - "Buttons use .glass or .glassProminent style"
+      - "GlassEffectContainer wraps related views"
+      - "Interactive glass for touch elements"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Views/ActionViews.swift"
+      - "ClaudeWatch/Views/StateViews.swift"
+    tags:
+      - ios26
+      - liquid-glass
+      - design
+    commit_template: "feat(ui): Adopt Liquid Glass design language"
+
+  - id: "LG2"
+    title: "Add glass morphing transitions between states"
+    description: |
+      Implement smooth morphing transitions using Liquid Glass namespace.
+
+      Implementation:
+      1. Create @Namespace for glass effects
+      2. Add glassEffectID to stateful views
+      3. Use GlassEffectContainer for morphing context
+      4. Animate state changes with .animation()
+
+      Pattern:
+      ```swift
+      @Namespace private var glassNamespace
+
+      GlassEffectContainer {
+          switch state {
+          case .idle:
+              IdleView()
+                  .glassEffect()
+                  .glassEffectID("main", in: glassNamespace)
+          case .pending:
+              PendingView()
+                  .glassEffect()
+                  .glassEffectID("main", in: glassNamespace)
+          }
+      }
+      .animation(.spring, value: state)
+      ```
+    priority: low
+    parallel_group: 16
+    completed: false
+    depends_on:
+      - "LG1"
+    verification: |
+      grep -rq 'glassEffectID\|@Namespace.*glass' ClaudeWatch/Views/ && exit 0 || exit 1
+    acceptance_criteria:
+      - "@Namespace defined for glass morphing"
+      - "glassEffectID on state views"
+      - "Smooth morphing between states"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - ios26
+      - liquid-glass
+      - animation
+    commit_template: "feat(ui): Add glass morphing transitions"
