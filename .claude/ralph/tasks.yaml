@@ -907,7 +907,7 @@ tasks:
       - "UX4"
       - "UX5"
       - "UX6"
-    completed: false
+    completed: true
     verification: |
       lines=$(wc -l < ClaudeWatch/Views/MainView.swift | tr -d ' ');
       [ "$lines" -lt 300 ] && exit 0 || echo "MainView has $lines lines (target: <300)" && exit 1
@@ -1262,7 +1262,6 @@ tasks:
       - critical-fix
       - recovery
     commit_template: "fix(state): Add complete state reset for Exit Demo Mode"
-
   # ═══════════════════════════════════════════════════════════════════════════
   # INFRASTRUCTURE: Ralph Parallel Execution
   # Parallel Group 15: Tooling improvements
@@ -1309,7 +1308,6 @@ tasks:
       - parallel
       - tooling
     commit_template: "feat(ralph): Implement parallel worker execution system"
-
   - id: "INFRA2"
     title: "Add parallel thread visualization to monitor-ralph.sh"
     description: |
