@@ -102,7 +102,13 @@ async function sendAPNs(env, deviceToken, payload) {
   }
 }
 
-// Helper: Convert PEM to ArrayBuffer
+/**
+ * Converts a PEM-formatted private key to an ArrayBuffer for cryptographic operations.
+ * Strips PEM headers/footers and decodes the base64 content into binary data.
+ *
+ * @param {string} pem - The PEM-formatted private key string
+ * @returns {ArrayBuffer} Binary representation of the key suitable for crypto.subtle.importKey
+ */
 function pemToArrayBuffer(pem) {
   const lines = pem.split('\n').filter(line =>
     !line.includes('-----BEGIN') && !line.includes('-----END')
@@ -116,7 +122,15 @@ function pemToArrayBuffer(pem) {
   return bytes.buffer;
 }
 
-// Helper: Create JWT
+/**
+ * Creates a signed JWT token for APNs authentication using ES256 algorithm.
+ * Encodes header and claims as base64url, signs with ECDSA-SHA256, and returns the complete token.
+ *
+ * @param {object} header - JWT header containing algorithm (alg) and key ID (kid)
+ * @param {object} claims - JWT claims containing issuer (iss) and issued-at timestamp (iat)
+ * @param {CryptoKey} privateKey - The imported ECDSA P-256 private key for signing
+ * @returns {Promise<string>} The signed JWT token in format: header.payload.signature
+ */
 async function createJWT(header, claims, privateKey) {
   const encoder = new TextEncoder();
 
