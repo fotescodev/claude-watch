@@ -727,7 +727,7 @@ tasks:
     parallel_group: 11
     depends_on:
       - "UX1"
-    completed: false
+    completed: true
     verification: |
       [ -f "ClaudeWatch/Views/StateViews.swift" ] && \
       grep -q 'EmptyStateView' ClaudeWatch/Views/StateViews.swift && \

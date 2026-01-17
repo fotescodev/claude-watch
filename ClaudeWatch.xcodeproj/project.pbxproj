@@ -21,6 +21,7 @@
 		VIEW003 /* ConsentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC006 /* ConsentView.swift */; };
 		VIEW004 /* RecordingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC007 /* RecordingIndicator.swift */; };
 		DS001 /* Claude.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_DS001 /* Claude.swift */; };
+		VIEW005 /* StateViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC008 /* StateViews.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -52,6 +53,7 @@
 		TEST_SRC004 /* QueuedMessageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueuedMessageTests.swift; sourceTree = "<group>"; };
 		TEST_SRC005 /* WatchServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchServiceTests.swift; sourceTree = "<group>"; };
 		SRC_DS001 /* Claude.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Claude.swift; sourceTree = "<group>"; };
+		SRC008 /* StateViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateViews.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -123,6 +125,7 @@
 				SRC006 /* ConsentView.swift */,
 				SRC004 /* MainView.swift */,
 				SRC005 /* PairingView.swift */,
+				SRC008 /* StateViews.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -246,6 +249,7 @@
 				VIEW002 /* PairingView.swift in Sources */,
 				VIEW003 /* ConsentView.swift in Sources */,
 				VIEW004 /* RecordingIndicator.swift in Sources */,
+				VIEW005 /* StateViews.swift in Sources */,
 				SVC001 /* WatchService.swift in Sources */,
 				CMP002 /* ComplicationViews.swift in Sources */,
 			);
