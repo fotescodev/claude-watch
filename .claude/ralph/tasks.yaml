@@ -2060,7 +2060,7 @@ tasks:
       Alternative: Replace with in-app text explaining where to find support.
     priority: high
     parallel_group: 19
-    completed: false
+    completed: true
     verification: |
       ! grep -q 'claude-watch.example.com' ClaudeWatch/Views/SheetViews.swift && exit 0 || exit 1
     acceptance_criteria:
