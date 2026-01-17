@@ -47,6 +47,8 @@ FRAME_IDX=0
 
 CURRENT_VIEW="dashboard"
 SPARK_MISSING=0
+MIN_TERMINAL_WIDTH=50
+MIN_TERMINAL_HEIGHT=15
 
 #───────────────────────────────────────────────────────────────────────────────
 # TERMINAL SETUP
@@ -107,6 +109,33 @@ check_spark() {
     else
         SPARK_MISSING=0
     fi
+}
+
+has_metrics_data() {
+    # Check if metrics.json exists and has actual data (not just {})
+    # Returns: 0 if has data, 1 if empty or missing
+    if [[ ! -f "$METRICS_FILE" ]]; then
+        return 1
+    fi
+
+    local content=$(cat "$METRICS_FILE" 2>/dev/null)
+    # Check if file is empty or just contains {}
+    if [[ -z "$content" ]] || [[ "$content" == "{}" ]] || [[ "$content" =~ ^[[:space:]]*\{\}[[:space:]]*$ ]]; then
+        return 1
+    fi
+
+    # Check if has meaningful data (at least one key)
+    local key_count=$(jq -r 'keys | length' "$METRICS_FILE" 2>/dev/null || echo "0")
+    [[ "$key_count" -gt 0 ]] && return 0 || return 1
+}
+
+is_terminal_too_small() {
+    # Check if terminal is below minimum usable size
+    # Returns: 0 if too small, 1 if acceptable
+    local W=$(tput cols 2>/dev/null || echo 80)
+    local H=$(tput lines 2>/dev/null || echo 24)
+
+    [[ $W -lt $MIN_TERMINAL_WIDTH ]] || [[ $H -lt $MIN_TERMINAL_HEIGHT ]] && return 0 || return 1
 }
 
 trap cleanup INT TERM EXIT
@@ -218,7 +247,22 @@ generate_sparkline() {
     # Generate sparkline from space-delimited numbers
     # Args: $1 - space-delimited numbers (e.g., "100 150 220 180")
     # Returns: unicode sparkline characters or fallback pattern
+    # Returns empty string if terminal is too small
     local data="$1"
+    local W=$(tput cols 2>/dev/null || echo 80)
+
+    # Hide sparklines on very small terminals (less than 60 cols)
+    if [[ $W -lt 60 ]]; then
+        echo ""
+        return
+    fi
+
+    # Check if spark command is available and data is not empty
+    if [[ -z "$data" ]]; then
+        echo "▁▁▁▁▁▁▁▁"
+        return
+    fi
+
     echo "$data" | spark 2>/dev/null || echo "▁▁▁▁▁▁▁▁"
 }
 
@@ -232,6 +276,21 @@ render_details() {
     local pad="  "
 
     tput cup 0 0
+
+    # Handle very small terminals
+    if is_terminal_too_small; then
+        echo ""
+        echo -e "${pad}${CORAL}RALPH${NC}"
+        echo ""
+        echo -e "${pad}${YELLOW}⚠  Terminal too small${NC}"
+        echo -e "${pad}${GRAY}Please resize to at least${NC}"
+        echo -e "${pad}${WHITE}${MIN_TERMINAL_WIDTH}x${MIN_TERMINAL_HEIGHT}${NC}"
+        echo -e "${pad}${GRAY}Current: ${W}x${H}${NC}"
+        echo ""
+        echo -e "${pad}${DIM}Press Ctrl+C to exit${NC}"
+        tput ed 2>/dev/null
+        return
+    fi
 
     # Advance animation frame
     FRAME_IDX=$(( (FRAME_IDX + 1) % 8 ))
@@ -469,23 +528,29 @@ render_details() {
     # FOOTER — Stats
     #═══════════════════════════════════════════════════════════════════════════
 
-    local total_sessions=$(get_total_sessions)
-    local tokens=$(get_tokens)
-    local cost=$(get_cost)
-
-    # Format tokens (K for thousands, M for millions)
-    local tokens_fmt="$tokens"
-    if [[ $tokens -ge 1000000 ]]; then
-        tokens_fmt="$(echo "scale=1; $tokens/1000000" | bc)M"
-    elif [[ $tokens -ge 1000 ]]; then
-        tokens_fmt="$(echo "scale=1; $tokens/1000" | bc)K"
-    fi
-
     printf "${pad}${CORAL}    "
     for ((i=0; i<52; i++)); do printf "─"; done
     printf "${NC}\n"
     echo ""
-    echo -e "${pad}    ${DARK}${total_sessions} sessions${NC}  ${DARK}│${NC}  ${CYAN}${tokens_fmt} tokens${NC}  ${DARK}│${NC}  ${GREEN}\$${cost}${NC}  ${DARK}│${NC}  ${DIM}Ctrl+C${NC}"
+
+    # Check if we have metrics data
+    if has_metrics_data; then
+        local total_sessions=$(get_total_sessions)
+        local tokens=$(get_tokens)
+        local cost=$(get_cost)
+
+        # Format tokens (K for thousands, M for millions)
+        local tokens_fmt="$tokens"
+        if [[ $tokens -ge 1000000 ]]; then
+            tokens_fmt="$(echo "scale=1; $tokens/1000000" | bc)M"
+        elif [[ $tokens -ge 1000 ]]; then
+            tokens_fmt="$(echo "scale=1; $tokens/1000" | bc)K"
+        fi
+
+        echo -e "${pad}    ${DARK}${total_sessions} sessions${NC}  ${DARK}│${NC}  ${CYAN}${tokens_fmt} tokens${NC}  ${DARK}│${NC}  ${GREEN}\$${cost}${NC}  ${DARK}│${NC}  ${DIM}Ctrl+C${NC}"
+    else
+        echo -e "${pad}    ${GRAY}No data yet${NC}  ${DARK}│${NC}  ${GRAY}Start a session to see metrics${NC}  ${DARK}│${NC}  ${DIM}Ctrl+C${NC}"
+    fi
 
     tput ed 2>/dev/null
 }
@@ -496,6 +561,21 @@ render_sessions() {
     local pad="  "
 
     tput cup 0 0
+
+    # Handle very small terminals
+    if is_terminal_too_small; then
+        echo ""
+        echo -e "${pad}${CORAL}RALPH${NC}"
+        echo ""
+        echo -e "${pad}${YELLOW}⚠  Terminal too small${NC}"
+        echo -e "${pad}${GRAY}Please resize to at least${NC}"
+        echo -e "${pad}${WHITE}${MIN_TERMINAL_WIDTH}x${MIN_TERMINAL_HEIGHT}${NC}"
+        echo -e "${pad}${GRAY}Current: ${W}x${H}${NC}"
+        echo ""
+        echo -e "${pad}${DIM}Press Ctrl+C to exit${NC}"
+        tput ed 2>/dev/null
+        return
+    fi
 
     # Advance animation frame
     FRAME_IDX=$(( (FRAME_IDX + 1) % 8 ))
@@ -642,8 +722,14 @@ render_sessions() {
 
         echo -e "${pad}    ${CYAN}${BOLD}Token Usage Trend${NC}"
         echo ""
-        echo -e "${pad}    ${WHITE}${sparkline}${NC}"
-        echo ""
+        # Only show sparkline if generated (not empty due to small terminal)
+        if [[ -n "$sparkline" ]]; then
+            echo -e "${pad}    ${WHITE}${sparkline}${NC}"
+            echo ""
+        else
+            echo -e "${pad}    ${GRAY}(terminal too small for sparkline)${NC}"
+            echo ""
+        fi
     else
         echo -e "${pad}    ${CYAN}${BOLD}Token Usage Trend${NC}"
         echo ""
@@ -698,6 +784,21 @@ render_costs() {
     local pad="  "
 
     tput cup 0 0
+
+    # Handle very small terminals
+    if is_terminal_too_small; then
+        echo ""
+        echo -e "${pad}${CORAL}RALPH${NC}"
+        echo ""
+        echo -e "${pad}${YELLOW}⚠  Terminal too small${NC}"
+        echo -e "${pad}${GRAY}Please resize to at least${NC}"
+        echo -e "${pad}${WHITE}${MIN_TERMINAL_WIDTH}x${MIN_TERMINAL_HEIGHT}${NC}"
+        echo -e "${pad}${GRAY}Current: ${W}x${H}${NC}"
+        echo ""
+        echo -e "${pad}${DIM}Press Ctrl+C to exit${NC}"
+        tput ed 2>/dev/null
+        return
+    fi
 
     # Advance animation frame
     FRAME_IDX=$(( (FRAME_IDX + 1) % 8 ))
@@ -760,34 +861,42 @@ render_costs() {
     # TOTAL COST OVERVIEW
     #═══════════════════════════════════════════════════════════════════════════
 
-    local total_cost=$(get_cost)
-    local total_sessions=$(get_total_sessions)
-    local total_tokens=$(get_tokens)
-
-    # Calculate average cost per session
-    local avg_cost="0.00"
-    if [[ $total_sessions -gt 0 ]]; then
-        avg_cost=$(echo "scale=2; $total_cost / $total_sessions" | bc 2>/dev/null || echo "0.00")
-    fi
-
-    # Format tokens (K for thousands, M for millions)
-    local tokens_fmt="$total_tokens"
-    if [[ $total_tokens -ge 1000000 ]]; then
-        tokens_fmt="$(echo "scale=1; $total_tokens/1000000" | bc)M"
-    elif [[ $total_tokens -ge 1000 ]]; then
-        tokens_fmt="$(echo "scale=1; $total_tokens/1000" | bc)K"
-    fi
-
     printf "${pad}${CORAL}    "
     for ((i=0; i<52; i++)); do printf "─"; done
     printf "${NC}\n"
     echo ""
 
-    echo -e "${pad}    ${WHITE}${BOLD}Total Cost${NC}      ${GREEN}${BOLD}\$${total_cost}${NC}"
-    echo -e "${pad}    ${GRAY}Total Sessions${NC}  ${WHITE}${total_sessions}${NC}"
-    echo -e "${pad}    ${GRAY}Total Tokens${NC}    ${CYAN}${tokens_fmt}${NC}"
-    echo -e "${pad}    ${GRAY}Avg/Session${NC}     ${GREEN}\$${avg_cost}${NC}"
-    echo ""
+    # Check if we have metrics data
+    if has_metrics_data; then
+        local total_cost=$(get_cost)
+        local total_sessions=$(get_total_sessions)
+        local total_tokens=$(get_tokens)
+
+        # Calculate average cost per session
+        local avg_cost="0.00"
+        if [[ $total_sessions -gt 0 ]]; then
+            avg_cost=$(echo "scale=2; $total_cost / $total_sessions" | bc 2>/dev/null || echo "0.00")
+        fi
+
+        # Format tokens (K for thousands, M for millions)
+        local tokens_fmt="$total_tokens"
+        if [[ $total_tokens -ge 1000000 ]]; then
+            tokens_fmt="$(echo "scale=1; $total_tokens/1000000" | bc)M"
+        elif [[ $total_tokens -ge 1000 ]]; then
+            tokens_fmt="$(echo "scale=1; $total_tokens/1000" | bc)K"
+        fi
+
+        echo -e "${pad}    ${WHITE}${BOLD}Total Cost${NC}      ${GREEN}${BOLD}\$${total_cost}${NC}"
+        echo -e "${pad}    ${GRAY}Total Sessions${NC}  ${WHITE}${total_sessions}${NC}"
+        echo -e "${pad}    ${GRAY}Total Tokens${NC}    ${CYAN}${tokens_fmt}${NC}"
+        echo -e "${pad}    ${GRAY}Avg/Session${NC}     ${GREEN}\$${avg_cost}${NC}"
+        echo ""
+    else
+        echo -e "${pad}    ${GRAY}No cost data yet${NC}"
+        echo ""
+        echo -e "${pad}    ${DIM}Start a session to track costs${NC}"
+        echo ""
+    fi
 
     #═══════════════════════════════════════════════════════════════════════════
     # COST BY SESSION — Last 10 Sessions
@@ -865,8 +974,14 @@ render_costs() {
 
         echo -e "${pad}    ${GREEN}${BOLD}Cost Trend${NC}"
         echo ""
-        echo -e "${pad}    ${WHITE}${sparkline}${NC}"
-        echo ""
+        # Only show sparkline if generated (not empty due to small terminal)
+        if [[ -n "$sparkline" ]]; then
+            echo -e "${pad}    ${WHITE}${sparkline}${NC}"
+            echo ""
+        else
+            echo -e "${pad}    ${GRAY}(terminal too small for sparkline)${NC}"
+            echo ""
+        fi
     else
         echo -e "${pad}    ${GREEN}${BOLD}Cost Trend${NC}"
         echo ""
