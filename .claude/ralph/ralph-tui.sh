@@ -150,6 +150,14 @@ get_activity() {
     echo "$last" | sed 's/^→ //' | cut -c1-45
 }
 
+get_token_history() {
+    jq -r '.sessionHistory[]?.tokens // empty' "$METRICS_FILE" 2>/dev/null
+}
+
+get_cost_history() {
+    jq -r '.sessionHistory[]?.cost // empty' "$METRICS_FILE" 2>/dev/null
+}
+
 is_ralph_running() {
     # Check for the actual ralph.sh process (not TUI or subprocesses)
     # Use ps + grep to filter precisely
