@@ -70,10 +70,29 @@ cleanup() {
 }
 
 read_key() {
-    # Non-blocking read of a single keypress
-    # Returns: the key pressed, or empty string if no key available
+    # Non-blocking read of a single keypress with arrow key support
+    # Returns: the key pressed (e.g., "UP", "DOWN", "d", "1"), or empty string if no key available
     local key=""
-    if IFS= read -t 0.01 -r -s -n 1 key 2>/dev/null; then
+
+    # Non-blocking check if input is available
+    if ! read -t 0.01 -r -s -n 1 key 2>/dev/null; then
+        return
+    fi
+
+    # Handle multi-byte escape sequences (arrow keys)
+    if [[ $key == $'\e' ]]; then
+        # Read next 2 bytes for arrow key sequence
+        local seq=""
+        read -t 0.01 -r -s -n 2 seq 2>/dev/null
+        case "$seq" in
+            '[A') echo "UP" ;;
+            '[B') echo "DOWN" ;;
+            '[C') echo "RIGHT" ;;
+            '[D') echo "LEFT" ;;
+            *) echo "" ;;  # Unknown escape sequence, ignore
+        esac
+    else
+        # Regular single-character key
         echo "$key"
     fi
 }
@@ -94,6 +113,24 @@ handle_input() {
             ;;
         t|T|4)
             CURRENT_VIEW="tasks"
+            ;;
+        UP|LEFT)
+            # Cycle backward through views
+            case "$CURRENT_VIEW" in
+                dashboard) CURRENT_VIEW="tasks" ;;
+                metrics) CURRENT_VIEW="dashboard" ;;
+                sessions) CURRENT_VIEW="metrics" ;;
+                tasks) CURRENT_VIEW="sessions" ;;
+            esac
+            ;;
+        DOWN|RIGHT)
+            # Cycle forward through views
+            case "$CURRENT_VIEW" in
+                dashboard) CURRENT_VIEW="metrics" ;;
+                metrics) CURRENT_VIEW="sessions" ;;
+                sessions) CURRENT_VIEW="tasks" ;;
+                tasks) CURRENT_VIEW="dashboard" ;;
+            esac
             ;;
         q|Q)
             cleanup
