@@ -862,7 +862,7 @@ tasks:
     parallel_group: 11
     depends_on:
       - "UX1"
-    completed: false
+    completed: true
     verification: |
       [ -f "ClaudeWatch/Views/SheetViews.swift" ] && \
       grep -q 'VoiceInputSheet' ClaudeWatch/Views/SheetViews.swift && \
