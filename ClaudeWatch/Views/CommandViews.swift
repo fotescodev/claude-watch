@@ -70,11 +70,12 @@ struct CommandButton: View {
 
     // Spring animation state
     @State private var isPressed = false
+    @State private var didTap = false
 
     var body: some View {
         Button {
             service.sendPrompt(prompt)
-            WKInterfaceDevice.current().play(.click)
+            didTap.toggle()
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: icon)
@@ -101,6 +102,7 @@ struct CommandButton: View {
                 .onEnded { _ in isPressed = false }
         )
         .accessibilityLabel("\(label) command, sends \(prompt)")
+        .sensoryFeedback(.selection, trigger: didTap)
     }
 }
 
@@ -117,11 +119,12 @@ struct ModeSelector: View {
 
     // Spring animation state
     @State private var isPressed = false
+    @State private var didChangeMode = false
 
     var body: some View {
         Button {
             service.cycleMode()
-            WKInterfaceDevice.current().play(.click)
+            didChangeMode.toggle()
             // VoiceOver announcement for mode change
             announceModChange()
         } label: {
@@ -177,6 +180,7 @@ struct ModeSelector: View {
                 .onEnded { _ in isPressed = false }
         )
         .accessibilityLabel("Current mode: \(service.state.mode.displayName). Tap to change mode")
+        .sensoryFeedback(.selection, trigger: didChangeMode)
     }
 
     private var modeColor: Color {

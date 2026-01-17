@@ -10,6 +10,7 @@ struct ActionQueue: View {
 
     // Spring animation state
     @State private var approveAllPressed = false
+    @State private var didApproveAll = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -35,7 +36,7 @@ struct ActionQueue: View {
                 // Approve All button
                 Button {
                     service.approveAll()
-                    WKInterfaceDevice.current().play(.success)
+                    didApproveAll.toggle()
                 } label: {
                     Text("Approve All (\(service.state.pendingActions.count))")
                         .font(.body.weight(.bold))
@@ -60,6 +61,7 @@ struct ActionQueue: View {
                         .onEnded { _ in approveAllPressed = false }
                 )
                 .accessibilityLabel("Approve all \(service.state.pendingActions.count) pending actions")
+                .sensoryFeedback(.success, trigger: didApproveAll)
             }
         }
     }
@@ -80,6 +82,10 @@ struct PrimaryActionCard: View {
     // Spring animation states for buttons
     @State private var rejectPressed = false
     @State private var approvePressed = false
+
+    // Haptic feedback triggers
+    @State private var didReject = false
+    @State private var didApprove = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -131,7 +137,7 @@ struct PrimaryActionCard: View {
                             service.rejectAction(action.id)
                         }
                     }
-                    WKInterfaceDevice.current().play(.failure)
+                    didReject.toggle()
                     // VoiceOver announcement
                     AccessibilityNotification.Announcement("Rejected \(action.title)").post()
                 } label: {
@@ -163,6 +169,7 @@ struct PrimaryActionCard: View {
                 )
                 .accessibilityLabel("Reject \(action.title)")
                 .accessibilitySortPriority(1)
+                .sensoryFeedback(.error, trigger: didReject)
 
                 // Approve (VoiceOver reads first due to higher sort priority)
                 Button {
@@ -173,7 +180,7 @@ struct PrimaryActionCard: View {
                             service.approveAction(action.id)
                         }
                     }
-                    WKInterfaceDevice.current().play(.success)
+                    didApprove.toggle()
                     // VoiceOver announcement
                     AccessibilityNotification.Announcement("Approved \(action.title)").post()
                 } label: {
@@ -205,6 +212,7 @@ struct PrimaryActionCard: View {
                 )
                 .accessibilityLabel("Approve \(action.title)")
                 .accessibilitySortPriority(2)
+                .sensoryFeedback(.success, trigger: didApprove)
             }
         }
         .padding(14)
