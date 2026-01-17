@@ -226,7 +226,7 @@ generate_sparkline() {
 # RENDER ENGINE
 #───────────────────────────────────────────────────────────────────────────────
 
-render() {
+render_details() {
     local W=$(tput cols 2>/dev/null || echo 80)
     local H=$(tput lines 2>/dev/null || echo 24)
     local pad="  "
@@ -488,6 +488,10 @@ render() {
     echo -e "${pad}    ${DARK}${total_sessions} sessions${NC}  ${DARK}│${NC}  ${CYAN}${tokens_fmt} tokens${NC}  ${DARK}│${NC}  ${GREEN}\$${cost}${NC}  ${DARK}│${NC}  ${DIM}Ctrl+C${NC}"
 
     tput ed 2>/dev/null
+}
+
+render() {
+    render_details
 }
 
 #───────────────────────────────────────────────────────────────────────────────
