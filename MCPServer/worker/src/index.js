@@ -5,7 +5,12 @@
  * Uses HTTP + APNs for simplicity.
  */
 
-// Generate a 6-character pairing code
+/**
+ * Generates a random 6-character pairing code for device registration.
+ * Uses alphanumeric characters excluding confusing pairs (0/O, 1/I).
+ *
+ * @returns {string} A pairing code in format XXX-XXX (e.g., "A2B-C3D")
+ */
 function generatePairingCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No confusing chars (0/O, 1/I)
   let code = '';
@@ -15,12 +20,39 @@ function generatePairingCode() {
   return code.slice(0, 3) + '-' + code.slice(3);
 }
 
-// Generate a unique request ID
+/**
+ * Generates a unique 8-character identifier for approval requests.
+ * Uses the first 8 characters of a UUID v4.
+ *
+ * @returns {string} An 8-character hexadecimal request ID (e.g., "a3b4c5d6")
+ */
 function generateRequestId() {
   return crypto.randomUUID().slice(0, 8);
 }
 
-// Send APNs push notification
+/**
+ * Sends an APNs (Apple Push Notification service) push notification to a device.
+ * Authenticates using JWT with ES256, handles both sandbox and production environments,
+ * and provides detailed error handling for token validation and rate limiting.
+ *
+ * @param {object} env - Cloudflare Worker environment bindings containing APNs configuration:
+ *   - APNS_KEY_ID: APNs authentication key identifier
+ *   - APNS_TEAM_ID: Apple Developer Team ID
+ *   - APNS_PRIVATE_KEY: Base64-encoded PKCS8 ECDSA P-256 private key
+ *   - APNS_SANDBOX: 'true' for sandbox environment, otherwise uses production
+ *   - APNS_BUNDLE_ID: App bundle identifier (e.g., "com.example.app")
+ * @param {string} deviceToken - Hexadecimal device token from APNs registration (64 characters)
+ * @param {object} payload - APNs notification payload with structure:
+ *   - aps: { alert, sound, badge, category, etc. }
+ *   - Custom data fields (requestId, type, title, description, filePath, command, etc.)
+ * @returns {Promise<object>} Result object with one of these structures:
+ *   - Success: { success: true }
+ *   - APNs not configured: { success: false, error: 'APNs not configured' }
+ *   - Invalid token: { success: false, error: 'BadDeviceToken'|'Unregistered', shouldClearToken: true }
+ *   - Rate limited: { success: false, error: 'TooManyRequests', retryAfter: string }
+ *   - Other APNs error: { success: false, error: string, status: number }
+ *   - Network/crypto error: { success: false, error: string }
+ */
 async function sendAPNs(env, deviceToken, payload) {
   if (!env.APNS_KEY_ID || !env.APNS_TEAM_ID || !env.APNS_PRIVATE_KEY) {
     console.log('APNs not configured, skipping push');
@@ -92,7 +124,13 @@ async function sendAPNs(env, deviceToken, payload) {
   }
 }
 
-// Helper: Convert PEM to ArrayBuffer
+/**
+ * Converts a PEM-formatted private key to an ArrayBuffer for cryptographic operations.
+ * Strips PEM headers/footers and decodes the base64 content into binary data.
+ *
+ * @param {string} pem - The PEM-formatted private key string
+ * @returns {ArrayBuffer} Binary representation of the key suitable for crypto.subtle.importKey
+ */
 function pemToArrayBuffer(pem) {
   const lines = pem.split('\n').filter(line =>
     !line.includes('-----BEGIN') && !line.includes('-----END')
@@ -106,7 +144,15 @@ function pemToArrayBuffer(pem) {
   return bytes.buffer;
 }
 
-// Helper: Create JWT
+/**
+ * Creates a signed JWT token for APNs authentication using ES256 algorithm.
+ * Encodes header and claims as base64url, signs with ECDSA-SHA256, and returns the complete token.
+ *
+ * @param {object} header - JWT header containing algorithm (alg) and key ID (kid)
+ * @param {object} claims - JWT claims containing issuer (iss) and issued-at timestamp (iat)
+ * @param {CryptoKey} privateKey - The imported ECDSA P-256 private key for signing
+ * @returns {Promise<string>} The signed JWT token in format: header.payload.signature
+ */
 async function createJWT(header, claims, privateKey) {
   const encoder = new TextEncoder();
 
@@ -133,7 +179,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// JSON response helper
+/**
+ * Creates a standardized JSON response with CORS headers.
+ * Serializes the provided data to JSON and sets appropriate content-type headers.
+ *
+ * @param {*} data - The data to serialize as JSON (can be any type)
+ * @param {number} [status=200] - HTTP status code (default: 200)
+ * @returns {Response} A Response object with JSON content-type and CORS headers
+ */
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -141,6 +194,118 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+/**
+ * Main Cloudflare Worker fetch handler for Claude Watch API.
+ * Handles device pairing, approval requests, and responses between Claude Code and Apple Watch.
+ *
+ * @param {Request} request - Incoming HTTP request object
+ * @param {object} env - Cloudflare Worker environment bindings:
+ *   - PAIRINGS: KV namespace for device pairing data
+ *   - REQUESTS: KV namespace for approval request data
+ *   - APNS_KEY_ID: APNs authentication key identifier
+ *   - APNS_TEAM_ID: Apple Developer Team ID
+ *   - APNS_PRIVATE_KEY: Base64-encoded PKCS8 ECDSA P-256 private key
+ *   - APNS_SANDBOX: 'true' for sandbox environment, otherwise uses production
+ *   - APNS_BUNDLE_ID: App bundle identifier (e.g., "com.example.claudewatch")
+ * @param {object} ctx - Cloudflare Worker execution context for waitUntil and passThroughOnException
+ * @returns {Promise<Response>} JSON response with CORS headers
+ *
+ * @apiEndpoints
+ *
+ * POST /pair
+ *   Description: Generate a pairing code for Claude Code to display
+ *   Request: No body required
+ *   Response: {
+ *     code: string,          // 6-character pairing code (e.g., "A2B-C3D")
+ *     pairingId: string,     // UUID for this pairing session
+ *     expiresIn: number      // Expiration time in seconds (600)
+ *   }
+ *
+ * POST /pair/complete
+ *   Description: Complete pairing by submitting code and device token from Watch
+ *   Request: {
+ *     code: string,          // Pairing code entered on Watch
+ *     deviceToken: string    // APNs device token (64-character hex)
+ *   }
+ *   Response: {
+ *     success: boolean,
+ *     pairingId: string      // UUID for the completed pairing
+ *   }
+ *   Errors: 400 (missing fields), 404 (invalid/expired code)
+ *
+ * GET /pair/:pairingId/status
+ *   Description: Check if a pairing has been completed (for polling from Claude Code)
+ *   Request: No body required
+ *   Response: {
+ *     status: string,        // "pending" or "active"
+ *     completedAt?: number   // Unix timestamp (ms) when pairing completed
+ *   }
+ *
+ * POST /request
+ *   Description: Submit an approval request from Claude Code
+ *   Request: {
+ *     pairingId: string,     // UUID from pairing
+ *     type: string,          // Request type (e.g., "file_edit", "command_run")
+ *     title: string,         // Short description
+ *     description?: string,  // Detailed explanation
+ *     filePath?: string,     // File path for file operations
+ *     command?: string       // Command string for command operations
+ *   }
+ *   Response: {
+ *     requestId: string,     // 8-character unique request ID
+ *     apnsSent: boolean      // Whether push notification was sent successfully
+ *   }
+ *   Errors: 400 (missing fields, pairing not active), 404 (invalid pairing)
+ *
+ * GET /request/:id
+ *   Description: Poll for approval response from Watch
+ *   Request: No body required
+ *   Response: {
+ *     id: string,            // Request ID
+ *     status: string,        // "pending", "approved", or "rejected"
+ *     response: boolean|null,// true (approved), false (rejected), or null (pending)
+ *     respondedAt: number|null // Unix timestamp (ms) when response was submitted
+ *   }
+ *   Errors: 404 (request not found or expired)
+ *
+ * GET /requests/:pairingId
+ *   Description: List all pending requests for a pairing (for Watch polling)
+ *   Request: No body required
+ *   Response: {
+ *     requests: Array<{
+ *       id: string,
+ *       pairingId: string,
+ *       type: string,
+ *       title: string,
+ *       description: string,
+ *       filePath: string|null,
+ *       command: string|null,
+ *       status: string,
+ *       createdAt: number
+ *     }>
+ *   }
+ *   Errors: 404 (invalid pairing)
+ *
+ * POST /respond/:id
+ *   Description: Submit approval response from Watch
+ *   Request: {
+ *     approved: boolean,     // true for approve, false for reject
+ *     pairingId: string      // UUID for authorization
+ *   }
+ *   Response: {
+ *     success: boolean,
+ *     status: string         // "approved" or "rejected"
+ *   }
+ *   Errors: 400 (missing fields), 403 (unauthorized), 404 (request not found)
+ *
+ * GET /health
+ *   Description: Health check endpoint
+ *   Request: No body required
+ *   Response: {
+ *     status: string,        // "ok"
+ *     timestamp: number      // Current Unix timestamp (ms)
+ *   }
+ */
 export default {
   async fetch(request, env, ctx) {
     // Handle CORS preflight
