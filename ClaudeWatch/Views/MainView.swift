@@ -13,6 +13,9 @@ struct MainView: View {
     // Always-On Display support
     @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
+    // Accessibility: Reduce Motion support
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
     // Dynamic Type support
     @Environment(\.dynamicTypeSize) var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 12
@@ -123,6 +126,7 @@ struct MainView: View {
     }
 
     private func startPulse() {
+        guard !reduceMotion else { return }
         withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
             pulsePhase = 1
         }
@@ -134,6 +138,9 @@ struct StatusHeader: View {
     @ObservedObject private var service = WatchService.shared
     let pulsePhase: CGFloat
 
+    // Accessibility: Reduce Motion support
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
     // Dynamic Type support - scale icon sizes with text
     @ScaledMetric(relativeTo: .headline) private var statusIconContainerSize: CGFloat = 32
     @ScaledMetric(relativeTo: .headline) private var statusIconSize: CGFloat = 14
@@ -144,13 +151,13 @@ struct StatusHeader: View {
         VStack(spacing: 8) {
             // Main status
             HStack(spacing: 8) {
-                // Status icon with pulse
+                // Status icon with pulse (respects Reduce Motion)
                 ZStack {
                     Circle()
                         .fill(statusColor.opacity(0.2))
                         .frame(width: statusIconContainerSize, height: statusIconContainerSize)
 
-                    if service.state.status == .running || service.state.status == .waiting {
+                    if (service.state.status == .running || service.state.status == .waiting) && !reduceMotion {
                         Circle()
                             .fill(statusColor.opacity(0.3))
                             .frame(width: statusIconContainerSize, height: statusIconContainerSize)

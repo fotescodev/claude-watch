@@ -124,6 +124,18 @@ extension Animation {
     static var gentleSpring: Animation {
         .spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0)
     }
+
+    /// Returns appropriate animation based on Reduce Motion preference
+    /// - Parameter reduceMotion: Whether Reduce Motion is enabled
+    /// - Returns: Animation or nil if motion should be reduced
+    static func buttonSpringIfAllowed(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .buttonSpring
+    }
+
+    /// Returns appropriate animation based on Reduce Motion preference
+    static func bouncySpringIfAllowed(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .bouncySpring
+    }
 }
 
 // MARK: - Convenience Extensions

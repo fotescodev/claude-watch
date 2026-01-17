@@ -5,6 +5,9 @@ import WatchKit
 struct ActionQueue: View {
     @ObservedObject private var service = WatchService.shared
 
+    // Accessibility: Reduce Motion support
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
     // Spring animation state
     @State private var approveAllPressed = false
 
@@ -47,8 +50,8 @@ struct ActionQueue: View {
                             )
                         )
                         .clipShape(Capsule())
-                        .scaleEffect(approveAllPressed ? 0.95 : 1.0)
-                        .animation(.bouncySpring, value: approveAllPressed)
+                        .scaleEffect(approveAllPressed && !reduceMotion ? 0.95 : 1.0)
+                        .animation(.bouncySpringIfAllowed(reduceMotion: reduceMotion), value: approveAllPressed)
                 }
                 .buttonStyle(.plain)
                 .simultaneousGesture(
@@ -66,6 +69,9 @@ struct ActionQueue: View {
 struct PrimaryActionCard: View {
     @ObservedObject private var service = WatchService.shared
     let action: PendingAction
+
+    // Accessibility: Reduce Motion support
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     // Dynamic Type support
     @ScaledMetric(relativeTo: .body) private var iconContainerSize: CGFloat = 40
@@ -143,8 +149,8 @@ struct PrimaryActionCard: View {
                         )
                     )
                     .clipShape(Capsule())
-                    .scaleEffect(rejectPressed ? 0.92 : 1.0)
-                    .animation(.buttonSpring, value: rejectPressed)
+                    .scaleEffect(rejectPressed && !reduceMotion ? 0.92 : 1.0)
+                    .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: rejectPressed)
                 }
                 .buttonStyle(.plain)
                 .simultaneousGesture(
@@ -182,8 +188,8 @@ struct PrimaryActionCard: View {
                         )
                     )
                     .clipShape(Capsule())
-                    .scaleEffect(approvePressed ? 0.92 : 1.0)
-                    .animation(.buttonSpring, value: approvePressed)
+                    .scaleEffect(approvePressed && !reduceMotion ? 0.92 : 1.0)
+                    .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: approvePressed)
                 }
                 .buttonStyle(.plain)
                 .simultaneousGesture(

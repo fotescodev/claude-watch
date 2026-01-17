@@ -61,6 +61,9 @@ struct CommandButton: View {
     let label: String
     let prompt: String
 
+    // Accessibility: Reduce Motion support
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
     // Dynamic Type support
     @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 18
     @ScaledMetric(relativeTo: .body) private var buttonHeight: CGFloat = 52
@@ -88,8 +91,8 @@ struct CommandButton: View {
                 RoundedRectangle(cornerRadius: 14)
                     .fill(.ultraThinMaterial)
             )
-            .scaleEffect(isPressed ? 0.92 : 1.0)
-            .animation(.buttonSpring, value: isPressed)
+            .scaleEffect(isPressed && !reduceMotion ? 0.92 : 1.0)
+            .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: isPressed)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(
@@ -104,6 +107,9 @@ struct CommandButton: View {
 // MARK: - Mode Selector
 struct ModeSelector: View {
     @ObservedObject private var service = WatchService.shared
+
+    // Accessibility: Reduce Motion support
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     // Dynamic Type support
     @ScaledMetric(relativeTo: .footnote) private var modeIconContainerSize: CGFloat = 28
@@ -159,8 +165,8 @@ struct ModeSelector: View {
                             .strokeBorder(modeColor.opacity(0.3), lineWidth: 1)
                     )
             )
-            .scaleEffect(isPressed ? 0.96 : 1.0)
-            .animation(.buttonSpring, value: isPressed)
+            .scaleEffect(isPressed && !reduceMotion ? 0.96 : 1.0)
+            .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: isPressed)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(
