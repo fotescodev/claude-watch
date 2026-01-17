@@ -361,7 +361,6 @@ tasks:
       - testing
       - quality
     commit_template: "test(ui): Add UI tests for critical flows"
-
   # ═══════════════════════════════════════════════════════════════════════════
   # PHASE 6: SEAMLESS PAIRING - Reduce pairing friction
   # Parallel Group 7: Can run concurrently
@@ -390,7 +389,7 @@ tasks:
       2. Use deep link from terminal (SP3, if implemented)
     priority: low
     parallel_group: 8
-    completed: true  # Marked complete to skip - redesign needed
+    completed: true # Marked complete to skip - redesign needed
     blocked: true
     blocked_reason: "UIPasteboard not available on watchOS. Requires WatchConnectivity + iPhone companion app."
     verification: |
@@ -406,7 +405,6 @@ tasks:
       - clipboard
       - blocked
     commit_template: "feat(pairing): Add clipboard paste button for seamless pairing"
-
   - id: "SP2"
     title: "Add numeric-only pairing code input option"
     description: |
@@ -450,7 +448,6 @@ tasks:
       - ux
       - keyboard
     commit_template: "feat(pairing): Add numeric code input for faster pairing"
-
   - id: "SP3"
     title: "Add deep link URL scheme support for pairing"
     description: |
@@ -472,7 +469,7 @@ tasks:
       - Consider for Phase 8 after MVP validation
     priority: low
     parallel_group: 8
-    completed: true  # Deferred - not needed for MVP
+    completed: true # Deferred - not needed for MVP
     deferred: true
     deferred_reason: "SP2 (numeric input) provides sufficient UX improvement for MVP"
     verification: |
@@ -489,7 +486,6 @@ tasks:
       - url-scheme
       - deferred
     commit_template: "feat(pairing): Add deep link URL scheme support"
-
   - id: "SP4"
     title: "Add server-side numeric code generation with rate limiting"
     description: |
@@ -543,7 +539,6 @@ tasks:
       - api
       - security
     commit_template: "feat(api): Add numeric pairing code generation with rate limiting"
-
   - id: "SP5"
     title: "Add pairing code scannability via QR display hint"
     description: |
@@ -566,7 +561,7 @@ tasks:
       - Numeric input (SP2) provides sufficient UX for MVP
     priority: low
     parallel_group: 8
-    completed: true  # Deferred - depends on SP3
+    completed: true # Deferred - depends on SP3
     deferred: true
     deferred_reason: "Depends on SP3 (deep links) which is deferred"
     verification: |
@@ -582,7 +577,6 @@ tasks:
       - qr-code
       - deferred
     commit_template: "feat(api): Add QR-scannable deep link URL to pairing response"
-
   # ═══════════════════════════════════════════════════════════════════════════
   # PHASE 7: UX IMPROVEMENTS - Component Architecture & Design System (FLATTENED)
   # From: plans/feat-ux-improvement-watchos.md (DEEPENED + SIMPLIFIED)
@@ -597,7 +591,6 @@ tasks:
   # ═══════════════════════════════════════════════════════════════════════════
 
   # --- Phase 7.0: Pre-Planning Verification (parallel_group: 9) ---
-
   - id: "UX0"
     title: "Verify existing code before component extraction"
     description: |
@@ -614,7 +607,7 @@ tasks:
       This task MUST complete before any extraction begins.
     priority: critical
     parallel_group: 9
-    completed: false
+    completed: true
     verification: |
       # Verify we've read the key files
       grep -q 'enum Claude' ClaudeWatch/Views/MainView.swift && \
@@ -633,10 +626,8 @@ tasks:
       - verification
       - anti-overengineering
     commit_template: "docs(ux): Complete pre-planning verification for component extraction"
-
   # --- Phase 7.1: Design System Centralization (parallel_group: 10) ---
   # FLATTENED: Single Claude.swift contains colors, materials, spacing, button styles, animations
-
   - id: "UX1"
     title: "Create unified Claude design system"
     description: |
@@ -679,7 +670,6 @@ tasks:
       - ux
       - flattened
     commit_template: "refactor(design): Create unified Claude design system (flattened)"
-
   - id: "UX2"
     title: "Remove duplicate Claude enum from other files"
     description: |
@@ -714,10 +704,8 @@ tasks:
       - cleanup
       - refactor
     commit_template: "refactor(design): Remove duplicate Claude enum definitions"
-
   # --- Phase 7.2: Component Extraction - FLATTENED (parallel_group: 11) ---
   # 4 view files instead of 14 files across 6 directories
-
   - id: "UX3"
     title: "Create StateViews.swift with all state views"
     description: |
@@ -758,7 +746,6 @@ tasks:
       - refactor
       - flattened
     commit_template: "refactor(views): Extract state views to StateViews.swift"
-
   - id: "UX4"
     title: "Create ActionViews.swift with action queue and cards"
     description: |
@@ -798,7 +785,6 @@ tasks:
       - refactor
       - flattened
     commit_template: "refactor(views): Extract action views to ActionViews.swift"
-
   - id: "UX5"
     title: "Create CommandViews.swift with command grid and mode selector"
     description: |
@@ -837,7 +823,6 @@ tasks:
       - refactor
       - flattened
     commit_template: "refactor(views): Extract command views to CommandViews.swift"
-
   - id: "UX6"
     title: "Create SheetViews.swift with voice input and settings"
     description: |
@@ -898,7 +883,6 @@ tasks:
       - flattened
       - deprecation-fix
     commit_template: "refactor(views): Extract sheet views to SheetViews.swift"
-
   - id: "UX7"
     title: "Refactor MainView to compose extracted components"
     description: |
@@ -938,9 +922,7 @@ tasks:
       - composition
       - flattened
     commit_template: "refactor(views): Refactor MainView to compose extracted components"
-
   # --- Phase 7.3: Accessibility Enhancements (parallel_group: 12) ---
-
   - id: "UX8"
     title: "Add Reduce Motion support to all animations"
     description: |
@@ -976,7 +958,6 @@ tasks:
       - animation
       - a11y
     commit_template: "fix(a11y): Add Reduce Motion support to all animations"
-
   - id: "UX9"
     title: "Add VoiceOver announcements for state changes"
     description: |
@@ -1004,7 +985,6 @@ tasks:
       - voiceover
       - a11y
     commit_template: "fix(a11y): Add VoiceOver announcements for state changes"
-
   - id: "UX10"
     title: "Add high contrast mode support"
     description: |
@@ -1032,9 +1012,7 @@ tasks:
       - contrast
       - a11y
     commit_template: "fix(a11y): Add high contrast mode support"
-
   # --- Phase 7.4: Animation Modernization & Liquid Glass (parallel_group: 13) ---
-
   - id: "UX11"
     title: "Add symbol effects to status icons"
     description: |
@@ -1065,7 +1043,6 @@ tasks:
       - sf-symbols
       - watchos26
     commit_template: "feat(animation): Add symbol effects to status icons"
-
   - id: "UX12"
     title: "Replace manual haptics with sensoryFeedback modifier"
     description: |
@@ -1096,7 +1073,6 @@ tasks:
       - watchos26
       - swiftui
     commit_template: "refactor(haptics): Use sensoryFeedback modifier"
-
   - id: "UX13"
     title: "Adopt Liquid Glass materials for watchOS 26"
     description: |
@@ -1125,13 +1101,11 @@ tasks:
       - watchos26
       - design
     commit_template: "feat(design): Adopt Liquid Glass materials for watchOS 26"
-
   # --- Phase 7.5: Error Handling & State Recovery (parallel_group: 14) ---
   # KEY LEARNINGS APPLIED:
   # - Async state: Use @MainActor Task with defer inside for loading states
   # - NavigationStack: Required for toolbar visibility on watchOS
   # - Complete state reset: Must reset ALL related variables atomically
-
   - id: "UX14"
     title: "Add inline error banners for network failures"
     description: |
@@ -1180,7 +1154,6 @@ tasks:
       - feedback
       - async-pattern
     commit_template: "feat(ux): Add inline error banners for network failures"
-
   - id: "UX15"
     title: "Add Approve All confirmation"
     description: |
@@ -1207,7 +1180,6 @@ tasks:
       - safety
       - confirmation
     commit_template: "feat(ux): Add confirmation for Approve All"
-
   - id: "UX16"
     title: "Verify NavigationStack at app root"
     description: |
@@ -1248,7 +1220,6 @@ tasks:
       - critical-fix
       - toolbar
     commit_template: "fix(nav): Ensure NavigationStack at app root for toolbar visibility"
-
   - id: "UX17"
     title: "Add complete state reset for Exit Demo Mode"
     description: |
