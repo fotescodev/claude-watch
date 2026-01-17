@@ -119,9 +119,9 @@ struct PrimaryActionCard: View {
                 Spacer()
             }
 
-            // Action buttons
+            // Action buttons (Approve first for VoiceOver priority)
             HStack(spacing: 8) {
-                // Reject
+                // Reject (visually first, VoiceOver reads second)
                 Button {
                     Task {
                         if service.useCloudMode && service.isPaired {
@@ -131,6 +131,8 @@ struct PrimaryActionCard: View {
                         }
                     }
                     WKInterfaceDevice.current().play(.failure)
+                    // VoiceOver announcement
+                    AccessibilityNotification.Announcement("Rejected \(action.title)").post()
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "xmark")
@@ -159,8 +161,9 @@ struct PrimaryActionCard: View {
                         .onEnded { _ in rejectPressed = false }
                 )
                 .accessibilityLabel("Reject \(action.title)")
+                .accessibilitySortPriority(1)
 
-                // Approve
+                // Approve (VoiceOver reads first due to higher sort priority)
                 Button {
                     Task {
                         if service.useCloudMode && service.isPaired {
@@ -170,6 +173,8 @@ struct PrimaryActionCard: View {
                         }
                     }
                     WKInterfaceDevice.current().play(.success)
+                    // VoiceOver announcement
+                    AccessibilityNotification.Announcement("Approved \(action.title)").post()
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark")
@@ -198,6 +203,7 @@ struct PrimaryActionCard: View {
                         .onEnded { _ in approvePressed = false }
                 )
                 .accessibilityLabel("Approve \(action.title)")
+                .accessibilitySortPriority(2)
             }
         }
         .padding(14)

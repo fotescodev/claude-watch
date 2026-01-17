@@ -970,7 +970,7 @@ tasks:
       4. Add accessibilityAction for AssistiveTouch gestures
     priority: medium
     parallel_group: 12
-    completed: false
+    completed: true
     verification: |
       grep -rq 'UIAccessibility.post\|accessibilityAction' ClaudeWatch/Views/ && exit 0 || exit 1
     acceptance_criteria:
@@ -1369,7 +1369,6 @@ tasks:
       - monitoring
       - visualization
     commit_template: "feat(ralph): Add parallel thread visualization to monitor"
-
   # ═══════════════════════════════════════════════════════════════════════════
   # iOS 26 / watchOS 13: Foundation Models & Liquid Glass
   # Parallel Group 16: Platform modernization
@@ -1413,7 +1412,6 @@ tasks:
       - foundation-models
       - on-device-ai
     commit_template: "feat(ai): Add Foundation Models availability check"
-
   - id: "FM2"
     title: "Create @Generable ApprovalRequest for structured parsing"
     description: |
@@ -1460,7 +1458,6 @@ tasks:
       - foundation-models
       - structured-generation
     commit_template: "feat(ai): Add @Generable ApprovalRequest for structured parsing"
-
   - id: "LG1"
     title: "Adopt Liquid Glass design for main UI"
     description: |
@@ -1505,7 +1502,6 @@ tasks:
       - liquid-glass
       - design
     commit_template: "feat(ui): Adopt Liquid Glass design language"
-
   - id: "LG2"
     title: "Add glass morphing transitions between states"
     description: |

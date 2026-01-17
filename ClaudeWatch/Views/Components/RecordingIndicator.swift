@@ -50,6 +50,11 @@ struct RecordingIndicator: View {
         }
         .accessibilityLabel(isRecording ? "Recording in progress" : "Not recording")
         .accessibilityAddTraits(isRecording ? .updatesFrequently : [])
+        .onChange(of: isRecording) { _, newValue in
+            // VoiceOver announcement for recording state change
+            let announcement = newValue ? "Recording started" : "Recording stopped"
+            AccessibilityNotification.Announcement(announcement).post()
+        }
     }
 
     private func startPulseAnimation() {

@@ -122,6 +122,8 @@ struct ModeSelector: View {
         Button {
             service.cycleMode()
             WKInterfaceDevice.current().play(.click)
+            // VoiceOver announcement for mode change
+            announceModChange()
         } label: {
             HStack(spacing: 10) {
                 // Mode icon
@@ -191,6 +193,12 @@ struct ModeSelector: View {
         case .autoAccept: return Claude.danger.opacity(0.1)
         case .plan: return Color.purple.opacity(0.1)
         }
+    }
+
+    private func announceModChange() {
+        // Post VoiceOver announcement for mode change
+        let announcement = "Mode changed to \(service.state.mode.displayName). \(service.state.mode.description)"
+        AccessibilityNotification.Announcement(announcement).post()
     }
 }
 
