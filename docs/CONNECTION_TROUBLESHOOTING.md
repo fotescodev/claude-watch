@@ -1049,20 +1049,33 @@ wrangler tail
 
 ## Related Documentation
 
-### Connection Setup
-- [SIMULATOR_SETUP_GUIDE.md](./SIMULATOR_SETUP_GUIDE.md) - Simulator testing setup
-- [README.md](../README.md) - Getting started guide
+### Getting Started
+- [README.md](../README.md) - Project overview and quick start guide
+- [SIMULATOR_SETUP_GUIDE.md](./SIMULATOR_SETUP_GUIDE.md) - Complete simulator testing and troubleshooting guide
 
-### Known Issues & Solutions
+### Connection & Pairing
+- [SEAMLESS_PAIRING_SPEC.md](./specs/SEAMLESS_PAIRING_SPEC.md) - Pairing flow specification and design
+- `ClaudeWatch/Services/WatchService.swift` - Connection implementation and state management
 - [pairing-code-case-sensitivity-CloudflareWorker-20260116.md](./solutions/integration-issues/pairing-code-case-sensitivity-CloudflareWorker-20260116.md) - Pairing code case sensitivity fix
+- [pairing-flow-loading-spinner-PairingView-20260116.md](./solutions/ui-bugs/pairing-flow-loading-spinner-PairingView-20260116.md) - Pairing UI improvements
 
-### Architecture Documentation
-- [SEAMLESS_PAIRING_SPEC.md](./SEAMLESS_PAIRING_SPEC.md) - Pairing flow specification
-- `ClaudeWatch/Services/WatchService.swift` - Connection implementation
+### WebSocket & Cloud Mode
+- [unnecessary-websocket-cloud-mode-WatchService-20260116.md](./solutions/runtime-errors/unnecessary-websocket-cloud-mode-WatchService-20260116.md) - WebSocket connection optimization
+- `MCPServer/server.py` - Local MCP server WebSocket API
+- `MCPServer/worker/src/index.js` - Cloudflare Workers cloud relay API
 
-### API Reference
-- `MCPServer/server.py` - MCP server WebSocket API
-- `MCPServer/worker/src/index.js` - Cloudflare Workers cloud API
+### Testing Guides
+- [simulator-live-testing-guide.md](./solutions/testing-guides/simulator-live-testing-guide.md) - Live testing on simulator
+- [watch-hook-integration-live-test.md](./solutions/testing-guides/watch-hook-integration-live-test.md) - Watch hook integration testing
+
+### Additional Solutions
+- [watchos-demo-mode-stuck-no-exit.md](./solutions/ui-bugs/watchos-demo-mode-stuck-no-exit.md) - Demo mode exit issues
+- [test-target-deployment-mismatch-20260116.md](./solutions/build-errors/test-target-deployment-mismatch-20260116.md) - Build configuration issues
+- [watchos26-deprecation-warnings-20260115.md](./solutions/build-errors/watchos26-deprecation-warnings-20260115.md) - Deprecation warnings
+
+### Project Planning
+- [PRD.md](./PRD.md) - Product requirements and architecture
+- [APPSTORE-ROADMAP.md](./APPSTORE-ROADMAP.md) - App Store release roadmap
 
 ---
 
