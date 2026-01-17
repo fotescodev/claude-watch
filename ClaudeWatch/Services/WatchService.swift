@@ -135,6 +135,11 @@ class WatchService: ObservableObject {
     }
 
     // MARK: - Connection
+
+    /// Establishes WebSocket connection to the MCP server.
+    /// Skips WebSocket creation in cloud mode (uses polling instead).
+    /// Cancels existing reconnection attempts, cleans up previous connections,
+    /// and initiates handshake with timeout monitoring.
     func connect() {
         // Skip WebSocket connection in cloud mode - use polling instead
         if useCloudMode {
@@ -175,6 +180,8 @@ class WatchService: ObservableObject {
         sendImmediate(["type": "get_state"])
     }
 
+    /// Closes the WebSocket connection and cancels all pending tasks.
+    /// Resets connection state to disconnected. Safe to call when already disconnected.
     func disconnect() {
         pingTask?.cancel()
         reconnectTask?.cancel()
