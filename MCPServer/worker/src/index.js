@@ -194,6 +194,118 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+/**
+ * Main Cloudflare Worker fetch handler for Claude Watch API.
+ * Handles device pairing, approval requests, and responses between Claude Code and Apple Watch.
+ *
+ * @param {Request} request - Incoming HTTP request object
+ * @param {object} env - Cloudflare Worker environment bindings:
+ *   - PAIRINGS: KV namespace for device pairing data
+ *   - REQUESTS: KV namespace for approval request data
+ *   - APNS_KEY_ID: APNs authentication key identifier
+ *   - APNS_TEAM_ID: Apple Developer Team ID
+ *   - APNS_PRIVATE_KEY: Base64-encoded PKCS8 ECDSA P-256 private key
+ *   - APNS_SANDBOX: 'true' for sandbox environment, otherwise uses production
+ *   - APNS_BUNDLE_ID: App bundle identifier (e.g., "com.example.claudewatch")
+ * @param {object} ctx - Cloudflare Worker execution context for waitUntil and passThroughOnException
+ * @returns {Promise<Response>} JSON response with CORS headers
+ *
+ * @apiEndpoints
+ *
+ * POST /pair
+ *   Description: Generate a pairing code for Claude Code to display
+ *   Request: No body required
+ *   Response: {
+ *     code: string,          // 6-character pairing code (e.g., "A2B-C3D")
+ *     pairingId: string,     // UUID for this pairing session
+ *     expiresIn: number      // Expiration time in seconds (600)
+ *   }
+ *
+ * POST /pair/complete
+ *   Description: Complete pairing by submitting code and device token from Watch
+ *   Request: {
+ *     code: string,          // Pairing code entered on Watch
+ *     deviceToken: string    // APNs device token (64-character hex)
+ *   }
+ *   Response: {
+ *     success: boolean,
+ *     pairingId: string      // UUID for the completed pairing
+ *   }
+ *   Errors: 400 (missing fields), 404 (invalid/expired code)
+ *
+ * GET /pair/:pairingId/status
+ *   Description: Check if a pairing has been completed (for polling from Claude Code)
+ *   Request: No body required
+ *   Response: {
+ *     status: string,        // "pending" or "active"
+ *     completedAt?: number   // Unix timestamp (ms) when pairing completed
+ *   }
+ *
+ * POST /request
+ *   Description: Submit an approval request from Claude Code
+ *   Request: {
+ *     pairingId: string,     // UUID from pairing
+ *     type: string,          // Request type (e.g., "file_edit", "command_run")
+ *     title: string,         // Short description
+ *     description?: string,  // Detailed explanation
+ *     filePath?: string,     // File path for file operations
+ *     command?: string       // Command string for command operations
+ *   }
+ *   Response: {
+ *     requestId: string,     // 8-character unique request ID
+ *     apnsSent: boolean      // Whether push notification was sent successfully
+ *   }
+ *   Errors: 400 (missing fields, pairing not active), 404 (invalid pairing)
+ *
+ * GET /request/:id
+ *   Description: Poll for approval response from Watch
+ *   Request: No body required
+ *   Response: {
+ *     id: string,            // Request ID
+ *     status: string,        // "pending", "approved", or "rejected"
+ *     response: boolean|null,// true (approved), false (rejected), or null (pending)
+ *     respondedAt: number|null // Unix timestamp (ms) when response was submitted
+ *   }
+ *   Errors: 404 (request not found or expired)
+ *
+ * GET /requests/:pairingId
+ *   Description: List all pending requests for a pairing (for Watch polling)
+ *   Request: No body required
+ *   Response: {
+ *     requests: Array<{
+ *       id: string,
+ *       pairingId: string,
+ *       type: string,
+ *       title: string,
+ *       description: string,
+ *       filePath: string|null,
+ *       command: string|null,
+ *       status: string,
+ *       createdAt: number
+ *     }>
+ *   }
+ *   Errors: 404 (invalid pairing)
+ *
+ * POST /respond/:id
+ *   Description: Submit approval response from Watch
+ *   Request: {
+ *     approved: boolean,     // true for approve, false for reject
+ *     pairingId: string      // UUID for authorization
+ *   }
+ *   Response: {
+ *     success: boolean,
+ *     status: string         // "approved" or "rejected"
+ *   }
+ *   Errors: 400 (missing fields), 403 (unauthorized), 404 (request not found)
+ *
+ * GET /health
+ *   Description: Health check endpoint
+ *   Request: No body required
+ *   Response: {
+ *     status: string,        // "ok"
+ *     timestamp: number      // Current Unix timestamp (ms)
+ *   }
+ */
 export default {
   async fetch(request, env, ctx) {
     // Handle CORS preflight
