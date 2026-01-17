@@ -642,11 +642,6 @@ class WatchService: ObservableObject {
         playHaptic(.success)
     }
 
-    func toggleYolo() {
-        // Legacy support - now cycles through modes
-        cycleMode()
-    }
-
     func cycleMode() {
         let newMode = state.mode.next()
         setMode(newMode)
