@@ -210,39 +210,152 @@ Circle()
 
 ### Font System
 
-Claude Watch uses **San Francisco** (SF Pro) exclusively, Apple's system font optimized for watchOS legibility.
+Claude Watch uses **San Francisco** (SF Pro) exclusively, Apple's system font optimized for watchOS legibility at small sizes and various viewing distances.
 
 **Font Scale:**
 
-| Style | Size | Weight | Use Case |
-|-------|------|--------|----------|
-| `.title` | 28pt | Bold | Rarely used (too large for watch) |
-| `.title2` | 22pt | Bold | Page headers, empty states |
-| `.title3` | 20pt | Semibold | Section headers |
-| `.headline` | 17pt | Semibold | Card headers, primary labels |
-| `.body` | 17pt | Regular | Body text, button labels |
-| `.footnote` | 13pt | Regular | Secondary text |
-| `.caption` | 12pt | Regular | Tertiary text |
-| `.caption2` | 11pt | Regular | Smallest readable text |
+| Style | Size | Weight | Use Case | Example Location |
+|-------|------|--------|----------|------------------|
+| `.title` | 28pt | Bold | Rarely used (too large for watch) | - |
+| `.title2` | 22pt | Bold | Page headers, empty states | "All Clear", "Offline" |
+| `.title3` | 20pt | Semibold | AOD simplified status | AlwaysOnDisplayView |
+| `.headline` | 17pt | Semibold | Card headers, status labels | "Running", "Edit File" |
+| `.body` | 17pt | Regular/Bold | Body text, button labels | "Approve", "Reject" |
+| `.subheadline` | 15pt | Regular/Semibold | Reconnecting status | "Reconnecting..." |
+| `.footnote` | 13pt | Regular/Semibold | Secondary labels, buttons | "Voice Command", "Demo Mode" |
+| `.caption` | 12pt | Regular | Tertiary text, metadata | "Last updated 2m ago" |
+| `.caption2` | 11pt | Regular/Semibold | Smallest readable text | File paths, hints |
+
+**Font Weight Hierarchy:**
+```swift
+// Bold - High emphasis, primary actions
+Text("Approve All")
+    .font(.body.weight(.bold))
+
+// Semibold - Medium emphasis, headings
+Text("Status")
+    .font(.headline)  // Headline is semibold by default
+
+// Regular - Normal text
+Text("No pending actions")
+    .font(.footnote)
+
+// Light - Subtle, background elements (rare on watch)
+Image(systemName: "tray")
+    .font(.system(size: 32, weight: .light))
+```
 
 **Monospaced Variants:**
+
+File paths and code snippets use monospaced design for clarity:
+
 ```swift
-.font(.system(.body, design: .monospaced))  // For codes, file paths
+// File paths in action cards
+Text("MainView.swift")
+    .font(.caption2.monospaced())
+    .foregroundColor(Claude.textSecondary)
+
+// Generic monospaced body text
+.font(.system(.body, design: .monospaced))
 ```
+
+---
 
 ### Dynamic Type Support
 
-All text uses **Dynamic Type** via `@ScaledMetric` for accessibility:
+All text and icons use **Dynamic Type** via `@ScaledMetric` to respect user accessibility preferences.
+
+**Core Principle:** Icons and spacing scale proportionally with text to maintain visual harmony across all Dynamic Type sizes.
+
+#### @ScaledMetric Usage Patterns
+
+**Pattern 1: Icon Sizes Relative to Text**
+
+Icons should scale with their associated text using the `relativeTo:` parameter:
 
 ```swift
+// Icon for headline text (status header)
+@ScaledMetric(relativeTo: .headline) private var statusIconContainerSize: CGFloat = 32
+@ScaledMetric(relativeTo: .headline) private var statusIconSize: CGFloat = 14
+
+// Icon for body text (action cards)
 @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 18
-@ScaledMetric(relativeTo: .headline) private var statusIconSize: CGFloat = 32
+@ScaledMetric(relativeTo: .body) private var iconContainerSize: CGFloat = 40
+
+// Icon for footnote text (compact cards)
+@ScaledMetric(relativeTo: .footnote) private var compactIconSize: CGFloat = 12
+@ScaledMetric(relativeTo: .footnote) private var compactIconContainerSize: CGFloat = 28
 ```
 
-**Benefits:**
-- Respects user's font size preferences
-- Automatically scales icons proportionally
-- Ensures readability for all users
+**Pattern 2: Component Heights Relative to Text**
+
+Button and container heights scale with their text content:
+
+```swift
+// Command button minimum height
+@ScaledMetric(relativeTo: .body) private var buttonHeight: CGFloat = 52
+
+// Badge size for caption text
+@ScaledMetric(relativeTo: .caption) private var badgeFontSize: CGFloat = 13
+@ScaledMetric(relativeTo: .body) private var badgeSize: CGFloat = 28
+```
+
+**Pattern 3: Large Display Elements**
+
+Empty states and large visual elements scale with title text:
+
+```swift
+// Empty state icon (scales with .title for prominence)
+@ScaledMetric(relativeTo: .title) private var iconContainerSize: CGFloat = 80
+@ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 32
+
+// AOD status icon (scales with .title3)
+@ScaledMetric(relativeTo: .title) private var statusIconSize: CGFloat = 36
+```
+
+#### Complete @ScaledMetric Reference
+
+All `@ScaledMetric` declarations from the codebase:
+
+| Variable | Base Value | Relative To | Use Case |
+|----------|-----------|-------------|----------|
+| `iconSize` | 12pt | `.body` | Toolbar icons |
+| `statusIconContainerSize` | 32pt | `.headline` | Status header icon background |
+| `statusIconSize` | 14pt | `.headline` | Status header icon |
+| `badgeSize` | 28pt | `.body` | Pending count badge |
+| `badgeFontSize` | 13pt | `.caption` | Badge text |
+| `iconContainerSize` (empty) | 80pt | `.title` | Empty state icon background |
+| `iconSize` (empty) | 32pt | `.title` | Empty state icon |
+| `iconContainerSize` (action) | 40pt | `.body` | Action card icon background |
+| `iconSize` (action) | 18pt | `.body` | Action card icon |
+| `compactIconContainerSize` | 28pt | `.footnote` | Compact card icon background |
+| `compactIconSize` | 12pt | `.footnote` | Compact card icon |
+| `buttonHeight` | 52pt | `.body` | Command button minimum height |
+| `modeIconContainerSize` | 28pt | `.footnote` | Mode selector icon background |
+| `modeIconSize` | 12pt | `.footnote` | Mode selector icon |
+| `statusIconSize` (AOD) | 36pt | `.title` | Always-On Display status icon |
+
+#### Dynamic Type Environment Variables
+
+Access user's Dynamic Type settings when needed:
+
+```swift
+@Environment(\.dynamicTypeSize) var dynamicTypeSize
+
+// Conditionally adjust layout for accessibility sizes
+if dynamicTypeSize >= .accessibility1 {
+    VStack(spacing: 16) { /* Vertical layout */ }
+} else {
+    HStack(spacing: 12) { /* Horizontal layout */ }
+}
+```
+
+**Benefits of @ScaledMetric:**
+- ✅ Respects user's font size preferences (Settings → Accessibility → Text Size)
+- ✅ Automatically scales icons proportionally with text
+- ✅ Ensures readability for all users, including vision accessibility
+- ✅ Maintains visual hierarchy across all Dynamic Type sizes
+- ✅ No manual layout adjustments needed
 
 ---
 
@@ -250,54 +363,234 @@ All text uses **Dynamic Type** via `@ScaledMetric` for accessibility:
 
 ### Padding Scale
 
-Consistent spacing creates rhythm and visual hierarchy.
+Consistent spacing creates rhythm, visual hierarchy, and breathing room on the small watch screen. Claude Watch uses a **4px base unit** with multiples for predictable layout.
 
-| Token | Value | Use Case |
-|-------|-------|----------|
-| **Micro** | 2px | Icon padding, tight spacing |
-| **XXS** | 4px | Chip padding, minimal gaps |
-| **XS** | 6px | List item spacing |
-| **Small** | 8px | Card internal spacing |
-| **Medium** | 12px | Default card padding |
-| **Large** | 16px | Screen margins |
-| **XL** | 20px | Section spacing |
-| **XXL** | 24px | Major section spacing |
+**Spacing System:**
 
-**Examples:**
+| Token | Value | Use Case | Examples |
+|-------|-------|----------|----------|
+| **Micro** | 2pt | Icon internal padding, minimal gaps | Status icon badge spacing |
+| **XXS** | 4pt | Tight horizontal margins | Screen edge padding (`.horizontal, 4`) |
+| **XS** | 6pt | Chip internal padding, small gaps | Quick suggestion chips, badge spacing |
+| **Small** | 8pt | VStack/HStack spacing, compact cards | Action queue spacing, toolbar spacing |
+| **Medium** | 12pt | Standard card padding, VStack spacing | Main content spacing, card padding |
+| **Large** | 14pt | Button internal padding, larger cards | Approve/reject button padding |
+| **XL** | 16pt | Screen margins, major spacing | Status header horizontal padding |
+| **XXL** | 20pt | Rare, very large spacing | Button horizontal padding |
+| **XXXL** | 24pt | Extreme spacing, major sections | OfflineStateView button horizontal padding |
+
+### Padding Patterns from Codebase
+
+#### Container Padding
+
+Cards and containers use consistent internal padding:
+
 ```swift
-// Card padding
-.padding(12)  // Medium
+// Standard card padding (most common)
+.padding(12)
+.background(
+    RoundedRectangle(cornerRadius: 16)
+        .fill(.ultraThinMaterial)
+)
 
-// Screen margins
-.padding(.horizontal, 16)  // Large
-
-// Icon in container
-.padding(2)  // Micro
-```
-
-### Corner Radius
-
-Rounded corners soften the UI and follow Apple's design language.
-
-| Element | Radius | Use Case |
-|---------|--------|----------|
-| **Buttons** | 8-10px | Small interactive elements |
-| **Chips/Pills** | `Capsule()` | Tags, mode indicators |
-| **Cards** | 14-16px | Action cards, containers |
-| **Large Cards** | 20px | Primary action card |
-| **Sheets** | 16px | Modal backgrounds |
-
-**Examples:**
-```swift
-// Standard card
-.clipShape(RoundedRectangle(cornerRadius: 16))
-
-// Pill button
-.clipShape(Capsule())
+// Large primary card
+.padding(14)
+.background(
+    RoundedRectangle(cornerRadius: 20)
+        .fill(.thinMaterial)
+)
 
 // Compact card
-.clipShape(RoundedRectangle(cornerRadius: 14))
+.padding(10)
+.background(
+    RoundedRectangle(cornerRadius: 14)
+        .fill(.ultraThinMaterial)
+)
 ```
+
+#### Screen Margins
+
+ScrollView content uses minimal horizontal margins for maximum watch screen real estate:
+
+```swift
+// Main content view - minimal horizontal padding
+.padding(.horizontal, 4)
+.padding(.bottom, 12)
+
+// Modal sheets - standard horizontal padding
+.padding(.horizontal, 16)
+
+// Buttons in offline state - extra horizontal padding
+.padding(.horizontal, 24)
+```
+
+#### Button Padding
+
+Interactive elements use vertical padding for touch targets:
+
+```swift
+// Primary action buttons (Approve/Reject)
+.padding(.vertical, 14)
+.clipShape(Capsule())
+
+// Secondary buttons
+.padding(.vertical, 10)
+.background(Claude.orange)
+.clipShape(Capsule())
+
+// Compact suggestion chips
+.padding(.horizontal, 10)
+.padding(.vertical, 6)
+.background(.thinMaterial, in: Capsule())
+```
+
+### VStack & HStack Spacing
+
+Vertical and horizontal stacks use consistent spacing for visual rhythm:
+
+**VStack Spacing Hierarchy:**
+
+| Spacing | Use Case | Example Location |
+|---------|----------|------------------|
+| `2pt` | Tightest grouping (label + sublabel) | Status header text, mode selector text |
+| `3pt` | Very tight grouping | Action card title + path |
+| `6pt` | Compact lists | Compact action cards |
+| `8pt` | Standard spacing | Status header internals, action queue |
+| `10pt` | Medium spacing | Settings buttons |
+| `12pt` | Default spacing | Main content sections, voice input sheet |
+| `16pt` | Large spacing | Empty state, offline state, settings sections |
+
+**HStack Spacing Hierarchy:**
+
+| Spacing | Use Case | Example Location |
+|---------|----------|------------------|
+| `4pt` | Icon + text in buttons | Reject/approve button icons |
+| `6pt` | Status indicators | Connection status dot + text, quick suggestions |
+| `8pt` | Standard horizontal spacing | Status header, compact cards, badges |
+| `10pt` | Card content spacing | Action card icon + text, mode selector |
+| `12pt` | Large button spacing | Voice input action buttons |
+
+**Examples from Codebase:**
+
+```swift
+// Main content spacing (12pt - default)
+VStack(spacing: 12) {
+    StatusHeader(pulsePhase: pulsePhase)
+    ActionQueue()
+    CommandGrid(showingVoiceInput: $showingVoiceInput)
+    ModeSelector()
+}
+
+// Status header (8pt - compact)
+VStack(spacing: 8) {
+    HStack(spacing: 8) {
+        // Status icon + label
+    }
+    if service.state.status == .running {
+        ProgressView(value: service.state.progress)
+    }
+}
+
+// Action card content (12pt vertical, 10pt horizontal)
+VStack(spacing: 12) {
+    HStack(spacing: 10) {
+        // Icon
+        VStack(alignment: .leading, spacing: 3) {
+            Text("Edit File")
+            Text("MainView.swift")
+        }
+    }
+
+    HStack(spacing: 8) {
+        // Reject and Approve buttons
+    }
+}
+
+// Empty state (16pt - large breathing room)
+VStack(spacing: 16) {
+    // Icon
+    // Title
+    // Subtitle
+    // Connection status
+}
+
+// Button with icon + label (4pt - tight)
+HStack(spacing: 4) {
+    Image(systemName: "checkmark")
+    Text("Approve")
+}
+```
+
+### Corner Radius Scale
+
+Rounded corners follow Apple's watchOS design language, with radius proportional to element size.
+
+| Element Type | Radius | Use Case | Example |
+|--------------|--------|----------|---------|
+| **Compact Cards** | 10pt | Small text fields, settings items | TextField backgrounds |
+| **Standard Cards** | 14pt | Compact action cards, voice command row | CompactActionCard |
+| **Primary Cards** | 16pt | Status header, mode selector, settings containers | StatusHeader, ModeSelector |
+| **Large Cards** | 20pt | Primary action card | PrimaryActionCard |
+| **Icon Containers (Small)** | 8pt | Compact card type icons | CompactActionCard icon |
+| **Icon Containers (Medium)** | 12pt | Primary card type icons, reconnecting card | PrimaryActionCard icon, ReconnectingView |
+| **Buttons/Pills** | `Capsule()` | All button backgrounds, badges | Approve/Reject buttons, pending badge |
+
+**Examples from Codebase:**
+
+```swift
+// Primary action card - large radius (20pt)
+.background(
+    RoundedRectangle(cornerRadius: 20)
+        .fill(.thinMaterial)
+)
+
+// Status header - standard radius (16pt)
+.background(
+    RoundedRectangle(cornerRadius: 16)
+        .fill(.ultraThinMaterial)
+)
+
+// Compact action card - medium radius (14pt)
+.background(
+    RoundedRectangle(cornerRadius: 14)
+        .fill(.ultraThinMaterial)
+)
+
+// Reconnecting banner - medium radius (12pt)
+.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+
+// Settings text field - small radius (10pt)
+.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+
+// Icon container - medium radius (12pt)
+RoundedRectangle(cornerRadius: 12)
+    .fill(LinearGradient(...))
+    .frame(width: 40, height: 40)
+
+// Icon container (compact) - small radius (8pt)
+RoundedRectangle(cornerRadius: 8)
+    .fill(typeColor.opacity(0.2))
+    .frame(width: 28, height: 28)
+
+// All buttons - capsule (fully rounded)
+.clipShape(Capsule())
+```
+
+### Layout Guidelines
+
+**watchOS Screen Constraints:**
+- **Screen width**: ~162-205pt (depending on watch size)
+- **Safe area margins**: 4-8pt horizontal (minimal by design)
+- **Vertical scrolling**: Preferred over horizontal scrolling
+- **Touch target minimum**: 44pt × 44pt (Apple HIG)
+
+**Best Practices:**
+
+1. **Minimize horizontal margins** - Use `.padding(.horizontal, 4)` for main content to maximize screen real estate
+2. **Use vertical layouts** - VStack is preferred over HStack for primary content
+3. **Stack spacing consistency** - Use 8pt or 12pt for most VStack/HStack spacing
+4. **Card hierarchy via radius** - Larger corner radius = more visual emphasis
+5. **Capsule for all buttons** - Fully rounded buttons follow watchOS conventions
 
 ---
 
