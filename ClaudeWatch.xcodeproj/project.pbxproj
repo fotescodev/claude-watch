@@ -25,6 +25,7 @@
 		VIEW006 /* ActionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC009 /* ActionViews.swift */; };
 		VIEW007 /* CommandViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC010 /* CommandViews.swift */; };
 		VIEW008 /* SheetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC012 /* SheetViews.swift */; };
+		MODEL001 /* ApprovalRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_MODEL001 /* ApprovalRequest.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,9 +61,18 @@
 		SRC009 /* ActionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionViews.swift; sourceTree = "<group>"; };
 		SRC010 /* CommandViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandViews.swift; sourceTree = "<group>"; };
 		SRC012 /* SheetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetViews.swift; sourceTree = "<group>"; };
+		SRC_MODEL001 /* ApprovalRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalRequest.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		GRP_MODELS /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				SRC_MODEL001 /* ApprovalRequest.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 		GRP_DESIGNSYSTEM /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (
@@ -145,6 +155,7 @@
 				86B9C9412F1965EB005C3830 /* ClaudeWatch.entitlements */,
 				GRP_APP /* App */,
 				GRP_DESIGNSYSTEM /* DesignSystem */,
+				GRP_MODELS /* Models */,
 				GRP_VIEWS /* Views */,
 				GRP_SERVICES /* Services */,
 				GRP_COMPLICATIONS /* Complications */,
@@ -264,6 +275,7 @@
 				VIEW008 /* SheetViews.swift in Sources */,
 				SVC001 /* WatchService.swift in Sources */,
 				CMP002 /* ComplicationViews.swift in Sources */,
+				MODEL001 /* ApprovalRequest.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
