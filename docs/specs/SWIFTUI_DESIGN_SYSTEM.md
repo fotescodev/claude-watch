@@ -754,6 +754,675 @@ ZStack {
 
 ---
 
+## Component Hierarchy & Architecture
+
+### Component Tree
+
+Claude Watch follows a hierarchical component architecture with clear separation of concerns. The main view conditionally renders different state-specific views, while shared components handle reusable UI patterns.
+
+```
+MainView (Root Container)
+├── [Conditional State Views]
+│   ├── AlwaysOnDisplayView (when isLuminanceReduced)
+│   ├── PairingView (when cloud mode && !paired)
+│   ├── OfflineStateView (when disconnected)
+│   ├── ReconnectingView (when reconnecting)
+│   ├── EmptyStateView (when no pending actions)
+│   └── mainContentView (default active state)
+│       ├── StatusHeader
+│       ├── ActionQueue (when pendingActions > 0)
+│       │   ├── PrimaryActionCard (first action)
+│       │   ├── CompactActionCard (additional actions)
+│       │   └── "Approve All" Button
+│       ├── CommandGrid (when pendingActions == 0)
+│       │   ├── CommandButton × 4 (2×2 grid)
+│       │   └── "Voice Command" Button
+│       └── ModeSelector
+├── [Modal Sheets]
+│   ├── VoiceInputSheet (sheet presentation)
+│   │   ├── RecordingBanner (when recording)
+│   │   ├── RecordingIndicator
+│   │   ├── TextField (with dictation)
+│   │   ├── Quick Suggestion Chips
+│   │   └── Action Buttons (Cancel/Send)
+│   └── SettingsSheet (sheet presentation)
+│       ├── Connection Status Indicator
+│       ├── Demo Mode Section (when isDemoMode)
+│       ├── Cloud Mode Section (when useCloudMode)
+│       ├── Server URL Input (when WebSocket mode)
+│       └── About Section (Version, Privacy, Support)
+└── [Toolbar]
+    └── Connection Status Button (top-right)
+```
+
+---
+
+### Component Documentation
+
+#### 1. MainView
+**Type:** Container View
+**Purpose:** Root view that manages app state and conditionally renders content based on connection status, pairing state, and pending actions.
+
+**State Properties:**
+```swift
+@ObservedObject private var service = WatchService.shared  // Global app state
+@State private var showingVoiceInput = false                // Voice sheet visibility
+@State private var showingSettings = false                  // Settings sheet visibility
+@State private var pulsePhase: CGFloat = 0                  // Animation phase for pulse effects
+```
+
+**Environment Variables:**
+```swift
+@Environment(\.isLuminanceReduced) var isLuminanceReduced   // Always-On Display detection
+@Environment(\.dynamicTypeSize) var dynamicTypeSize         // User's text size preference
+```
+
+**Scaled Metrics:**
+```swift
+@ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 12  // Toolbar icon size
+```
+
+**Conditional Rendering Logic:**
+1. If `isLuminanceReduced` → Show `AlwaysOnDisplayView` (simplified AOD UI)
+2. Else if cloud mode && not paired → Show `PairingView`
+3. Else if disconnected → Show `OfflineStateView`
+4. Else if reconnecting → Show `ReconnectingView` overlay
+5. Else if no pending actions && idle → Show `EmptyStateView`
+6. Else → Show `mainContentView` (active content)
+
+**Lifecycle:**
+- `onAppear`: Connects to WebSocket or starts cloud polling, initiates pulse animation
+
+---
+
+#### 2. StatusHeader
+**Type:** Display Component
+**Purpose:** Shows current session status, task name, progress bar, and pending action count.
+
+**Props:**
+```swift
+let pulsePhase: CGFloat  // Animation phase passed from MainView
+```
+
+**State Properties:**
+```swift
+@ObservedObject private var service = WatchService.shared  // Observes status changes
+```
+
+**Scaled Metrics:**
+```swift
+@ScaledMetric(relativeTo: .headline) private var statusIconContainerSize: CGFloat = 32
+@ScaledMetric(relativeTo: .headline) private var statusIconSize: CGFloat = 14
+@ScaledMetric(relativeTo: .body) private var badgeSize: CGFloat = 28
+@ScaledMetric(relativeTo: .caption) private var badgeFontSize: CGFloat = 13
+```
+
+**Features:**
+- Pulsing status icon (when running/waiting)
+- Progress bar (when running/waiting)
+- Pending count badge (when actions > 0)
+- Dynamic color based on status (idle=green, running=orange, failed=red)
+
+---
+
+#### 3. ActionQueue
+**Type:** List Container
+**Purpose:** Displays pending actions requiring approval, with primary card + compact list + bulk approve.
+
+**State Properties:**
+```swift
+@ObservedObject private var service = WatchService.shared
+@State private var approveAllPressed = false  // Button press animation state
+```
+
+**Child Components:**
+- `PrimaryActionCard` - First pending action (full detail)
+- `CompactActionCard` - Additional actions 2-3 (collapsed view)
+- Overflow indicator - "+X more" text (if > 3 actions)
+- "Approve All" button - Bulk approval (if > 1 action)
+
+**Layout:**
+```swift
+VStack(spacing: 8) {
+    PrimaryActionCard(action: first)
+    VStack(spacing: 6) {
+        ForEach(actions.dropFirst().prefix(2)) { action in
+            CompactActionCard(action: action)
+        }
+        if count > 3 { Text("+\(count - 3) more") }
+    }
+    if count > 1 { ApproveAllButton }
+}
+```
+
+---
+
+#### 4. PrimaryActionCard
+**Type:** Interactive Card
+**Purpose:** Displays detailed view of a single pending action with approve/reject buttons.
+
+**Props:**
+```swift
+let action: PendingAction  // The action to display
+```
+
+**State Properties:**
+```swift
+@ObservedObject private var service = WatchService.shared
+@State private var rejectPressed = false   // Reject button press state
+@State private var approvePressed = false  // Approve button press state
+```
+
+**Scaled Metrics:**
+```swift
+@ScaledMetric(relativeTo: .body) private var iconContainerSize: CGFloat = 40
+@ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 18
+```
+
+**Features:**
+- Type icon with gradient background (file_edit=orange, file_create=blue, file_delete=red, bash=purple)
+- Action title and file path (truncated to filename only)
+- Reject button (red gradient, left side)
+- Approve button (green gradient, right side)
+- Spring animation on button press (scale to 0.92)
+- Haptic feedback on tap (success/failure)
+
+**Actions:**
+- Calls `service.respondToCloudRequest()` (cloud mode) or `service.approveAction()`/`service.rejectAction()` (WebSocket mode)
+
+---
+
+#### 5. CompactActionCard
+**Type:** Display Component (non-interactive)
+**Purpose:** Shows condensed view of pending actions beyond the first.
+
+**Props:**
+```swift
+let action: PendingAction  // The action to display
+```
+
+**Scaled Metrics:**
+```swift
+@ScaledMetric(relativeTo: .footnote) private var iconContainerSize: CGFloat = 28
+@ScaledMetric(relativeTo: .footnote) private var iconSize: CGFloat = 12
+```
+
+**Features:**
+- Smaller type icon with tinted background (20% opacity)
+- Action title only (no file path)
+- No interactive buttons (tap opens detail view in future enhancement)
+
+---
+
+#### 6. CommandGrid
+**Type:** Interactive Grid
+**Purpose:** Provides quick-access command buttons for common actions when no pending actions exist.
+
+**Props:**
+```swift
+@Binding var showingVoiceInput: Bool  // Controls voice sheet presentation
+```
+
+**State Properties:**
+```swift
+@ObservedObject private var service = WatchService.shared
+```
+
+**Child Components:**
+- `CommandButton` × 4 (Go, Test, Fix, Stop) in 2×2 grid
+- "Voice Command" button - Opens voice input sheet
+
+**Layout:**
+```swift
+VStack(spacing: 8) {
+    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+        ForEach(commands) { CommandButton(...) }
+    }
+    VoiceCommandButton
+}
+```
+
+---
+
+#### 7. CommandButton
+**Type:** Interactive Button
+**Purpose:** Single command button that sends a predefined prompt to Claude Code.
+
+**Props:**
+```swift
+let icon: String   // SF Symbol name
+let label: String  // Button label
+let prompt: String // Prompt to send
+```
+
+**State Properties:**
+```swift
+@ObservedObject private var service = WatchService.shared
+@State private var isPressed = false  // Press animation state
+```
+
+**Scaled Metrics:**
+```swift
+@ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 18
+@ScaledMetric(relativeTo: .body) private var buttonHeight: CGFloat = 52
+```
+
+**Features:**
+- Orange icon + gray label
+- Spring animation on press (scale to 0.92)
+- Haptic click feedback
+- Calls `service.sendPrompt(prompt)` on tap
+
+---
+
+#### 8. ModeSelector
+**Type:** Interactive Toggle
+**Purpose:** Displays current permission mode and cycles through modes on tap (Normal → Auto-Accept → Plan).
+
+**State Properties:**
+```swift
+@ObservedObject private var service = WatchService.shared
+@State private var isPressed = false  // Press animation state
+```
+
+**Scaled Metrics:**
+```swift
+@ScaledMetric(relativeTo: .footnote) private var modeIconContainerSize: CGFloat = 28
+@ScaledMetric(relativeTo: .footnote) private var modeIconSize: CGFloat = 12
+```
+
+**Features:**
+- Mode icon in colored circle (blue=Normal, red=Auto-Accept, purple=Plan)
+- Mode name and description
+- Tinted background (subtle color wash)
+- Border stroke matching mode color
+- Spring animation on press (scale to 0.96 - subtle)
+- Calls `service.cycleMode()` on tap
+
+**Mode Colors:**
+| Mode | Icon | Color | Background |
+|------|------|-------|------------|
+| Normal | `hand.raised` | `Claude.info` | `Claude.surface1` |
+| Auto-Accept | `bolt.fill` | `Claude.danger` | `danger.opacity(0.1)` |
+| Plan | `doc.text` | `Color.purple` | `purple.opacity(0.1)` |
+
+---
+
+#### 9. VoiceInputSheet
+**Type:** Modal Sheet
+**Purpose:** Allows user to dictate or type a custom command to send to Claude Code.
+
+**State Properties:**
+```swift
+@ObservedObject private var service = WatchService.shared
+@Environment(\.dismiss) var dismiss  // Sheet dismissal
+@State private var transcribedText = ""  // User input
+@State private var showSentConfirmation = false  // Success feedback
+@State private var isRecording = false  // Dictation active
+```
+
+**Features:**
+- TextField with dictation support (watchOS native)
+- Recording indicator (red dot + pulse) when dictation active
+- Quick suggestion chips (Continue, Run tests, Fix errors, Commit)
+- Sending indicator (spinner + "Sending...")
+- Sent confirmation (checkmark + "Sent")
+- Cancel button (red tinted)
+- Send button (green, appears when text not empty)
+- Auto-dismisses 1s after successful send
+
+**Dictation Detection:**
+- Monitors `transcribedText` changes to detect recording start
+- Plays `.start` haptic when recording begins
+- Plays `.stop` haptic when recording ends (onSubmit)
+
+---
+
+#### 10. SettingsSheet
+**Type:** Modal Sheet
+**Purpose:** Displays connection status, pairing controls, demo mode toggle, server URL input (WebSocket), and app info.
+
+**State Properties:**
+```swift
+@ObservedObject private var service = WatchService.shared
+@Environment(\.dismiss) var dismiss
+@State private var serverURL: String = ""  // WebSocket URL input
+@State private var showingPairing = false  // Pairing sheet
+@State private var showingPrivacy = false  // Privacy info sheet
+```
+
+**Sections:**
+1. **Connection Status** - Colored dot + status text (connected/disconnected/reconnecting)
+2. **Demo Mode** (if active) - Warning badge + "Exit Demo Mode" button
+3. **Cloud Mode** (if enabled):
+   - **Paired** - Green checkmark + "Unpair" button
+   - **Not Paired** - Orange "Pair with Code" button
+4. **WebSocket Mode** (if enabled) - Server URL text field + Save/Cancel buttons
+5. **About Section**:
+   - Version number
+   - Privacy & Consent button → `PrivacyInfoView` sheet
+   - Privacy Policy link (external web)
+   - Support link (external web)
+
+---
+
+#### 11. EmptyStateView
+**Type:** State View
+**Purpose:** Displayed when connected but no pending actions exist (idle state).
+
+**State Properties:**
+```swift
+@ObservedObject private var service = WatchService.shared
+@State private var showingPairing = false  // Pairing sheet
+```
+
+**Scaled Metrics:**
+```swift
+@ScaledMetric(relativeTo: .title) private var iconContainerSize: CGFloat = 80
+@ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 32
+```
+
+**Features:**
+- Large centered icon (tray if paired, link.circle if not)
+- "All Clear" / "Not Paired" title
+- Connection status indicator (green dot if paired, orange if not)
+- "Pair with Code" button (if cloud mode && not paired)
+- "Load Demo" button (if paired or WebSocket mode)
+
+---
+
+#### 12. OfflineStateView
+**Type:** State View
+**Purpose:** Displayed when WebSocket connection is disconnected and not in demo mode.
+
+**State Properties:**
+```swift
+@ObservedObject private var service = WatchService.shared
+```
+
+**Scaled Metrics:**
+```swift
+@ScaledMetric(relativeTo: .title) private var iconContainerSize: CGFloat = 80
+@ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 32
+```
+
+**Features:**
+- Large wifi.slash icon
+- "Offline" title + "Can't connect to Claude" subtitle
+- "Retry" button (blue) - Calls `service.connect()`
+- "Demo Mode" button (orange text) - Loads demo data
+- Triple-tap icon - Hidden easter egg to load demo data
+
+---
+
+#### 13. ReconnectingView
+**Type:** Overlay Banner
+**Purpose:** Displays reconnection progress when WebSocket connection is lost.
+
+**Props:**
+```swift
+let status: ConnectionStatus  // Contains attempt number and retry countdown
+```
+
+**Features:**
+- Circular progress spinner (orange)
+- "Reconnecting..." text
+- Attempt count and next retry countdown (e.g., "Attempt 3 • 5s")
+- Glassmorphic background (.ultraThinMaterial)
+- Overlays on top of main content (does not replace it)
+
+---
+
+#### 14. AlwaysOnDisplayView
+**Type:** State View
+**Purpose:** Simplified view shown when watch enters Always-On Display mode (isLuminanceReduced).
+
+**Props:**
+```swift
+let connectionStatus: ConnectionStatus
+let pendingCount: Int
+let status: SessionStatus
+```
+
+**Scaled Metrics:**
+```swift
+@ScaledMetric(relativeTo: .title) private var statusIconSize: CGFloat = 36
+```
+
+**Features:**
+- Connection status indicator (dimmed color dot + text)
+- Large status icon (checkmark, play, clock, etc.)
+- Status text (Ready, Active, Waiting, etc.)
+- Pending count (if > 0)
+- All colors dimmed to 50-60% opacity per Apple HIG
+- No interactive elements (AOD is display-only)
+
+---
+
+### State Management Patterns
+
+#### @State
+Used for **local component state** that doesn't need to persist across navigation or be shared with other views.
+
+**Examples:**
+```swift
+// Button press animations
+@State private var isPressed = false
+@State private var approvePressed = false
+@State private var rejectPressed = false
+
+// Modal sheet visibility
+@State private var showingVoiceInput = false
+@State private var showingSettings = false
+@State private var showingPairing = false
+
+// Animation phases
+@State private var pulsePhase: CGFloat = 0
+@State private var pulseScale: CGFloat = 1.0
+
+// User input
+@State private var transcribedText = ""
+@State private var serverURL = ""
+
+// Temporary UI state
+@State private var showSentConfirmation = false
+@State private var isRecording = false
+```
+
+**Pattern:**
+- Always marked `private` (encapsulated within view)
+- Initialized with default value
+- Automatically triggers view re-render when changed
+- Does not persist when view is deallocated
+
+---
+
+#### @ObservedObject
+Used for **shared global state** managed by `WatchService.shared` singleton.
+
+**Examples:**
+```swift
+@ObservedObject private var service = WatchService.shared
+```
+
+**Observed Properties in WatchService:**
+```swift
+@Published var state: WatchState                  // Task status, pending actions, mode
+@Published var connectionStatus: ConnectionStatus // WebSocket connection state
+@Published var isDemoMode: Bool                   // Demo mode flag
+@Published var isPaired: Bool                     // Cloud pairing state
+@Published var pairingId: String                  // Cloud pairing ID
+@Published var isSendingPrompt: Bool              // Prompt submission state
+```
+
+**Pattern:**
+- Single source of truth for app-wide state
+- All views observe the same service instance
+- Changes propagate to all observing views automatically
+- State persists across view lifecycle
+
+---
+
+#### @Environment
+Used for **system-provided values** and **dependency injection**.
+
+**Examples:**
+```swift
+// Always-On Display detection
+@Environment(\.isLuminanceReduced) var isLuminanceReduced
+
+// Dynamic Type size
+@Environment(\.dynamicTypeSize) var dynamicTypeSize
+
+// Sheet dismissal
+@Environment(\.dismiss) var dismiss
+```
+
+**Pattern:**
+- Read-only access to SwiftUI environment
+- Automatically updated by system
+- Used for accessibility, presentation state, system settings
+
+---
+
+#### @ScaledMetric
+Used for **Dynamic Type support** - scales fixed sizes proportionally with user's text size preference.
+
+**Examples:**
+```swift
+// Icon sizes relative to text
+@ScaledMetric(relativeTo: .headline) private var statusIconSize: CGFloat = 14
+@ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 18
+@ScaledMetric(relativeTo: .footnote) private var compactIconSize: CGFloat = 12
+
+// Container sizes
+@ScaledMetric(relativeTo: .body) private var iconContainerSize: CGFloat = 40
+@ScaledMetric(relativeTo: .title) private var emptyStateIconSize: CGFloat = 80
+
+// Component dimensions
+@ScaledMetric(relativeTo: .body) private var buttonHeight: CGFloat = 52
+@ScaledMetric(relativeTo: .body) private var badgeSize: CGFloat = 28
+```
+
+**Pattern:**
+- Always paired with `relativeTo:` text style
+- Scales proportionally when user increases/decreases text size
+- Maintains visual hierarchy across all Dynamic Type sizes
+- Used for icons, spacing, and layout dimensions
+
+---
+
+#### @Binding
+Used for **two-way data flow** between parent and child components.
+
+**Examples:**
+```swift
+// CommandGrid receives binding from MainView
+struct CommandGrid: View {
+    @Binding var showingVoiceInput: Bool
+
+    var body: some View {
+        Button {
+            showingVoiceInput = true  // Modifies parent's @State
+        } label: {
+            Text("Voice Command")
+        }
+    }
+}
+
+// Usage in MainView
+CommandGrid(showingVoiceInput: $showingVoiceInput)
+```
+
+**Pattern:**
+- Child component can read AND write parent's state
+- Prefixed with `$` when passed from parent
+- Creates bidirectional binding
+- Used for sheet presentation, toggles, text input
+
+---
+
+### Component Communication
+
+#### Parent → Child (Props)
+**Pattern:** Pass immutable data as `let` properties.
+
+```swift
+// Parent
+PrimaryActionCard(action: pendingAction)
+
+// Child
+struct PrimaryActionCard: View {
+    let action: PendingAction  // Immutable prop
+}
+```
+
+---
+
+#### Child → Parent (Bindings)
+**Pattern:** Pass `@Binding` for child to modify parent state.
+
+```swift
+// Parent
+@State private var isVisible = false
+ChildView(isVisible: $isVisible)
+
+// Child
+struct ChildView: View {
+    @Binding var isVisible: Bool
+
+    func toggle() {
+        isVisible.toggle()  // Modifies parent
+    }
+}
+```
+
+---
+
+#### Global State (Singleton)
+**Pattern:** All components observe `WatchService.shared`.
+
+```swift
+// Any view
+@ObservedObject private var service = WatchService.shared
+
+// Modify shared state
+service.approveAction(id)
+service.cycleMode()
+service.connect()
+```
+
+---
+
+#### Sheet Presentation
+**Pattern:** Use `@State` + `.sheet(isPresented:)` modifier.
+
+```swift
+@State private var showingSheet = false
+
+Button { showingSheet = true } label: { Text("Open") }
+    .sheet(isPresented: $showingSheet) {
+        SheetView()
+    }
+```
+
+---
+
+### Architectural Principles
+
+1. **Single Source of Truth**: `WatchService.shared` holds all app state
+2. **Unidirectional Data Flow**: State changes flow from service → views
+3. **Component Composition**: Complex views built from small, focused components
+4. **Prop Drilling Avoidance**: Use `@ObservedObject` instead of passing props through multiple layers
+5. **Separation of Concerns**:
+   - **Views** - UI rendering, user interaction
+   - **WatchService** - Business logic, networking, state management
+   - **Models** - Data structures (PendingAction, WatchState, etc.)
+6. **Conditional Rendering**: MainView uses state-based view switching instead of navigation
+7. **Accessibility First**: All components use `@ScaledMetric`, `.accessibilityLabel()`, and support VoiceOver
+
+---
+
 ## Accessibility
 
 ### VoiceOver Support
