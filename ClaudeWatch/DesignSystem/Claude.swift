@@ -165,6 +165,22 @@ extension Animation {
     }
 }
 
+// MARK: - Typography Extensions
+extension Font {
+    /// Large title for screen headers (18pt bold)
+    static let claudeLargeTitle = Font.system(size: 18, weight: .bold)
+    /// Headline for section titles (15pt semibold)
+    static let claudeHeadline = Font.system(size: 15, weight: .semibold)
+    /// Body text (14pt regular)
+    static let claudeBody = Font.system(size: 14, weight: .regular)
+    /// Caption for secondary text (12pt regular)
+    static let claudeCaption = Font.system(size: 12, weight: .regular)
+    /// Footnote for tertiary text (11pt regular)
+    static let claudeFootnote = Font.system(size: 11, weight: .regular)
+    /// Monospaced for code/data (13pt monospaced)
+    static let claudeMono = Font.system(size: 13, weight: .medium, design: .monospaced)
+}
+
 // MARK: - Convenience Extensions
 extension View {
     /// Apply Claude card background style
@@ -193,9 +209,93 @@ extension View {
         }
     }
 
+    /// Apply interactive Liquid Glass effect (responds to touch)
+    /// Falls back to material background on older versions
+    @ViewBuilder
+    func glassEffectInteractive<S: Shape>(_ shape: S) -> some View {
+        if #available(watchOS 26.0, *) {
+            self.glassEffect(.regular.interactive(), in: shape)
+        } else {
+            self.background(shape.fill(.ultraThinMaterial))
+        }
+    }
+
     /// Apply Liquid Glass card style with rounded rectangle
     @ViewBuilder
     func liquidGlassCard(cornerRadius: CGFloat = Claude.Radius.large) -> some View {
         glassEffectCompat(RoundedRectangle(cornerRadius: cornerRadius))
     }
+
+    /// Apply interactive Liquid Glass card style (responds to touch)
+    @ViewBuilder
+    func liquidGlassCardInteractive(cornerRadius: CGFloat = Claude.Radius.large) -> some View {
+        glassEffectInteractive(RoundedRectangle(cornerRadius: cornerRadius))
+    }
+}
+
+// MARK: - Glass Button Style (watchOS 26+)
+/// Button style that uses Liquid Glass on watchOS 26+, falls back to material on older versions
+struct GlassButtonStyleCompat: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        GlassButtonLabel(configuration: configuration, isProminent: false)
+    }
+}
+
+/// Prominent glass button style for primary actions
+struct GlassProminentButtonStyleCompat: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        GlassButtonLabel(configuration: configuration, isProminent: true)
+    }
+}
+
+/// Helper view that applies glass effect based on OS availability
+private struct GlassButtonLabel: View {
+    let configuration: ButtonStyleConfiguration
+    let isProminent: Bool
+
+    var body: some View {
+        if #available(watchOS 26.0, *) {
+            configuration.label
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .glassEffect(isProminent ? .regular.tint(Claude.orange).interactive() : .regular.interactive())
+        } else {
+            if isProminent {
+                configuration.label
+                    .font(.body.weight(.bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Claude.orange, Claude.orange.opacity(0.8)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    )
+                    .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+                    .animation(.buttonSpring, value: configuration.isPressed)
+            } else {
+                configuration.label
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Capsule().fill(.ultraThinMaterial))
+                    .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+                    .animation(.buttonSpring, value: configuration.isPressed)
+            }
+        }
+    }
+}
+
+extension ButtonStyle where Self == GlassButtonStyleCompat {
+    /// Glass button style with backwards compatibility
+    static var glassCompat: GlassButtonStyleCompat { GlassButtonStyleCompat() }
+}
+
+extension ButtonStyle where Self == GlassProminentButtonStyleCompat {
+    /// Prominent glass button style with backwards compatibility
+    static var glassProminentCompat: GlassProminentButtonStyleCompat { GlassProminentButtonStyleCompat() }
 }

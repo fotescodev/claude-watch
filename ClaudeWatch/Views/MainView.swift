@@ -89,20 +89,34 @@ struct MainView: View {
 
     private var mainContentView: some View {
         ScrollView {
-            VStack(spacing: 12) {
-                // Status header
-                StatusHeader(pulsePhase: pulsePhase)
+            glassEffectContainerCompat {
+                VStack(spacing: 12) {
+                    // Status header
+                    StatusHeader(pulsePhase: pulsePhase)
 
-                // Pending actions
-                if !service.state.pendingActions.isEmpty {
-                    ActionQueue()
+                    // Pending actions
+                    if !service.state.pendingActions.isEmpty {
+                        ActionQueue()
+                    }
+
+                    // Mode selector
+                    ModeSelector()
                 }
-
-                // Mode selector
-                ModeSelector()
+                .padding(.horizontal, 4)
+                .padding(.bottom, 12)
             }
-            .padding(.horizontal, 4)
-            .padding(.bottom, 12)
+        }
+    }
+
+    /// Wraps content in GlassEffectContainer on watchOS 26+, otherwise returns content as-is
+    @ViewBuilder
+    private func glassEffectContainerCompat<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        if #available(watchOS 26.0, *) {
+            GlassEffectContainer(spacing: 12) {
+                content()
+            }
+        } else {
+            content()
         }
     }
 

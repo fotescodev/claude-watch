@@ -25,7 +25,7 @@ struct EmptyStateView: View {
 
             Spacer()
 
-            // Action buttons
+            // Action buttons - using glass styles
             VStack(spacing: 6) {
                 if !service.isPaired {
                     Button {
@@ -33,13 +33,9 @@ struct EmptyStateView: View {
                     } label: {
                         Text("Pair with Code")
                             .font(.caption.weight(.semibold))
-                            .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(Claude.orange)
-                            .clipShape(Capsule())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.glassProminentCompat)
                     .accessibilityLabel("Pair with Claude Code")
                 }
 
@@ -50,7 +46,7 @@ struct EmptyStateView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundColor(Claude.orange)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.glassCompat)
                 .accessibilityLabel("Try demo mode")
             }
             .padding(.horizontal, 20)
@@ -82,7 +78,7 @@ struct OfflineStateView: View {
                     .foregroundColor(Claude.textTertiaryContrast(colorSchemeContrast))
             }
             .frame(width: iconContainerSize, height: iconContainerSize)
-            .glassEffectCompat(Circle())
+            .glassEffectInteractive(Circle())
             .onTapGesture(count: 3) {
                 // Triple-tap to load demo data
                 service.loadDemoData()
@@ -100,23 +96,19 @@ struct OfflineStateView: View {
 
             // Buttons
             VStack(spacing: 10) {
-                // Retry button
+                // Retry button - using glass prominent style
                 Button {
                     service.connect()
                     WKInterfaceDevice.current().play(.click)
                 } label: {
                     Text("Retry")
                         .font(.body.weight(.semibold))
-                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Claude.info)
-                        .clipShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.glassProminentCompat)
                 .accessibilityLabel("Retry connection")
 
-                // Demo button
+                // Demo button - using glass style
                 Button {
                     service.loadDemoData()
                 } label: {
@@ -124,7 +116,7 @@ struct OfflineStateView: View {
                         .font(.footnote.weight(.semibold))
                         .foregroundColor(Claude.orange)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.glassCompat)
                 .accessibilityLabel("Enter demo mode")
             }
             .padding(.horizontal, 24)

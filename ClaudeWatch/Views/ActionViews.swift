@@ -293,7 +293,7 @@ struct PrimaryActionCard: View {
             }
         }
         .padding(14)
-        .glassEffectCompat(RoundedRectangle(cornerRadius: 20))
+        .glassEffectInteractive(RoundedRectangle(cornerRadius: 20))
         .sensoryFeedback(.error, trigger: didError)
     }
 
@@ -345,7 +345,7 @@ struct CompactActionCard: View {
             Spacer()
         }
         .padding(10)
-        .glassEffectCompat(RoundedRectangle(cornerRadius: 14))
+        .glassEffectInteractive(RoundedRectangle(cornerRadius: 14))
     }
 
     private var typeColor: Color {
