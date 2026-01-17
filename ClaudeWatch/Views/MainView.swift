@@ -16,6 +16,9 @@ struct MainView: View {
     // Accessibility: Reduce Motion support
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
+    // Accessibility: High Contrast support
+    @Environment(\.colorSchemeContrast) var colorSchemeContrast
+
     // Dynamic Type support
     @Environment(\.dynamicTypeSize) var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 12
@@ -141,6 +144,9 @@ struct StatusHeader: View {
     // Accessibility: Reduce Motion support
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
+    // Accessibility: High Contrast support
+    @Environment(\.colorSchemeContrast) var colorSchemeContrast
+
     // Dynamic Type support - scale icon sizes with text
     @ScaledMetric(relativeTo: .headline) private var statusIconContainerSize: CGFloat = 32
     @ScaledMetric(relativeTo: .headline) private var statusIconSize: CGFloat = 14
@@ -177,7 +183,7 @@ struct StatusHeader: View {
                     if !service.state.taskName.isEmpty {
                         Text(service.state.taskName)
                             .font(.caption2)
-                            .foregroundColor(Claude.textSecondary)
+                            .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
                             .lineLimit(1)
                     }
                 }

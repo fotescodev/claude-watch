@@ -40,6 +40,22 @@ public enum Claude {
     /// Tertiary text (40% white)
     static let textTertiary = Color(white: 0.4)
 
+    // MARK: - High Contrast Support
+    /// Returns text secondary color adjusted for high contrast mode
+    static func textSecondaryContrast(_ contrast: ColorSchemeContrast) -> Color {
+        contrast == .increased ? Color(white: 0.75) : textSecondary
+    }
+
+    /// Returns text tertiary color adjusted for high contrast mode
+    static func textTertiaryContrast(_ contrast: ColorSchemeContrast) -> Color {
+        contrast == .increased ? Color(white: 0.6) : textTertiary
+    }
+
+    /// Returns border color for high contrast mode
+    static func borderContrast(_ contrast: ColorSchemeContrast) -> Color {
+        contrast == .increased ? Color(white: 0.5) : Color.clear
+    }
+
     // MARK: - Materials
     /// Material presets for glass effects
     enum Materials {

@@ -6,6 +6,9 @@ struct EmptyStateView: View {
     @ObservedObject private var service = WatchService.shared
     @State private var showingPairing = false
 
+    // Accessibility: High Contrast support
+    @Environment(\.colorSchemeContrast) var colorSchemeContrast
+
     // Dynamic Type support
     @ScaledMetric(relativeTo: .title) private var iconContainerSize: CGFloat = 80
     @ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 32
@@ -20,7 +23,7 @@ struct EmptyStateView: View {
 
                 Image(systemName: service.isPaired ? "tray" : "link.circle")
                     .font(.system(size: iconSize, weight: .light))
-                    .foregroundColor(Claude.textTertiary)
+                    .foregroundColor(Claude.textTertiaryContrast(colorSchemeContrast))
             }
 
             // Text
@@ -31,7 +34,7 @@ struct EmptyStateView: View {
 
             Text(service.isPaired ? "No pending actions" : "Connect to Claude Code")
                 .font(.footnote)
-                .foregroundColor(Claude.textSecondary)
+                .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
 
             // Connection status
             HStack(spacing: 6) {
@@ -40,7 +43,7 @@ struct EmptyStateView: View {
                     .frame(width: 6, height: 6)
                 Text(service.isPaired ? "Connected" : "Awaiting pairing")
                     .font(.caption2)
-                    .foregroundColor(Claude.textTertiary)
+                    .foregroundColor(Claude.textTertiaryContrast(colorSchemeContrast))
             }
             .padding(.top, 8)
 
@@ -88,6 +91,9 @@ struct EmptyStateView: View {
 struct OfflineStateView: View {
     @ObservedObject private var service = WatchService.shared
 
+    // Accessibility: High Contrast support
+    @Environment(\.colorSchemeContrast) var colorSchemeContrast
+
     // Dynamic Type support
     @ScaledMetric(relativeTo: .title) private var iconContainerSize: CGFloat = 80
     @ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 32
@@ -102,7 +108,7 @@ struct OfflineStateView: View {
 
                 Image(systemName: "wifi.slash")
                     .font(.system(size: iconSize, weight: .light))
-                    .foregroundColor(Claude.textTertiary)
+                    .foregroundColor(Claude.textTertiaryContrast(colorSchemeContrast))
             }
             .onTapGesture(count: 3) {
                 // Triple-tap to load demo data
@@ -117,7 +123,7 @@ struct OfflineStateView: View {
 
             Text("Can't connect to Claude")
                 .font(.footnote)
-                .foregroundColor(Claude.textSecondary)
+                .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
 
             // Buttons
             VStack(spacing: 10) {
@@ -199,6 +205,9 @@ struct AlwaysOnDisplayView: View {
     let pendingCount: Int
     let status: SessionStatus
 
+    // Accessibility: High Contrast support
+    @Environment(\.colorSchemeContrast) var colorSchemeContrast
+
     // Dynamic Type support
     @ScaledMetric(relativeTo: .title) private var statusIconSize: CGFloat = 36
 
@@ -212,14 +221,14 @@ struct AlwaysOnDisplayView: View {
 
                 Text(connectionStatus.displayName)
                     .font(.headline)
-                    .foregroundColor(Claude.textSecondary)
+                    .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
             }
 
             // Simplified status display
             VStack(spacing: 8) {
                 Image(systemName: statusIcon)
                     .font(.system(size: statusIconSize, weight: .light))
-                    .foregroundColor(Claude.textSecondary)
+                    .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
 
                 Text(statusText)
                     .font(.title3)
@@ -229,7 +238,7 @@ struct AlwaysOnDisplayView: View {
                 if pendingCount > 0 {
                     Text("\(pendingCount) pending")
                         .font(.caption)
-                        .foregroundColor(Claude.textSecondary)
+                        .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
                 }
             }
         }
