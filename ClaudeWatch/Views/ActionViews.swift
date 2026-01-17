@@ -100,6 +100,7 @@ struct PrimaryActionCard: View {
                     Image(systemName: action.icon)
                         .font(.system(size: iconSize, weight: .semibold))
                         .foregroundColor(.white)
+                        .symbolEffect(.bounce, options: .nonRepeating, isActive: !reduceMotion)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {

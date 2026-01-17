@@ -205,6 +205,9 @@ struct AlwaysOnDisplayView: View {
     let pendingCount: Int
     let status: SessionStatus
 
+    // Accessibility: Reduce Motion support
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
     // Accessibility: High Contrast support
     @Environment(\.colorSchemeContrast) var colorSchemeContrast
 
@@ -229,6 +232,7 @@ struct AlwaysOnDisplayView: View {
                 Image(systemName: statusIcon)
                     .font(.system(size: statusIconSize, weight: .light))
                     .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
+                    .contentTransition(.symbolEffect(.replace))
 
                 Text(statusText)
                     .font(.title3)

@@ -173,6 +173,8 @@ struct StatusHeader: View {
                     Image(systemName: statusIcon)
                         .font(.system(size: statusIconSize, weight: .bold))
                         .foregroundColor(statusColor)
+                        .symbolEffect(.pulse, options: .repeating, isActive: isStatusActive && !reduceMotion)
+                        .contentTransition(.symbolEffect(.replace))
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -249,6 +251,10 @@ struct StatusHeader: View {
         case .completed: return Claude.success
         case .failed: return Claude.danger
         }
+    }
+
+    private var isStatusActive: Bool {
+        service.state.status == .running || service.state.status == .waiting
     }
 }
 
