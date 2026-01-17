@@ -594,64 +594,576 @@ RoundedRectangle(cornerRadius: 8)
 
 ---
 
-## Animation System
+## Animation & Interaction Patterns
+
+Claude Watch uses **physics-based animations** and **tactile interaction patterns** to create a natural, responsive user experience on the watch. All animations are optimized for watchOS performance and battery efficiency.
+
+---
 
 ### Spring Animations
 
-Claude Watch uses **spring physics** for natural, responsive interactions.
+Spring animations provide natural, physics-based motion that feels organic and responsive. Claude Watch defines three standard spring types as `Animation` extensions.
 
-**Standard Springs:**
+#### Spring Animation Types
+
+**1. Button Spring (`.buttonSpring`)**
+
+Fast, responsive spring for interactive buttons and toggles.
 
 ```swift
-extension Animation {
-    /// Standard spring for interactive buttons (35ms response, 70% damping)
-    static var buttonSpring: Animation {
-        .spring(response: 0.35, dampingFraction: 0.7, blendDuration: 0)
-    }
+static var buttonSpring: Animation {
+    .spring(response: 0.35, dampingFraction: 0.7, blendDuration: 0)
+}
+```
 
-    /// Bouncy spring for attention-grabbing elements (200 stiffness, 15 damping)
-    static var bouncySpring: Animation {
-        .interpolatingSpring(stiffness: 200, damping: 15)
-    }
+**Physics Parameters:**
+- **Response**: 0.35s (350ms) - Fast reaction time
+- **Damping Fraction**: 0.7 (70%) - Moderate bounce, settles quickly
+- **Blend Duration**: 0 - No interpolation with other animations
 
-    /// Gentle spring for subtle transitions (50ms response, 80% damping)
-    static var gentleSpring: Animation {
-        .spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0)
+**When to Use:**
+- ✅ Primary action buttons (Approve, Reject)
+- ✅ Command buttons (Go, Test, Fix, Stop)
+- ✅ Interactive cards with press states
+- ✅ Modal dismiss gestures
+- ❌ Background status changes (too fast/distracting)
+- ❌ Continuous animations (use pulse instead)
+
+**Examples from Codebase:**
+```swift
+// Primary action button press
+.scaleEffect(approvePressed ? 0.92 : 1.0)
+.animation(.buttonSpring, value: approvePressed)
+
+// Command button interaction
+.scaleEffect(isPressed ? 0.92 : 1.0)
+.animation(.buttonSpring, value: isPressed)
+
+// Reject button press
+.scaleEffect(rejectPressed ? 0.92 : 1.0)
+.animation(.buttonSpring, value: rejectPressed)
+```
+
+---
+
+**2. Bouncy Spring (`.bouncySpring`)**
+
+Energetic spring with pronounced bounce for attention-grabbing elements.
+
+```swift
+static var bouncySpring: Animation {
+    .interpolatingSpring(stiffness: 200, damping: 15)
+}
+```
+
+**Physics Parameters:**
+- **Stiffness**: 200 - High resistance to compression
+- **Damping**: 15 - Low damping allows multiple oscillations
+- **Result**: Visible bounce effect (~2-3 oscillations before settling)
+
+**When to Use:**
+- ✅ Approve All button (bulk positive action)
+- ✅ Badge appearance animations (pending count)
+- ✅ Success confirmation popups
+- ✅ Attention-grabbing state changes
+- ❌ Subtle UI transitions (too energetic)
+- ❌ Frequent interactions (can feel jarring)
+
+**Examples from Codebase:**
+```swift
+// Approve All button press (celebratory bounce)
+.scaleEffect(approveAllPressed ? 0.95 : 1.0)
+.animation(.bouncySpring, value: approveAllPressed)
+
+// Badge pop-in animation (future enhancement)
+.scaleEffect(showBadge ? 1.0 : 0.0)
+.opacity(showBadge ? 1.0 : 0.0)
+.animation(.bouncySpring, value: showBadge)
+```
+
+---
+
+**3. Gentle Spring (`.gentleSpring`)**
+
+Smooth, slow spring for subtle transitions and background state changes.
+
+```swift
+static var gentleSpring: Animation {
+    .spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0)
+}
+```
+
+**Physics Parameters:**
+- **Response**: 0.5s (500ms) - Slower reaction time
+- **Damping Fraction**: 0.8 (80%) - Minimal bounce, smooth settle
+- **Blend Duration**: 0 - No interpolation with other animations
+
+**When to Use:**
+- ✅ Content transitions (empty state → pending actions)
+- ✅ Sheet presentations (voice input, settings)
+- ✅ Mode selector changes (Normal → Auto-Accept → Plan)
+- ✅ Status color transitions (connected → disconnected)
+- ❌ Button press feedback (too slow for immediate interaction)
+- ❌ User-initiated actions (not responsive enough)
+
+**Examples from Codebase:**
+```swift
+// Mode selector press (subtle feedback)
+.scaleEffect(isPressed ? 0.96 : 1.0)
+.animation(.buttonSpring, value: isPressed)  // Note: Currently uses buttonSpring
+
+// Future usage: Content fade transitions
+.opacity(isVisible ? 1.0 : 0.0)
+.animation(.gentleSpring, value: isVisible)
+```
+
+**Note:** Currently underutilized in codebase. Recommended for future enhancements:
+- Reconnecting banner slide-in
+- Status color transitions
+- Empty state appearance
+
+---
+
+### Scale Effect Patterns
+
+Scale transforms provide tactile feedback for button presses, creating the illusion of physical depth on the flat watch screen.
+
+#### Button Press Scale Values
+
+Different button types use different scale factors based on visual weight and importance:
+
+| Scale Factor | Use Case | Button Type | Examples |
+|--------------|----------|-------------|----------|
+| **0.96** | Subtle press | Low-emphasis buttons, toggles | Mode selector |
+| **0.92** | Medium press | Primary actions, standard buttons | Approve, Reject, Command buttons |
+| **0.95** | Light press | Bulk actions, special states | Approve All |
+| **0.88** | Heavy press | Destructive actions (future use) | Delete All, Reset |
+
+#### Implementation Pattern
+
+All button press interactions follow this pattern:
+
+```swift
+struct InteractiveButton: View {
+    @State private var isPressed = false
+
+    var body: some View {
+        Button {
+            // Action
+            WKInterfaceDevice.current().play(.click)  // Haptic feedback
+        } label: {
+            Text("Button")
+                .scaleEffect(isPressed ? 0.92 : 1.0)  // Scale down on press
+                .animation(.buttonSpring, value: isPressed)  // Spring animation
+        }
+        .buttonStyle(.plain)  // Disable default button style
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)  // Track touch down/up
+                .onChanged { _ in isPressed = true }   // Touch down
+                .onEnded { _ in isPressed = false }     // Touch up
+        )
     }
 }
 ```
 
-**Usage:**
-```swift
-// Button press feedback
-.scaleEffect(isPressed ? 0.92 : 1.0)
-.animation(.buttonSpring, value: isPressed)
+**Key Components:**
+1. **@State isPressed** - Tracks touch state
+2. **.scaleEffect()** - Applies scale transform
+3. **.animation()** - Animates scale changes with spring physics
+4. **.buttonStyle(.plain)** - Removes default button styling
+5. **.simultaneousGesture()** - Captures touch events without blocking button action
+6. **DragGesture(minimumDistance: 0)** - Immediate touch detection (no drag required)
+7. **WKInterfaceDevice.current().play()** - Haptic feedback on action
 
-// Attention-grabbing pop
-.scaleEffect(showBadge ? 1.0 : 0.8)
-.animation(.bouncySpring, value: showBadge)
+#### Real Examples from Codebase
+
+**Primary Action Buttons (0.92 scale):**
+
+```swift
+// Approve button in PrimaryActionCard
+@State private var approvePressed = false
+
+Button {
+    service.approveAction(action.id)
+    WKInterfaceDevice.current().play(.success)
+} label: {
+    HStack(spacing: 4) {
+        Image(systemName: "checkmark")
+        Text("Approve")
+    }
+    .frame(maxWidth: .infinity)
+    .padding(.vertical, 14)
+    .foregroundColor(.white)
+    .background(
+        LinearGradient(
+            colors: [Claude.success, Claude.success.opacity(0.8)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    )
+    .clipShape(Capsule())
+    .scaleEffect(approvePressed ? 0.92 : 1.0)
+    .animation(.buttonSpring, value: approvePressed)
+}
+.buttonStyle(.plain)
+.simultaneousGesture(
+    DragGesture(minimumDistance: 0)
+        .onChanged { _ in approvePressed = true }
+        .onEnded { _ in approvePressed = false }
+)
 ```
+
+**Mode Selector (0.96 scale - subtle):**
+
+```swift
+// Mode selector in ModeSelector component
+@State private var isPressed = false
+
+Button {
+    service.cycleMode()
+    WKInterfaceDevice.current().play(.click)
+} label: {
+    // Mode selector UI
+    .scaleEffect(isPressed ? 0.96 : 1.0)
+    .animation(.buttonSpring, value: isPressed)
+}
+.simultaneousGesture(
+    DragGesture(minimumDistance: 0)
+        .onChanged { _ in isPressed = true }
+        .onEnded { _ in isPressed = false }
+)
+```
+
+**Approve All Button (0.95 scale with bouncySpring):**
+
+```swift
+// Approve All in ActionQueue
+@State private var approveAllPressed = false
+
+Button {
+    service.approveAll()
+    WKInterfaceDevice.current().play(.success)
+} label: {
+    Text("Approve All (\(count))")
+        .scaleEffect(approveAllPressed ? 0.95 : 1.0)
+        .animation(.bouncySpring, value: approveAllPressed)  // Note: bouncy for celebration
+}
+.simultaneousGesture(
+    DragGesture(minimumDistance: 0)
+        .onChanged { _ in approveAllPressed = true }
+        .onEnded { _ in approveAllPressed = false }
+)
+```
+
+#### Why Scale Instead of Opacity or Other Effects?
+
+**✅ Scale Transform Advantages:**
+- Creates illusion of physical depth (button "presses in")
+- Works well on OLED (doesn't affect pixel brightness)
+- Minimal performance impact (GPU-accelerated)
+- Maintains accessibility (unlike opacity)
+- Natural pairing with spring physics
+
+**❌ Alternatives (Not Recommended):**
+- **Opacity change**: Reduces contrast, harms accessibility
+- **Color darkening**: Inconsistent across materials, less noticeable
+- **Shadow effects**: Too subtle on small watch screen
+- **Rotation**: Confusing, no clear "pressed" state
+
+---
 
 ### Pulse Animations
 
-Used for status indicators and live activity feedback.
+Pulse animations draw attention to live status indicators and ongoing operations without user interaction.
+
+#### Pulse Types
+
+**1. Status Pulse (Slow, 2.0s)**
+
+Used for ambient status indication in the status header when tasks are running or waiting.
 
 ```swift
-// Recording indicator pulse
+// In MainView.onAppear
+private func startPulse() {
+    withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+        pulsePhase = 1
+    }
+}
+
+// In StatusHeader
+Circle()
+    .fill(statusColor.opacity(0.3))
+    .frame(width: statusIconContainerSize, height: statusIconContainerSize)
+    .scaleEffect(1 + pulsePhase * 0.2)  // Scale from 1.0 to 1.2
+```
+
+**Parameters:**
+- Duration: 2.0s (slow, calming)
+- Animation: `.easeInOut` (smooth acceleration/deceleration)
+- Repeat: `.repeatForever(autoreverses: true)` (infinite loop)
+- Scale range: 1.0 → 1.2 (20% growth)
+
+**When to Use:**
+- ✅ Status header when task is running
+- ✅ Status header when waiting for response
+- ✅ Background activity indicators
+- ❌ Urgent notifications (too slow)
+- ❌ Recording indicators (use fast pulse)
+
+**Visual Effect:**
+- Outer ring gently expands and contracts
+- Draws subtle attention without distraction
+- Indicates "something is happening" in background
+
+---
+
+**2. Recording Pulse (Fast, 0.8s)**
+
+Used for recording indicators to comply with privacy requirements and grab immediate attention.
+
+```swift
+// Recording indicator (VoiceInputSheet)
 withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
     pulseScale = 1.5
     pulseOpacity = 0.3
 }
 
-// Status header pulse (running/waiting states)
-Circle()
-    .scaleEffect(1 + pulsePhase * 0.2)
+// Visual implementation
+ZStack {
+    // Pulsing outer ring
+    Circle()
+        .fill(Color.red.opacity(pulseOpacity))  // Fades in/out
+        .frame(width: 20, height: 20)
+        .scaleEffect(pulseScale)  // Expands from 1.0 to 1.5
+
+    // Solid inner dot
+    Circle()
+        .fill(Color.red)
+        .frame(width: 8, height: 8)
+}
 ```
 
-**Duration Guidelines:**
-- **Fast pulse** (0.5-0.8s): Active recording, urgent attention
-- **Medium pulse** (1.0-1.5s): Background activity
-- **Slow pulse** (2.0s): Ambient status indication
+**Parameters:**
+- Duration: 0.8s (fast, urgent)
+- Animation: `.easeInOut` (smooth)
+- Repeat: `.repeatForever(autoreverses: true)`
+- Scale range: 1.0 → 1.5 (50% growth)
+- Opacity range: 1.0 → 0.3 (fade out)
+
+**When to Use:**
+- ✅ Voice recording active
+- ✅ Microphone in use (privacy requirement)
+- ✅ Real-time data streaming
+- ❌ Background tasks (too urgent/distracting)
+- ❌ Static status (not ongoing operation)
+
+**Privacy Compliance:**
+- **Red color** is required by Apple for recording indicators
+- **Pulse animation** ensures user cannot miss recording state
+- **Always visible** when microphone is active
+
+---
+
+#### Pulse Duration Guidelines
+
+| Duration | Speed | Use Case | Example |
+|----------|-------|----------|---------|
+| **0.5-0.8s** | Fast | Active recording, urgent attention | Recording indicator, critical alerts |
+| **1.0-1.5s** | Medium | Background activity, processing | Data sync, loading states |
+| **2.0s+** | Slow | Ambient status, subtle indication | Status header (running/waiting) |
+
+---
+
+### Material Backgrounds
+
+SwiftUI materials provide glassmorphic effects that adapt to background content, creating depth and visual hierarchy. Materials are preferred over solid surface colors for overlays and cards.
+
+#### Material Types
+
+| Material | Opacity | Blur | Use Case |
+|----------|---------|------|----------|
+| `.ultraThinMaterial` | Very low (10-15%) | High | Compact cards, secondary containers, overlays |
+| `.thinMaterial` | Low (20-30%) | Medium | Primary cards, important containers |
+| `.regularMaterial` | Medium (40-50%) | Low | Rarely used on watchOS (too opaque) |
+| `.thickMaterial` | High (60-70%) | Very low | Not used (too heavy for watch) |
+
+#### Usage Guidelines
+
+**Use `.ultraThinMaterial` for:**
+- Status header background
+- Compact action cards
+- Mode selector background
+- Command grid buttons
+- Settings UI backgrounds
+- Reconnecting banner
+
+**Use `.thinMaterial` for:**
+- Primary action card background
+- Voice input suggestion chips
+- Modal sheet overlays (future use)
+
+**Use solid colors for:**
+- Buttons (Approve, Reject) - Require strong contrast
+- Badges - Must be highly visible
+- Icon containers - Need solid color identity
+
+#### Real Examples
+
+**Status Header (ultraThin):**
+
+```swift
+VStack(spacing: 8) {
+    // Status content
+}
+.padding(12)
+.background(
+    RoundedRectangle(cornerRadius: 16)
+        .fill(.ultraThinMaterial)  // Subtle glassmorphic effect
+)
+```
+
+**Primary Action Card (thin):**
+
+```swift
+VStack(spacing: 12) {
+    // Action card content
+}
+.padding(14)
+.background(
+    RoundedRectangle(cornerRadius: 20)
+        .fill(.thinMaterial)  // More prominent glassmorphic effect
+)
+```
+
+**Compact Action Card (ultraThin):**
+
+```swift
+HStack(spacing: 8) {
+    // Compact content
+}
+.padding(10)
+.background(
+    RoundedRectangle(cornerRadius: 14)
+        .fill(.ultraThinMaterial)
+)
+```
+
+**Buttons (solid colors, NOT materials):**
+
+```swift
+// Approve button - needs strong contrast, no material
+.background(
+    LinearGradient(
+        colors: [Claude.success, Claude.success.opacity(0.8)],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+)
+.clipShape(Capsule())
+```
+
+#### Material + Shape Pattern
+
+Materials are always paired with shapes (RoundedRectangle, Capsule, Circle) to define clipping bounds:
+
+```swift
+// ✅ CORRECT - Material with shape
+.background(
+    RoundedRectangle(cornerRadius: 16)
+        .fill(.ultraThinMaterial)
+)
+
+// ✅ CORRECT - Shorthand with in: parameter
+.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+
+// ❌ INCORRECT - Material without shape (no corner radius)
+.background(.ultraThinMaterial)
+```
+
+#### Material Benefits
+
+**Advantages:**
+- ✅ Adapts to background content (dynamic)
+- ✅ Provides depth without heavy opacity
+- ✅ Maintains legibility over varied backgrounds
+- ✅ Follows Apple's watchOS design language
+- ✅ Better battery efficiency than full opacity layers
+
+**When NOT to Use:**
+- ❌ Buttons requiring high contrast (use solid colors)
+- ❌ Badges and labels (use solid backgrounds)
+- ❌ Icon containers (use solid color for type identity)
+- ❌ Alert dialogs (future - use system styles)
+
+---
+
+### Animation Performance Optimization
+
+watchOS has limited GPU resources - animations must be lightweight.
+
+**Best Practices:**
+- ✅ Use `.animation(_, value:)` modifier (SwiftUI explicit animations)
+- ✅ Animate only necessary properties (scale, opacity, offset)
+- ✅ Limit simultaneous animations (max 3-4 at once)
+- ✅ Use `withAnimation` for one-off transitions
+- ❌ Avoid `.animation()` without value parameter (implicit, less performant)
+- ❌ Don't animate complex shapes or gradients if avoidable
+- ❌ Avoid animating large images or complex views
+
+**GPU-Accelerated Properties (Fast):**
+- `scaleEffect()` ✅
+- `opacity()` ✅
+- `offset()` ✅
+- `rotationEffect()` ✅
+
+**CPU-Heavy Properties (Slow):**
+- `frame()` ⚠️
+- `padding()` ⚠️
+- Color interpolation ⚠️
+- Shape morphing ⚠️
+
+---
+
+### Interaction Timing
+
+All animations are synchronized with haptic feedback for cohesive user experience.
+
+**Timing Pattern:**
+
+```swift
+Button {
+    // 1. Trigger action immediately
+    service.approveAction(id)
+
+    // 2. Play haptic feedback (same frame)
+    WKInterfaceDevice.current().play(.success)
+
+    // 3. Animation plays automatically via @State change
+} label: {
+    Text("Approve")
+        .scaleEffect(isPressed ? 0.92 : 1.0)  // Animation
+        .animation(.buttonSpring, value: isPressed)
+}
+.simultaneousGesture(
+    DragGesture(minimumDistance: 0)
+        .onChanged { _ in
+            isPressed = true  // Triggers animation instantly
+        }
+        .onEnded { _ in
+            isPressed = false  // Triggers release animation
+        }
+)
+```
+
+**Timeline:**
+1. **T+0ms**: User touches button → `isPressed = true`
+2. **T+0ms**: Scale animation begins (0.92 scale)
+3. **T+0ms**: Haptic feedback plays
+4. **T+~200ms**: User lifts finger → `isPressed = false`
+5. **T+~200ms**: Scale animation reverses (1.0 scale)
+6. **T+~550ms**: Animation completes (350ms spring response + 200ms settle)
+
+**Critical Rule:** Haptics MUST play in the same frame as visual feedback begins. Delayed haptics feel disconnected and reduce perceived responsiveness.
 
 ---
 
