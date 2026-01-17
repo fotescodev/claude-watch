@@ -203,6 +203,14 @@ get_workers() {
     printf '%s\n' "${workers[@]}"
 }
 
+generate_sparkline() {
+    # Generate sparkline from space-delimited numbers
+    # Args: $1 - space-delimited numbers (e.g., "100 150 220 180")
+    # Returns: unicode sparkline characters or fallback pattern
+    local data="$1"
+    echo "$data" | spark 2>/dev/null || echo "▁▁▁▁▁▁▁▁"
+}
+
 #───────────────────────────────────────────────────────────────────────────────
 # RENDER ENGINE
 #───────────────────────────────────────────────────────────────────────────────
