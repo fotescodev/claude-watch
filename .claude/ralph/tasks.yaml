@@ -1882,7 +1882,7 @@ tasks:
       ```
     priority: high
     parallel_group: 18
-    completed: false
+    completed: true
     verification: |
       grep -q 'CompactModeSelector' ClaudeWatch/Views/CommandViews.swift && exit 0 || exit 1
     acceptance_criteria:

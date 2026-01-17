@@ -190,6 +190,74 @@ struct ModeSelector: View {
     }
 }
 
+// MARK: - Compact Mode Selector
+/// Single-line mode selector for glanceable design
+struct CompactModeSelector: View {
+    @ObservedObject private var service = WatchService.shared
+
+    // Accessibility: Reduce Motion support
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
+    // Spring animation state
+    @State private var isPressed = false
+    @State private var didChangeMode = false
+
+    var body: some View {
+        Button {
+            service.cycleMode()
+            didChangeMode.toggle()
+            announceModChange()
+        } label: {
+            HStack {
+                Image(systemName: modeIcon)
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(modeColor)
+
+                Text(service.state.mode.displayName)
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(modeColor)
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption2)
+                    .foregroundColor(Claude.textTertiary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(modeColor.opacity(0.15))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .scaleEffect(isPressed && !reduceMotion ? 0.96 : 1.0)
+            .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: isPressed)
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
+        .accessibilityLabel("Current mode: \(service.state.mode.displayName). Tap to change mode")
+        .sensoryFeedback(.selection, trigger: didChangeMode)
+    }
+
+    private var modeIcon: String {
+        service.state.mode.icon
+    }
+
+    private var modeColor: Color {
+        switch service.state.mode {
+        case .normal: return Claude.info
+        case .autoAccept: return Claude.danger
+        case .plan: return Color.purple
+        }
+    }
+
+    private func announceModChange() {
+        let announcement = "Mode changed to \(service.state.mode.displayName)"
+        AccessibilityNotification.Announcement(announcement).post()
+    }
+}
+
 // MARK: - Previews
 #Preview("Command Grid") {
     CommandGrid(showingVoiceInput: .constant(false))
@@ -204,5 +272,10 @@ struct ModeSelector: View {
 
 #Preview("Mode Selector") {
     ModeSelector()
+        .padding()
+}
+
+#Preview("Compact Mode Selector") {
+    CompactModeSelector()
         .padding()
 }

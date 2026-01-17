@@ -1,0 +1,87 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claude Watch Mascot Icon</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#D97757",
+            "primary-dark": "#BF6446",
+            "background-light": "#F5F5F5",
+            "background-dark": "#121212",
+            "card-dark": "#1A1A1A",
+          },
+          fontFamily: {
+            display: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"],
+          },
+          borderRadius: {
+            DEFAULT: "1rem",
+            'xl': '1.5rem',
+            '2xl': '2rem',
+            '3xl': '2.5rem',
+          },
+          animation: {
+            'scan': 'scan 2.5s ease-in-out infinite',
+          },
+          keyframes: {
+            scan: {
+              '0%, 100%': { top: '0%' },
+              '50%': { top: '100%' },
+            }
+          }
+        },
+      },
+    };
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .app-icon-squircle {
+        border-radius: 22%;
+      }
+      .watch-case {
+        border-radius: 24% / 21%;
+      }
+      .pixel-art {
+        image-rendering: pixelated;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #D97757;
+        border-radius: 10px;
+      }
+    }
+    body {
+      min-height: 100dvh;
+    }
+  </style>
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.36.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
+  <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
