@@ -679,13 +679,32 @@ class WatchService: ObservableObject {
     func sendPrompt(_ text: String) {
         isSendingPrompt = true
 
-        send([
-            "type": "prompt",
-            "text": text
-        ])
+        Task { @MainActor in
+            defer { isSendingPrompt = false }
 
-        isSendingPrompt = false
-        playHaptic(.success)
+            let message: [String: Any] = [
+                "type": "prompt",
+                "text": text
+            ]
+
+            // Wait for send to complete using async wrapper
+            await withCheckedContinuation { continuation in
+                guard connectionStatus.isConnected else {
+                    queueMessage(message, priority: .normal)
+                    continuation.resume()
+                    return
+                }
+
+                sendImmediate(message) { [weak self] error in
+                    if let error = error {
+                        self?.handleSendError(message, error: error, priority: .normal)
+                    }
+                    continuation.resume()
+                }
+            }
+
+            playHaptic(.success)
+        }
     }
 
     // MARK: - Cloud Mode (Production)

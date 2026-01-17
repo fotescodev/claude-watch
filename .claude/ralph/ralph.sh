@@ -857,11 +857,53 @@ load_relevant_skills() {
         file=$(echo "$file" | tr -d '"')
 
         if [[ "$file" == *"Views"* ]]; then
-            load_skill_by_name "swiftui" "$temp_prompt" loaded_skills skills_count
-            load_skill_by_name "liquid-glass" "$temp_prompt" loaded_skills skills_count
+            # Load swiftui skill
+            for skill_file in "$SKILLS_DIR/swiftui.md" "$SKILLS_DIR/swiftui-learned.md"; do
+                if [[ -f "$skill_file" ]]; then
+                    local sn; sn=$(basename "$skill_file")
+                    if [[ ! " ${loaded_skills[*]} " =~ " ${sn} " ]]; then
+                        log_verbose "Loading skill: $sn (file pattern match)"
+                        echo "" >> "$temp_prompt"
+                        echo "---" >> "$temp_prompt"
+                        echo "# Skill: ${sn%.md}" >> "$temp_prompt"
+                        cat "$skill_file" >> "$temp_prompt"
+                        loaded_skills+=("$sn")
+                        ((skills_count++))
+                    fi
+                fi
+            done
+            # Load liquid-glass skill
+            for skill_file in "$SKILLS_DIR/liquid-glass.md" "$SKILLS_DIR/liquid-glass-learned.md"; do
+                if [[ -f "$skill_file" ]]; then
+                    local sn; sn=$(basename "$skill_file")
+                    if [[ ! " ${loaded_skills[*]} " =~ " ${sn} " ]]; then
+                        log_verbose "Loading skill: $sn (file pattern match)"
+                        echo "" >> "$temp_prompt"
+                        echo "---" >> "$temp_prompt"
+                        echo "# Skill: ${sn%.md}" >> "$temp_prompt"
+                        cat "$skill_file" >> "$temp_prompt"
+                        loaded_skills+=("$sn")
+                        ((skills_count++))
+                    fi
+                fi
+            done
         fi
         if [[ "$file" == *"Service"* ]]; then
-            load_skill_by_name "async" "$temp_prompt" loaded_skills skills_count
+            # Load async skill
+            for skill_file in "$SKILLS_DIR/async.md" "$SKILLS_DIR/async-learned.md"; do
+                if [[ -f "$skill_file" ]]; then
+                    local sn; sn=$(basename "$skill_file")
+                    if [[ ! " ${loaded_skills[*]} " =~ " ${sn} " ]]; then
+                        log_verbose "Loading skill: $sn (file pattern match)"
+                        echo "" >> "$temp_prompt"
+                        echo "---" >> "$temp_prompt"
+                        echo "# Skill: ${sn%.md}" >> "$temp_prompt"
+                        cat "$skill_file" >> "$temp_prompt"
+                        loaded_skills+=("$sn")
+                        ((skills_count++))
+                    fi
+                fi
+            done
         fi
     done
 
@@ -893,35 +935,6 @@ load_relevant_skills() {
 
     log "Loaded $skills_count relevant skills for task $task_id"
     return 0
-}
-
-# Helper: Load skill by name if it exists
-# Args: skill_name, temp_prompt, loaded_skills_array, count_var
-load_skill_by_name() {
-    local name="$1"
-    local temp_prompt="$2"
-    local -n skills_array=$3
-    local -n count=$4
-
-    local skill_file="$SKILLS_DIR/${name}.md"
-    local learned_file="$SKILLS_DIR/${name}-learned.md"
-
-    for f in "$skill_file" "$learned_file"; do
-        if [[ -f "$f" ]]; then
-            local skill_name
-            skill_name=$(basename "$f")
-
-            if [[ ! " ${skills_array[*]} " =~ " ${skill_name} " ]]; then
-                log_verbose "Loading skill: $skill_name (file pattern match)"
-                echo "" >> "$temp_prompt"
-                echo "---" >> "$temp_prompt"
-                echo "# Skill: ${skill_name%.md}" >> "$temp_prompt"
-                cat "$f" >> "$temp_prompt"
-                skills_array+=("$skill_name")
-                ((count++))
-            fi
-        fi
-    done
 }
 
 # Show accumulated learnings
