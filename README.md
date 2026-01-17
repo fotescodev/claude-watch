@@ -368,7 +368,7 @@ claude-watch/
 <td>
 
 ### 🚧 In Progress
-- [ ] APNs push notifications
+- [ ] APNs push notifications ([setup guide](docs/APNS_SETUP_GUIDE.md))
 - [ ] TestFlight beta
 - [ ] App Store submission
 
@@ -392,6 +392,10 @@ claude-watch/
 <br/>
 
 ## 🧑‍💻 For Developers
+
+### 📖 Documentation
+
+- **[APNs Setup Guide](docs/APNS_SETUP_GUIDE.md)** - Complete guide for configuring Apple Push Notification service
 
 ### Deploy Your Own Cloud Relay
 
