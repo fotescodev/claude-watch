@@ -553,6 +553,9 @@ class WatchService: ObservableObject {
     }
 
     // MARK: - Actions
+
+    /// Approves a specific pending action and notifies the server.
+    /// Optimistically removes the action from local state and provides haptic feedback.
     func approveAction(_ actionId: String) {
         send([
             "type": "action_response",
@@ -569,6 +572,8 @@ class WatchService: ObservableObject {
         playHaptic(.success)
     }
 
+    /// Rejects a specific pending action and notifies the server.
+    /// Optimistically removes the action from local state and provides haptic feedback.
     func rejectAction(_ actionId: String) {
         send([
             "type": "action_response",
@@ -585,6 +590,8 @@ class WatchService: ObservableObject {
         playHaptic(.failure)
     }
 
+    /// Approves all pending actions at once.
+    /// Clears all pending actions locally and notifies server to proceed with all requests.
     func approveAll() {
         send(["type": "approve_all"], priority: .high)
 
@@ -595,6 +602,8 @@ class WatchService: ObservableObject {
         playHaptic(.success)
     }
 
+    /// Legacy method for toggling YOLO mode.
+    /// Now delegates to `cycleMode()` to cycle through all permission modes.
     func toggleYolo() {
         // Legacy support - now cycles through modes
         cycleMode()
