@@ -30,7 +30,29 @@ function generateRequestId() {
   return crypto.randomUUID().slice(0, 8);
 }
 
-// Send APNs push notification
+/**
+ * Sends an APNs (Apple Push Notification service) push notification to a device.
+ * Authenticates using JWT with ES256, handles both sandbox and production environments,
+ * and provides detailed error handling for token validation and rate limiting.
+ *
+ * @param {object} env - Cloudflare Worker environment bindings containing APNs configuration:
+ *   - APNS_KEY_ID: APNs authentication key identifier
+ *   - APNS_TEAM_ID: Apple Developer Team ID
+ *   - APNS_PRIVATE_KEY: Base64-encoded PKCS8 ECDSA P-256 private key
+ *   - APNS_SANDBOX: 'true' for sandbox environment, otherwise uses production
+ *   - APNS_BUNDLE_ID: App bundle identifier (e.g., "com.example.app")
+ * @param {string} deviceToken - Hexadecimal device token from APNs registration (64 characters)
+ * @param {object} payload - APNs notification payload with structure:
+ *   - aps: { alert, sound, badge, category, etc. }
+ *   - Custom data fields (requestId, type, title, description, filePath, command, etc.)
+ * @returns {Promise<object>} Result object with one of these structures:
+ *   - Success: { success: true }
+ *   - APNs not configured: { success: false, error: 'APNs not configured' }
+ *   - Invalid token: { success: false, error: 'BadDeviceToken'|'Unregistered', shouldClearToken: true }
+ *   - Rate limited: { success: false, error: 'TooManyRequests', retryAfter: string }
+ *   - Other APNs error: { success: false, error: string, status: number }
+ *   - Network/crypto error: { success: false, error: string }
+ */
 async function sendAPNs(env, deviceToken, payload) {
   if (!env.APNS_KEY_ID || !env.APNS_TEAM_ID || !env.APNS_PRIVATE_KEY) {
     console.log('APNs not configured, skipping push');
