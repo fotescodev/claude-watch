@@ -692,6 +692,238 @@ render_sessions() {
     tput ed 2>/dev/null
 }
 
+render_costs() {
+    local W=$(tput cols 2>/dev/null || echo 80)
+    local H=$(tput lines 2>/dev/null || echo 24)
+    local pad="  "
+
+    tput cup 0 0
+
+    # Advance animation frame
+    FRAME_IDX=$(( (FRAME_IDX + 1) % 8 ))
+    local spin="${SPIN_FRAMES[$FRAME_IDX]}"
+    local pulse="${PULSE_FRAMES[$((FRAME_IDX % 4))]}"
+
+    #═══════════════════════════════════════════════════════════════════════════
+    # HEADER — The Ralph Logo
+    #═══════════════════════════════════════════════════════════════════════════
+
+    echo ""
+    echo -e "${pad}${CORAL}    ╭──────────╮${NC}"
+    echo -e "${pad}${CORAL}    │${NC}          ${CORAL}├${CORAL_DIM}╤╮${NC}"
+    echo -e "${pad}${CORAL}    │${NC}  ${WHITE}◠${NC}    ${WHITE}■${NC}  ${CORAL}│${CORAL_DIM}││${NC}"
+    echo -e "${pad}${CORAL}    │${NC}          ${CORAL}├${CORAL_DIM}╧╯${NC}"
+    echo -e "${pad}${CORAL}    │${NC}  ${WHITE}╰────╯${NC}  ${CORAL}│${NC}"
+    echo -e "${pad}${CORAL}    │${NC}          ${CORAL}│${NC}"
+    echo -e "${pad}${CORAL}    ╰──────────╯${NC}"
+    echo ""
+
+    #═══════════════════════════════════════════════════════════════════════════
+    # TITLE + STATUS BAR
+    #═══════════════════════════════════════════════════════════════════════════
+
+    local session=$(get_session)
+    local running=$(is_ralph_running)
+    local status_icon status_text time_display
+
+    if [[ "$running" == "1" ]]; then
+        status_icon="${GREEN}●${NC}"
+        status_text="${GREEN}running${NC}"
+        time_display="${DIM}$(date '+%H:%M:%S')${NC}"
+    else
+        status_icon="${GRAY}○${NC}"
+        status_text="${GRAY}idle${NC}"
+        local last_session=$(jq -r '.lastSession // ""' "$METRICS_FILE" 2>/dev/null)
+        if [[ -n "$last_session" && "$last_session" != "null" ]]; then
+            time_display="${DIM}stopped${NC}"
+        else
+            time_display="${DIM}--:--:--${NC}"
+        fi
+    fi
+
+    echo -e "${pad}${CORAL}${BOLD}    R  A  L  P  H${NC}"
+    echo -e "${pad}${GRAY}    autonomous coding loop${NC}"
+    echo ""
+    echo -e "${pad}${DARK}    ┌───────────────────────────────────────────────────┐${NC}"
+    echo -e "${pad}${DARK}    │${NC} ${status_icon} ${status_text}  ${GRAY}│${NC}  ${CORAL}${spin}${NC} ${WHITE}${session}${NC}  ${GRAY}│${NC}  ${time_display}             ${DARK}│${NC}"
+    echo -e "${pad}${DARK}    └───────────────────────────────────────────────────┘${NC}"
+    echo ""
+
+    #═══════════════════════════════════════════════════════════════════════════
+    # VIEW INDICATOR
+    #═══════════════════════════════════════════════════════════════════════════
+
+    echo -e "${pad}    ${GREEN}${BOLD}💰 COST ANALYSIS${NC}"
+    echo ""
+
+    #═══════════════════════════════════════════════════════════════════════════
+    # TOTAL COST OVERVIEW
+    #═══════════════════════════════════════════════════════════════════════════
+
+    local total_cost=$(get_cost)
+    local total_sessions=$(get_total_sessions)
+    local total_tokens=$(get_tokens)
+
+    # Calculate average cost per session
+    local avg_cost="0.00"
+    if [[ $total_sessions -gt 0 ]]; then
+        avg_cost=$(echo "scale=2; $total_cost / $total_sessions" | bc 2>/dev/null || echo "0.00")
+    fi
+
+    # Format tokens (K for thousands, M for millions)
+    local tokens_fmt="$total_tokens"
+    if [[ $total_tokens -ge 1000000 ]]; then
+        tokens_fmt="$(echo "scale=1; $total_tokens/1000000" | bc)M"
+    elif [[ $total_tokens -ge 1000 ]]; then
+        tokens_fmt="$(echo "scale=1; $total_tokens/1000" | bc)K"
+    fi
+
+    printf "${pad}${CORAL}    "
+    for ((i=0; i<52; i++)); do printf "─"; done
+    printf "${NC}\n"
+    echo ""
+
+    echo -e "${pad}    ${WHITE}${BOLD}Total Cost${NC}      ${GREEN}${BOLD}\$${total_cost}${NC}"
+    echo -e "${pad}    ${GRAY}Total Sessions${NC}  ${WHITE}${total_sessions}${NC}"
+    echo -e "${pad}    ${GRAY}Total Tokens${NC}    ${CYAN}${tokens_fmt}${NC}"
+    echo -e "${pad}    ${GRAY}Avg/Session${NC}     ${GREEN}\$${avg_cost}${NC}"
+    echo ""
+
+    #═══════════════════════════════════════════════════════════════════════════
+    # COST BY SESSION — Last 10 Sessions
+    #═══════════════════════════════════════════════════════════════════════════
+
+    printf "${pad}${CORAL}    "
+    for ((i=0; i<52; i++)); do printf "─"; done
+    printf "${NC}\n"
+    echo ""
+
+    # Get session data with costs from metrics.json
+    local session_data=$(jq -r '.sessions[]? | [.id, .timestamp, .cost // 0, .tokensUsed // 0] | @tsv' "$METRICS_FILE" 2>/dev/null | tail -10)
+
+    if [[ -z "$session_data" ]]; then
+        echo -e "${pad}    ${GRAY}○  No session cost data yet${NC}"
+        echo ""
+    else
+        echo -e "${pad}    ${WHITE}${BOLD}Cost by Session${NC} ${GRAY}(last 10)${NC}"
+        echo ""
+
+        # Header row
+        printf "${pad}    ${DIM}%-20s  %-12s  %-10s  %-10s${NC}\n" "SESSION" "TIME" "COST" "TOKENS"
+        echo ""
+
+        # Data rows
+        local row_count=0
+        while IFS=$'\t' read -r sid stimestamp scost stokens; do
+            [[ -z "$sid" ]] && continue
+            ((row_count++))
+
+            # Format timestamp (convert ISO to human-readable)
+            local time_str="N/A"
+            if [[ -n "$stimestamp" ]]; then
+                # Extract time portion (HH:MM) from ISO timestamp
+                time_str=$(echo "$stimestamp" | sed -E 's/.*T([0-9]{2}:[0-9]{2}).*/\1/' || echo "N/A")
+            fi
+
+            # Format session ID (truncate if too long)
+            local sid_short="${sid:0:18}"
+
+            # Format cost
+            local cost_fmt="\$${scost}"
+            [[ "$scost" == "0" ]] && cost_fmt="${DIM}--${NC}"
+
+            # Format tokens (K for thousands)
+            local tokens_fmt="$stokens"
+            if [[ $stokens -ge 1000 ]]; then
+                tokens_fmt="$(echo "scale=1; $stokens/1000" | bc 2>/dev/null || echo "$stokens")K"
+            fi
+            [[ "$stokens" == "0" ]] && tokens_fmt="${DIM}--${NC}"
+
+            # Print row
+            printf "${pad}    ${WHITE}%-20s${NC}  ${CYAN}%-12s${NC}  ${GREEN}%-10s${NC}  ${GRAY}%-10s${NC}\n" \
+                "$sid_short" "$time_str" "$cost_fmt" "$tokens_fmt"
+
+        done <<< "$session_data"
+
+        echo ""
+    fi
+
+    #═══════════════════════════════════════════════════════════════════════════
+    # COST TREND — Sparkline
+    #═══════════════════════════════════════════════════════════════════════════
+
+    printf "${pad}${CORAL}    "
+    for ((i=0; i<52; i++)); do printf "─"; done
+    printf "${NC}\n"
+    echo ""
+
+    local cost_history=$(get_cost_history)
+    if [[ -n "$cost_history" ]]; then
+        # Convert newline-separated to space-separated for sparkline
+        local cost_data=$(echo "$cost_history" | tr '\n' ' ')
+        local sparkline=$(generate_sparkline "$cost_data")
+
+        echo -e "${pad}    ${GREEN}${BOLD}Cost Trend${NC}"
+        echo ""
+        echo -e "${pad}    ${WHITE}${sparkline}${NC}"
+        echo ""
+    else
+        echo -e "${pad}    ${GREEN}${BOLD}Cost Trend${NC}"
+        echo ""
+        echo -e "${pad}    ${GRAY}No historical cost data yet${NC}"
+        echo ""
+    fi
+
+    #═══════════════════════════════════════════════════════════════════════════
+    # COST BREAKDOWN
+    #═══════════════════════════════════════════════════════════════════════════
+
+    printf "${pad}${CORAL}    "
+    for ((i=0; i<52; i++)); do printf "─"; done
+    printf "${NC}\n"
+    echo ""
+
+    # Calculate input/output token costs (assuming standard pricing)
+    local input_tokens=$(jq -r '.totalTokens.input // 0' "$METRICS_FILE" 2>/dev/null || echo "0")
+    local output_tokens=$(jq -r '.totalTokens.output // 0' "$METRICS_FILE" 2>/dev/null || echo "0")
+
+    # Format input/output tokens
+    local input_fmt="$input_tokens"
+    if [[ $input_tokens -ge 1000000 ]]; then
+        input_fmt="$(echo "scale=1; $input_tokens/1000000" | bc)M"
+    elif [[ $input_tokens -ge 1000 ]]; then
+        input_fmt="$(echo "scale=1; $input_tokens/1000" | bc)K"
+    fi
+
+    local output_fmt="$output_tokens"
+    if [[ $output_tokens -ge 1000000 ]]; then
+        output_fmt="$(echo "scale=1; $output_tokens/1000000" | bc)M"
+    elif [[ $output_tokens -ge 1000 ]]; then
+        output_fmt="$(echo "scale=1; $output_tokens/1000" | bc)K"
+    fi
+
+    echo -e "${pad}    ${CYAN}Input Tokens${NC}   ${WHITE}${input_fmt}${NC}"
+    echo -e "${pad}    ${CORAL}Output Tokens${NC}  ${WHITE}${output_fmt}${NC}"
+    echo ""
+
+    #═══════════════════════════════════════════════════════════════════════════
+    # FOOTER — Navigation
+    #═══════════════════════════════════════════════════════════════════════════
+
+    printf "${pad}${CORAL}    "
+    for ((i=0; i<52; i++)); do printf "─"; done
+    printf "${NC}\n"
+    echo ""
+
+    if [[ $SPARK_MISSING -eq 1 ]]; then
+        echo -e "${pad}    ${DIM}[1] Dashboard  [2] Metrics  [3] Sessions  [4] Tasks  [Q] Quit${NC}  ${YELLOW}⚠ spark missing${NC}"
+    else
+        echo -e "${pad}    ${DIM}[1] Dashboard  [2] Metrics  [3] Sessions  [4] Tasks  [Q] Quit${NC}"
+    fi
+
+    tput ed 2>/dev/null
+}
+
 render() {
     render_details
 }
