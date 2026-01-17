@@ -749,7 +749,8 @@ class WatchService: ObservableObject {
         return UserDefaults.standard.string(forKey: "apnsDeviceToken")
     }
 
-    /// Unpair from Claude Code
+    /// Disconnects from Claude Code and clears all pairing data.
+    /// Stops active polling, resets pairing ID, clears app state, and provides haptic feedback.
     func unpair() {
         stopPolling()
         pairingId = ""
@@ -760,7 +761,9 @@ class WatchService: ObservableObject {
 
     // MARK: - Cloud Polling
 
-    /// Start polling for pending requests (alternative to APNs)
+    /// Starts polling the cloud server for pending approval requests.
+    /// Creates a background task that periodically fetches new requests every 2 seconds.
+    /// Only active when in cloud mode with an active pairing. Safe to call multiple times.
     func startPolling() {
         guard useCloudMode && isPaired else { return }
         guard pollingTask == nil else { return }
@@ -781,7 +784,8 @@ class WatchService: ObservableObject {
         }
     }
 
-    /// Stop polling
+    /// Stops the active polling task.
+    /// Cancels the background polling task and cleans up resources.
     func stopPolling() {
         pollingTask?.cancel()
         pollingTask = nil
