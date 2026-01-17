@@ -1138,7 +1138,7 @@ tasks:
       ```
     priority: medium
     parallel_group: 14
-    completed: false
+    completed: true
     verification: |
       grep -rq 'ErrorBanner\|showError\|errorMessage' ClaudeWatch/Views/ && exit 0 || exit 1
     acceptance_criteria:
@@ -1549,3 +1549,91 @@ tasks:
       - liquid-glass
       - animation
     commit_template: "feat(ui): Add glass morphing transitions"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # META: Ralph System Improvements
+  # Parallel Group 17: Self-improvement
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "META1"
+    title: "Implement progressive disclosure in PROMPT.md"
+    description: |
+      Refactor PROMPT.md to use progressive disclosure pattern to reduce
+      token pollution.
+
+      Current problem:
+      - Entire PROMPT.md loads for every task (~300 lines)
+      - Much content is irrelevant to specific task types
+      - Wastes tokens on context that won't be used
+
+      Solution - Modular prompt structure:
+      ```
+      PROMPT.md (core, always loaded)
+        ├── PROMPT-swift.md (loaded for Swift tasks)
+        ├── PROMPT-ui.md (loaded for UI tasks)
+        ├── PROMPT-testing.md (loaded for test tasks)
+        └── PROMPT-infra.md (loaded for infrastructure tasks)
+      ```
+
+      Implementation:
+      1. Extract task-type-specific content to separate files
+      2. Add task type detection in ralph.sh
+      3. Concatenate only relevant prompt modules
+      4. Keep core PROMPT.md under 100 lines
+
+      Pattern: "You do not want to pollute your token system...
+      have it much like in a disclosure way"
+    priority: medium
+    parallel_group: 17
+    completed: false
+    verification: |
+      [[ -f ".claude/ralph/PROMPT-swift.md" ]] || [[ $(wc -l < .claude/ralph/PROMPT.md) -lt 150 ]] && exit 0 || exit 1
+    acceptance_criteria:
+      - "PROMPT.md core under 150 lines"
+      - "Task-type-specific content in separate files"
+      - "ralph.sh detects task type and loads relevant modules"
+    files:
+      - ".claude/ralph/PROMPT.md"
+      - ".claude/ralph/ralph.sh"
+    tags:
+      - meta
+      - token-efficiency
+      - progressive-disclosure
+    commit_template: "refactor(ralph): Implement progressive disclosure in prompts"
+
+  - id: "META2"
+    title: "Add automatic skill harvesting to Ralph"
+    description: |
+      After successful task completion, automatically analyze the session
+      to extract reusable patterns into skills.
+
+      Implementation:
+      1. Capture session transcript (already in progress log)
+      2. After task completion, run skill extraction prompt
+      3. If pattern is harvestable, create skill file
+      4. Log harvested skills in metrics.json
+
+      Criteria for harvesting:
+      - Non-trivial solution (not simple typo/config)
+      - Applies to multiple situations
+      - Contains non-obvious insight
+
+      Pattern: "Use conversation history to get Claude to review it
+      and suggest to make skills file... turn that into a skill immediately"
+    priority: low
+    parallel_group: 17
+    completed: false
+    depends_on:
+      - "META1"
+    verification: |
+      grep -q 'harvest_skill\|skill_extraction' .claude/ralph/ralph.sh && exit 0 || exit 1
+    acceptance_criteria:
+      - "Session transcript captured after each task"
+      - "Skill extraction runs on successful completion"
+      - "Harvested skills saved to .claude/commands/"
+    files:
+      - ".claude/ralph/ralph.sh"
+    tags:
+      - meta
+      - skill-harvesting
+      - automation
+    commit_template: "feat(ralph): Add automatic skill harvesting"
