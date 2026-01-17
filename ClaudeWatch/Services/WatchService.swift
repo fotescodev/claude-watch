@@ -868,6 +868,10 @@ class WatchService: ObservableObject {
     // MARK: - Push Token Registration
     func registerPushToken(_ token: Data) {
         let tokenString = token.map { String(format: "%02.2hhx", $0) }.joined()
+
+        // Save token to UserDefaults for use during cloud pairing
+        UserDefaults.standard.set(tokenString, forKey: "apnsDeviceToken")
+
         send([
             "type": "register_push_token",
             "token": tokenString
