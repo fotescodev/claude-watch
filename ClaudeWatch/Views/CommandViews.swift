@@ -43,10 +43,7 @@ struct CommandGrid: View {
                         .foregroundColor(Claude.textTertiary)
                 }
                 .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(.ultraThinMaterial)
-                )
+                .glassEffectCompat(RoundedRectangle(cornerRadius: 14))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Open voice command input")
@@ -88,10 +85,7 @@ struct CommandButton: View {
             }
             .frame(maxWidth: .infinity)
             .frame(minHeight: buttonHeight)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(.ultraThinMaterial)
-            )
+            .glassEffectCompat(RoundedRectangle(cornerRadius: 14))
             .scaleEffect(isPressed && !reduceMotion ? 0.92 : 1.0)
             .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: isPressed)
         }
@@ -160,16 +154,13 @@ struct ModeSelector: View {
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(modeBackground)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .strokeBorder(modeColor.opacity(0.3), lineWidth: 1)
-                    )
+                    .fill(modeBackground)
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(modeColor.opacity(0.3), lineWidth: 1)
+            )
+            .glassEffectCompat(RoundedRectangle(cornerRadius: 16))
             .scaleEffect(isPressed && !reduceMotion ? 0.96 : 1.0)
             .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: isPressed)
         }

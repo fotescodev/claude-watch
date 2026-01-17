@@ -216,10 +216,7 @@ struct PrimaryActionCard: View {
             }
         }
         .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(.thinMaterial)
-        )
+        .glassEffectCompat(RoundedRectangle(cornerRadius: 20))
     }
 
     private var typeColor: Color {
@@ -270,10 +267,7 @@ struct CompactActionCard: View {
             Spacer()
         }
         .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(.ultraThinMaterial)
-        )
+        .glassEffectCompat(RoundedRectangle(cornerRadius: 14))
     }
 
     private var typeColor: Color {

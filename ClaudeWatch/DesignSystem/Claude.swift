@@ -67,6 +67,17 @@ public enum Claude {
         static var prominent: some ShapeStyle { .regularMaterial }
     }
 
+    // MARK: - Liquid Glass (watchOS 26)
+    /// Glass effect variants for Liquid Glass design
+    enum LiquidGlass {
+        /// Standard glass with refraction
+        case regular
+        /// Clear glass with subtle effect
+        case clear
+        /// Identity (minimal effect)
+        case identity
+    }
+
     // MARK: - Spacing
     /// Spacing tokens for consistent layout
     enum Spacing {
@@ -169,5 +180,22 @@ extension View {
     /// Apply Claude primary button style
     func claudePrimaryButton(color: Color = Claude.orange) -> some View {
         self.buttonStyle(ClaudePrimaryButtonStyle(color: color))
+    }
+
+    /// Apply Liquid Glass effect with backwards compatibility (watchOS 26+)
+    /// Falls back to material background on older versions
+    @ViewBuilder
+    func glassEffectCompat<S: Shape>(_ shape: S) -> some View {
+        if #available(watchOS 26.0, *) {
+            self.glassEffect(.regular, in: shape)
+        } else {
+            self.background(shape.fill(.ultraThinMaterial))
+        }
+    }
+
+    /// Apply Liquid Glass card style with rounded rectangle
+    @ViewBuilder
+    func liquidGlassCard(cornerRadius: CGFloat = Claude.Radius.large) -> some View {
+        glassEffectCompat(RoundedRectangle(cornerRadius: cornerRadius))
     }
 }

@@ -211,10 +211,7 @@ struct StatusHeader: View {
             }
         }
         .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.ultraThinMaterial)
-        )
+        .glassEffectCompat(RoundedRectangle(cornerRadius: 16))
     }
 
     private var statusIcon: String {

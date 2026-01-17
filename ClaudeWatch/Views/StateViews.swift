@@ -15,16 +15,14 @@ struct EmptyStateView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            // Icon
+            // Icon with Liquid Glass
             ZStack {
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: iconContainerSize, height: iconContainerSize)
-
                 Image(systemName: service.isPaired ? "tray" : "link.circle")
                     .font(.system(size: iconSize, weight: .light))
                     .foregroundColor(Claude.textTertiaryContrast(colorSchemeContrast))
             }
+            .frame(width: iconContainerSize, height: iconContainerSize)
+            .glassEffectCompat(Circle())
 
             // Text
             Text(service.isPaired ? "All Clear" : "Not Paired")
@@ -100,16 +98,14 @@ struct OfflineStateView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            // Icon (tap to load demo)
+            // Icon with Liquid Glass (tap to load demo)
             ZStack {
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: iconContainerSize, height: iconContainerSize)
-
                 Image(systemName: "wifi.slash")
                     .font(.system(size: iconSize, weight: .light))
                     .foregroundColor(Claude.textTertiaryContrast(colorSchemeContrast))
             }
+            .frame(width: iconContainerSize, height: iconContainerSize)
+            .glassEffectCompat(Circle())
             .onTapGesture(count: 3) {
                 // Triple-tap to load demo data
                 service.loadDemoData()
@@ -192,7 +188,7 @@ struct ReconnectingView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .glassEffectCompat(RoundedRectangle(cornerRadius: 12))
         }
         .padding(.horizontal)
         .padding(.top, 8)
