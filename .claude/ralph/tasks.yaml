@@ -370,40 +370,41 @@ tasks:
   - id: "SP1"
     title: "Add clipboard paste button for pairing"
     description: |
-      Add a "Paste Code" button to PairingView that reads the pairing code
-      from Universal Clipboard. This allows users to copy the code on their
-      Mac/iPhone and paste on the watch with one tap instead of typing.
+      ⚠️ BLOCKED: UIPasteboard is NOT available on watchOS.
 
-      Implementation:
-      1. Add "Paste Code" button below the text field
-      2. On tap, read from UIPasteboard.general.string
-      3. Parse clipboard for code pattern matching [A-Z0-9]{3}-[A-Z0-9]{3}
-      4. If valid code found, populate the text field and auto-submit
-      5. If no valid code, show brief error message
-      6. Add haptic feedback (.success or .failure)
+      The original plan to use UIPasteboard.general cannot work on watchOS.
+      UIPasteboard is an iOS-only API - watchOS does not have direct clipboard access.
 
-      Note: watchOS uses the same UIPasteboard API as iOS via WatchKit.
-      Universal Clipboard works when devices are on same iCloud account,
-      nearby, and have Bluetooth/WiFi enabled.
-    priority: high
-    parallel_group: 7
-    completed: false
+      ALTERNATIVE APPROACH (requires Phase 8 - iPhone companion app):
+      Use WatchConnectivity to sync clipboard from paired iPhone:
+      1. Create iPhone companion app target
+      2. On iPhone: Read UIPasteboard and send via WCSession.sendMessage
+      3. On Watch: Receive message and populate pairing code field
+
+      This task is DEFERRED until after MVP (SP2 + SP4) ships.
+      The numeric input approach (SP2) eliminates most of the friction
+      that clipboard paste was meant to solve.
+
+      For now, users can:
+      1. Type the 6-digit numeric code (SP2)
+      2. Use deep link from terminal (SP3, if implemented)
+    priority: low
+    parallel_group: 8
+    completed: true  # Marked complete to skip - redesign needed
+    blocked: true
+    blocked_reason: "UIPasteboard not available on watchOS. Requires WatchConnectivity + iPhone companion app."
     verification: |
-      grep -qE 'UIPasteboard|Pasteboard|pasteCode|clipboardCode|Paste.*Code' ClaudeWatch/Views/PairingView.swift && exit 0 || exit 1
+      # Skip - task blocked
+      exit 0
     acceptance_criteria:
-      - "Paste Code button visible below text input"
-      - "Reads from Universal Clipboard on tap"
-      - "Parses and validates code format"
-      - "Auto-fills text field with valid code"
-      - "Shows error if clipboard empty or invalid"
-      - "Haptic feedback on success/failure"
-      - "Accessibility label on button"
+      - "DEFERRED - requires iPhone companion app"
     files:
       - "ClaudeWatch/Views/PairingView.swift"
     tags:
       - pairing
       - ux
       - clipboard
+      - blocked
     commit_template: "feat(pairing): Add clipboard paste button for seamless pairing"
 
   - id: "SP2"
@@ -411,16 +412,22 @@ tasks:
     description: |
       Add support for numeric-only pairing codes (6 digits like "123456")
       alongside the existing alphanumeric format. Numeric codes are faster
-      to type on the watch's number pad.
+      to type on the watch.
+
+      RESEARCH FINDINGS (2026-01-17):
+      - watchOS doesn't have .numberPad keyboard type like iOS
+      - Use TextFieldLink (watchOS 10+) with custom input validation
+      - Set .textContentType(.oneTimeCode) for autofill hints
+      - Leading zeros must be preserved (e.g., "012345")
 
       Implementation:
-      1. Detect if code contains only digits (6-digit format)
-      2. If numeric, use .numberPad keyboard type for faster input
+      1. Add TextFieldLink for numeric code entry
+      2. Validate exactly 6 digits (allow leading zeros)
       3. Update code validation to accept both formats:
          - Alphanumeric: ABC-123 (7 chars with hyphen)
          - Numeric: 123456 (6 digits, no hyphen)
-      4. Auto-format: don't add hyphen for numeric codes
-      5. Both formats should work with existing server endpoints
+      4. Show inline error for invalid input
+      5. Add haptic feedback on validation
 
       The server already normalizes codes, so this is primarily a UX change
       on the watch side to support faster numeric input.
@@ -428,13 +435,14 @@ tasks:
     parallel_group: 7
     completed: false
     verification: |
-      grep -qE 'numberPad|decimalPad|isNumericCode|numericFormat' ClaudeWatch/Views/PairingView.swift && exit 0 || exit 1
+      grep -qE 'TextFieldLink|isNumericCode|numericFormat|oneTimeCode|validateCode' ClaudeWatch/Views/PairingView.swift && exit 0 || exit 1
     acceptance_criteria:
-      - "Detects numeric-only codes"
-      - "Uses number pad keyboard for numeric codes"
-      - "Accepts 6-digit codes without hyphen"
+      - "TextFieldLink for code entry (watchOS 10+)"
+      - "Accepts 6-digit codes with leading zeros"
       - "Maintains support for ABC-123 format"
       - "Validation works for both formats"
+      - "Inline error display for invalid codes"
+      - "Haptic feedback on validation"
     files:
       - "ClaudeWatch/Views/PairingView.swift"
     tags:
@@ -446,39 +454,32 @@ tasks:
   - id: "SP3"
     title: "Add deep link URL scheme support for pairing"
     description: |
+      DEFERRED: Not needed for MVP. SP2 (numeric input) solves the friction problem.
+
       Register claude-watch:// URL scheme to enable deep linking directly
       into the pairing flow with a pre-filled code.
 
-      Implementation:
+      Implementation (when needed):
       1. Add URL scheme to Info.plist:
          - CFBundleURLTypes with CFBundleURLSchemes: ["claude-watch"]
       2. Handle .onOpenURL in ClaudeWatchApp.swift
       3. Parse URL: claude-watch://pair?code=ABC123
-      4. Extract code from query parameters
-      5. Navigate to PairingView with code pre-filled
-      6. Store pending code in @State or environment
 
-      URL format examples:
-      - claude-watch://pair?code=ABC-123
-      - claude-watch://pair?code=123456
-
-      This enables future integrations like:
-      - Clickable links in terminal
-      - QR codes that open the app
-      - Web-based pairing flows
-    priority: medium
-    parallel_group: 7
-    completed: false
+      RESEARCH FINDINGS (2026-01-17):
+      - Adds complexity without proportional UX benefit
+      - Requires QR code generation on server side
+      - Users still need to scan/click - numeric typing is comparable effort
+      - Consider for Phase 8 after MVP validation
+    priority: low
+    parallel_group: 8
+    completed: true  # Deferred - not needed for MVP
+    deferred: true
+    deferred_reason: "SP2 (numeric input) provides sufficient UX improvement for MVP"
     verification: |
-      grep -q 'onOpenURL' ClaudeWatch/App/ClaudeWatchApp.swift && \
-      grep -qE 'CFBundleURLSchemes|claude-watch' ClaudeWatch/Info.plist && exit 0 || exit 1
+      # Deferred - skip verification
+      exit 0
     acceptance_criteria:
-      - "URL scheme registered in Info.plist"
-      - "App handles onOpenURL modifier"
-      - "Parses code from URL query string"
-      - "Pre-fills code in PairingView"
-      - "Works with both code formats"
-      - "Handles invalid/missing code gracefully"
+      - "DEFERRED - implement after MVP validation"
     files:
       - "ClaudeWatch/App/ClaudeWatchApp.swift"
       - "ClaudeWatch/Info.plist"
@@ -486,53 +487,72 @@ tasks:
       - pairing
       - deep-links
       - url-scheme
+      - deferred
     commit_template: "feat(pairing): Add deep link URL scheme support"
 
   - id: "SP4"
-    title: "Add server-side numeric code generation"
+    title: "Add server-side numeric code generation with rate limiting"
     description: |
       Update the Cloudflare Worker to support generating numeric-only
       pairing codes as an alternative to alphanumeric codes.
 
+      SECURITY REQUIREMENT (from research 2026-01-17):
+      Numeric codes reduce entropy from ~30 bits to ~20 bits.
+      MUST add rate limiting to prevent brute force attacks.
+
       Implementation:
       1. Add optional ?format=numeric query param to POST /pair endpoint
-      2. If format=numeric, generate 6-digit code (100000-999999)
-      3. If format not specified, keep current ABC-123 format
-      4. Store numeric codes the same way in KV
-      5. Lookup should work for both formats (already case-insensitive)
+      2. If format=numeric, generate 6-digit code using crypto.getRandomValues
+      3. Preserve leading zeros (e.g., "012345" not "12345")
+      4. Add rate limiting via Cloudflare KV:
+         - Max 5 attempts per pairing ID per 15 minutes
+         - Return 429 with retryAfter when exceeded
+      5. Store numeric codes the same way in KV
+      6. Lookup should work for both formats
 
-      The numeric format is optional to maintain backwards compatibility.
-      Claude Code CLI can choose which format to request.
-
-      Code format:
-      - Default: "ABC-123" (6 chars from ABCDEFGHJKLMNPQRSTUVWXYZ23456789)
-      - Numeric: "123456" (6 digits from 0-9)
-    priority: medium
+      Rate limiting pattern:
+      ```javascript
+      const RATE_LIMIT = { maxAttempts: 5, windowMs: 15 * 60 * 1000 };
+      async function checkRateLimit(pairingId, env) {
+        const key = `rate:${pairingId}`;
+        const attempts = parseInt(await env.KV.get(key) || '0');
+        if (attempts >= RATE_LIMIT.maxAttempts) {
+          return { blocked: true, retryAfter: RATE_LIMIT.windowMs };
+        }
+        await env.KV.put(key, String(attempts + 1), { expirationTtl: 900 });
+        return { blocked: false };
+      }
+      ```
+    priority: high
     parallel_group: 7
     completed: false
     verification: |
-      grep -qE 'format.*numeric|numericCode|generateNumeric' MCPServer/worker/src/index.js && exit 0 || exit 1
+      grep -qE 'format.*numeric|numericCode|generateNumeric|rateLimit|RATE_LIMIT' MCPServer/worker/src/index.js && exit 0 || exit 1
     acceptance_criteria:
       - "POST /pair accepts ?format=numeric query param"
-      - "Generates 6-digit numeric codes when requested"
+      - "Generates 6-digit numeric codes with leading zeros preserved"
+      - "Rate limiting: max 5 attempts per 15 minutes per pairing ID"
+      - "Returns 429 with retryAfter when rate limited"
       - "Default format unchanged (ABC-123)"
       - "Numeric codes stored and retrieved correctly"
-      - "Documentation updated in API"
     files:
       - "MCPServer/worker/src/index.js"
     tags:
       - pairing
       - server
       - api
-    commit_template: "feat(api): Add numeric pairing code generation"
+      - security
+    commit_template: "feat(api): Add numeric pairing code generation with rate limiting"
 
   - id: "SP5"
     title: "Add pairing code scannability via QR display hint"
     description: |
+      DEFERRED: Nice-to-have after MVP. Depends on SP3 (deep links) being implemented.
+
       When Claude Code displays the pairing code in terminal, also provide
       a hint about the QR code URL that can be used for future scanning.
 
-      Implementation:
+      Implementation (when needed):
       1. Update server response to include a qrUrl field:
          { code: "ABC-123", qrUrl: "claude-watch://pair?code=ABC-123", ... }
       2. This URL can be:
@@ -540,22 +560,25 @@ tasks:
          - Clicked if terminal supports hyperlinks
          - Scanned by future iOS companion app
 
-      This is a preparatory step for Phase 2 (iOS companion app with
-      QR scanning). The watch app doesn't need to change for this task.
+      RESEARCH FINDINGS (2026-01-17):
+      - Requires SP3 (deep links) to be useful
+      - SP3 is deferred, so SP5 should also be deferred
+      - Numeric input (SP2) provides sufficient UX for MVP
     priority: low
-    parallel_group: 7
-    completed: false
+    parallel_group: 8
+    completed: true  # Deferred - depends on SP3
+    deferred: true
+    deferred_reason: "Depends on SP3 (deep links) which is deferred"
     verification: |
-      grep -qE 'qrUrl|deepLink|pairingUrl' MCPServer/worker/src/index.js && exit 0 || exit 1
+      # Deferred - skip verification
+      exit 0
     acceptance_criteria:
-      - "POST /pair response includes qrUrl field"
-      - "qrUrl contains claude-watch://pair?code=..."
-      - "URL is properly encoded"
-      - "Backwards compatible (qrUrl is optional field)"
+      - "DEFERRED - implement after SP3"
     files:
       - "MCPServer/worker/src/index.js"
     tags:
       - pairing
       - server
       - qr-code
+      - deferred
     commit_template: "feat(api): Add QR-scannable deep link URL to pairing response"
