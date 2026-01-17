@@ -609,11 +609,16 @@ class WatchService: ObservableObject {
         cycleMode()
     }
 
+    /// Cycles through permission modes in sequence (normal → auto-accept → plan).
+    /// Updates server state and provides haptic feedback for the new mode.
     func cycleMode() {
         let newMode = state.mode.next()
         setMode(newMode)
     }
 
+    /// Sets the permission mode for Claude Code interactions.
+    /// Automatically approves pending actions when entering auto-accept mode.
+    /// - Parameter mode: The permission mode to activate (normal, autoAccept, or plan)
     func setMode(_ mode: PermissionMode) {
         send([
             "type": "set_mode",
