@@ -98,6 +98,27 @@ handle_input() {
     esac
 }
 
+check_spark() {
+    # Check if spark command is available for sparkline generation
+    if ! command -v spark &>/dev/null; then
+        tput cnorm 2>/dev/null
+        stty echo 2>/dev/null
+        echo ""
+        echo -e "  ${RED}✗${NC} ${WHITE}${BOLD}Missing dependency:${NC} ${CORAL}spark${NC}"
+        echo ""
+        echo -e "  ${GRAY}Ralph TUI requires the 'spark' command for sparkline visualization.${NC}"
+        echo ""
+        echo -e "  ${WHITE}Install with:${NC}"
+        echo -e "    ${CYAN}brew install spark${NC}              ${DARK}# macOS${NC}"
+        echo -e "    ${CYAN}sudo apt install spark${NC}          ${DARK}# Debian/Ubuntu${NC}"
+        echo -e "    ${CYAN}git clone https://github.com/holman/spark${NC}"
+        echo ""
+        echo -e "  ${GRAY}Or get it from: ${CYAN}https://github.com/holman/spark${NC}"
+        echo ""
+        exit 1
+    fi
+}
+
 trap cleanup INT TERM EXIT
 
 #───────────────────────────────────────────────────────────────────────────────
@@ -484,6 +505,7 @@ render() {
 #───────────────────────────────────────────────────────────────────────────────
 
 main() {
+    check_spark
     setup
 
     while true; do
