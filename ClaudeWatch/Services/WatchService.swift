@@ -82,6 +82,8 @@ class WatchService: ObservableObject {
 
     // MARK: - App Lifecycle
 
+    /// Handles app transition to active state.
+    /// Resets reconnection backoff and initiates connection (polling in cloud mode, WebSocket otherwise).
     func handleAppDidBecomeActive() {
         // Reset backoff when coming to foreground
         reconnectAttempt = 0
@@ -109,11 +111,15 @@ class WatchService: ObservableObject {
         }
     }
 
+    /// Handles app transition to inactive state.
+    /// Currently a no-op, allowing the system to manage connection lifecycle.
     func handleAppWillResignActive() {
         // Don't disconnect - let the system handle it
         // But we could pause aggressive reconnection if needed
     }
 
+    /// Handles app entering background state.
+    /// Stops polling in cloud mode to conserve battery, or sends final state request in WebSocket mode.
     func handleAppDidEnterBackground() {
         // Stop polling in background to save battery
         if useCloudMode {
