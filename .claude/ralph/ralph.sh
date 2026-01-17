@@ -21,6 +21,9 @@
 #   --create-pr             Auto-create PRs on task completion
 #   --draft-pr              Create draft PRs instead
 #   --base-branch NAME      Base branch for PRs (default: main)
+#   --parallel              Enable parallel worker execution mode
+#   --max-workers N         Number of parallel workers (default: 3)
+#   --parallel-group N      Only run tasks in specific parallel group
 #
 # Exit Codes:
 #   0   All tasks completed successfully
@@ -62,6 +65,9 @@ BRANCH_PER_TASK=false
 CREATE_PR=false
 DRAFT_PR=false
 BASE_BRANCH="main"
+PARALLEL_MODE=false
+MAX_WORKERS=3
+PARALLEL_GROUP=""
 
 # Colors (auto-detect terminal support)
 if [[ -t 1 ]] && [[ "${TERM:-dumb}" != "dumb" ]]; then
@@ -123,6 +129,9 @@ Options:
   --create-pr             Auto-create PRs on task completion
   --draft-pr              Create draft PRs instead
   --base-branch NAME      Base branch for PRs (default: main)
+  --parallel              Enable parallel worker execution mode
+  --max-workers N         Number of parallel workers (default: 3)
+  --parallel-group N      Only run tasks in specific parallel group
 
 Examples:
   ./ralph.sh                      # Run autonomous loop
@@ -132,6 +141,8 @@ Examples:
   ./ralph.sh --debug              # Run with verbose output
   ./ralph.sh --dry-run            # Preview without executing
   ./ralph.sh --branch-per-task    # Create feature branches
+  ./ralph.sh --parallel           # Run with parallel workers
+  ./ralph.sh --parallel --max-workers 5    # Run with 5 workers
 
 Exit Codes:
   0   All tasks completed / session ended normally
@@ -751,6 +762,279 @@ run_init() {
     return $result
 }
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# PARALLEL EXECUTION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Source parallel utilities if in parallel mode
+init_parallel_state() {
+    log "Initializing parallel execution state..."
+
+    # Source parallel utilities
+    source "$RALPH_DIR/parallel-utils.sh"
+
+    # Ensure directories exist
+    ensure_parallel_dirs
+
+    # Initialize the queue
+    init_queue
+
+    # Clear any stale signals
+    clear_shutdown_signal
+    clear_pause_signal
+
+    log_success "Parallel state initialized"
+}
+
+# Spawn worker processes
+# Args: num_workers
+spawn_workers() {
+    local num_workers="$1"
+
+    log "Spawning $num_workers worker processes..."
+
+    for i in $(seq 1 "$num_workers"); do
+        log_verbose "Starting worker $i"
+
+        # Run worker in background
+        "$RALPH_DIR/ralph-worker.sh" "$i" &
+
+        local pid=$!
+        echo "$pid" > "$RALPH_DIR/parallel/workers/worker-$i.pid"
+
+        log_verbose "Worker $i started with PID $pid"
+    done
+
+    # Wait a moment for workers to initialize
+    sleep 2
+
+    log_success "All $num_workers workers spawned"
+}
+
+# Shutdown all workers gracefully
+shutdown_workers() {
+    log "Shutting down workers..."
+
+    # Send shutdown signal
+    send_shutdown_signal
+
+    # Wait for workers to exit (up to 30 seconds)
+    local timeout=30
+    local elapsed=0
+
+    while [[ $elapsed -lt $timeout ]]; do
+        local active
+        active=$(get_active_worker_count)
+
+        if [[ "$active" == "0" ]]; then
+            break
+        fi
+
+        log_verbose "Waiting for $active workers to exit..."
+        sleep 2
+        ((elapsed+=2))
+    done
+
+    # Force kill any remaining workers
+    for pid_file in "$RALPH_DIR/parallel/workers/"*.pid; do
+        [[ -f "$pid_file" ]] || continue
+        local pid
+        pid=$(cat "$pid_file")
+        if kill -0 "$pid" 2>/dev/null; then
+            log_warning "Force killing worker $pid"
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+        rm -f "$pid_file"
+    done
+
+    clear_shutdown_signal
+    log_success "All workers shutdown"
+}
+
+# Handle parallel group failure
+# Args: group_number
+handle_group_failure() {
+    local group="$1"
+
+    log_error "Handling failure for parallel group $group"
+
+    # Pause workers
+    send_pause_signal
+
+    # Get failed tasks in this group
+    local failed_tasks
+    failed_tasks=$(yq ".tasks[] | select(.parallel_group == $group and .status == \"failed\") | .id" "$RALPH_DIR/parallel/queue.yaml" 2>/dev/null)
+
+    if [[ -n "$failed_tasks" ]]; then
+        log_error "Failed tasks in group $group:"
+        echo "$failed_tasks" | while read -r task_id; do
+            [[ -n "$task_id" ]] && log_error "  - $task_id"
+        done
+    fi
+
+    # Reset failed tasks to pending for retry
+    yq -i "(.tasks[] | select(.parallel_group == $group and .status == \"failed\")).status = \"pending\"" "$RALPH_DIR/parallel/queue.yaml"
+
+    # Resume workers
+    clear_pause_signal
+}
+
+# Run validation for a parallel group
+# Args: group_number
+run_group_validation() {
+    local group="$1"
+
+    log "Running validation for parallel group $group..."
+
+    # Pause workers during validation
+    send_pause_signal
+
+    # Get completed tasks in this group
+    local completed_tasks
+    completed_tasks=$(yq ".tasks[] | select(.parallel_group == $group and .status == \"completed\") | .id" "$RALPH_DIR/parallel/queue.yaml" 2>/dev/null | tr '\n' ' ')
+
+    # Run Xcode project sync check
+    if ! run_project_sync_check; then
+        log_error "Project sync check failed for group $group"
+        clear_pause_signal
+        return 1
+    fi
+
+    # Run build check
+    if ! run_build_check; then
+        log_error "Build check failed for group $group"
+        clear_pause_signal
+        return 2
+    fi
+
+    # Run verification for each completed task
+    for task_id in $completed_tasks; do
+        [[ -z "$task_id" ]] && continue
+        task_id=$(echo "$task_id" | tr -d '"')
+
+        if ! run_task_verification "$task_id"; then
+            log_error "Task verification failed for $task_id"
+            clear_pause_signal
+            return 3
+        fi
+    done
+
+    clear_pause_signal
+    log_success "Group $group validation passed"
+    return 0
+}
+
+# Main parallel execution loop
+run_parallel_loop() {
+    log "Starting parallel execution mode..."
+    log "Max workers: $MAX_WORKERS"
+    log "Press Ctrl+C to stop"
+    echo ""
+
+    init_metrics
+    init_session_log
+    init_parallel_state
+
+    # Spawn workers
+    spawn_workers "$MAX_WORKERS"
+
+    # Coordinator loop
+    local last_group=""
+
+    while true; do
+        # Check if all tasks complete
+        if all_tasks_complete; then
+            log_success "All tasks completed!"
+            break
+        fi
+
+        # Get current parallel group
+        local current_group
+        current_group=$(get_current_group)
+
+        if [[ -z "$current_group" ]]; then
+            log_success "No more tasks to process"
+            break
+        fi
+
+        # Filter by specific group if requested
+        if [[ -n "$PARALLEL_GROUP" ]] && [[ "$current_group" != "$PARALLEL_GROUP" ]]; then
+            log "Skipping group $current_group (waiting for group $PARALLEL_GROUP)"
+            # Fast-forward: mark all tasks in other groups as completed in queue
+            yq -i "(.tasks[] | select(.parallel_group == $current_group)).status = \"completed\"" "$RALPH_DIR/parallel/queue.yaml"
+            continue
+        fi
+
+        # Log group transition
+        if [[ "$current_group" != "$last_group" ]]; then
+            echo ""
+            log "═══════════════════════════════════════════════════════════════"
+            log "  Processing Parallel Group $current_group"
+            log "═══════════════════════════════════════════════════════════════"
+            echo ""
+            last_group="$current_group"
+        fi
+
+        # Wait for group to complete
+        log_verbose "Waiting for group $current_group to complete..."
+
+        while ! group_is_complete "$current_group"; do
+            # Show progress
+            local active
+            active=$(get_active_worker_count)
+            local pending
+            pending=$(yq "[.tasks[] | select(.parallel_group == $current_group and .status == \"pending\")] | length" "$RALPH_DIR/parallel/queue.yaml" 2>/dev/null)
+            local assigned
+            assigned=$(yq "[.tasks[] | select(.parallel_group == $current_group and .status == \"assigned\")] | length" "$RALPH_DIR/parallel/queue.yaml" 2>/dev/null)
+
+            log_verbose "Group $current_group: $pending pending, $assigned in progress, $active workers active"
+
+            # Check for stuck workers (no progress for too long)
+            sleep 5
+        done
+
+        log_success "Group $current_group execution complete, running validation..."
+
+        # Run group validation
+        if ! run_group_validation "$current_group"; then
+            log_error "Group $current_group validation failed"
+            handle_group_failure "$current_group"
+
+            # Count retries
+            ((consecutive_failures++)) || true
+
+            if [[ ${consecutive_failures:-0} -ge $MAX_RETRIES ]]; then
+                log_error "Too many consecutive failures. Stopping."
+                break
+            fi
+
+            continue
+        fi
+
+        log_success "Group $current_group completed and validated"
+        consecutive_failures=0
+
+        # Mark group tasks as complete in main tasks.yaml
+        local completed_tasks
+        completed_tasks=$(yq ".tasks[] | select(.parallel_group == $current_group and .status == \"completed\") | .id" "$RALPH_DIR/parallel/queue.yaml" 2>/dev/null)
+
+        for task_id in $completed_tasks; do
+            [[ -z "$task_id" ]] && continue
+            task_id=$(echo "$task_id" | tr -d '"')
+            update_metrics "parallel-$current_group" "completed" "$task_id"
+        done
+
+        # Brief pause before next group
+        sleep 2
+    done
+
+    # Shutdown workers
+    shutdown_workers
+
+    log_success "Parallel execution complete"
+    return 0
+}
+
 run_loop() {
     log "Starting watchOS Ralph Loop..."
     log "Press Ctrl+C to stop"
@@ -958,6 +1242,30 @@ cleanup() {
     log "Received interrupt signal (Ctrl+C), shutting down gracefully..."
     echo ""
 
+    # Shutdown workers if in parallel mode
+    if [[ "$PARALLEL_MODE" == "true" ]]; then
+        log "Shutting down parallel workers..."
+        # Source parallel utils if not already sourced
+        if [[ -f "$RALPH_DIR/parallel-utils.sh" ]]; then
+            source "$RALPH_DIR/parallel-utils.sh" 2>/dev/null || true
+            send_shutdown_signal 2>/dev/null || true
+
+            # Give workers time to shutdown
+            sleep 2
+
+            # Force kill any remaining
+            for pid_file in "$RALPH_DIR/parallel/workers/"*.pid; do
+                [[ -f "$pid_file" ]] || continue
+                local pid
+                pid=$(cat "$pid_file" 2>/dev/null)
+                if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+                    kill -9 "$pid" 2>/dev/null || true
+                fi
+                rm -f "$pid_file"
+            done
+        fi
+    fi
+
     # Show current progress
     if [[ -f "$METRICS_FILE" ]] && command -v jq &> /dev/null; then
         local sessions
@@ -1049,6 +1357,18 @@ while [[ $# -gt 0 ]]; do
             BASE_BRANCH="$2"
             shift 2
             ;;
+        --parallel)
+            PARALLEL_MODE=true
+            shift
+            ;;
+        --max-workers)
+            MAX_WORKERS="$2"
+            shift 2
+            ;;
+        --parallel-group)
+            PARALLEL_GROUP="$2"
+            shift 2
+            ;;
         *)
             log_error "Unknown option: $1"
             show_help
@@ -1078,6 +1398,8 @@ main() {
         "$RALPH_DIR/state-manager.sh" list
     elif [[ "$INIT_MODE" == "true" ]]; then
         run_init
+    elif [[ "$PARALLEL_MODE" == "true" ]]; then
+        run_parallel_loop
     else
         run_loop
     fi

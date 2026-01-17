@@ -1289,7 +1289,7 @@ tasks:
       Reference: .claude/ralph/PARALLEL-IMPL-SPEC.md
     priority: high
     parallel_group: 15
-    completed: false
+    completed: true
     verification: |
       [[ -f ".claude/ralph/parallel-utils.sh" ]] && \
       [[ -f ".claude/ralph/ralph-worker.sh" ]] && \
@@ -1549,7 +1549,6 @@ tasks:
       - liquid-glass
       - animation
     commit_template: "feat(ui): Add glass morphing transitions"
-
   # ═══════════════════════════════════════════════════════════════════════════
   # META: Ralph System Improvements
   # Parallel Group 17: Self-improvement
@@ -1599,7 +1598,6 @@ tasks:
       - token-efficiency
       - progressive-disclosure
     commit_template: "refactor(ralph): Implement progressive disclosure in prompts"
-
   - id: "META2"
     title: "Add automatic skill harvesting to Ralph"
     description: |
@@ -1637,7 +1635,351 @@ tasks:
       - skill-harvesting
       - automation
     commit_template: "feat(ralph): Add automatic skill harvesting"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 8: GLANCEABLE DESIGN - No Scrolling on watchOS
+  # Parallel Group 18: All screens must fit on single view
+  # Reference: docs/solutions/ui-bugs/watchos-glanceable-design.md
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "GD1"
+    title: "Remove ScrollView from MainView mainContentView"
+    description: |
+      CRITICAL UX RULE: Scrolling on watchOS is a design smell.
+      All content must fit on screen without scrolling.
 
+      Current problem:
+      - mainContentView uses ScrollView (line 91)
+      - StatusHeader + ActionQueue + ModeSelector don't fit
+      - User must scroll to see all content
+
+      Solution:
+      1. Remove ScrollView wrapper from mainContentView
+      2. Make StatusHeader compact (single line with icon + status + badge)
+      3. Show EITHER ActionQueue OR ModeSelector (not both)
+      4. Use VStack with Spacers to fill available space
+
+      Target layout:
+      ```
+      ┌─────────────────┐
+      │ [●] Active    3 │  <- Compact status (one line)
+      ├─────────────────┤
+      │   Edit file     │  <- Primary action card
+      │ src/auth.ts     │
+      │  [✓]    [✗]    │  <- Approve/Reject buttons
+      └─────────────────┘
+      ```
+
+      When no pending actions:
+      ```
+      ┌─────────────────┐
+      │ [●] Ready       │  <- Compact status
+      ├─────────────────┤
+      │                 │
+      │   NORMAL    >   │  <- Mode selector (centered)
+      │                 │
+      └─────────────────┘
+      ```
+    priority: critical
+    parallel_group: 18
+    completed: false
+    verification: |
+      ! grep -q 'ScrollView' ClaudeWatch/Views/MainView.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "No ScrollView in mainContentView"
+      - "All content visible without scrolling"
+      - "StatusHeader is single-line compact"
+      - "Shows ActionQueue OR ModeSelector, not both"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - glanceable
+      - ux
+      - critical
+    commit_template: "refactor(ux): Remove ScrollView from MainView for glanceable design"
+  - id: "GD2"
+    title: "Create CompactStatusHeader view"
+    description: |
+      Replace current multi-line StatusHeader with compact single-line version.
+
+      Current StatusHeader issues:
+      - Takes 3+ lines of space
+      - Has large icon container (32pt)
+      - Shows task name on separate line
+      - Progress bar takes additional space
+
+      CompactStatusHeader design:
+      ```swift
+      HStack(spacing: 6) {
+          // Status dot (8pt)
+          Circle()
+              .fill(statusColor)
+              .frame(width: 8, height: 8)
+
+          // Status text
+          Text(statusText)
+              .font(.caption.weight(.semibold))
+
+          Spacer()
+
+          // Pending badge (if any)
+          if pendingCount > 0 {
+              Text("\(pendingCount)")
+                  .font(.caption2.weight(.bold))
+                  .foregroundColor(.white)
+                  .padding(.horizontal, 6)
+                  .padding(.vertical, 2)
+                  .background(Claude.orange)
+                  .clipShape(Capsule())
+          }
+      }
+      .padding(.horizontal, 12)
+      .padding(.vertical, 8)
+      ```
+
+      Add to ActionViews.swift alongside existing StatusHeader.
+    priority: high
+    parallel_group: 18
+    completed: false
+    verification: |
+      grep -q 'CompactStatusHeader' ClaudeWatch/Views/ActionViews.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "CompactStatusHeader is single-line"
+      - "Shows status dot, text, and pending badge"
+      - "Height under 40pt"
+    files:
+      - "ClaudeWatch/Views/ActionViews.swift"
+    tags:
+      - glanceable
+      - component
+    commit_template: "feat(ux): Add CompactStatusHeader for glanceable design"
+  - id: "GD3"
+    title: "Create CompactActionCard view"
+    description: |
+      Replace ActionQueue with single CompactActionCard for primary action.
+
+      Current ActionQueue issues:
+      - Shows multiple cards (primary + compact)
+      - Takes too much vertical space
+      - Requires scrolling to see all
+
+      CompactActionCard design:
+      - Shows ONLY the first pending action
+      - Displays pending count as badge
+      - Tap to cycle through actions (optional)
+
+      ```swift
+      struct CompactActionCard: View {
+          @ObservedObject private var service = WatchService.shared
+
+          var action: PendingAction? {
+              service.state.pendingActions.first
+          }
+
+          var body: some View {
+              if let action = action {
+                  VStack(spacing: 8) {
+                      // Action info
+                      HStack {
+                          Image(systemName: action.typeIcon)
+                              .foregroundColor(action.typeColor)
+                          Text(action.title)
+                              .font(.caption.weight(.semibold))
+                              .lineLimit(1)
+                          Spacer()
+                      }
+
+                      // File path
+                      if let path = action.filePath {
+                          Text(path)
+                              .font(.caption2)
+                              .foregroundColor(.secondary)
+                              .lineLimit(1)
+                      }
+
+                      // Approve/Reject buttons (side by side)
+                      HStack(spacing: 12) {
+                          Button { reject() } label: {
+                              Image(systemName: "xmark")
+                                  .frame(maxWidth: .infinity)
+                          }
+                          .buttonStyle(.bordered)
+                          .tint(.red)
+
+                          Button { approve() } label: {
+                              Image(systemName: "checkmark")
+                                  .frame(maxWidth: .infinity)
+                          }
+                          .buttonStyle(.borderedProminent)
+                          .tint(Claude.orange)
+                      }
+                  }
+                  .padding(12)
+                  .glassEffectCompat(RoundedRectangle(cornerRadius: 12))
+              }
+          }
+      }
+      ```
+    priority: high
+    parallel_group: 18
+    completed: false
+    verification: |
+      grep -q 'CompactActionCard' ClaudeWatch/Views/ActionViews.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "CompactActionCard shows single action"
+      - "Approve/Reject buttons side by side"
+      - "Fits on screen without scrolling"
+    files:
+      - "ClaudeWatch/Views/ActionViews.swift"
+    tags:
+      - glanceable
+      - component
+    commit_template: "feat(ux): Add CompactActionCard for glanceable design"
+  - id: "GD4"
+    title: "Create CompactModeSelector view"
+    description: |
+      Simplify ModeSelector to fit in available space when no actions pending.
+
+      Current ModeSelector issues:
+      - Takes significant vertical space
+      - Shows icon, title, and description
+      - "Approve each action" text wraps to 2 lines
+
+      CompactModeSelector design:
+      - Single line with mode name and chevron
+      - Tap to cycle modes
+      - Minimal padding
+
+      ```swift
+      struct CompactModeSelector: View {
+          @ObservedObject private var service = WatchService.shared
+
+          var body: some View {
+              Button {
+                  service.cycleMode()
+              } label: {
+                  HStack {
+                      Image(systemName: modeIcon)
+                          .foregroundColor(modeColor)
+
+                      Text(service.state.mode.rawValue.uppercased())
+                          .font(.caption.weight(.bold))
+                          .foregroundColor(modeColor)
+
+                      Spacer()
+
+                      Image(systemName: "chevron.right")
+                          .font(.caption2)
+                          .foregroundColor(.secondary)
+                  }
+                  .padding(.horizontal, 16)
+                  .padding(.vertical, 12)
+                  .background(modeColor.opacity(0.15))
+                  .clipShape(RoundedRectangle(cornerRadius: 10))
+              }
+              .buttonStyle(.plain)
+              .sensoryFeedback(.selection, trigger: service.state.mode)
+          }
+      }
+      ```
+    priority: high
+    parallel_group: 18
+    completed: false
+    verification: |
+      grep -q 'CompactModeSelector' ClaudeWatch/Views/CommandViews.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "CompactModeSelector is single-line"
+      - "Shows mode icon, name, and chevron"
+      - "Tap cycles through modes"
+    files:
+      - "ClaudeWatch/Views/CommandViews.swift"
+    tags:
+      - glanceable
+      - component
+    commit_template: "feat(ux): Add CompactModeSelector for glanceable design"
+  - id: "GD5"
+    title: "Refactor OfflineStateView for glanceable design"
+    description: |
+      Ensure OfflineStateView fits on screen without scrolling.
+
+      Current issues:
+      - Large icon container
+      - Multiple text elements
+      - Two buttons stacked vertically
+
+      Target design:
+      ```
+      ┌─────────────────┐
+      │                 │
+      │    [WiFi ✗]     │  <- Smaller icon (40pt)
+      │    Offline      │  <- Title only
+      │                 │
+      │ [  Retry  ]     │  <- Primary action
+      │    Demo         │  <- Secondary link
+      └─────────────────┘
+      ```
+
+      Changes:
+      1. Reduce icon to 40pt
+      2. Remove subtitle "Can't connect to Claude"
+      3. Make Retry button full-width
+      4. Demo as text link below
+    priority: medium
+    parallel_group: 18
+    completed: false
+    verification: |
+      lines=$(grep -A 50 'struct OfflineStateView' ClaudeWatch/Views/StateViews.swift | grep -c 'spacing');
+      [ "$lines" -le 3 ] && exit 0 || exit 1
+    acceptance_criteria:
+      - "OfflineStateView fits on screen"
+      - "Icon size reduced"
+      - "No subtitle text"
+      - "Retry and Demo options visible"
+    files:
+      - "ClaudeWatch/Views/StateViews.swift"
+    tags:
+      - glanceable
+      - refactor
+    commit_template: "refactor(ux): Make OfflineStateView glanceable"
+  - id: "GD6"
+    title: "Ensure all sheets fit without scrolling"
+    description: |
+      Review and refactor sheet views for glanceable design.
+
+      Sheets to review:
+      1. SettingsSheet - may need pagination instead of scroll
+      2. VoiceInputSheet - should fit on screen
+      3. PairingView - should fit on screen
+
+      For SettingsSheet specifically:
+      - Consider using TabView with pages instead of ScrollView
+      - Or reduce content to essential settings only
+      - Connection status + Demo toggle + Cloud toggle may be enough
+
+      For complex settings, use navigation:
+      ```swift
+      NavigationStack {
+          List {
+              NavigationLink("Connection") { ConnectionSettings() }
+              NavigationLink("Privacy") { PrivacySettings() }
+          }
+      }
+      ```
+    priority: medium
+    parallel_group: 18
+    completed: false
+    verification: |
+      ! grep -q 'ScrollView' ClaudeWatch/Views/SheetViews.swift 2>/dev/null || \
+      grep -q 'TabView\|NavigationStack' ClaudeWatch/Views/SheetViews.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "Essential settings visible without scroll"
+      - "Complex settings use navigation"
+      - "VoiceInputSheet fits on screen"
+    files:
+      - "ClaudeWatch/Views/SheetViews.swift"
+      - "ClaudeWatch/Views/PairingView.swift"
+    tags:
+      - glanceable
+      - sheets
+    commit_template: "refactor(ux): Make sheet views glanceable"
   - id: "META3"
     title: "Implement self-improving feedback loop"
     description: |
@@ -1696,3 +2038,252 @@ tasks:
       - machine-learning
       - automation
     commit_template: "feat(ralph): Implement self-improving feedback loop"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 9: DEAD UX CLEANUP
+  # Parallel Group 19: Remove dead code, stubs, and placeholder content
+  # From: Dead UX Audit (2026-01-17)
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "DX1"
+    title: "Remove placeholder privacy/support links"
+    description: |
+      Privacy Policy and Support links in SettingsSheet point to placeholder URLs
+      that don't exist: `https://claude-watch.example.com/privacy` and `/support`.
+
+      These are dead ends that provide no value and could confuse users.
+
+      Implementation:
+      1. Remove the Privacy Policy Link from SheetViews.swift (lines 356-374)
+      2. Remove the Support Link from SheetViews.swift (lines 377-395)
+      3. Keep the "Privacy & Consent" button that opens PrivacyInfoView (this works)
+      4. Add a TODO comment for when real URLs are available
+
+      Alternative: Replace with in-app text explaining where to find support.
+    priority: high
+    parallel_group: 19
+    completed: false
+    verification: |
+      ! grep -q 'claude-watch.example.com' ClaudeWatch/Views/SheetViews.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "No placeholder URLs in SheetViews.swift"
+      - "Privacy & Consent button still works"
+      - "No broken links in settings"
+    files:
+      - "ClaudeWatch/Views/SheetViews.swift"
+    tags:
+      - dead-ux
+      - cleanup
+      - settings
+    commit_template: "fix(ux): Remove placeholder privacy/support links"
+  - id: "DX2"
+    title: "Fix RecordingBanner component reference"
+    description: |
+      VoiceInputSheet references `RecordingBanner(recordingState: .recording)` but
+      this component doesn't exist in the codebase.
+
+      Research finding: The existing RecordingIndicator component in H3 task
+      (ClaudeWatch/Views/Components/RecordingIndicator.swift) may serve this purpose.
+
+      Implementation options:
+      1. If RecordingIndicator exists, use it instead of RecordingBanner
+      2. If neither exists, create RecordingBanner
+      3. If the reference is unused, remove it
+
+      Search for:
+      - RecordingIndicator in Views/Components/
+      - RecordingBanner references in SheetViews.swift
+    priority: high
+    parallel_group: 19
+    completed: false
+    verification: |
+      ! grep -q 'RecordingBanner' ClaudeWatch/Views/SheetViews.swift 2>/dev/null || \
+      [ -f "ClaudeWatch/Views/Components/RecordingBanner.swift" ] && exit 0 || exit 1
+    acceptance_criteria:
+      - "No references to non-existent components"
+      - "Recording state properly indicated if needed"
+      - "No build errors"
+    files:
+      - "ClaudeWatch/Views/SheetViews.swift"
+    tags:
+      - dead-ux
+      - component
+      - voice
+    commit_template: "fix(voice): Fix RecordingBanner component reference"
+  - id: "DX3"
+    title: "Fix sendPrompt() async flag tracking"
+    description: |
+      The `isSendingPrompt` flag in WatchService.swift is set to true then
+      immediately false, not actually tracking the send operation completion.
+
+      Current code (lines 622-632):
+      ```swift
+      func sendPrompt(_ text: String) {
+          isSendingPrompt = true  // Set true
+          // ... send logic ...
+          isSendingPrompt = false // Immediately false - doesn't wait!
+      }
+      ```
+
+      This means the loading indicator in VoiceInputSheet never shows properly.
+
+      Fix:
+      ```swift
+      func sendPrompt(_ text: String) async {
+          isSendingPrompt = true
+          defer { isSendingPrompt = false }
+
+          do {
+              try await actualSendOperation(text)
+          } catch {
+              // handle error
+          }
+      }
+      ```
+
+      Or use Task with proper completion:
+      ```swift
+      func sendPrompt(_ text: String) {
+          isSendingPrompt = true
+          Task { @MainActor in
+              defer { isSendingPrompt = false }
+              // ... async send ...
+          }
+      }
+      ```
+    priority: medium
+    parallel_group: 19
+    completed: false
+    verification: |
+      grep -A 10 'func sendPrompt' ClaudeWatch/Services/WatchService.swift | grep -q 'defer\|await' && exit 0 || exit 1
+    acceptance_criteria:
+      - "isSendingPrompt tracks actual send completion"
+      - "Loading indicator shows during send"
+      - "Flag properly resets on success and failure"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - dead-ux
+      - async
+      - state
+    commit_template: "fix(state): Fix sendPrompt async flag tracking"
+  - id: "DX4"
+    title: "Remove legacy toggleYolo() method"
+    description: |
+      The `toggleYolo()` method in WatchService.swift exists for backward
+      compatibility but has no callers in the codebase.
+
+      Current code (lines 588-591):
+      ```swift
+      func toggleYolo() {
+          cycleMode()  // Just delegates
+      }
+      ```
+
+      Grep confirms no callers. Safe to remove.
+
+      Implementation:
+      1. Remove toggleYolo() method from WatchService.swift
+      2. Verify no references exist
+      3. Update any documentation if needed
+    priority: low
+    parallel_group: 19
+    completed: false
+    verification: |
+      ! grep -q 'func toggleYolo' ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "toggleYolo() method removed"
+      - "No references to toggleYolo in codebase"
+      - "Build succeeds"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - dead-ux
+      - cleanup
+      - legacy
+    commit_template: "refactor(service): Remove legacy toggleYolo method"
+  - id: "DX5"
+    title: "Clean up handleAppWillResignActive() stub"
+    description: |
+      The `handleAppWillResignActive()` method in WatchService.swift is an
+      empty stub that does nothing.
+
+      Current code (lines 115-118):
+      ```swift
+      func handleAppWillResignActive() {
+          // Don't disconnect - let the system handle it
+      }
+      ```
+
+      Options:
+      1. Remove the method entirely (caller in ClaudeWatchApp would need update)
+      2. Keep with documentation explaining why it's intentionally empty
+      3. Add actual resign logic if needed
+
+      If keeping, add clear documentation:
+      ```swift
+      /// Called when app is about to become inactive.
+      /// Intentionally empty - watchOS handles connection lifecycle automatically.
+      /// Disconnecting here would cause unnecessary reconnection cycles.
+      func handleAppWillResignActive() {
+          // No action needed - watchOS manages background state
+      }
+      ```
+    priority: low
+    parallel_group: 19
+    completed: false
+    verification: |
+      grep -A 5 'handleAppWillResignActive' ClaudeWatch/Services/WatchService.swift | grep -q '///' && exit 0 || \
+      ! grep -q 'handleAppWillResignActive' ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "Method either removed or properly documented"
+      - "No empty undocumented stubs"
+      - "Build succeeds"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+      - "ClaudeWatch/App/ClaudeWatchApp.swift"
+    tags:
+      - dead-ux
+      - cleanup
+      - documentation
+    commit_template: "docs(service): Document or remove handleAppWillResignActive stub"
+  - id: "DX6"
+    title: "Fix stopNetworkMonitoring() cleanup"
+    description: |
+      The `stopNetworkMonitoring()` method exists (lines 413-416) but is never
+      called, meaning network monitor cleanup is incomplete.
+
+      Current state:
+      - startNetworkMonitoring() called in init()
+      - stopNetworkMonitoring() only in deinit (which may not execute properly)
+      - pathUpdateHandler continues running even when not needed
+
+      Options:
+      1. Remove stopNetworkMonitoring() if cleanup isn't needed (NWPathMonitor
+         is lightweight and can run continuously)
+      2. Call stopNetworkMonitoring() in appropriate lifecycle methods
+      3. Add cancel() call in handleAppDidEnterBackground if needed
+
+      Simplest fix - document that cleanup isn't needed:
+      ```swift
+      /// Network path monitoring runs for app lifetime.
+      /// No explicit cleanup needed - monitor is lightweight and
+      /// automatically released when WatchService is deallocated.
+      private func startNetworkMonitoring() { ... }
+      ```
+    priority: low
+    parallel_group: 19
+    completed: false
+    verification: |
+      grep -q 'stopNetworkMonitoring' ClaudeWatch/Services/WatchService.swift && \
+      (grep -B 2 'stopNetworkMonitoring' ClaudeWatch/Services/WatchService.swift | grep -q '///' || \
+       grep -q 'pathMonitor.cancel()' ClaudeWatch/Services/WatchService.swift) && exit 0 || exit 1
+    acceptance_criteria:
+      - "Network monitoring cleanup documented or implemented"
+      - "No orphaned monitoring handlers"
+      - "Build succeeds"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - dead-ux
+      - cleanup
+      - networking
+    commit_template: "fix(network): Document or fix network monitoring cleanup"
