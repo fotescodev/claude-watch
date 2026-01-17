@@ -104,7 +104,7 @@ log_error() {
 
 log_verbose() {
     if [[ "$VERBOSE" == "true" ]]; then
-        echo -e "${BLUE}[ralph]${NC} $*"
+        echo -e "${BLUE}[ralph]${NC} $*" >&2
     fi
 }
 
@@ -453,6 +453,114 @@ EOF
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# PROGRESSIVE DISCLOSURE - PROMPT MODULE LOADING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Get tags for a specific task
+# Args: task_id
+get_task_tags() {
+    local task_id="$1"
+
+    if ! command -v yq &> /dev/null; then
+        log_warning "yq not found, cannot get task tags"
+        echo ""
+        return
+    fi
+
+    yq ".tasks[] | select(.id == \"$task_id\") | .tags[]" "$TASKS_FILE" 2>/dev/null | tr -d '"' || echo ""
+}
+
+# Determine which prompt modules to load based on task tags
+# Args: task_id
+# Returns: space-separated list of module files to load
+get_prompt_modules() {
+    local task_id="$1"
+    local modules=""
+
+    local tags
+    tags=$(get_task_tags "$task_id")
+
+    if [[ -z "$tags" ]]; then
+        # No tags, load all modules for safety
+        log_verbose "No tags found, loading all modules"
+        modules="swift ui watchos"
+    else
+        # Check for Swift-related tags
+        if echo "$tags" | grep -qE "swift|swiftui|build|quality"; then
+            modules="$modules swift"
+        fi
+
+        # Check for UI-related tags
+        if echo "$tags" | grep -qE "ui|accessibility|hig|design|haptics"; then
+            modules="$modules ui"
+        fi
+
+        # Check for watchOS-related tags
+        if echo "$tags" | grep -qE "watchos|complications|always-on"; then
+            modules="$modules watchos"
+        fi
+
+        # Check for iOS-related tags
+        if echo "$tags" | grep -qE "ios|iphone|ipad"; then
+            modules="$modules ios"
+        fi
+
+        # Default: if no modules matched, load swift and watchos (project default)
+        if [[ -z "$modules" ]]; then
+            modules="swift watchos"
+        fi
+    fi
+
+    echo "$modules"
+}
+
+# Build combined prompt file from core + relevant modules
+# Args: task_id
+# Returns: path to combined prompt file
+build_combined_prompt() {
+    local task_id="$1"
+    local combined_file="/tmp/ralph-prompt-combined-$$.md"
+
+    # Start with core prompt
+    cat "$PROMPT_FILE" > "$combined_file"
+
+    # Get relevant modules
+    local modules
+    modules=$(get_prompt_modules "$task_id")
+
+    log_verbose "Loading prompt modules: $modules"
+
+    # Append each module if it exists
+    for module in $modules; do
+        local module_file="$RALPH_DIR/PROMPT-${module}.md"
+        if [[ -f "$module_file" ]]; then
+            echo "" >> "$combined_file"
+            echo "---" >> "$combined_file"
+            echo "" >> "$combined_file"
+            cat "$module_file" >> "$combined_file"
+            log_verbose "  Loaded: PROMPT-${module}.md"
+        fi
+    done
+
+    # Check task complexity for review module
+    local files_count
+    files_count=$(yq ".tasks[] | select(.id == \"$task_id\") | .files | length" "$TASKS_FILE" 2>/dev/null || echo "0")
+
+    if [[ "$files_count" -ge 5 ]]; then
+        local review_file="$RALPH_DIR/PROMPT-review.md"
+        if [[ -f "$review_file" ]]; then
+            echo "" >> "$combined_file"
+            echo "---" >> "$combined_file"
+            echo "" >> "$combined_file"
+            cat "$review_file" >> "$combined_file"
+            log_verbose "  Loaded: PROMPT-review.md (complex task)"
+        fi
+    fi
+
+    echo "$combined_file"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # TASK MANAGEMENT
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -601,7 +709,7 @@ create_pull_request() {
 # Get available watchOS simulator dynamically
 get_watch_simulator() {
     local sim_name
-    sim_name=$(xcrun simctl list devices available 2>/dev/null | grep -i "Apple Watch" | head -1 | sed 's/^ *//' | sed 's/ (.*//')
+    sim_name=$(xcrun simctl list devices available 2>/dev/null | grep -i "Apple Watch" | head -1 | sed 's/^ *//' | sed 's/ ([A-F0-9-]*).*//')
 
     if [[ -z "$sim_name" ]]; then
         echo "Apple Watch Series 11 (42mm)"  # Fallback
@@ -1081,8 +1189,15 @@ run_loop() {
 
         log "Selected task: $next_task_id"
 
-        # Run Claude session
-        if run_claude_session "$PROMPT_FILE" "$session_id"; then
+        # Build combined prompt with progressive disclosure (task-specific modules)
+        local combined_prompt
+        combined_prompt=$(build_combined_prompt "$next_task_id")
+        log_verbose "Combined prompt: $combined_prompt"
+
+        # Run Claude session with task-specific prompt
+        if run_claude_session "$combined_prompt" "$session_id"; then
+            # Clean up temp prompt file
+            rm -f "$combined_prompt"
             # ═══════════════════════════════════════════════════════════════
             # VALIDATION PHASE - All checks must pass before metrics update
             # ═══════════════════════════════════════════════════════════════
@@ -1205,6 +1320,9 @@ run_loop() {
             consecutive_failures=0
 
         else
+            # Clean up temp prompt file
+            rm -f "$combined_prompt"
+
             log_session_end "$session_id" "FAILED" "Session failed"
             update_metrics "$session_id" "failed" "$next_task_id"
             ((consecutive_failures++))

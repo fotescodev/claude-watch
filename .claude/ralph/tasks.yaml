@@ -1485,7 +1485,7 @@ tasks:
       ```
     priority: medium
     parallel_group: 16
-    completed: false
+    completed: true
     verification: |
       grep -rq 'glassEffect\|buttonStyle(.glass' ClaudeWatch/Views/ && exit 0 || exit 1
     acceptance_criteria:
@@ -1533,7 +1533,7 @@ tasks:
       ```
     priority: low
     parallel_group: 16
-    completed: false
+    completed: true
     depends_on:
       - "LG1"
     verification: |
@@ -1583,7 +1583,7 @@ tasks:
       have it much like in a disclosure way"
     priority: medium
     parallel_group: 17
-    completed: false
+    completed: true
     verification: |
       [[ -f ".claude/ralph/PROMPT-swift.md" ]] || [[ $(wc -l < .claude/ralph/PROMPT.md) -lt 150 ]] && exit 0 || exit 1
     acceptance_criteria:
