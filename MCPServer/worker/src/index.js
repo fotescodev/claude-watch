@@ -5,7 +5,12 @@
  * Uses HTTP + APNs for simplicity.
  */
 
-// Generate a 6-character pairing code
+/**
+ * Generates a random 6-character pairing code for device registration.
+ * Uses alphanumeric characters excluding confusing pairs (0/O, 1/I).
+ *
+ * @returns {string} A pairing code in format XXX-XXX (e.g., "A2B-C3D")
+ */
 function generatePairingCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No confusing chars (0/O, 1/I)
   let code = '';
@@ -15,7 +20,12 @@ function generatePairingCode() {
   return code.slice(0, 3) + '-' + code.slice(3);
 }
 
-// Generate a unique request ID
+/**
+ * Generates a unique 8-character identifier for approval requests.
+ * Uses the first 8 characters of a UUID v4.
+ *
+ * @returns {string} An 8-character hexadecimal request ID (e.g., "a3b4c5d6")
+ */
 function generateRequestId() {
   return crypto.randomUUID().slice(0, 8);
 }
