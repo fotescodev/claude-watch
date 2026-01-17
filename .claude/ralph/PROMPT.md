@@ -1,46 +1,100 @@
-# Ralph Task Execution
+# Ralph Task Execution for Apple Platforms
 
-Execute one task from the watchOS Claude Watch project. Do not plan or discuss - implement now.
+Execute one task from the iOS/watchOS/macOS project. Follow the phases below.
 
-## Step 1: Read Current State
+---
 
-Read these files to understand what to do:
-- `.claude/ralph/tasks.yaml` - Find the first task with `completed: false`
-- Read the task's `files` list to know what to modify
+## Phase 0: Task Selection & Clarification
 
-## Step 2: Select Task
+### Step 0.1: Read Current State
 
-From tasks.yaml, find the first incomplete task (lowest parallel_group, highest priority).
-Announce your selection:
+```bash
+# Read tasks to find what to do
+cat .claude/ralph/tasks.yaml
+```
+
+Find the first task where `completed: false` (lowest parallel_group, then highest priority).
+
+### Step 0.2: Announce Selection
+
 ```
 === STARTING TASK ===
 ID: [task id]
 Title: [task title]
+Priority: [priority]
+Parallel Group: [parallel_group]
 ======================
 ```
 
-## Step 3: Execute the Task
+### Step 0.3: Clarification Check
 
-Make the code changes required by the task description:
+**Before executing**, check if the task description is ambiguous:
 
-1. **Read** all files in the task's `files` list
-2. **Edit** those files to implement the task requirements
-3. **CRITICAL: If creating NEW Swift files, you MUST also add them to project.pbxproj** (see Xcode Project Sync below)
-4. **Build** to verify changes compile (see Build Verification below)
+- Are the file paths clear?
+- Is the implementation approach specified?
+- Are there multiple valid interpretations?
 
-### Xcode Project Sync (CRITICAL)
+**If ambiguous**: Ask clarifying questions NOW, not during implementation.
+**If clear**: Proceed to Phase 1.
 
-**Xcode projects require explicit file registration.** Files on disk don't automatically get compiled.
+---
+
+## Phase 1: Context Gathering
+
+### Step 1.1: Read Task Files
+
+Read ALL files listed in the task's `files` array:
+
+```bash
+# Example: Read each file the task references
+cat ClaudeWatch/Views/MainView.swift
+cat ClaudeWatch/DesignSystem/Claude.swift
+```
+
+### Step 1.2: Find Similar Patterns
+
+Search the codebase for similar implementations:
+
+```bash
+# Find related patterns
+grep -r "similar_pattern" ClaudeWatch/ --include="*.swift"
+```
+
+**Follow existing conventions.** Don't reinvent - copy patterns from the codebase.
+
+### Step 1.3: Check Documented Learnings
+
+Read relevant learnings if they exist:
+
+```bash
+# Check for solutions to similar problems
+ls docs/solutions/
+```
+
+---
+
+## Phase 2: Execute the Task
+
+### Step 2.1: Make Code Changes
+
+1. **Edit** files to implement the task requirements
+2. **Follow** existing code patterns found in Phase 1
+3. **Use** proper Apple platform APIs (see Code Standards below)
+
+### Step 2.2: Xcode Project Sync (CRITICAL)
+
+**Xcode projects require explicit file registration.** New files on disk don't automatically compile.
 
 When creating a NEW `.swift` file:
-1. Create the file with Write tool
-2. Add it to `ClaudeWatch.xcodeproj/project.pbxproj`:
-   - Add a `PBXFileReference` entry (e.g., `SRC007 /* NewFile.swift */`)
-   - Add a `PBXBuildFile` entry (e.g., `VIEW004 /* NewFile.swift in Sources */`)
-   - Add the file reference to the appropriate `PBXGroup` (e.g., `GRP_VIEWS`)
-   - Add the build file to `PHASE_SOURCES`
 
-**Verify sync before building:**
+1. Create the file with Write tool
+2. Add to `*.xcodeproj/project.pbxproj`:
+   - `PBXFileReference` entry
+   - `PBXBuildFile` entry
+   - Add to appropriate `PBXGroup`
+   - Add to `PBXSourcesBuildPhase`
+
+**Verify sync:**
 ```bash
 # Check all Swift files are in project
 for f in $(find ClaudeWatch -name "*.swift" ! -path "*/Tests/*"); do
@@ -48,104 +102,189 @@ for f in $(find ClaudeWatch -name "*.swift" ! -path "*/Tests/*"); do
 done
 ```
 
-### Build Verification (MANDATORY)
+### Step 2.3: Build Verification (MANDATORY)
 
-Build verification is **required** before marking any task complete.
+Build MUST succeed before proceeding.
 
-**Step 1: Discover available simulator:**
+**For watchOS:**
 ```bash
-xcrun simctl list devices available | grep -i "Apple Watch" | head -1
-```
-
-**Step 2: Build with discovered simulator:**
-```bash
-# Use the simulator name from step 1 (e.g., "Apple Watch Series 11 (42mm)")
 SIMULATOR=$(xcrun simctl list devices available | grep -i "Apple Watch" | head -1 | sed 's/^ *//' | sed 's/ (.*//')
-xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination "platform=watchOS Simulator,name=$SIMULATOR" build 2>&1 | tail -30
+xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
+  -destination "platform=watchOS Simulator,name=$SIMULATOR" build 2>&1 | tail -30
 ```
 
-**The build MUST succeed before proceeding.** If it fails:
-1. Check for missing files in project.pbxproj
-2. Check for Swift compilation errors
-3. Fix the issues and rebuild
-
-### Code Standards
-
-When adding Swift code:
-- Add `.accessibilityLabel()` to interactive elements
-- Use semantic fonts (`.caption`, `.headline`) not hardcoded sizes
-- Use `async/await`, not completion handlers
-- Follow existing code style in the file
-
-## Step 4: Verify Your Work
-
-Run the task's verification command from tasks.yaml:
+**For iOS:**
 ```bash
-# Example for accessibility task:
-count=$(grep -r 'accessibilityLabel' ClaudeWatch/Views/*.swift 2>/dev/null | wc -l)
-echo "Found $count accessibility labels"
+SIMULATOR=$(xcrun simctl list devices available | grep -i "iPhone" | head -1 | sed 's/^ *//' | sed 's/ (.*//')
+xcodebuild -project [Project].xcodeproj -scheme [Scheme] \
+  -destination "platform=iOS Simulator,name=$SIMULATOR" build 2>&1 | tail -30
 ```
 
-The verification must pass before proceeding.
+**If build fails:**
+1. Check for missing files in project.pbxproj
+2. Check Swift compilation errors
+3. Fix issues and rebuild
+4. DO NOT proceed until build passes
 
-## Step 5: Mark Complete
+---
 
-Use the state manager to mark the task done:
+## Phase 3: Quality Gate
+
+### Step 3.1: Run Task Verification
+
+Execute the verification command from tasks.yaml:
+
+```bash
+# Example verification
+./.claude/ralph/state-manager.sh verify [TASK_ID]
+```
+
+The verification MUST pass.
+
+### Step 3.2: Code Quality Checklist
+
+Before marking complete, verify:
+
+- [ ] Build passes (xcodebuild succeeds)
+- [ ] Task verification command passes
+- [ ] No new compiler warnings introduced
+- [ ] Code follows existing patterns in codebase
+- [ ] Accessibility labels on interactive elements
+- [ ] No force unwraps (`!`) without justification
+
+### Step 3.3: UI Screenshot (If Applicable)
+
+**If the task modified UI**, capture a screenshot:
+
+```bash
+# Boot simulator and capture
+xcrun simctl boot "[Simulator Name]"
+xcrun simctl io "[Simulator Name]" screenshot ~/Desktop/task-[ID]-after.png
+```
+
+### Step 3.4: Optional Reviewer Agents
+
+For complex tasks (5+ files changed), consider running reviewers:
+
+```
+# Swift code review
+Task swift-reviewer: "Review changes for Swift best practices"
+
+# SwiftUI patterns
+Task swiftui-specialist: "Review SwiftUI implementation"
+
+# Architecture review
+Task watchos-architect: "Review watchOS architecture decisions"
+```
+
+**Skip reviewers for simple tasks** (1-2 files, straightforward changes).
+
+---
+
+## Phase 4: Complete & Ship
+
+### Step 4.1: Mark Task Complete
+
 ```bash
 ./.claude/ralph/state-manager.sh complete [TASK_ID]
 ```
 
-## Step 6: Commit
+### Step 4.2: Create Commit
 
-Create a git commit:
+Use the commit_template from tasks.yaml:
+
 ```bash
 git add -A
-git commit -m "[task commit_template from tasks.yaml]"
+git commit -m "[commit_template from task]
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
-## Step 7: Announce Completion
+### Step 4.3: Announce Completion
 
 ```
 === TASK COMPLETED ===
 ID: [task id]
 Title: [task title]
+Files Changed: [count]
+Build: PASSED
+Verification: PASSED
 Commit: [commit hash]
 ======================
 ```
 
 ---
 
-## Rules
+## Apple Platform Code Standards
 
-1. **ONE TASK ONLY** - Complete one task per session
-2. **EXECUTE, DON'T PLAN** - Make actual code changes using Edit/Write tools
-3. **VERIFY BEFORE MARKING DONE** - Run verification, ensure it passes
-4. **USE STATE MANAGER** - Call state-manager.sh to mark complete
-5. **COMMIT YOUR WORK** - Every completed task needs a commit
+### Swift Style
+- Use `async/await` for async operations
+- Prefer `guard` for early exits
+- Use `@MainActor` for UI updates
+- Follow Swift API Design Guidelines
+
+### SwiftUI Patterns
+- Use `@State` for local view state
+- Use `@Environment` for dependency injection
+- Use `@Observable` macro (iOS 17+/watchOS 10+)
+- Keep views under 100 lines
+
+### Accessibility (Required)
+- Add `.accessibilityLabel()` to all interactive elements
+- Add `.accessibilityHint()` for non-obvious actions
+- Respect `@Environment(\.accessibilityReduceMotion)`
+- Test with VoiceOver
+
+### watchOS Specific
+- Use `.sensoryFeedback()` for haptics
+- Prefer single-tap interactions
+- Use SF Symbols for icons
+- Support Always-On Display states
+
+### iOS Specific
+- Support Dynamic Type
+- Respect Safe Area Insets
+- Handle keyboard appearance
+- Support Dark Mode
+
+---
 
 ## Quick Reference
 
 ```bash
-# View task status
+# View all tasks
 ./.claude/ralph/state-manager.sh list
 
-# Mark task complete
-./.claude/ralph/state-manager.sh complete C1
+# View specific task
+./.claude/ralph/state-manager.sh show [ID]
 
-# Run task verification
-./.claude/ralph/state-manager.sh verify C1
+# Run verification
+./.claude/ralph/state-manager.sh verify [ID]
 
-# Check project sync (all Swift files in Xcode project)
+# Mark complete
+./.claude/ralph/state-manager.sh complete [ID]
+
+# Check Xcode sync
 ./.claude/ralph/watchos-verify.sh --quick
 
-# Build project (dynamic simulator)
-SIMULATOR=$(xcrun simctl list devices available | grep -i "Apple Watch" | head -1 | sed 's/^ *//' | sed 's/ (.*//')
-xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination "platform=watchOS Simulator,name=$SIMULATOR" build
-
-# Full verification (includes build)
+# Full verification (build + tests)
 ./.claude/ralph/watchos-verify.sh
+
+# Capture simulator screenshot
+xcrun simctl io booted screenshot ~/Desktop/screenshot.png
 ```
 
 ---
 
-**BEGIN EXECUTION NOW** - Read tasks.yaml and start working on the first incomplete task.
+## Rules
+
+1. **ONE TASK PER SESSION** - Complete one task, then exit
+2. **CLARIFY FIRST** - Ask questions in Phase 0, not during execution
+3. **FOLLOW PATTERNS** - Copy existing code style, don't reinvent
+4. **BUILD MUST PASS** - No exceptions, fix errors before proceeding
+5. **VERIFY BEFORE COMPLETE** - Run verification, ensure it passes
+6. **COMMIT YOUR WORK** - Every completed task gets a commit
+
+---
+
+**BEGIN EXECUTION NOW** - Read tasks.yaml and start Phase 0.
