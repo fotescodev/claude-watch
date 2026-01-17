@@ -23,6 +23,7 @@
 		DS001 /* Claude.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_DS001 /* Claude.swift */; };
 		VIEW005 /* StateViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC008 /* StateViews.swift */; };
 		VIEW006 /* ActionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC009 /* ActionViews.swift */; };
+		VIEW007 /* CommandViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC010 /* CommandViews.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,6 +57,7 @@
 		SRC_DS001 /* Claude.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Claude.swift; sourceTree = "<group>"; };
 		SRC008 /* StateViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateViews.swift; sourceTree = "<group>"; };
 		SRC009 /* ActionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionViews.swift; sourceTree = "<group>"; };
+		SRC010 /* CommandViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandViews.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -125,6 +127,7 @@
 			children = (
 				GRP_COMPONENTS /* Components */,
 				SRC009 /* ActionViews.swift */,
+				SRC010 /* CommandViews.swift */,
 				SRC006 /* ConsentView.swift */,
 				SRC004 /* MainView.swift */,
 				SRC005 /* PairingView.swift */,
@@ -254,6 +257,7 @@
 				VIEW004 /* RecordingIndicator.swift in Sources */,
 				VIEW005 /* StateViews.swift in Sources */,
 				VIEW006 /* ActionViews.swift in Sources */,
+				VIEW007 /* CommandViews.swift in Sources */,
 				SVC001 /* WatchService.swift in Sources */,
 				CMP002 /* ComplicationViews.swift in Sources */,
 			);

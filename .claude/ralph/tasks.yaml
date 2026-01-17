@@ -805,7 +805,7 @@ tasks:
     parallel_group: 11
     depends_on:
       - "UX1"
-    completed: false
+    completed: true
     verification: |
       [ -f "ClaudeWatch/Views/CommandViews.swift" ] && \
       grep -q 'CommandGrid' ClaudeWatch/Views/CommandViews.swift && \
