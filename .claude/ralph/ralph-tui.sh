@@ -42,6 +42,12 @@ SPIN_FRAMES=("⣾" "⣽" "⣻" "⢿" "⡿" "⣟" "⣯" "⣷")
 FRAME_IDX=0
 
 #───────────────────────────────────────────────────────────────────────────────
+# VIEW STATE
+#───────────────────────────────────────────────────────────────────────────────
+
+CURRENT_VIEW="dashboard"
+
+#───────────────────────────────────────────────────────────────────────────────
 # TERMINAL SETUP
 #───────────────────────────────────────────────────────────────────────────────
 
@@ -67,6 +73,29 @@ read_key() {
     if IFS= read -t 0.01 -r -s -n 1 key 2>/dev/null; then
         echo "$key"
     fi
+}
+
+handle_input() {
+    # Process keypresses and switch views
+    local key=$(read_key)
+
+    case "$key" in
+        d|D|1)
+            CURRENT_VIEW="dashboard"
+            ;;
+        m|M|2)
+            CURRENT_VIEW="metrics"
+            ;;
+        s|S|3)
+            CURRENT_VIEW="sessions"
+            ;;
+        t|T|4)
+            CURRENT_VIEW="tasks"
+            ;;
+        q|Q)
+            cleanup
+            ;;
+    esac
 }
 
 trap cleanup INT TERM EXIT
@@ -442,6 +471,7 @@ main() {
     setup
 
     while true; do
+        handle_input
         render
         sleep 0.4
     done
