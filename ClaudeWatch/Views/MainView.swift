@@ -10,6 +10,9 @@ struct MainView: View {
     @State private var showingSettings = false
     @State private var pulsePhase: CGFloat = 0
 
+    // Liquid Glass morphing namespace (watchOS 26+)
+    @Namespace private var glassNamespace
+
     // Always-On Display support
     @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
@@ -27,31 +30,41 @@ struct MainView: View {
         ZStack {
             Claude.background.ignoresSafeArea()
 
-            // Always-On Display: Show simplified view
-            if isLuminanceReduced {
-                AlwaysOnDisplayView(
-                    connectionStatus: service.connectionStatus,
-                    pendingCount: service.state.pendingActions.count,
-                    status: service.state.status
-                )
-            }
-            // Content based on state
-            else if service.useCloudMode && !service.isPaired && !service.isDemoMode {
-                PairingView(service: service)
-            } else if service.connectionStatus == .disconnected && !service.isDemoMode {
-                OfflineStateView()
-            } else if case .reconnecting = service.connectionStatus {
-                // Show reconnecting indicator over main content
-                VStack {
-                    ReconnectingView(status: service.connectionStatus)
-                    Spacer()
+            // Wrap state views in GlassEffectContainer for morphing transitions (watchOS 26+)
+            glassEffectContainerForMorphing {
+                // Always-On Display: Show simplified view
+                if isLuminanceReduced {
+                    AlwaysOnDisplayView(
+                        connectionStatus: service.connectionStatus,
+                        pendingCount: service.state.pendingActions.count,
+                        status: service.state.status
+                    )
+                    .glassEffectIDCompat("mainState", in: glassNamespace)
                 }
-            } else if service.state.pendingActions.isEmpty && service.state.status == .idle {
-                EmptyStateView()
-            } else {
-                mainContentView
+                // Content based on state
+                else if service.useCloudMode && !service.isPaired && !service.isDemoMode {
+                    PairingView(service: service)
+                        .glassEffectIDCompat("mainState", in: glassNamespace)
+                } else if service.connectionStatus == .disconnected && !service.isDemoMode {
+                    OfflineStateView()
+                        .glassEffectIDCompat("mainState", in: glassNamespace)
+                } else if case .reconnecting = service.connectionStatus {
+                    // Show reconnecting indicator over main content
+                    VStack {
+                        ReconnectingView(status: service.connectionStatus)
+                        Spacer()
+                    }
+                    .glassEffectIDCompat("mainState", in: glassNamespace)
+                } else if service.state.pendingActions.isEmpty && service.state.status == .idle {
+                    EmptyStateView()
+                        .glassEffectIDCompat("mainState", in: glassNamespace)
+                } else {
+                    mainContentView
+                        .glassEffectIDCompat("mainState", in: glassNamespace)
+                }
             }
         }
+        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8), value: currentViewState)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -118,6 +131,40 @@ struct MainView: View {
         } else {
             content()
         }
+    }
+
+    /// Wraps state views in GlassEffectContainer for morphing transitions (watchOS 26+)
+    @ViewBuilder
+    private func glassEffectContainerForMorphing<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        if #available(watchOS 26.0, *) {
+            GlassEffectContainer {
+                content()
+            }
+        } else {
+            content()
+        }
+    }
+
+    /// Current view state for animation tracking
+    private var currentViewState: ViewState {
+        if isLuminanceReduced {
+            return .alwaysOn
+        } else if service.useCloudMode && !service.isPaired && !service.isDemoMode {
+            return .pairing
+        } else if service.connectionStatus == .disconnected && !service.isDemoMode {
+            return .offline
+        } else if case .reconnecting = service.connectionStatus {
+            return .reconnecting
+        } else if service.state.pendingActions.isEmpty && service.state.status == .idle {
+            return .empty
+        } else {
+            return .main
+        }
+    }
+
+    /// View state enum for animation tracking
+    private enum ViewState: Equatable {
+        case alwaysOn, pairing, offline, reconnecting, empty, main
     }
 
     private var connectionIcon: String {

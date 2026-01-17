@@ -231,6 +231,17 @@ extension View {
     func liquidGlassCardInteractive(cornerRadius: CGFloat = Claude.Radius.large) -> some View {
         glassEffectInteractive(RoundedRectangle(cornerRadius: cornerRadius))
     }
+
+    /// Apply glassEffectID for morphing transitions (watchOS 26+)
+    /// Falls back to matchedGeometryEffect on older versions for smooth transitions
+    @ViewBuilder
+    func glassEffectIDCompat(_ id: some Hashable, in namespace: Namespace.ID) -> some View {
+        if #available(watchOS 26.0, *) {
+            self.glassEffectID(id, in: namespace)
+        } else {
+            self.matchedGeometryEffect(id: id, in: namespace)
+        }
+    }
 }
 
 // MARK: - Glass Button Style (watchOS 26+)
