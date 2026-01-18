@@ -4,17 +4,17 @@ import WatchKit
 // MARK: - Pairing View
 struct PairingView: View {
     @ObservedObject var service: WatchService
-    @State private var showCodeEntry = false
+    @State private var showCodeDisplay = false
 
     var body: some View {
         ZStack {
             Claude.background.ignoresSafeArea()
 
-            if showCodeEntry {
-                PairingCodeEntryView(service: service, onBack: { showCodeEntry = false })
+            if showCodeDisplay {
+                PairingCodeDisplayView(service: service, onBack: { showCodeDisplay = false })
             } else {
                 UnpairedMainView(
-                    onPairNow: { showCodeEntry = true },
+                    onPairNow: { showCodeDisplay = true },
                     onLocalMode: {
                         service.useCloudMode = false
                         service.objectWillChange.send()
@@ -59,7 +59,7 @@ struct UnpairedMainView: View {
                     .font(.claudeHeadline)
                     .foregroundStyle(Claude.textPrimary)
 
-                Text("Enter code from terminal")
+                Text("Get code to enter in CLI")
                     .font(.claudeFootnote)
                     .foregroundStyle(Claude.textSecondary)
             }
@@ -115,7 +115,194 @@ struct UnpairedMainView: View {
     }
 }
 
-// MARK: - Pairing Code Entry View
+// MARK: - Pairing Code Display View (NEW FLOW)
+struct PairingCodeDisplayView: View {
+    @ObservedObject var service: WatchService
+    let onBack: () -> Void
+
+    @State private var code: String?
+    @State private var watchId: String?
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+    @State private var showSuccess = false
+    @State private var pollingTask: Task<Void, Never>?
+
+    var body: some View {
+        if showSuccess {
+            ConnectedSuccessView()
+        } else {
+            VStack(spacing: Claude.Spacing.sm) {
+                // Header with back button
+                HStack {
+                    Button(action: {
+                        WKInterfaceDevice.current().play(.click)
+                        pollingTask?.cancel()
+                        onBack()
+                    }) {
+                        HStack(spacing: 2) {
+                            Image(systemName: "chevron.left")
+                            Text("Back")
+                        }
+                        .font(.claudeFootnote)
+                        .foregroundStyle(Claude.orange)
+                    }
+                    .buttonStyle(.plain)
+                    Spacer()
+                }
+
+                if isLoading {
+                    // Loading state
+                    Spacer()
+                    ProgressView()
+                        .tint(Claude.orange)
+                    Text("Getting code...")
+                        .font(.claudeFootnote)
+                        .foregroundStyle(Claude.textSecondary)
+                    Spacer()
+                } else if let error = errorMessage {
+                    // Error state
+                    Spacer()
+                    VStack(spacing: Claude.Spacing.sm) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 24))
+                            .foregroundStyle(Claude.danger)
+
+                        Text(error)
+                            .font(.claudeFootnote)
+                            .foregroundStyle(Claude.danger)
+                            .multilineTextAlignment(.center)
+
+                        Button(action: {
+                            WKInterfaceDevice.current().play(.click)
+                            initiatePairing()
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Try Again")
+                            }
+                            .font(.claudeFootnote)
+                            .foregroundStyle(Claude.orange)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Spacer()
+                } else if let code = code {
+                    // Code display state
+                    Text("Enter in CLI:")
+                        .font(.claudeFootnote)
+                        .foregroundStyle(Claude.textSecondary)
+
+                    // Large code display with spacing
+                    Text(formatCodeForDisplay(code))
+                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Claude.textPrimary)
+                        .tracking(4)
+                        .padding(.vertical, Claude.Spacing.md)
+
+                    // Waiting indicator
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                            .tint(Claude.orange)
+                        Text("Waiting for CLI...")
+                            .font(.claudeFootnote)
+                            .foregroundStyle(Claude.textSecondary)
+                    }
+
+                    Spacer()
+
+                    // Code expires info
+                    Text("Code expires in 5 min")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Claude.textTertiary)
+                }
+            }
+            .padding(Claude.Spacing.md)
+            .onAppear {
+                initiatePairing()
+            }
+            .onDisappear {
+                pollingTask?.cancel()
+            }
+        }
+    }
+
+    /// Format code with spaces for readability: "472913" -> "4 7 2 9 1 3"
+    private func formatCodeForDisplay(_ code: String) -> String {
+        return code.map { String($0) }.joined(separator: " ")
+    }
+
+    private func initiatePairing() {
+        isLoading = true
+        errorMessage = nil
+        code = nil
+        watchId = nil
+
+        Task {
+            do {
+                let result = try await service.initiatePairing()
+                await MainActor.run {
+                    self.code = result.code
+                    self.watchId = result.watchId
+                    self.isLoading = false
+                    WKInterfaceDevice.current().play(.click)
+                    startPolling(watchId: result.watchId)
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    isLoading = false
+                    WKInterfaceDevice.current().play(.failure)
+                }
+            }
+        }
+    }
+
+    private func startPolling(watchId: String) {
+        pollingTask?.cancel()
+
+        pollingTask = Task {
+            // Poll every 2 seconds for up to 5 minutes
+            let maxAttempts = 150 // 5 min / 2 sec
+            var attempt = 0
+
+            while !Task.isCancelled && attempt < maxAttempts {
+                do {
+                    let status = try await service.checkPairingStatus(watchId: watchId)
+
+                    if status.paired, let pairingId = status.pairingId {
+                        await MainActor.run {
+                            service.finishPairing(pairingId: pairingId)
+                            showSuccess = true
+                            WKInterfaceDevice.current().play(.success)
+                        }
+                        return
+                    }
+                } catch {
+                    // Session expired or error
+                    await MainActor.run {
+                        errorMessage = "Code expired. Tap to try again."
+                        WKInterfaceDevice.current().play(.failure)
+                    }
+                    return
+                }
+
+                try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+                attempt += 1
+            }
+
+            // Timeout
+            if !Task.isCancelled {
+                await MainActor.run {
+                    errorMessage = "Timed out waiting for CLI."
+                    WKInterfaceDevice.current().play(.failure)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Legacy Pairing Code Entry View (kept for backwards compatibility)
 struct PairingCodeEntryView: View {
     @ObservedObject var service: WatchService
     let onBack: () -> Void
@@ -341,7 +528,11 @@ struct ConnectedSuccessView: View {
     UnpairedMainView(onPairNow: {}, onLocalMode: {}, onDemoMode: {})
 }
 
-#Preview("Code Entry") {
+#Preview("Code Display") {
+    PairingCodeDisplayView(service: WatchService(), onBack: {})
+}
+
+#Preview("Code Entry (Legacy)") {
     PairingCodeEntryView(service: WatchService(), onBack: {})
 }
 

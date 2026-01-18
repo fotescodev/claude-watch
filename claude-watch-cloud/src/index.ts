@@ -17,6 +17,16 @@ interface PairingSession {
   pairingId: string | null;
 }
 
+// Watch-initiated pairing session (new flow)
+interface WatchPairingSession {
+  code: string;
+  watchId: string;
+  deviceToken: string;
+  createdAt: string;
+  paired: boolean;
+  pairingId: string | null;
+}
+
 interface Connection {
   pairingId: string;
   deviceToken: string;
@@ -97,21 +107,100 @@ app.post('/api/pairing/cleanup', async (c) => {
   return c.json({ success: true });
 });
 
-// Complete pairing (from watch)
-app.post('/pair/complete', async (c) => {
-  const { code, deviceToken } = await c.req.json<{ code: string; deviceToken: string }>();
+// ============================================
+// NEW FLOW: Watch-initiated pairing endpoints
+// ============================================
 
-  // Find pairing session by code
+// Generate 6-digit numeric code
+function generateCode(): string {
+  const chars = '0123456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+// Watch initiates pairing - requests a code to display
+app.post('/pair/initiate', async (c) => {
+  const { deviceToken } = await c.req.json<{ deviceToken?: string }>();
+
+  // Generate unique code and watchId
+  const code = generateCode();
+  const watchId = crypto.randomUUID();
+
+  const session: WatchPairingSession = {
+    code,
+    watchId,
+    deviceToken: deviceToken || 'unknown',
+    createdAt: new Date().toISOString(),
+    paired: false,
+    pairingId: null,
+  };
+
+  // Store by both code and watchId for lookup (5 min TTL)
+  await c.env.PAIRING_KV.put(`watch_code:${code}`, JSON.stringify(session), { expirationTtl: 300 });
+  await c.env.PAIRING_KV.put(`watch:${watchId}`, JSON.stringify(session), { expirationTtl: 300 });
+
+  return c.json({ code, watchId });
+});
+
+// Watch polls for pairing completion
+app.get('/pair/status/:watchId', async (c) => {
+  const watchId = c.req.param('watchId');
+
+  const session = await c.env.PAIRING_KV.get<WatchPairingSession>(`watch:${watchId}`, 'json');
+
+  if (!session) {
+    return c.json({ error: 'Session expired or not found' }, 404);
+  }
+
+  return c.json({
+    paired: session.paired,
+    pairingId: session.pairingId,
+  });
+});
+
+// CLI completes pairing by entering the code shown on watch
+app.post('/pair/complete', async (c) => {
+  const body = await c.req.json<{ code: string; deviceToken?: string }>();
+  const { code, deviceToken } = body;
+
+  // First try new watch-initiated flow
+  let watchSession = await c.env.PAIRING_KV.get<WatchPairingSession>(`watch_code:${code}`, 'json');
+
+  if (watchSession) {
+    // New flow: CLI completing watch-initiated pairing
+    const pairingId = crypto.randomUUID();
+
+    // Update session as paired
+    watchSession.paired = true;
+    watchSession.pairingId = pairingId;
+    await c.env.PAIRING_KV.put(`watch_code:${code}`, JSON.stringify(watchSession), { expirationTtl: 60 });
+    await c.env.PAIRING_KV.put(`watch:${watchSession.watchId}`, JSON.stringify(watchSession), { expirationTtl: 60 });
+
+    // Store connection
+    const connection: Connection = {
+      pairingId,
+      deviceToken: watchSession.deviceToken,
+      createdAt: new Date().toISOString(),
+      lastSeen: new Date().toISOString(),
+    };
+    await c.env.CONNECTIONS_KV.put(`pairing:${pairingId}`, JSON.stringify(connection), { expirationTtl: 86400 });
+
+    return c.json({ pairingId });
+  }
+
+  // Fallback: Try legacy CLI-initiated flow (for backwards compatibility)
   const session = await c.env.PAIRING_KV.get<PairingSession>(`code:${code}`, 'json');
 
   if (!session) {
     return c.json({ error: 'Invalid or expired code' }, 404);
   }
 
-  // Generate pairing ID
+  // Legacy flow: Watch completing CLI-initiated pairing
   const pairingId = crypto.randomUUID();
 
-  // Update session as paired
   session.paired = true;
   session.pairingId = pairingId;
   await c.env.PAIRING_KV.put(`code:${code}`, JSON.stringify(session), { expirationTtl: 60 });
@@ -120,11 +209,11 @@ app.post('/pair/complete', async (c) => {
   // Store connection
   const connection: Connection = {
     pairingId,
-    deviceToken,
+    deviceToken: deviceToken || 'unknown',
     createdAt: new Date().toISOString(),
     lastSeen: new Date().toISOString(),
   };
-  await c.env.CONNECTIONS_KV.put(`pairing:${pairingId}`, JSON.stringify(connection), { expirationTtl: 86400 }); // 24 hours
+  await c.env.CONNECTIONS_KV.put(`pairing:${pairingId}`, JSON.stringify(connection), { expirationTtl: 86400 });
 
   return c.json({ pairingId });
 });

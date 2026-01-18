@@ -717,7 +717,76 @@ class WatchService: ObservableObject {
 
     // MARK: - Cloud Mode (Production)
 
-    /// Complete pairing with Claude Code using a 6-character code
+    /// Initiate pairing - watch requests a code to display
+    /// Returns the code to display and a watchId for polling
+    func initiatePairing() async throws -> (code: String, watchId: String) {
+        let url = URL(string: "\(cloudServerURL)/pair/initiate")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Get device token for push notifications
+        let deviceToken = await getDeviceToken()
+
+        let body: [String: Any] = [
+            "deviceToken": deviceToken ?? "simulator-token"
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await urlSession.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw CloudError.serverError((response as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let code = json["code"] as? String,
+              let watchId = json["watchId"] as? String else {
+            throw CloudError.invalidResponse
+        }
+
+        return (code: code, watchId: watchId)
+    }
+
+    /// Check pairing status - watch polls until CLI completes pairing
+    func checkPairingStatus(watchId: String) async throws -> (paired: Bool, pairingId: String?) {
+        let url = URL(string: "\(cloudServerURL)/pair/status/\(watchId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await urlSession.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw CloudError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 404 {
+            throw CloudError.timeout
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            throw CloudError.serverError(httpResponse.statusCode)
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let paired = json["paired"] as? Bool else {
+            throw CloudError.invalidResponse
+        }
+
+        let pairingId = json["pairingId"] as? String
+        return (paired: paired, pairingId: pairingId)
+    }
+
+    /// Complete pairing after CLI has entered the code
+    func finishPairing(pairingId: String) {
+        self.pairingId = pairingId
+        connectionStatus = .connected
+        playHaptic(.success)
+        startPolling()
+    }
+
+    /// Complete pairing with Claude Code using a 6-character code (legacy - used when watch enters code)
     func completePairing(code: String) async throws {
         let url = URL(string: "\(cloudServerURL)/pair/complete")!
         var request = URLRequest(url: url)

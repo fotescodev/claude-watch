@@ -12,7 +12,7 @@ import {
   isClaudeWatchConfigured,
   getMCPConfigPath,
 } from "../config/mcp-config.js";
-import { PairingSession, createLocalPairing } from "../cloud/pairing.js";
+import { createLocalPairing } from "../cloud/pairing.js";
 import { CloudClient } from "../cloud/client.js";
 
 type ConnectionMode = "cloud" | "local";
@@ -83,51 +83,65 @@ async function askConnectionMode(): Promise<ConnectionMode | null> {
 }
 
 /**
- * Run cloud pairing flow
+ * Run cloud pairing flow (NEW: User enters code from watch)
  */
-async function runCloudPairing(): Promise<string | null> {
-  const session = new PairingSession();
+async function runCloudPairing(cloudUrl: string): Promise<string | null> {
+  console.log();
+  console.log(chalk.dim("  Open Claude Watch on your Apple Watch."));
+  console.log(chalk.dim("  Tap 'Pair Now' to see a 6-digit code."));
+  console.log();
 
-  // Register with cloud
-  const registerSpinner = ora("Registering pairing code...").start();
-  const registered = await session.register();
+  // Prompt for code from watch
+  const response = await prompts({
+    type: "text",
+    name: "code",
+    message: "Enter the code from your watch:",
+    validate: (value: string) => {
+      const cleaned = value.replace(/\s/g, "");
+      if (/^\d{6}$/.test(cleaned)) {
+        return true;
+      }
+      return "Enter 6 digits (shown on your watch)";
+    },
+  });
 
-  if (!registered) {
-    registerSpinner.fail("Failed to register pairing code");
-    console.log();
-    console.log(
-      chalk.yellow("  The cloud relay may be unavailable. Try local mode.")
-    );
-    console.log();
+  if (!response.code) {
+    console.log(chalk.yellow("  Pairing cancelled."));
     return null;
   }
 
-  registerSpinner.stop();
+  // Clean up the code (remove spaces)
+  const code = response.code.replace(/\s/g, "");
 
-  // Show pairing code
-  console.log();
-  console.log(chalk.dim("  Your pairing code:"));
-  console.log();
-  console.log(chalk.bold.white(`    ${session.getFormattedCode()}`));
-  console.log();
-  console.log(chalk.dim("  Enter this on your Apple Watch."));
-  console.log();
+  // Submit code to cloud
+  const pairingSpinner = ora("Completing pairing...").start();
 
-  // Wait for pairing
-  const pairingSpinner = ora("Waiting for watch to pair...").start();
+  try {
+    const res = await fetch(`${cloudUrl}/pair/complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
 
-  const pairingId = await session.waitForPairing((attempt, max) => {
-    const elapsed = Math.floor(attempt);
-    const remaining = Math.floor((max - attempt) / 60);
-    pairingSpinner.text = `Waiting for watch to pair... (${remaining}m remaining)`;
-  });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: "Unknown error" }));
+      if (res.status === 404) {
+        pairingSpinner.fail("Invalid or expired code");
+        console.log();
+        console.log(
+          chalk.yellow("  Make sure your watch is showing a fresh code.")
+        );
+        console.log();
+        return null;
+      }
+      throw new Error((error as { error: string }).error || `HTTP ${res.status}`);
+    }
 
-  if (pairingId) {
+    const data = (await res.json()) as { pairingId: string };
     pairingSpinner.succeed("Watch paired!");
-    return pairingId;
-  } else {
-    pairingSpinner.fail("Pairing timed out");
-    await session.cleanup();
+    return data.pairingId;
+  } catch (error) {
+    pairingSpinner.fail(`Pairing failed: ${(error as Error).message}`);
     return null;
   }
 }
@@ -223,7 +237,7 @@ export async function runSetup(): Promise<void> {
   console.log();
 
   let pairingId: string | null = null;
-  let cloudUrl = "https://claude-watch.fly.dev";
+  let cloudUrl = "https://claude-watch.fotescodev.workers.dev";
 
   if (mode === "cloud") {
     // Check cloud connectivity first
@@ -235,7 +249,7 @@ export async function runSetup(): Promise<void> {
       );
       pairingId = await runLocalSetup();
     } else {
-      pairingId = await runCloudPairing();
+      pairingId = await runCloudPairing(cloudUrl);
     }
   } else {
     pairingId = await runLocalSetup();
