@@ -9,15 +9,15 @@ compatibility_date = "2024-06-14"
 
 [[kv_namespaces]]
 binding = "PAIRING_KV"
-id = "<PAIRING_KV_ID>"  # Replace after running wrangler kv:namespace create
+id = "c7048e3a88014332aa54f6de551aa6d5"
 
 [[kv_namespaces]]
 binding = "CONNECTIONS_KV"
-id = "<CONNECTIONS_KV_ID>"  # Replace after running wrangler kv:namespace create
+id = "5f74eee974a2403b88b0c302eab1c379"
 
 [[kv_namespaces]]
 binding = "MESSAGES_KV"
-id = "<MESSAGES_KV_ID>"  # Replace after running wrangler kv:namespace create
+id = "cce8befe22604990878d0ae0fd10fd52"
 
 [vars]
 ENVIRONMENT = "production"

@@ -898,18 +898,21 @@ class WatchService: ObservableObject {
         case invalidCode
         case invalidResponse
         case serverError(Int)
+        case networkUnavailable
         case timeout
 
         var errorDescription: String? {
             switch self {
             case .invalidCode:
-                return "Invalid or expired pairing code"
+                return "Invalid or expired code. Try again."
             case .invalidResponse:
-                return "Invalid response from server"
+                return "Unexpected server response."
             case .serverError(let code):
-                return "Server error: \(code)"
+                return "Server error (\(code)). Try again."
+            case .networkUnavailable:
+                return "No network connection."
             case .timeout:
-                return "Request timed out"
+                return "Connection timed out."
             }
         }
     }

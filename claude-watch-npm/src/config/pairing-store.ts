@@ -7,7 +7,7 @@ const CONFIG_DIR = join(homedir(), ".claude-watch");
 const CONFIG_PATH = join(CONFIG_DIR, "config.json");
 
 // Default cloud URL - Cloudflare Worker
-const DEFAULT_CLOUD_URL = "https://claude-watch.workers.dev";
+const DEFAULT_CLOUD_URL = "https://claude-watch.fotescodev.workers.dev";
 
 /**
  * Ensure the ~/.claude-watch directory exists
