@@ -6,8 +6,8 @@ import type { PairingConfig } from "../types/index.js";
 const CONFIG_DIR = join(homedir(), ".claude-watch");
 const CONFIG_PATH = join(CONFIG_DIR, "config.json");
 
-// Default cloud URL (when cloud relay is available)
-const DEFAULT_CLOUD_URL = "https://claude-watch.fly.dev";
+// Default cloud URL - Cloudflare Worker
+const DEFAULT_CLOUD_URL = "https://claude-watch.workers.dev";
 
 /**
  * Ensure the ~/.claude-watch directory exists

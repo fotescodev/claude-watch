@@ -2361,7 +2361,7 @@ tasks:
          - Cleans up expired sessions
     priority: critical
     parallel_group: 20
-    completed: false
+    completed: true
     verification: |
       grep -q "api/pairing/register" claude-watch-cloud/src/index.ts && \
       grep -q "api/pairing/check" claude-watch-cloud/src/index.ts && \
@@ -2401,7 +2401,7 @@ tasks:
          - Returns { status: 'ok' }
     priority: critical
     parallel_group: 20
-    completed: false
+    completed: true
     verification: |
       grep -q "api/message" claude-watch-cloud/src/index.ts && \
       grep -q "api/messages" claude-watch-cloud/src/index.ts && \
@@ -2446,7 +2446,7 @@ tasks:
       ```
     priority: high
     parallel_group: 21
-    completed: false
+    completed: true
     verification: |
       grep -q "workers.dev" claude-watch-npm/src/config/pairing-store.ts && exit 0 || exit 1
     acceptance_criteria:
