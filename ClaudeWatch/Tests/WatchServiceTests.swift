@@ -68,6 +68,7 @@ final class WatchServiceTests: XCTestCase {
     func testInvalidURLSetsError() {
         // Given: A malformed URL (spaces make it invalid for URL(string:))
         service.serverURLString = "ws://invalid url with spaces"
+        service.useCloudMode = false  // Disable cloud mode to test WebSocket URL validation
 
         // When: Connect is called
         service.connect()
