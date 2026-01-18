@@ -397,7 +397,7 @@ tasks:
       - ClaudeWatch/Services/WatchService.swift (command sending)
     priority: medium
     parallel_group: 3
-    completed: false
+    completed: true
     depends_on:
       - "BF2"
     acceptance_criteria:
