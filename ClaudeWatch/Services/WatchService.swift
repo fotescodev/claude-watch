@@ -474,6 +474,12 @@ class WatchService: ObservableObject {
         pathMonitor?.start(queue: DispatchQueue(label: "com.claudewatch.network-monitor"))
     }
 
+    /// Cancels network path monitoring.
+    ///
+    /// Network path monitoring runs for the app's lifetime. Explicit cleanup is
+    /// not required because NWPathMonitor is lightweight and automatically releases
+    /// when WatchService is deallocated. This method exists for completeness but
+    /// is not called during normal operation.
     private func stopNetworkMonitoring() {
         pathMonitor?.cancel()
         pathMonitor = nil
