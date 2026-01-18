@@ -229,44 +229,75 @@ tasks:
     commit_template: "test(e2e): Verify physical watch approval flow"
 
   # ═══════════════════════════════════════════════════════════════════════════
-  # BUG FIXES IN PROGRESS
+  # BUG FIXES - READY FOR VERIFICATION
+  # Simulator: Apple Watch Series 11 (46mm) - SHOULD BE RUNNING
   # ═══════════════════════════════════════════════════════════════════════════
 
   - id: "BF1"
-    title: "Clear delivered notifications after approve/reject"
+    title: "Verify notification fixes: live update + cleanup"
     description: |
-      PROBLEM: Old notifications keep appearing even after requests are handled.
-      When a user approves/rejects a request, the push notification stays in
-      the notification center and can be tapped again.
+      TWO FIXES IMPLEMENTED - NEED VERIFICATION:
 
-      FIX IMPLEMENTED:
-      - Added `clearDeliveredNotification(for:)` method to WatchService
-      - Called after `respondToCloudRequest`, `approveAction`, `rejectAction`
-      - `approveAll` clears ALL delivered notifications
-      - Matches notifications by `requestId` or `action_id` in userInfo
+      FIX 1: Live UI update from push notifications
+      - Problem: Notification arrived but MainView showed "All Clear"
+      - Solution: Added `addPendingActionFromNotification()` in ClaudeWatchApp.swift
+      - Called in `willPresent` when notification arrives
+      - Also called when user taps notification to open app
 
-      VERIFICATION:
-      1. Rebuild and deploy to simulator/physical watch
-      2. Trigger an approval request
-      3. Approve from watch
-      4. Verify notification disappears from notification center
-      5. Verify no duplicate notifications appear
-    priority: high
+      FIX 2: Clear notifications after approve/reject
+      - Problem: Old notifications stayed in notification center
+      - Solution: Added `clearDeliveredNotification(for:)` in WatchService.swift
+      - Called after respondToCloudRequest, approveAction, rejectAction
+      - approveAll clears ALL delivered notifications
+
+      VERIFICATION STEPS (run these commands):
+      ```bash
+      # 1. Build and install (simulator should be running)
+      xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
+        -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)' build
+
+      # 2. Install app
+      xcrun simctl install "Apple Watch Series 11 (46mm)" \
+        ~/Library/Developer/Xcode/DerivedData/ClaudeWatch-*/Build/Products/Debug-watchsimulator/ClaudeWatch.app
+
+      # 3. Launch app
+      xcrun simctl launch "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch
+
+      # 4. Send test notification
+      cat > /tmp/test.json << 'EOF'
+      {
+        "aps": {"alert": {"title": "Test", "body": "Verify fix"}, "sound": "default", "category": "CLAUDE_ACTION"},
+        "requestId": "verify-001", "type": "bash", "title": "Test Action", "description": "Verify notification fix"
+      }
+      EOF
+      xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch /tmp/test.json
+
+      # 5. VERIFY: MainView should show "Test Action" with approve/reject buttons
+      # 6. Approve the action
+      # 7. VERIFY: Notification should disappear from notification center
+      # 8. VERIFY: MainView should return to "All Clear"
+      ```
+
+      If all verifications pass, mark this task complete and commit.
+    priority: critical
     parallel_group: 1
     completed: false
     verification: |
-      echo "Manual test - verify notifications clear after approval"
+      xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
+        -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)' build 2>&1 | grep -q "BUILD SUCCEEDED"
     acceptance_criteria:
+      - "MainView updates live when notification arrives"
       - "Notification cleared after approve"
       - "Notification cleared after reject"
-      - "All notifications cleared after approveAll"
       - "No stale notifications in notification center"
     files:
+      - "ClaudeWatch/App/ClaudeWatchApp.swift"
       - "ClaudeWatch/Services/WatchService.swift"
     tags:
       - bug-fix
       - notifications
-    commit_template: "fix(notifications): Clear delivered notifications after approval"
+      - verification-needed
+    commit_template: "fix(notifications): Live UI update + clear after approval"
 
   # ═══════════════════════════════════════════════════════════════════════════
   # FUTURE ENHANCEMENTS

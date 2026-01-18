@@ -115,8 +115,45 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        // Parse notification payload and add to pending actions
+        let userInfo = notification.request.content.userInfo
+        addPendingActionFromNotification(userInfo: userInfo)
+
         // Show notification even when app is in foreground
         completionHandler([.banner, .sound])
+    }
+
+    /// Parse notification payload and add to WatchService pending actions
+    private func addPendingActionFromNotification(userInfo: [AnyHashable: Any]) {
+        guard let requestId = userInfo["requestId"] as? String ?? userInfo["action_id"] as? String else {
+            return
+        }
+
+        let type = userInfo["type"] as? String ?? "tool_use"
+        let title = userInfo["title"] as? String ?? "Action Required"
+        let description = userInfo["description"] as? String ?? ""
+        let filePath = userInfo["filePath"] as? String
+        let command = userInfo["command"] as? String
+
+        let action = PendingAction(
+            id: requestId,
+            type: type,
+            title: title,
+            description: description,
+            filePath: filePath,
+            command: command,
+            timestamp: Date()
+        )
+
+        Task { @MainActor in
+            let service = WatchService.shared
+            // Avoid duplicates
+            if !service.state.pendingActions.contains(where: { $0.id == requestId }) {
+                service.state.pendingActions.append(action)
+                service.state.status = .waiting
+                service.playHaptic(.notification)
+            }
+        }
     }
 
     func userNotificationCenter(
@@ -154,7 +191,8 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                 service.approveAll()
 
             case UNNotificationDefaultActionIdentifier:
-                // User tapped notification - app opens to main view
+                // User tapped notification - add action if not already present
+                addPendingActionFromNotification(userInfo: userInfo)
                 break
 
             case UNNotificationDismissActionIdentifier:
