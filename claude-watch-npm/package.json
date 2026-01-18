@@ -4,13 +4,19 @@
   "description": "Control Claude Code from your Apple Watch",
   "type": "module",
   "bin": {
-    "claude-watch": "./bin/claude-watch.js"
+    "claude-watch": "./dist/src/index.js"
   },
-  "main": "./src/index.ts",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "dev": "tsx src/index.ts",
     "serve": "tsx src/index.ts serve",
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "test": "tsx --test"
   },
   "dependencies": {
@@ -18,12 +24,12 @@
     "chalk": "^5.4.1",
     "ora": "^8.1.1",
     "prompts": "^2.4.2",
-    "tsx": "^4.7.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/prompts": "^2.4.9",
+    "tsx": "^4.7.0",
     "typescript": "^5.4.0"
   },
   "keywords": [
@@ -37,5 +43,10 @@
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fotescodev/claude-watch.git",
+    "directory": "claude-watch-npm"
   }
 }
