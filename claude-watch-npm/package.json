@@ -1,9 +1,10 @@
 {
   "name": "cc-watch",
-  "version": "0.1.0",
-  "description": "Control Claude Code from your Apple Watch",
+  "version": "0.1.1",
+  "description": "Control Claude Code from your Apple Watch - approve actions, track progress, receive notifications",
   "type": "module",
   "bin": {
+    "cc-watch": "./dist/src/index.js",
     "claude-watch": "./dist/src/index.js"
   },
   "main": "./dist/src/index.js",
@@ -35,18 +36,29 @@
   "keywords": [
     "claude",
     "claude-code",
+    "anthropic",
     "mcp",
+    "model-context-protocol",
     "apple-watch",
-    "watchos"
+    "watchos",
+    "wearable",
+    "ai",
+    "llm",
+    "developer-tools",
+    "cli"
   ],
-  "author": "",
+  "author": "fotescodev",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/fotescodev/claude-watch.git",
+    "url": "git+https://github.com/fotescodev/claude-watch.git",
     "directory": "claude-watch-npm"
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/fotescodev/claude-watch/issues"
+  },
+  "homepage": "https://github.com/fotescodev/claude-watch#readme"
 }
