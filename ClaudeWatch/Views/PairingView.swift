@@ -180,11 +180,27 @@ struct PairingCodeEntryView: View {
                     .background(Claude.surface1)
                     .clipShape(RoundedRectangle(cornerRadius: Claude.Radius.small))
 
-                // Error message
+                // Error message with retry button
                 if let error = errorMessage {
-                    Text(error)
-                        .font(.claudeFootnote)
-                        .foregroundStyle(Claude.danger)
+                    VStack(spacing: Claude.Spacing.xs) {
+                        Text(error)
+                            .font(.claudeFootnote)
+                            .foregroundStyle(Claude.danger)
+                            .multilineTextAlignment(.center)
+
+                        Button(action: {
+                            WKInterfaceDevice.current().play(.click)
+                            resetForRetry()
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Try Again")
+                            }
+                            .font(.claudeFootnote)
+                            .foregroundStyle(Claude.orange)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
 
                 Spacer()
@@ -235,6 +251,12 @@ struct PairingCodeEntryView: View {
         if isValidCode {
             WKInterfaceDevice.current().play(.click)
         }
+    }
+
+    private func resetForRetry() {
+        code = ""
+        errorMessage = nil
+        isCodeFocused = true
     }
 
     private func submitCode() {
