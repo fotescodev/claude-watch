@@ -88,6 +88,29 @@ xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'plat
 xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS'
 ```
 
+## Pairing Flow (IMPORTANT)
+
+**The watch shows the code, the CLI receives it:**
+
+```
+┌─────────────────┐         ┌─────────────────┐
+│   Apple Watch   │         │    Mac CLI      │
+│                 │         │                 │
+│  1. Tap "Pair"  │         │                 │
+│  2. Shows code  │ ──────> │  3. npx cc-watch│
+│     "ABC-123"   │         │  4. Enter code  │
+│                 │         │  5. Paired!     │
+└─────────────────┘         └─────────────────┘
+```
+
+```bash
+# On Mac - after watch displays code:
+npx cc-watch
+# Enter the code FROM the watch INTO the CLI
+```
+
+**DO NOT** use the old flow (CLI shows code → enter on watch). That is obsolete.
+
 ## Server Commands
 ```bash
 # Start MCP server (standalone mode)

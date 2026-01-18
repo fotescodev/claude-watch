@@ -259,6 +259,31 @@ final class WatchServiceTests: XCTestCase {
         XCTAssertEqual(PermissionMode.plan.icon, "doc.text.magnifyingglass")
     }
 
+    func testPermissionModeColors() {
+        XCTAssertEqual(PermissionMode.normal.color, "blue")
+        XCTAssertEqual(PermissionMode.autoAccept.color, "red")
+        XCTAssertEqual(PermissionMode.plan.color, "purple")
+    }
+
+    func testPermissionModeDescriptions() {
+        XCTAssertEqual(PermissionMode.normal.description, "Approve each action")
+        XCTAssertEqual(PermissionMode.autoAccept.description, "Auto-approve all")
+        XCTAssertEqual(PermissionMode.plan.description, "Read-only planning")
+    }
+
+    func testPermissionModeRawValues() {
+        XCTAssertEqual(PermissionMode.normal.rawValue, "normal")
+        XCTAssertEqual(PermissionMode.autoAccept.rawValue, "auto_accept")
+        XCTAssertEqual(PermissionMode.plan.rawValue, "plan")
+    }
+
+    func testPermissionModeFromRawValue() {
+        XCTAssertEqual(PermissionMode(rawValue: "normal"), .normal)
+        XCTAssertEqual(PermissionMode(rawValue: "auto_accept"), .autoAccept)
+        XCTAssertEqual(PermissionMode(rawValue: "plan"), .plan)
+        XCTAssertNil(PermissionMode(rawValue: "invalid"))
+    }
+
     // MARK: - Session Status
 
     func testSessionStatusDisplayNames() {
@@ -267,6 +292,31 @@ final class WatchServiceTests: XCTestCase {
         XCTAssertEqual(SessionStatus.waiting.displayName, "WAITING")
         XCTAssertEqual(SessionStatus.completed.displayName, "DONE")
         XCTAssertEqual(SessionStatus.failed.displayName, "FAILED")
+    }
+
+    func testSessionStatusColors() {
+        XCTAssertEqual(SessionStatus.idle.color, "gray")
+        XCTAssertEqual(SessionStatus.running.color, "green")
+        XCTAssertEqual(SessionStatus.waiting.color, "orange")
+        XCTAssertEqual(SessionStatus.completed.color, "green")
+        XCTAssertEqual(SessionStatus.failed.color, "red")
+    }
+
+    func testSessionStatusRawValues() {
+        XCTAssertEqual(SessionStatus.idle.rawValue, "idle")
+        XCTAssertEqual(SessionStatus.running.rawValue, "running")
+        XCTAssertEqual(SessionStatus.waiting.rawValue, "waiting")
+        XCTAssertEqual(SessionStatus.completed.rawValue, "completed")
+        XCTAssertEqual(SessionStatus.failed.rawValue, "failed")
+    }
+
+    func testSessionStatusFromRawValue() {
+        XCTAssertEqual(SessionStatus(rawValue: "idle"), .idle)
+        XCTAssertEqual(SessionStatus(rawValue: "running"), .running)
+        XCTAssertEqual(SessionStatus(rawValue: "waiting"), .waiting)
+        XCTAssertEqual(SessionStatus(rawValue: "completed"), .completed)
+        XCTAssertEqual(SessionStatus(rawValue: "failed"), .failed)
+        XCTAssertNil(SessionStatus(rawValue: "invalid"))
     }
 
     // MARK: - Pending Action
@@ -321,5 +371,66 @@ final class WatchServiceTests: XCTestCase {
             PendingAction(id: "", type: "unknown", title: "", description: "", filePath: nil, command: nil, timestamp: Date()).icon,
             "gear"
         )
+    }
+
+    func testPendingActionTypeColor() {
+        XCTAssertEqual(
+            PendingAction(id: "", type: "file_edit", title: "", description: "", filePath: nil, command: nil, timestamp: Date()).typeColor,
+            "blue"
+        )
+        XCTAssertEqual(
+            PendingAction(id: "", type: "file_create", title: "", description: "", filePath: nil, command: nil, timestamp: Date()).typeColor,
+            "green"
+        )
+        XCTAssertEqual(
+            PendingAction(id: "", type: "file_delete", title: "", description: "", filePath: nil, command: nil, timestamp: Date()).typeColor,
+            "red"
+        )
+        XCTAssertEqual(
+            PendingAction(id: "", type: "bash", title: "", description: "", filePath: nil, command: nil, timestamp: Date()).typeColor,
+            "orange"
+        )
+        XCTAssertEqual(
+            PendingAction(id: "", type: "api_call", title: "", description: "", filePath: nil, command: nil, timestamp: Date()).typeColor,
+            "purple"
+        )
+    }
+
+    func testPendingActionTimestampParsing() {
+        // With valid timestamp
+        let data: [String: Any] = [
+            "id": "test",
+            "type": "bash",
+            "title": "Test",
+            "description": "Test",
+            "timestamp": "2024-06-15T14:30:00Z"
+        ]
+        let action = PendingAction(from: data)
+        XCTAssertNotNil(action)
+
+        // Without timestamp (should default to now)
+        let dataNoTimestamp: [String: Any] = [
+            "id": "test2",
+            "type": "bash",
+            "title": "Test2",
+            "description": "Test2"
+        ]
+        let action2 = PendingAction(from: dataNoTimestamp)
+        XCTAssertNotNil(action2)
+    }
+
+    func testPendingActionCommandField() {
+        let data: [String: Any] = [
+            "id": "test",
+            "type": "bash",
+            "title": "Run command",
+            "description": "Execute npm",
+            "command": "npm install"
+        ]
+
+        let action = PendingAction(from: data)
+
+        XCTAssertNotNil(action)
+        XCTAssertEqual(action?.command, "npm install")
     }
 }

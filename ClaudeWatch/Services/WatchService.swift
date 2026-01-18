@@ -786,7 +786,9 @@ class WatchService: ObservableObject {
         startPolling()
     }
 
-    /// Complete pairing with Claude Code using a 6-character code (legacy - used when watch enters code)
+    /// DEPRECATED: Old pairing flow where watch entered code from CLI.
+    /// New flow: Watch shows code → CLI enters code → use initiatePairing() + checkPairingStatus() instead.
+    @available(*, deprecated, message: "Use initiatePairing() + checkPairingStatus() instead. Watch now DISPLAYS code, CLI enters it.")
     func completePairing(code: String) async throws {
         let url = URL(string: "\(cloudServerURL)/pair/complete")!
         var request = URLRequest(url: url)
@@ -925,11 +927,10 @@ class WatchService: ObservableObject {
         // Convert to pending actions
         var newActions: [PendingAction] = []
         for req in requests {
-            // Action data is nested in "payload" from the message queue
-            guard let payload = req["payload"] as? [String: Any],
-                  let id = payload["id"] as? String,
-                  let type = payload["type"] as? String,
-                  let title = payload["title"] as? String else {
+            // Request data is returned directly from /requests/:pairingId endpoint
+            guard let id = req["id"] as? String,
+                  let type = req["type"] as? String,
+                  let title = req["title"] as? String else {
                 continue
             }
 
@@ -937,9 +938,9 @@ class WatchService: ObservableObject {
                 id: id,
                 type: type,
                 title: title,
-                description: payload["description"] as? String ?? "",
-                filePath: payload["filePath"] as? String,
-                command: payload["command"] as? String,
+                description: req["description"] as? String ?? "",
+                filePath: req["filePath"] as? String,
+                command: req["command"] as? String,
                 timestamp: Date()
             )
             newActions.append(action)
@@ -950,16 +951,18 @@ class WatchService: ObservableObject {
         let newIds = Set(newActions.map { $0.id })
         let addedIds = newIds.subtracting(existingIds)
 
-        // Update state
-        state.pendingActions = newActions
+        // Update state on main thread for SwiftUI
+        await MainActor.run {
+            state.pendingActions = newActions
 
-        if !state.pendingActions.isEmpty {
-            state.status = .waiting
-        }
+            if !state.pendingActions.isEmpty {
+                state.status = .waiting
+            }
 
-        // Play haptic for new actions
-        if !addedIds.isEmpty {
-            playHaptic(.notification)
+            // Play haptic for new actions
+            if !addedIds.isEmpty {
+                playHaptic(.notification)
+            }
         }
     }
 

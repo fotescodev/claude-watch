@@ -386,7 +386,112 @@ export default {
     const path = url.pathname;
 
     try {
-      // POST /pair - Generate pairing code for Claude Code
+      // POST /pair/initiate - Watch initiates pairing and gets code to display
+      // NEW FLOW: Watch shows code → CLI enters code
+      if (path === '/pair/initiate' && request.method === 'POST') {
+        const { deviceToken } = await request.json().catch(() => ({}));
+
+        // Generate a 6-digit numeric code for easy entry
+        const code = generateNumericCode();
+        const watchId = crypto.randomUUID();
+
+        // Store watch session (expires in 10 minutes)
+        await env.PAIRINGS.put(`watch:${watchId}`, JSON.stringify({
+          watchId,
+          code,
+          deviceToken: deviceToken || null,
+          createdAt: Date.now(),
+          status: 'pending',
+          pairingId: null
+        }), { expirationTtl: 600 });
+
+        // Also index by code for CLI lookup
+        await env.PAIRINGS.put(`watchcode:${code}`, watchId, { expirationTtl: 600 });
+
+        return jsonResponse({
+          code,
+          watchId,
+          expiresIn: 600
+        });
+      }
+
+      // GET /pair/status/:watchId - Watch polls to check if CLI completed pairing
+      if (path.startsWith('/pair/status/') && request.method === 'GET') {
+        const watchId = path.split('/')[3];
+
+        const watchData = await env.PAIRINGS.get(`watch:${watchId}`);
+        if (!watchData) {
+          return jsonResponse({ error: 'Session expired' }, 404);
+        }
+
+        const watch = JSON.parse(watchData);
+
+        if (watch.status === 'paired' && watch.pairingId) {
+          return jsonResponse({
+            status: 'paired',
+            paired: true,
+            pairingId: watch.pairingId
+          });
+        }
+
+        return jsonResponse({
+          status: 'pending',
+          paired: false
+        });
+      }
+
+      // POST /pair/complete-cli - CLI completes pairing by entering code from watch
+      // NEW FLOW: CLI enters the code displayed on watch
+      if (path === '/pair/complete-cli' && request.method === 'POST') {
+        const { code } = await request.json();
+
+        if (!code) {
+          return jsonResponse({ error: 'Missing code' }, 400);
+        }
+
+        const normalizedCode = code.trim();
+
+        // Look up watchId by code
+        const watchId = await env.PAIRINGS.get(`watchcode:${normalizedCode}`);
+        if (!watchId) {
+          return jsonResponse({ error: 'Invalid or expired code' }, 404);
+        }
+
+        // Get watch session
+        const watchData = await env.PAIRINGS.get(`watch:${watchId}`);
+        if (!watchData) {
+          return jsonResponse({ error: 'Session expired' }, 404);
+        }
+
+        const watch = JSON.parse(watchData);
+        const pairingId = crypto.randomUUID();
+
+        // Update watch session as paired
+        watch.status = 'paired';
+        watch.pairingId = pairingId;
+        watch.completedAt = Date.now();
+        await env.PAIRINGS.put(`watch:${watchId}`, JSON.stringify(watch), { expirationTtl: 600 });
+
+        // Create active pairing record
+        await env.PAIRINGS.put(`pairing:${pairingId}`, JSON.stringify({
+          pairingId,
+          deviceToken: watch.deviceToken,
+          status: 'active',
+          createdAt: watch.createdAt,
+          completedAt: Date.now()
+        }));
+
+        // Clean up code index
+        await env.PAIRINGS.delete(`watchcode:${normalizedCode}`);
+
+        return jsonResponse({
+          success: true,
+          pairingId,
+          watchId
+        });
+      }
+
+      // POST /pair - Generate pairing code for Claude Code (LEGACY - CLI shows code)
       // Accepts optional ?format=numeric query param for 6-digit numeric codes
       if (path === '/pair' && request.method === 'POST') {
         const format = url.searchParams.get('format');
@@ -413,14 +518,59 @@ export default {
         });
       }
 
-      // POST /pair/complete - Watch completes pairing with code and device token
-      // Supports both alphanumeric (ABC-123) and numeric (123456) code formats
-      // Rate limited to prevent brute force attacks on numeric codes
+      // POST /pair/complete - Complete pairing with code
+      // Supports TWO flows:
+      // 1. OLD: Watch sends code + deviceToken (CLI showed code, watch enters it)
+      // 2. NEW: CLI sends code only (Watch showed code, CLI enters it)
       if (path === '/pair/complete' && request.method === 'POST') {
         const { code, deviceToken } = await request.json();
 
-        if (!code || !deviceToken) {
-          return jsonResponse({ error: 'Missing code or deviceToken' }, 400);
+        if (!code) {
+          return jsonResponse({ error: 'Missing code' }, 400);
+        }
+
+        const normalizedCode = code.trim();
+
+        // NEW FLOW: Check if this is a watch-initiated pairing (CLI entering code)
+        const watchId = await env.PAIRINGS.get(`watchcode:${normalizedCode}`);
+        if (watchId) {
+          // CLI is completing a watch-initiated pairing
+          const watchData = await env.PAIRINGS.get(`watch:${watchId}`);
+          if (!watchData) {
+            return jsonResponse({ error: 'Session expired' }, 404);
+          }
+
+          const watch = JSON.parse(watchData);
+          const pairingId = crypto.randomUUID();
+
+          // Update watch session as paired
+          watch.status = 'paired';
+          watch.pairingId = pairingId;
+          watch.completedAt = Date.now();
+          await env.PAIRINGS.put(`watch:${watchId}`, JSON.stringify(watch), { expirationTtl: 600 });
+
+          // Create active pairing record
+          await env.PAIRINGS.put(`pairing:${pairingId}`, JSON.stringify({
+            pairingId,
+            deviceToken: watch.deviceToken,
+            status: 'active',
+            createdAt: watch.createdAt,
+            completedAt: Date.now()
+          }));
+
+          // Clean up code index
+          await env.PAIRINGS.delete(`watchcode:${normalizedCode}`);
+
+          return jsonResponse({
+            success: true,
+            pairingId,
+            watchId
+          });
+        }
+
+        // OLD FLOW: Watch entering code from CLI (requires deviceToken)
+        if (!deviceToken) {
+          return jsonResponse({ error: 'Invalid or expired code' }, 404);
         }
 
         // Normalize code based on format:
@@ -428,10 +578,10 @@ export default {
         // - Alphanumeric: uppercase and trim (e.g., "abc-123" -> "ABC-123")
         const trimmedCode = code.trim();
         const isNumeric = /^\d{6}$/.test(trimmedCode);
-        const normalizedCode = isNumeric ? trimmedCode : trimmedCode.toUpperCase();
+        const oldFlowCode = isNumeric ? trimmedCode : trimmedCode.toUpperCase();
 
         // Look up the pairing by code
-        const pairingData = await env.PAIRINGS.get(`code:${normalizedCode}`);
+        const pairingData = await env.PAIRINGS.get(`code:${oldFlowCode}`);
         if (!pairingData) {
           return jsonResponse({ error: 'Invalid or expired code' }, 404);
         }
@@ -466,7 +616,7 @@ export default {
         await env.PAIRINGS.put(`pairing:${pairing.pairingId}`, JSON.stringify(completedPairing));
 
         // Delete the code entry
-        await env.PAIRINGS.delete(`code:${normalizedCode}`);
+        await env.PAIRINGS.delete(`code:${oldFlowCode}`);
 
         // Clear rate limit on successful pairing
         await env.PAIRINGS.delete(`rate:${pairing.pairingId}`);

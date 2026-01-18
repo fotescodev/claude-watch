@@ -10,12 +10,17 @@
   "mcpServers": {
     "apple-docs": {
       "command": "npx",
-      "args": ["-y", "@kimsungwhee/apple-docs-mcp"],
+      "args": [
+        "-y",
+        "@kimsungwhee/apple-docs-mcp"
+      ],
       "description": "Apple Developer Documentation, WWDC videos, framework APIs, and platform compatibility"
     },
     "claude-watch": {
       "command": "python",
-      "args": ["MCPServer/server.py"],
+      "args": [
+        "MCPServer/server.py"
+      ],
       "description": "Claude Watch bridge server for Apple Watch integration"
     }
   },
@@ -73,7 +78,17 @@
         ]
       }
     ],
-    "PreToolUse": []
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/watch-approval-cloud.py"
+          }
+        ]
+      }
+    ]
   },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true,

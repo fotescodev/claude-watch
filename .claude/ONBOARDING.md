@@ -28,6 +28,9 @@ Tasks are organized by:
 ```
 inbox/ → plans/ → tasks.yaml → archive/
 (ideas)  (refined)  (execute)   (done)
+                         ↓
+                   solutions/
+                 (documented)
 ```
 
 | Directory | Purpose |
@@ -35,6 +38,7 @@ inbox/ → plans/ → tasks.yaml → archive/
 | `inbox/` | Raw ideas, quick captures (unprocessed) |
 | `plans/` | Refined plans ready for review |
 | `context/` | Always-on context (PRD, personas, journeys) |
+| `solutions/` | **Architecture docs, solved problems** |
 | `scope-creep/` | Future dreams (CarPlay, iOS app) - ignore for now |
 | `ralph/tasks.yaml` | THE source of truth for execution |
 | `archive/` | Completed or obsolete content |
@@ -46,6 +50,7 @@ inbox/ → plans/ → tasks.yaml → archive/
 | `/CLAUDE.md` | Coding standards, project structure |
 | `/CONTRIBUTING.md` | Developer setup, PR process |
 | `.claude/ralph/tasks.yaml` | Current work queue |
+| `.claude/solutions/claude-watch-architecture.md` | **System architecture, data flows, APIs** |
 | `.claude/plans/` | Active plans under consideration |
 | `.claude/decisions/` | Architecture Decision Records (ADRs) |
 
@@ -57,6 +62,8 @@ inbox/ → plans/ → tasks.yaml → archive/
 ├── inbox/                  # Unprocessed ideas
 ├── plans/                  # Refined plans
 ├── context/                # Always-on context (PRD, personas)
+├── solutions/              # Architecture docs, solved problems
+│   └── claude-watch-architecture.md  # System diagrams & APIs
 ├── scope-creep/            # Future dreams - ignore for now
 ├── ralph/
 │   ├── tasks.yaml          # THE execution queue
@@ -77,6 +84,19 @@ inbox/ → plans/ → tasks.yaml → archive/
 2. **Find incomplete tasks**: Look for `completed: false` in tasks.yaml
 3. **Read CLAUDE.md**: For coding standards and patterns
 4. **Build the app**: `xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm)'`
+
+## Pairing Flow (CRITICAL)
+
+**Watch shows code → CLI receives code** (NOT the other way around!)
+
+```bash
+# 1. On watch: Tap "Pair Now" → watch displays code
+# 2. On Mac:
+npx cc-watch
+# 3. Enter the code from watch into CLI
+```
+
+The old flow (CLI shows code, enter on watch) is **OBSOLETE**.
 
 ## Don't Waste Tokens
 
