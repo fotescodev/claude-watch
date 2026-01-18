@@ -2287,3 +2287,505 @@ tasks:
       - cleanup
       - networking
     commit_template: "fix(network): Document or fix network monitoring cleanup"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 8: CLOUD PAIRING BACKEND
+  # From: plans/prd-cloud-pairing-backend.md
+  # Priority: High - Required for production deployment
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  # --- Phase 1: Cloud Backend (Critical) ---
+  - id: "CP1"
+    # COMPLETED BY RALPH
+    title: "Create Cloudflare Worker project structure"
+    description: |
+      Create the claude-watch-cloud/ directory with Cloudflare Worker setup:
+      - package.json with hono, wrangler dependencies
+      - wrangler.toml with KV namespace bindings
+      - tsconfig.json for TypeScript
+      - src/index.ts stub
+
+      Directory structure:
+      ```
+      claude-watch-cloud/
+      ├── package.json
+      ├── wrangler.toml
+      ├── tsconfig.json
+      └── src/
+          └── index.ts
+      ```
+    priority: critical
+    parallel_group: 20
+    completed: false
+    verification: |
+      [ -f "claude-watch-cloud/package.json" ] && \
+      [ -f "claude-watch-cloud/wrangler.toml" ] && \
+      [ -f "claude-watch-cloud/src/index.ts" ] && exit 0 || exit 1
+    acceptance_criteria:
+      - "claude-watch-cloud/ directory exists"
+      - "package.json includes hono and wrangler"
+      - "wrangler.toml has KV namespace placeholders"
+      - "TypeScript configured"
+    files:
+      - "claude-watch-cloud/package.json"
+      - "claude-watch-cloud/wrangler.toml"
+      - "claude-watch-cloud/tsconfig.json"
+      - "claude-watch-cloud/src/index.ts"
+    tags:
+      - cloud
+      - cloudflare
+      - infrastructure
+    commit_template: "feat(cloud): Initialize Cloudflare Worker project"
+
+  - id: "CP2"
+    title: "Implement pairing endpoints"
+    description: |
+      Implement the pairing flow endpoints in src/index.ts using Hono:
+
+      1. POST /api/pairing/register
+         - Receives { code, sessionId }
+         - Stores in PAIRING_KV with 5 min TTL
+         - Returns { success: true }
+
+      2. GET /api/pairing/check?sessionId=...
+         - Looks up session by sessionId
+         - Returns { paired: boolean, pairingId?: string }
+
+      3. POST /pair/complete
+         - Receives { code, deviceToken }
+         - Finds session by code
+         - Generates pairingId, marks paired
+         - Stores connection in CONNECTIONS_KV
+         - Returns { pairingId }
+
+      4. POST /api/pairing/cleanup
+         - Cleans up expired sessions
+    priority: critical
+    parallel_group: 20
+    completed: false
+    verification: |
+      grep -q "api/pairing/register" claude-watch-cloud/src/index.ts && \
+      grep -q "api/pairing/check" claude-watch-cloud/src/index.ts && \
+      grep -q "pair/complete" claude-watch-cloud/src/index.ts && exit 0 || exit 1
+    acceptance_criteria:
+      - "All 4 pairing endpoints implemented"
+      - "Proper KV storage with TTLs"
+      - "Error handling for invalid codes"
+      - "TypeScript types for request/response"
+    files:
+      - "claude-watch-cloud/src/index.ts"
+    tags:
+      - cloud
+      - pairing
+      - api
+    commit_template: "feat(cloud): Implement pairing endpoints"
+
+  - id: "CP3"
+    title: "Implement message relay endpoints"
+    description: |
+      Implement message relay endpoints for watch-server communication:
+
+      1. POST /api/message
+         - Receives { pairingId, type, payload }
+         - Queues message in MESSAGES_KV
+         - Supports both to_watch and to_server directions
+
+      2. GET /api/messages?pairingId=...&direction=to_watch
+         - Returns queued messages
+         - Clears queue after reading
+
+      3. POST /respond/:requestId
+         - Receives { approved, pairingId }
+         - Queues action_response for server
+
+      4. GET /health
+         - Returns { status: 'ok' }
+    priority: critical
+    parallel_group: 20
+    completed: false
+    verification: |
+      grep -q "api/message" claude-watch-cloud/src/index.ts && \
+      grep -q "api/messages" claude-watch-cloud/src/index.ts && \
+      grep -q "respond/:requestId" claude-watch-cloud/src/index.ts && \
+      grep -q "/health" claude-watch-cloud/src/index.ts && exit 0 || exit 1
+    acceptance_criteria:
+      - "Message POST endpoint working"
+      - "Message polling GET endpoint working"
+      - "Respond endpoint for approvals"
+      - "Health check endpoint"
+      - "Messages cleared after reading"
+    files:
+      - "claude-watch-cloud/src/index.ts"
+    tags:
+      - cloud
+      - messaging
+      - api
+    commit_template: "feat(cloud): Implement message relay endpoints"
+
+  # --- Phase 2: npm Package Integration (High) ---
+  - id: "CP4"
+    title: "Update npm package cloud URL"
+    description: |
+      Update DEFAULT_CLOUD_URL in src/config/pairing-store.ts to point
+      to the deployed Cloudflare Worker.
+
+      ```typescript
+      const DEFAULT_CLOUD_URL = "https://claude-watch.<account>.workers.dev";
+      ```
+
+      Also update the pairing registration to store by both code AND sessionId:
+
+      ```typescript
+      // In register()
+      await fetch(`${this.cloudUrl}/api/pairing/register`, {
+        method: "POST",
+        body: JSON.stringify({
+          code: this.code,
+          sessionId: this.sessionId,
+        }),
+      });
+      ```
+    priority: high
+    parallel_group: 21
+    completed: false
+    verification: |
+      grep -q "workers.dev" claude-watch-npm/src/config/pairing-store.ts && exit 0 || exit 1
+    acceptance_criteria:
+      - "Cloud URL updated to deployed worker"
+      - "Pairing registration includes sessionId"
+    files:
+      - "claude-watch-npm/src/config/pairing-store.ts"
+      - "claude-watch-npm/src/cloud/pairing.ts"
+    tags:
+      - npm
+      - cloud
+      - config
+    commit_template: "feat(npm): Update cloud URL for production"
+
+  - id: "CP5"
+    title: "Add message polling to npm client"
+    description: |
+      Update src/cloud/client.ts to poll for watch responses:
+
+      Add polling for to_server direction to receive action responses:
+
+      ```typescript
+      async pollMessages(): Promise<CloudMessage[]> {
+        const response = await fetch(
+          `${this.cloudUrl}/api/messages?pairingId=${this.pairingId}&direction=to_server`
+        );
+        // ...
+      }
+      ```
+
+      This enables the MCP server to receive approve/reject responses
+      from the watch.
+    priority: high
+    parallel_group: 21
+    completed: false
+    verification: |
+      grep -q "direction=to_server" claude-watch-npm/src/cloud/client.ts && exit 0 || exit 1
+    acceptance_criteria:
+      - "Client polls for to_server messages"
+      - "Action responses properly parsed"
+      - "Polling interval configurable"
+    files:
+      - "claude-watch-npm/src/cloud/client.ts"
+    tags:
+      - npm
+      - cloud
+      - polling
+    commit_template: "feat(npm): Add message polling for watch responses"
+
+  # --- Phase 3: watchOS Updates (High) ---
+  - id: "CP6"
+    title: "Update watchOS cloud URL default"
+    description: |
+      Update the default cloudServerURL in WatchService.swift to match
+      the deployed Cloudflare Worker:
+
+      ```swift
+      @AppStorage("cloudServerURL") var cloudServerURL = "https://claude-watch.<account>.workers.dev"
+      ```
+
+      This ensures the watch connects to the production cloud relay.
+    priority: high
+    parallel_group: 22
+    completed: false
+    verification: |
+      grep -q "workers.dev" ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "Cloud URL points to production worker"
+      - "URL matches npm package URL"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - watchos
+      - cloud
+      - config
+    commit_template: "feat(watch): Update cloud URL for production"
+
+  - id: "CP7"
+    title: "Improve CloudError descriptions"
+    description: |
+      Update CloudError enum in WatchService.swift with user-friendly
+      error messages:
+
+      ```swift
+      enum CloudError: LocalizedError {
+          case invalidCode
+          case invalidResponse
+          case serverError(Int)
+          case networkUnavailable
+          case timeout
+
+          var errorDescription: String? {
+              switch self {
+              case .invalidCode:
+                  return "Invalid or expired code. Try again."
+              case .invalidResponse:
+                  return "Unexpected server response."
+              case .serverError(let code):
+                  return "Server error (\(code)). Try again."
+              case .networkUnavailable:
+                  return "No network connection."
+              case .timeout:
+                  return "Connection timed out."
+              }
+          }
+      }
+      ```
+
+      Add .networkUnavailable and .timeout cases.
+    priority: high
+    parallel_group: 22
+    completed: false
+    verification: |
+      grep -q "networkUnavailable" ClaudeWatch/Services/WatchService.swift && \
+      grep -q "timeout" ClaudeWatch/Services/WatchService.swift && \
+      grep -q "errorDescription" ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "All error cases have friendly descriptions"
+      - "networkUnavailable case added"
+      - "timeout case added"
+      - "Descriptions are localization-ready"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - watchos
+      - ux
+      - error-handling
+    commit_template: "feat(watch): Improve cloud error descriptions"
+
+  - id: "CP8"
+    title: "Add retry button to pairing error UI"
+    description: |
+      Update PairingCodeEntryView in PairingView.swift to show a
+      retry button when an error occurs:
+
+      ```swift
+      if let error = errorMessage {
+          VStack(spacing: Claude.Spacing.xs) {
+              Text(error)
+                  .font(.claudeFootnote)
+                  .foregroundStyle(Claude.danger)
+
+              Button("Try Again") {
+                  errorMessage = nil
+                  code = ""
+              }
+              .font(.claudeFootnote)
+              .foregroundStyle(Claude.orange)
+          }
+      }
+      ```
+
+      This improves UX by giving users a clear path to retry.
+    priority: high
+    parallel_group: 22
+    completed: false
+    verification: |
+      grep -q "Try Again" ClaudeWatch/Views/PairingView.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "Retry button appears on error"
+      - "Button clears error and code"
+      - "Uses Claude design system"
+    files:
+      - "ClaudeWatch/Views/PairingView.swift"
+    tags:
+      - watchos
+      - ux
+      - pairing
+    commit_template: "feat(watch): Add retry button to pairing errors"
+
+  - id: "CP9"
+    title: "Create SettingsView with unpair option"
+    description: |
+      Create ClaudeWatch/Views/SettingsView.swift with unpair functionality:
+
+      ```swift
+      struct SettingsView: View {
+          @ObservedObject var service: WatchService
+          @State private var showUnpairConfirm = false
+
+          var body: some View {
+              List {
+                  Section("Connection") {
+                      if service.isPaired {
+                          HStack {
+                              Text("Status")
+                              Spacer()
+                              Text(service.connectionStatus.displayName)
+                                  .foregroundStyle(Claude.textSecondary)
+                          }
+
+                          Button("Unpair") {
+                              showUnpairConfirm = true
+                          }
+                          .foregroundStyle(Claude.danger)
+                      }
+                  }
+              }
+              .alert("Unpair?", isPresented: $showUnpairConfirm) {
+                  Button("Cancel", role: .cancel) {}
+                  Button("Unpair", role: .destructive) {
+                      service.unpair()
+                  }
+              } message: {
+                  Text("You'll need to pair again with a new code.")
+              }
+          }
+      }
+      ```
+
+      Also verify unpair() method exists in WatchService.
+    priority: high
+    parallel_group: 22
+    completed: false
+    verification: |
+      [ -f "ClaudeWatch/Views/SettingsView.swift" ] && \
+      grep -q "Unpair" ClaudeWatch/Views/SettingsView.swift && \
+      grep -q "func unpair" ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "SettingsView.swift created"
+      - "Shows connection status when paired"
+      - "Unpair button with confirmation alert"
+      - "unpair() method in WatchService"
+    files:
+      - "ClaudeWatch/Views/SettingsView.swift"
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - watchos
+      - ux
+      - settings
+    commit_template: "feat(watch): Add SettingsView with unpair option"
+
+  # --- Phase 4: Testing & Polish (Medium) ---
+  - id: "CP10"
+    title: "Add haptic feedback for pairing states"
+    description: |
+      Ensure haptic feedback is provided for all pairing states:
+
+      1. Code entry: .click when valid code length reached
+      2. Submitting: No haptic (already there)
+      3. Success: .success (already there)
+      4. Error: .failure (already there)
+      5. Retry: .click
+
+      Verify in PairingView.swift:
+      ```swift
+      // On valid code
+      if isValidCode {
+          WKInterfaceDevice.current().play(.click)
+      }
+
+      // On retry
+      Button("Try Again") {
+          WKInterfaceDevice.current().play(.click)
+          errorMessage = nil
+          code = ""
+      }
+      ```
+    priority: medium
+    parallel_group: 23
+    completed: false
+    verification: |
+      grep -c "play(.click)" ClaudeWatch/Views/PairingView.swift | grep -q "[2-9]" && exit 0 || exit 1
+    acceptance_criteria:
+      - "Haptic on valid code entry"
+      - "Haptic on retry button"
+      - "All states have appropriate feedback"
+    files:
+      - "ClaudeWatch/Views/PairingView.swift"
+    tags:
+      - watchos
+      - ux
+      - haptics
+    commit_template: "feat(watch): Add haptics for pairing states"
+
+  - id: "CP11"
+    title: "Persist pairing on app restart"
+    description: |
+      Ensure the watch automatically resumes polling when the app restarts
+      after being paired. In WatchService.init():
+
+      ```swift
+      init() {
+          // ... existing init code ...
+
+          // Resume cloud polling if already paired
+          if useCloudMode && isPaired {
+              startPolling()
+          }
+      }
+      ```
+
+      This ensures the watch doesn't appear disconnected after relaunch.
+    priority: medium
+    parallel_group: 23
+    completed: false
+    verification: |
+      grep -A 10 "init()" ClaudeWatch/Services/WatchService.swift | grep -q "startPolling" && exit 0 || exit 1
+    acceptance_criteria:
+      - "Polling resumes on app restart if paired"
+      - "Connection status correct after restart"
+      - "No manual reconnect needed"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - watchos
+      - reliability
+      - persistence
+    commit_template: "fix(watch): Persist pairing across app restarts"
+
+  - id: "CP12"
+    title: "Test end-to-end pairing flow"
+    description: |
+      Manual testing task to verify the complete pairing flow:
+
+      1. Run `npx claude-watch` on Mac
+      2. See 6-digit code displayed
+      3. Open watch app, tap "Pair Now"
+      4. Enter code on watch
+      5. Verify connection established
+      6. Send test notification from Claude Code
+      7. Verify watch receives it
+      8. Approve from watch
+      9. Verify Claude Code continues
+
+      Document any issues found.
+    priority: medium
+    parallel_group: 24
+    completed: false
+    verification: |
+      echo "Manual testing task - mark complete after testing" && exit 0
+    acceptance_criteria:
+      - "Pairing completes successfully"
+      - "Messages relay correctly"
+      - "Approvals work end-to-end"
+      - "Error cases handled gracefully"
+    files: []
+    tags:
+      - testing
+      - e2e
+      - manual
+    commit_template: "test(e2e): Verify cloud pairing flow"
