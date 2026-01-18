@@ -245,7 +245,18 @@ struct StatusHeader: View {
     }
 
     private var idleMessage: String {
-        "Ready for tasks"
+        switch service.state.status {
+        case .idle:
+            return "Ready for tasks"
+        case .running:
+            return "Working..."
+        case .waiting:
+            return "Awaiting input"
+        case .completed:
+            return "Task complete"
+        case .failed:
+            return "Task failed"
+        }
     }
 
     private var statusText: String {

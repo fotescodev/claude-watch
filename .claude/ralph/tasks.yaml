@@ -323,7 +323,7 @@ tasks:
       3. After approve, should return to "Ready for tasks"
     priority: high
     parallel_group: 2
-    completed: false
+    completed: true
     depends_on:
       - "BF1"
     verification: |
