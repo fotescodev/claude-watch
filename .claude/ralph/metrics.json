@@ -1,5 +1,5 @@
 {
-  "totalSessions": 29,
+  "totalSessions": 30,
   "totalTokens": {
     "input": 45230,
     "output": 23840
@@ -225,10 +225,24 @@
       "timestamp": "2026-01-17T23:42:19Z",
       "taskId": "DX2",
       "status": "failed"
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-18T23:02:40Z",
+      "taskId": "BF1",
+      "status": "completed"
     }
   ],
   "successRate": 80.0,
-  "lastSession": "2026-01-17T23:42:19Z",
+  "lastSession": "2026-01-18T23:02:40Z",
   "tasksFailed": 17,
-  "buildFailures": 14
+  "buildFailures": 14,
+  "tasksCompleted": 1,
+  "harvestedSkills": [
+    {
+      "name": "verify-notification-fixes-live-update-cl",
+      "taskId": "BF1",
+      "harvestedAt": "2026-01-18T23:02:40Z"
+    }
+  ]
 }

@@ -4113,9 +4113,16 @@ _**Agent (claude-opus-4-5-20251101 2026-01-13T12:08:57.581Z)**_
 
 <tool-use data-tool-type="generic" data-tool-name="AskUserQuestion"><details>
 <summary>Tool use: **AskUserQuestion**</summary>
-```
-User has answered your questions: "What brings you to Claude Watch today?"="Fix or improve". You can now continue with the user's answers in mind.
-```
+**What brings you to Claude Watch today?**
+
+Options:
+- **Explore what's here** - Understand the codebase, run the app, see how it works
+- **Build a new feature** - Add functionality like APNs, new UI, better voice commands
+- **Fix or improve** - Address bugs, performance issues, or refine existing features
+- **Just curious** - No specific goal yet, want to brainstorm possibilities
+
+
+**Answer:** Fix or improve
 </details></tool-use>
 
 _**Agent (claude-opus-4-5-20251101 2026-01-13T12:10:48.127Z)**_
@@ -4132,9 +4139,16 @@ _**Agent (claude-opus-4-5-20251101 2026-01-13T12:10:50.717Z)**_
 
 <tool-use data-tool-type="generic" data-tool-name="AskUserQuestion"><details>
 <summary>Tool use: **AskUserQuestion**</summary>
-```
-User has answered your questions: "What area would you like to fix or improve?"="WebSocket reliability". You can now continue with the user's answers in mind.
-```
+**What area would you like to fix or improve?**
+
+Options:
+- **UI/UX refinement** - Improve the look, feel, or interaction patterns
+- **WebSocket reliability** - Connection handling, reconnect logic, state sync
+- **Notification system** - APNs setup, local notifications, action handling
+- **Something else** - A specific bug or issue you've noticed
+
+
+**Answer:** WebSocket reliability
 </details></tool-use>
 
 _**Agent (claude-opus-4-5-20251101 2026-01-13T12:11:00.190Z)**_
@@ -4151,9 +4165,16 @@ _**Agent (claude-opus-4-5-20251101 2026-01-13T12:11:04.066Z)**_
 
 <tool-use data-tool-type="generic" data-tool-name="AskUserQuestion"><details>
 <summary>Tool use: **AskUserQuestion**</summary>
-```
-User has answered your questions: "What WebSocket behavior concerns you most?"="Haven't tested yet". You can now continue with the user's answers in mind.
-```
+**What WebSocket behavior concerns you most?**
+
+Options:
+- **Connection drops silently** - Disconnects without user feedback or auto-reconnect
+- **Reconnect is unreliable** - Auto-reconnect doesn't work well or takes too long
+- **State gets out of sync** - Watch shows stale data after reconnecting
+- **Haven't tested yet** - Want to evaluate current behavior first
+
+
+**Answer:** Haven't tested yet
 </details></tool-use>
 
 _**Agent (claude-opus-4-5-20251101 2026-01-13T12:11:17.075Z)**_
@@ -4177,9 +4198,15 @@ _**Agent (claude-opus-4-5-20251101 2026-01-13T12:11:19.897Z)**_
 
 <tool-use data-tool-type="generic" data-tool-name="AskUserQuestion"><details>
 <summary>Tool use: **AskUserQuestion**</summary>
-```
-User has answered your questions: "How would you like to evaluate the WebSocket reliability?"="Code review first (Recommended)". You can now continue with the user's answers in mind.
-```
+**How would you like to evaluate the WebSocket reliability?**
+
+Options:
+- **Code review first (Recommended)** - Review WatchService.swift to understand the implementation, then test
+- **Test first** - Run the server + app, observe behavior, then dig into code
+- **Both in parallel** - I'll review code while you run the app, then we compare notes
+
+
+**Answer:** Code review first (Recommended)
 </details></tool-use>
 
 _**Agent (claude-opus-4-5-20251101 2026-01-13T13:10:35.898Z)**_
@@ -4820,9 +4847,15 @@ _**Agent (claude-opus-4-5-20251101 2026-01-13T13:10:58.040Z)**_
 
 <tool-use data-tool-type="generic" data-tool-name="AskUserQuestion"><details>
 <summary>Tool use: **AskUserQuestion**</summary>
-```
-User has answered your questions: "Continue with the WebSocket review?"="Yes, show more issues". You can now continue with the user's answers in mind.
-```
+**Continue with the WebSocket review?**
+
+Options:
+- **Yes, show more issues** - Continue reviewing reconnection, ping/pong, and error handling
+- **Let's fix this first** - Address the premature connection status before continuing
+- **Show all issues at once** - List all problems together so I can see the full picture
+
+
+**Answer:** Yes, show more issues
 </details></tool-use>
 
 _**Agent (claude-opus-4-5-20251101 2026-01-13T13:11:04.939Z)**_
@@ -4906,9 +4939,15 @@ _**Agent (claude-opus-4-5-20251101 2026-01-13T13:11:14.876Z)**_
 
 <tool-use data-tool-type="generic" data-tool-name="AskUserQuestion"><details>
 <summary>Tool use: **AskUserQuestion**</summary>
-```
-User has answered your questions: "Which issues should we prioritize fixing?"="All of them (Recommended)". You can now continue with the user's answers in mind.
-```
+**Which issues should we prioritize fixing?**
+
+Options:
+- **All of them (Recommended)** - Comprehensive reliability overhaul
+- **Core only** - Fix connection status, reconnection, and pong timeout
+- **Quick wins** - Just fix the silent failures and premature connection status
+
+
+**Answer:** All of them (Recommended)
 </details></tool-use>
 
 _**Agent (claude-opus-4-5-20251101 2026-01-13T13:11:20.788Z)**_
@@ -9120,9 +9159,15 @@ _**Agent (claude-opus-4-5-20251101 2026-01-13T13:13:29.653Z)**_
 
 <tool-use data-tool-type="generic" data-tool-name="AskUserQuestion"><details>
 <summary>Tool use: **AskUserQuestion**</summary>
-```
-User has answered your questions: "Anything you'd like to adjust in this plan?"="Looks good, proceed". You can now continue with the user's answers in mind.
-```
+**Anything you'd like to adjust in this plan?**
+
+Options:
+- **Looks good, proceed** - Write the final plan and prepare for implementation
+- **Simplify it** - Skip some pieces (e.g., state machine, network monitor)
+- **Add more** - Include server-side changes or additional features
+
+
+**Answer:** Looks good, proceed
 </details></tool-use>
 
 _**Agent (claude-opus-4-5-20251101 2026-01-13T13:14:23.070Z)**_
@@ -20098,9 +20143,15 @@ _**Agent (claude-opus-4-5-20251101 2026-01-13T15:45:44.939Z)**_
 
 <tool-use data-tool-type="generic" data-tool-name="AskUserQuestion"><details>
 <summary>Tool use: **AskUserQuestion**</summary>
-```
-User has answered your questions: "How do you want to trigger the watch integration when starting Claude Code?"="Always active (Recommended)". You can now continue with the user's answers in mind.
-```
+**How do you want to trigger the watch integration when starting Claude Code?**
+
+Options:
+- **Always active (Recommended)** - Configure as default MCP server - every Claude Code session connects to watch
+- **Manual start** - Run a separate command to start the bridge before walking
+- **Per-project** - Only enable for specific projects via .mcp.json
+
+
+**Answer:** Always active (Recommended)
 </details></tool-use>
 
 _**Agent (claude-opus-4-5-20251101 2026-01-13T15:45:58.970Z)**_
@@ -20117,9 +20168,15 @@ _**Agent (claude-opus-4-5-20251101 2026-01-13T15:46:01.582Z)**_
 
 <tool-use data-tool-type="generic" data-tool-name="AskUserQuestion"><details>
 <summary>Tool use: **AskUserQuestion**</summary>
-```
-User has answered your questions: "What should happen when you're NOT wearing the watch or it's disconnected?"="Fall back to terminal (Recommended)". You can now continue with the user's answers in mind.
-```
+**What should happen when you're NOT wearing the watch or it's disconnected?**
+
+Options:
+- **Fall back to terminal (Recommended)** - If watch is disconnected, Claude Code prompts in terminal as normal
+- **Queue and wait** - Hold all approval requests until watch reconnects
+- **Auto-approve** - If watch is disconnected, auto-approve all actions (risky)
+
+
+**Answer:** Fall back to terminal (Recommended)
 </details></tool-use>
 
 _**Agent (claude-opus-4-5-20251101 2026-01-13T15:46:31.180Z)**_
@@ -20266,9 +20323,15 @@ _**Agent (claude-opus-4-5-20251101 2026-01-13T15:48:23.685Z)**_
 
 <tool-use data-tool-type="generic" data-tool-name="AskUserQuestion"><details>
 <summary>Tool use: **AskUserQuestion**</summary>
-```
-User has answered your questions: "Which architecture approach fits your production vision?"="Cloud Relay (Recommended)". You can now continue with the user's answers in mind.
-```
+**Which architecture approach fits your production vision?**
+
+Options:
+- **Cloud Relay (Recommended)** - Lightweight server relays between Claude Code and watch - works anywhere
+- **Tailscale mesh** - Direct VPN connection - no server cost but more setup
+- **iCloud CloudKit** - Apple-native relay - no custom server but higher latency
+
+
+**Answer:** Cloud Relay (Recommended)
 </details></tool-use>
 
 _**Agent (claude-opus-4-5-20251101 2026-01-13T15:49:05.830Z)**_
@@ -20303,9 +20366,15 @@ _**Agent (claude-opus-4-5-20251101 2026-01-13T15:49:08.900Z)**_
 
 <tool-use data-tool-type="generic" data-tool-name="AskUserQuestion"><details>
 <summary>Tool use: **AskUserQuestion**</summary>
-```
-User has answered your questions: "How should the watch authenticate with your Claude Code sessions?"="Pairing code (Recommended)". You can now continue with the user's answers in mind.
-```
+**How should the watch authenticate with your Claude Code sessions?**
+
+Options:
+- **Pairing code (Recommended)** - Claude Code shows a code, you enter it on watch once to pair
+- **QR code scan** - Watch camera scans QR from terminal - requires iPhone companion
+- **Apple Sign-In** - Both authenticate via Apple ID - more complex but seamless
+
+
+**Answer:** Pairing code (Recommended)
 </details></tool-use>
 
 _**Agent (claude-opus-4-5-20251101 2026-01-13T15:55:22.698Z)**_
@@ -20461,9 +20530,14 @@ _**Agent (claude-opus-4-5-20251101 2026-01-13T15:56:57.444Z)**_
 
 <tool-use data-tool-type="generic" data-tool-name="AskUserQuestion"><details>
 <summary>Tool use: **AskUserQuestion**</summary>
-```
-User has answered your questions: "Which approach for the MVP?"="HTTP + APNs (Recommended)". You can now continue with the user's answers in mind.
-```
+**Which approach for the MVP?**
+
+Options:
+- **HTTP + APNs (Recommended)** - Simpler, cheaper, 1-3s latency - perfect for dog walks
+- **Full WebSocket relay** - Sub-second latency, more complex - build if MVP succeeds
+
+
+**Answer:** HTTP + APNs (Recommended)
 </details></tool-use>
 
 _**Agent (claude-opus-4-5-20251101 2026-01-13T16:28:56.764Z)**_

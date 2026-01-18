@@ -180,6 +180,78 @@ var src_default = {
     const url = new URL(request.url);
     const path = url.pathname;
     try {
+      if (path === "/pair/initiate" && request.method === "POST") {
+        const { deviceToken } = await request.json().catch(() => ({}));
+        const code = generateNumericCode();
+        const watchId = crypto.randomUUID();
+        await env.PAIRINGS.put(`watch:${watchId}`, JSON.stringify({
+          watchId,
+          code,
+          deviceToken: deviceToken || null,
+          createdAt: Date.now(),
+          status: "pending",
+          pairingId: null
+        }), { expirationTtl: 600 });
+        await env.PAIRINGS.put(`watchcode:${code}`, watchId, { expirationTtl: 600 });
+        return jsonResponse({
+          code,
+          watchId,
+          expiresIn: 600
+        });
+      }
+      if (path.startsWith("/pair/status/") && request.method === "GET") {
+        const watchId = path.split("/")[3];
+        const watchData = await env.PAIRINGS.get(`watch:${watchId}`);
+        if (!watchData) {
+          return jsonResponse({ error: "Session expired" }, 404);
+        }
+        const watch = JSON.parse(watchData);
+        if (watch.status === "paired" && watch.pairingId) {
+          return jsonResponse({
+            status: "paired",
+            paired: true,
+            pairingId: watch.pairingId
+          });
+        }
+        return jsonResponse({
+          status: "pending",
+          paired: false
+        });
+      }
+      if (path === "/pair/complete-cli" && request.method === "POST") {
+        const { code } = await request.json();
+        if (!code) {
+          return jsonResponse({ error: "Missing code" }, 400);
+        }
+        const normalizedCode = code.trim();
+        const watchId = await env.PAIRINGS.get(`watchcode:${normalizedCode}`);
+        if (!watchId) {
+          return jsonResponse({ error: "Invalid or expired code" }, 404);
+        }
+        const watchData = await env.PAIRINGS.get(`watch:${watchId}`);
+        if (!watchData) {
+          return jsonResponse({ error: "Session expired" }, 404);
+        }
+        const watch = JSON.parse(watchData);
+        const pairingId = crypto.randomUUID();
+        watch.status = "paired";
+        watch.pairingId = pairingId;
+        watch.completedAt = Date.now();
+        await env.PAIRINGS.put(`watch:${watchId}`, JSON.stringify(watch), { expirationTtl: 600 });
+        await env.PAIRINGS.put(`pairing:${pairingId}`, JSON.stringify({
+          pairingId,
+          deviceToken: watch.deviceToken,
+          status: "active",
+          createdAt: watch.createdAt,
+          completedAt: Date.now()
+        }));
+        await env.PAIRINGS.delete(`watchcode:${normalizedCode}`);
+        return jsonResponse({
+          success: true,
+          pairingId,
+          watchId
+        });
+      }
       if (path === "/pair" && request.method === "POST") {
         const format = url.searchParams.get("format");
         const isNumeric = format === "numeric";

@@ -253,16 +253,17 @@ get_workers() {
         workers+=("orchestrator|$ralph_pid|active|${current_task:-initializing}")
     fi
 
-    # Claude subagents spawned by Ralph
+    # Claude subagents spawned by Ralph (parallel workers)
+    local agent_count=0
     local claude_procs=$(ps aux 2>/dev/null | grep -E "claude.*--print|claude --output-format" | grep -v grep | grep -v "Portfolio")
     while IFS= read -r line; do
         [[ -z "$line" ]] && continue
         local pid=$(echo "$line" | awk '{print $2}')
         local cpu=$(echo "$line" | awk '{print $3}')
-        local elapsed=$(echo "$line" | awk '{print $10}')
-        # Try to get what it's working on from the session
-        local task_hint=$(grep -E "Starting session|Working on" "$PROGRESS_LOG" 2>/dev/null | tail -1 | cut -c1-30)
-        workers+=("claude|$pid|${cpu}% cpu|${task_hint:-processing}")
+        ((agent_count++))
+        # Try to identify which task this agent is working on
+        local task_hint="agent-${agent_count}"
+        workers+=("agent-${agent_count}|$pid|${cpu}% cpu|parallel worker")
     done <<< "$claude_procs"
 
     # Verification scripts
@@ -278,6 +279,13 @@ get_workers() {
     fi
 
     printf '%s\n' "${workers[@]}"
+}
+
+get_parallel_status() {
+    # Get parallel execution status from parallel-tasks.py
+    # Returns JSON with runnable tasks grouped by parallel_group
+    local result=$(python3 "$SCRIPT_DIR/parallel-tasks.py" 2>/dev/null)
+    echo "$result"
 }
 
 generate_sparkline() {
@@ -474,11 +482,34 @@ render_details() {
     fi
 
     #═══════════════════════════════════════════════════════════════════════════
+    # PARALLEL EXECUTION STATUS
+    #═══════════════════════════════════════════════════════════════════════════
+
+    local parallel_json=$(get_parallel_status)
+    local parallel_status=$(echo "$parallel_json" | jq -r '.status // "unknown"' 2>/dev/null)
+    local parallel_group=$(echo "$parallel_json" | jq -r '.parallel_group // 0' 2>/dev/null)
+    local parallel_count=$(echo "$parallel_json" | jq -r '.count // 0' 2>/dev/null)
+
+    if [[ "$parallel_status" == "ready" && "$parallel_count" -gt 0 ]]; then
+        echo -e "${pad}    ${CYAN}${BOLD}⚡ PARALLEL GROUP ${parallel_group}${NC} ${GRAY}(${parallel_count} tasks can run simultaneously)${NC}"
+        echo ""
+
+        # Show tasks that can run in parallel
+        local parallel_tasks=$(echo "$parallel_json" | jq -r '.tasks[]? | "  \(.id)|\(.title)"' 2>/dev/null)
+        while IFS='|' read -r tid ttitle; do
+            [[ -z "$tid" ]] && continue
+            tid=$(echo "$tid" | sed 's/^ *//')
+            printf "${pad}    ${CORAL}▸${NC}  ${WHITE}%-8s${NC} ${GRAY}%s${NC}\n" "[$tid]" "${ttitle:0:35}"
+        done <<< "$parallel_tasks"
+        echo ""
+    fi
+
+    #═══════════════════════════════════════════════════════════════════════════
     # WORKERS — Active threads/processes
     #═══════════════════════════════════════════════════════════════════════════
 
     if [[ "$running" == "1" ]]; then
-        echo -e "${pad}    ${CYAN}${BOLD}⚡ WORKERS${NC}"
+        echo -e "${pad}    ${CYAN}${BOLD}⚡ ACTIVE WORKERS${NC}"
         echo ""
 
         local worker_count=0
@@ -489,7 +520,7 @@ render_details() {
             local wicon wcolor
             case "$wtype" in
                 orchestrator) wicon="◉"; wcolor="$CORAL" ;;
-                claude)       wicon="◈"; wcolor="$CYAN" ;;
+                agent-*)      wicon="◈"; wcolor="$CYAN" ;;
                 verify)       wicon="◇"; wcolor="$YELLOW" ;;
                 xcode)        wicon="◆"; wcolor="$GREEN" ;;
                 *)            wicon="○"; wcolor="$GRAY" ;;
@@ -501,6 +532,9 @@ render_details() {
 
         if [[ $worker_count -eq 0 ]]; then
             echo -e "${pad}    ${GRAY}○  no active workers${NC}"
+        elif [[ $worker_count -gt 1 ]]; then
+            echo ""
+            echo -e "${pad}    ${GREEN}${BOLD}▶ ${worker_count} PARALLEL AGENTS RUNNING${NC}"
         fi
         echo ""
     fi
