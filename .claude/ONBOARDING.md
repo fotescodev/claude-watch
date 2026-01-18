@@ -35,6 +35,7 @@ inbox/ → plans/ → tasks.yaml → archive/
 | `inbox/` | Raw ideas, quick captures (unprocessed) |
 | `plans/` | Refined plans ready for review |
 | `context/` | Always-on context (PRD, personas, journeys) |
+| `scope-creep/` | Future dreams (CarPlay, iOS app) - ignore for now |
 | `ralph/tasks.yaml` | THE source of truth for execution |
 | `archive/` | Completed or obsolete content |
 
@@ -56,6 +57,7 @@ inbox/ → plans/ → tasks.yaml → archive/
 ├── inbox/                  # Unprocessed ideas
 ├── plans/                  # Refined plans
 ├── context/                # Always-on context (PRD, personas)
+├── scope-creep/            # Future dreams - ignore for now
 ├── ralph/
 │   ├── tasks.yaml          # THE execution queue
 │   ├── ralph.sh            # Task executor

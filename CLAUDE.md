@@ -46,6 +46,7 @@ inbox/ → plans/ → tasks.yaml → archive/
 | `.claude/ralph/tasks.yaml` | **THE** source of truth for current work |
 | `.claude/plans/` | Refined plans and roadmap items |
 | `.claude/context/` | Always-on context (personas, PRD, journeys) |
+| `.claude/scope-creep/` | Future dreams (CarPlay, iOS app) - ignore |
 | `.claude/inbox/` | Raw ideas, quick captures |
 | `.claude/archive/` | Completed or obsolete content |
 | `docs/` | User-facing guides only |
