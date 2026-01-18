@@ -15,7 +15,6 @@ settings:
   require_accessibility: true
   require_hig_compliance: true
   auto_liquid_glass: true
-
 tasks:
   # ═══════════════════════════════════════════════════════════════════════════
   # PHASE: PHYSICAL DEVICE DEPLOYMENT
@@ -34,7 +33,6 @@ tasks:
   # The watch INITIATES pairing and DISPLAYS the code.
   # The CLI COMPLETES pairing by RECEIVING the code.
   # ═══════════════════════════════════════════════════════════════════════════
-
   - id: "PD1"
     title: "Build and install watch app on physical device"
     description: |
@@ -59,7 +57,7 @@ tasks:
       The app should appear on your watch's home screen.
     priority: critical
     parallel_group: 1
-    completed: true  # App already installed on physical watch
+    completed: true # App already installed on physical watch
     verification: |
       echo "Manual task - verify app installed on physical watch"
     acceptance_criteria:
@@ -73,7 +71,6 @@ tasks:
       - physical-device
       - manual
     commit_template: "build(watch): Install on physical device"
-
   - id: "PD2"
     title: "Run pairing flow with physical watch"
     description: |
@@ -104,7 +101,7 @@ tasks:
       ```
     priority: critical
     parallel_group: 2
-    completed: true  # Paired successfully
+    completed: true # Paired successfully
     depends_on:
       - "PD1"
     verification: |
@@ -119,7 +116,6 @@ tasks:
       - pairing
       - physical-device
     commit_template: "test(pairing): Complete physical watch pairing"
-
   - id: "PD3"
     title: "Enable PreToolUse hook for watch approvals"
     description: |
@@ -150,7 +146,7 @@ tasks:
       Note: In dev mode, you may want hooks disabled. Toggle as needed.
     priority: high
     parallel_group: 3
-    completed: true  # Hook enabled
+    completed: true # Hook enabled
     depends_on:
       - "PD2"
     verification: |
@@ -166,7 +162,6 @@ tasks:
       - hooks
       - configuration
     commit_template: "feat(hooks): Enable watch approval hook"
-
   - id: "PD4"
     title: "Test end-to-end approval flow (THE DOG WALK TEST)"
     description: |
@@ -227,12 +222,10 @@ tasks:
       - physical-device
       - manual
     commit_template: "test(e2e): Verify physical watch approval flow"
-
   # ═══════════════════════════════════════════════════════════════════════════
   # BUG FIXES - READY FOR VERIFICATION
   # Simulator: Apple Watch Series 11 (46mm) - SHOULD BE RUNNING
   # ═══════════════════════════════════════════════════════════════════════════
-
   - id: "BF1"
     title: "Verify notification fixes: live update + cleanup"
     description: |
@@ -281,7 +274,7 @@ tasks:
       If all verifications pass, mark this task complete and commit.
     priority: critical
     parallel_group: 1
-    completed: false
+    completed: true
     verification: |
       xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
         -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)' build 2>&1 | grep -q "BUILD SUCCEEDED"
@@ -298,7 +291,6 @@ tasks:
       - notifications
       - verification-needed
     commit_template: "fix(notifications): Live UI update + clear after approval"
-
   - id: "BF2"
     title: "Fix progress card to reflect actual pending state"
     description: |
@@ -346,11 +338,9 @@ tasks:
       - bug-fix
       - ui
     commit_template: "fix(ui): Progress card reflects actual pending state"
-
   # ═══════════════════════════════════════════════════════════════════════════
   # FEATURE VERIFICATION (PRD Alignment)
   # ═══════════════════════════════════════════════════════════════════════════
-
   - id: "FV1"
     title: "Verify Permission Mode Control (Normal/Auto-Accept/Plan)"
     description: |
@@ -386,7 +376,6 @@ tasks:
       - verification
       - prd-alignment
     commit_template: "test(modes): Verify permission mode control"
-
   - id: "FV2"
     title: "Verify Quick Commands functionality"
     description: |
@@ -421,7 +410,6 @@ tasks:
       - verification
       - prd-alignment
     commit_template: "test(commands): Verify quick commands"
-
   - id: "FV3"
     title: "Verify Watch Face Complications"
     description: |
@@ -461,7 +449,6 @@ tasks:
       - verification
       - complications
     commit_template: "test(complications): Verify watch face complications"
-
   - id: "FV4"
     title: "Test rejection flow end-to-end"
     description: |
@@ -494,7 +481,6 @@ tasks:
       - e2e
       - testing
     commit_template: "test(rejection): Verify rejection flow e2e"
-
   - id: "FV5"
     title: "Physical watch dog walk test"
     description: |
@@ -533,11 +519,9 @@ tasks:
       - physical-device
       - manual
     commit_template: "test(physical): Dog walk test passed"
-
   # ═══════════════════════════════════════════════════════════════════════════
   # FUTURE ENHANCEMENTS
   # ═══════════════════════════════════════════════════════════════════════════
-
   - id: "FE1"
     title: "Real task progress tracking from Claude Code sessions"
     description: |
@@ -557,11 +541,9 @@ tasks:
       - enhancement
       - deferred
     commit_template: "feat(progress): Real task progress tracking"
-
   # ═══════════════════════════════════════════════════════════════════════════
   # BLOCKED/DEFERRED TASKS
   # ═══════════════════════════════════════════════════════════════════════════
-
   - id: "SP1"
     title: "Add clipboard paste button for pairing"
     description: |
@@ -571,7 +553,7 @@ tasks:
       Deferred until after physical device flow works.
     priority: low
     parallel_group: 99
-    completed: true  # Marked complete to skip
+    completed: true # Marked complete to skip
     blocked: true
     blocked_reason: "UIPasteboard not available on watchOS. Requires iPhone companion app."
     verification: |
