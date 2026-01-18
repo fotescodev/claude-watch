@@ -1,0 +1,41 @@
+{
+  "name": "claude-watch",
+  "version": "0.1.0",
+  "description": "Control Claude Code from your Apple Watch",
+  "type": "module",
+  "bin": {
+    "claude-watch": "./bin/claude-watch.js"
+  },
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "serve": "tsx src/index.ts serve",
+    "build": "tsc",
+    "test": "tsx --test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "chalk": "^5.4.1",
+    "ora": "^8.1.1",
+    "prompts": "^2.4.2",
+    "tsx": "^4.7.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/prompts": "^2.4.9",
+    "typescript": "^5.4.0"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "mcp",
+    "apple-watch",
+    "watchos"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
