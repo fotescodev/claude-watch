@@ -925,9 +925,11 @@ class WatchService: ObservableObject {
         // Convert to pending actions
         var newActions: [PendingAction] = []
         for req in requests {
-            guard let id = req["id"] as? String,
-                  let type = req["type"] as? String,
-                  let title = req["title"] as? String else {
+            // Action data is nested in "payload" from the message queue
+            guard let payload = req["payload"] as? [String: Any],
+                  let id = payload["id"] as? String,
+                  let type = payload["type"] as? String,
+                  let title = payload["title"] as? String else {
                 continue
             }
 
@@ -935,9 +937,9 @@ class WatchService: ObservableObject {
                 id: id,
                 type: type,
                 title: title,
-                description: req["description"] as? String ?? "",
-                filePath: req["filePath"] as? String,
-                command: req["command"] as? String,
+                description: payload["description"] as? String ?? "",
+                filePath: payload["filePath"] as? String,
+                command: payload["command"] as? String,
                 timestamp: Date()
             )
             newActions.append(action)

@@ -266,12 +266,13 @@ app.post('/respond/:requestId', async (c) => {
   const { approved, pairingId } = await c.req.json<{ approved: boolean; pairingId: string }>();
 
   // Store response for MCP server to poll
+  // Include 'type' in payload since MCP server looks for it there
   const existing = await c.env.MESSAGES_KV.get<MessageQueue>(`to_server:${pairingId}`, 'json') || { messages: [] };
 
   existing.messages.push({
     id: crypto.randomUUID(),
     type: 'action_response',
-    payload: { action_id: requestId, approved },
+    payload: { type: 'action_response', action_id: requestId, approved },
     timestamp: new Date().toISOString(),
   });
 
@@ -288,6 +289,11 @@ app.get('/requests/:pairingId', async (c) => {
 
   // Filter for action_requested messages only
   const requests = data.messages.filter(m => m.type === 'action_requested');
+
+  // Clear messages after reading to prevent duplicates
+  if (requests.length > 0) {
+    await c.env.MESSAGES_KV.delete(`to_watch:${pairingId}`);
+  }
 
   return c.json({ requests });
 });
