@@ -506,7 +506,7 @@ tasks:
       - Full round-trip works away from Mac
     priority: high
     parallel_group: 5
-    completed: false
+    completed: true
     depends_on:
       - "FV4"
     acceptance_criteria:
