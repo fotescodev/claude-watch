@@ -300,7 +300,7 @@ tasks:
     commit_template: "fix(notifications): Live UI update + clear after approval"
 
   - id: "BF2"
-    title: "Fix progress card to reflect actual state"
+    title: "Fix progress card to reflect actual pending state"
     description: |
       BUG: Progress card shows "Ready for tasks 0%" even when:
       - There are pending actions waiting for approval
@@ -346,6 +346,193 @@ tasks:
       - bug-fix
       - ui
     commit_template: "fix(ui): Progress card reflects actual pending state"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # FEATURE VERIFICATION (PRD Alignment)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: "FV1"
+    title: "Verify Permission Mode Control (Normal/Auto-Accept/Plan)"
+    description: |
+      PRD Feature #3: Permission Mode Control
+
+      The mode toggle should cycle through:
+      - Normal (Blue): Approve each action individually
+      - Auto-Accept (Red): Automatically approve all actions
+      - Plan (Purple): Read-only planning, no execution
+
+      VERIFICATION:
+      1. Find mode toggle in MainView or relevant view
+      2. Verify modes cycle correctly on tap
+      3. Verify mode colors match PRD spec
+      4. Test that mode persists across app restarts
+      5. Verify mode is communicated to server/Claude Code
+
+      FILES TO CHECK:
+      - ClaudeWatch/Views/MainView.swift (look for mode toggle)
+      - ClaudeWatch/Services/WatchService.swift (mode state)
+    priority: medium
+    parallel_group: 3
+    completed: false
+    depends_on:
+      - "BF2"
+    acceptance_criteria:
+      - "Mode cycles: Normal → Auto-Accept → Plan → Normal"
+      - "Colors match PRD spec"
+      - "Mode state persists"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - verification
+      - prd-alignment
+    commit_template: "test(modes): Verify permission mode control"
+
+  - id: "FV2"
+    title: "Verify Quick Commands functionality"
+    description: |
+      PRD Feature #4: Quick Commands
+
+      Voice commands or preset actions to Claude Code:
+      - Go: Resume/start task
+      - Stop: Pause execution
+      - Cancel: Abort current task
+
+      VERIFICATION:
+      1. Check CommandViews.swift for implementation
+      2. Verify commands send correct messages to server
+      3. Test each preset command works
+      4. Verify voice command integration (if implemented)
+
+      FILES:
+      - ClaudeWatch/Views/CommandViews.swift
+      - ClaudeWatch/Services/WatchService.swift (command sending)
+    priority: medium
+    parallel_group: 3
+    completed: false
+    depends_on:
+      - "BF2"
+    acceptance_criteria:
+      - "Quick command buttons visible and functional"
+      - "Commands sent to server correctly"
+      - "UI feedback on command execution"
+    files:
+      - "ClaudeWatch/Views/CommandViews.swift"
+    tags:
+      - verification
+      - prd-alignment
+    commit_template: "test(commands): Verify quick commands"
+
+  - id: "FV3"
+    title: "Verify Watch Face Complications"
+    description: |
+      PRD Feature #5: Watch Face Complications
+
+      Complications should show:
+      - Connection status
+      - Pending action count
+      - Current task status
+
+      VERIFICATION:
+      1. Check ComplicationViews.swift implementation
+      2. Add complication to watch face in simulator
+      3. Verify data updates when state changes
+      4. Test all complication families (circular, rectangular, etc.)
+
+      HOW TO TEST IN SIMULATOR:
+      1. Long-press watch face
+      2. Tap "Edit"
+      3. Add Claude Watch complication
+      4. Verify it shows correct data
+
+      FILES:
+      - ClaudeWatch/Complications/ComplicationViews.swift
+    priority: low
+    parallel_group: 4
+    completed: false
+    depends_on:
+      - "FV1"
+    acceptance_criteria:
+      - "Complications appear in watch face editor"
+      - "Show pending count when actions waiting"
+      - "Update when state changes"
+    files:
+      - "ClaudeWatch/Complications/ComplicationViews.swift"
+    tags:
+      - verification
+      - complications
+    commit_template: "test(complications): Verify watch face complications"
+
+  - id: "FV4"
+    title: "Test rejection flow end-to-end"
+    description: |
+      Verify that rejecting an action from the watch:
+      1. Sends rejection to cloud server
+      2. Cloud notifies the PreToolUse hook
+      3. Claude Code receives rejection and stops
+      4. Error/rejection message shown to user
+
+      VERIFICATION:
+      1. Enable PreToolUse hook: ./.claude/hooks/toggle-watch-hooks.sh on
+      2. Start Claude Code session
+      3. Ask Claude to make an edit
+      4. REJECT from watch
+      5. Verify Claude Code shows rejection message
+      6. Verify it doesn't proceed with the edit
+
+      Note: This requires the PreToolUse hook enabled.
+    priority: medium
+    parallel_group: 3
+    completed: false
+    depends_on:
+      - "BF1"
+    acceptance_criteria:
+      - "Rejection sent to cloud"
+      - "Hook receives rejection"
+      - "Claude Code stops and reports rejection"
+    files: []
+    tags:
+      - e2e
+      - testing
+    commit_template: "test(rejection): Verify rejection flow e2e"
+
+  - id: "FV5"
+    title: "Physical watch dog walk test"
+    description: |
+      THE ULTIMATE TEST: Deploy to physical watch and test while walking.
+
+      PREREQUISITES:
+      - Physical Apple Watch paired with iPhone
+      - App installed on physical watch (via Xcode)
+      - PreToolUse hook enabled
+
+      TEST STEPS:
+      1. Pair physical watch: npx cc-watch (enter code from watch)
+      2. Enable hook: ./.claude/hooks/toggle-watch-hooks.sh on
+      3. Start Claude Code session on Mac
+      4. Walk away from Mac with watch
+      5. Ask Claude to make an edit (via phone/remote)
+      6. Approve from watch while walking
+      7. Verify edit completes on Mac
+
+      SUCCESS CRITERIA:
+      - Notification arrives within 5 seconds
+      - Approve works over cellular/WiFi
+      - Full round-trip works away from Mac
+    priority: high
+    parallel_group: 5
+    completed: false
+    depends_on:
+      - "FV4"
+    acceptance_criteria:
+      - "Works on physical watch"
+      - "Works away from Mac (cellular/WiFi)"
+      - "Latency < 5 seconds"
+    files: []
+    tags:
+      - e2e
+      - physical-device
+      - manual
+    commit_template: "test(physical): Dog walk test passed"
 
   # ═══════════════════════════════════════════════════════════════════════════
   # FUTURE ENHANCEMENTS
