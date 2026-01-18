@@ -95,7 +95,7 @@ export class PairingSession {
         );
 
         if (response.ok) {
-          const data = await response.json();
+          const data = (await response.json()) as { paired: boolean; pairingId?: string };
           if (data.paired && data.pairingId) {
             this.isActive = false;
             return data.pairingId;

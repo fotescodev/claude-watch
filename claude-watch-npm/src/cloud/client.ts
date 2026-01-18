@@ -73,7 +73,7 @@ export class CloudClient {
         return [];
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as { messages?: CloudMessage[] };
       return data.messages || [];
     } catch (error) {
       console.error("Failed to poll messages:", error);
