@@ -7,6 +7,8 @@ XCODE_VERSION=$(xcodebuild -version 2>/dev/null | head -1)
 
 echo "watchOS project: $PROJECT_NAME" >&2
 echo "Swift $SWIFT_VERSION | $XCODE_VERSION" >&2
+echo "" >&2
+echo "Documentation: .claude/ONBOARDING.md | Current work: .claude/ralph/tasks.yaml" >&2
 
 # Check for running simulators
 BOOTED_SIMS=$(xcrun simctl list devices booted 2>/dev/null | grep -c "Booted")
