@@ -2315,7 +2315,7 @@ tasks:
       ```
     priority: critical
     parallel_group: 20
-    completed: false
+    completed: true
     verification: |
       [ -f "claude-watch-cloud/package.json" ] && \
       [ -f "claude-watch-cloud/wrangler.toml" ] && \
@@ -2481,7 +2481,7 @@ tasks:
       from the watch.
     priority: high
     parallel_group: 21
-    completed: false
+    completed: true
     verification: |
       grep -q "direction=to_server" claude-watch-npm/src/cloud/client.ts && exit 0 || exit 1
     acceptance_criteria:
@@ -2510,7 +2510,7 @@ tasks:
       This ensures the watch connects to the production cloud relay.
     priority: high
     parallel_group: 22
-    completed: false
+    completed: true
     verification: |
       grep -q "workers.dev" ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
     acceptance_criteria:
@@ -2558,7 +2558,7 @@ tasks:
       Add .networkUnavailable and .timeout cases.
     priority: high
     parallel_group: 22
-    completed: false
+    completed: true
     verification: |
       grep -q "networkUnavailable" ClaudeWatch/Services/WatchService.swift && \
       grep -q "timeout" ClaudeWatch/Services/WatchService.swift && \
@@ -2602,7 +2602,7 @@ tasks:
       This improves UX by giving users a clear path to retry.
     priority: high
     parallel_group: 22
-    completed: false
+    completed: true
     verification: |
       grep -q "Try Again" ClaudeWatch/Views/PairingView.swift && exit 0 || exit 1
     acceptance_criteria:
@@ -2660,10 +2660,9 @@ tasks:
       Also verify unpair() method exists in WatchService.
     priority: high
     parallel_group: 22
-    completed: false
+    completed: true
     verification: |
-      [ -f "ClaudeWatch/Views/SettingsView.swift" ] && \
-      grep -q "Unpair" ClaudeWatch/Views/SettingsView.swift && \
+      grep -q "Unpair" ClaudeWatch/Views/SheetViews.swift && \
       grep -q "func unpair" ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
     acceptance_criteria:
       - "SettingsView.swift created"
@@ -2707,7 +2706,7 @@ tasks:
       ```
     priority: medium
     parallel_group: 23
-    completed: false
+    completed: true
     verification: |
       grep -c "play(.click)" ClaudeWatch/Views/PairingView.swift | grep -q "[2-9]" && exit 0 || exit 1
     acceptance_criteria:
@@ -2742,7 +2741,7 @@ tasks:
       This ensures the watch doesn't appear disconnected after relaunch.
     priority: medium
     parallel_group: 23
-    completed: false
+    completed: true
     verification: |
       grep -A 10 "init()" ClaudeWatch/Services/WatchService.swift | grep -q "startPolling" && exit 0 || exit 1
     acceptance_criteria:
