@@ -1,5 +1,7 @@
 # Project: Claude Watch
 
+> **New Claude session?** Read `.claude/ONBOARDING.md` first.
+
 ## Quick Reference
 - **Platform**: watchOS 10.0+
 - **Language**: Swift 5.9+
@@ -31,6 +33,22 @@ claude-watch/
 └── MCPServer/                      # Python MCP server
     └── server.py                   # WebSocket + MCP + APNs bridge
 ```
+
+## Documentation Structure
+
+```
+inbox/ → plans/ → tasks.yaml → archive/
+(ideas)  (refined)  (execute)   (done)
+```
+
+| Directory | Purpose |
+|-----------|---------|
+| `.claude/ralph/tasks.yaml` | **THE** source of truth for current work |
+| `.claude/plans/` | Refined plans and roadmap items |
+| `.claude/context/` | Always-on context (personas, PRD, journeys) |
+| `.claude/inbox/` | Raw ideas, quick captures |
+| `.claude/archive/` | Completed or obsolete content |
+| `docs/` | User-facing guides only |
 
 ## Coding Standards
 
