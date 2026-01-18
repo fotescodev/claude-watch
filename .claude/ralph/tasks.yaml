@@ -299,6 +299,54 @@ tasks:
       - verification-needed
     commit_template: "fix(notifications): Live UI update + clear after approval"
 
+  - id: "BF2"
+    title: "Fix progress card to reflect actual state"
+    description: |
+      BUG: Progress card shows "Ready for tasks 0%" even when:
+      - There are pending actions waiting for approval
+      - Status is .waiting
+
+      EXPECTED BEHAVIOR:
+      - When pendingActions.count > 0: Show "1 action pending" (or count)
+      - When status is .waiting: Don't show "Ready for tasks"
+      - Progress bar should reflect pending vs completed actions
+
+      IMPLEMENTATION:
+      1. Find the progress card view in MainView.swift or similar
+      2. Update to read from WatchService.shared.state.pendingActions
+      3. Show appropriate text based on state:
+         - .idle + no pending → "Ready for tasks"
+         - .waiting + pending → "N action(s) pending"
+         - .running → "Working..."
+      4. Progress bar: pendingActions.isEmpty ? 100% : based on queue
+
+      FILES TO CHECK:
+      - ClaudeWatch/Views/MainView.swift
+      - Look for "Ready for tasks" string
+      - Look for progress bar / percentage display
+
+      VERIFICATION:
+      1. Send test notification
+      2. Progress card should update to show pending action
+      3. After approve, should return to "Ready for tasks"
+    priority: high
+    parallel_group: 2
+    completed: false
+    depends_on:
+      - "BF1"
+    verification: |
+      grep -r "Ready for tasks" ClaudeWatch/Views/
+    acceptance_criteria:
+      - "Progress card shows pending count when actions waiting"
+      - "Progress card shows 'Ready' only when truly idle"
+      - "Progress bar reflects actual state"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - bug-fix
+      - ui
+    commit_template: "fix(ui): Progress card reflects actual pending state"
+
   # ═══════════════════════════════════════════════════════════════════════════
   # FUTURE ENHANCEMENTS
   # ═══════════════════════════════════════════════════════════════════════════
@@ -306,8 +354,9 @@ tasks:
   - id: "FE1"
     title: "Real task progress tracking from Claude Code sessions"
     description: |
-      The "Ready for tasks" / "0%" progress indicator is currently static.
-      Should reflect actual Claude Code session activity:
+      DEFERRED: After BF2 is complete, consider deeper integration.
+
+      The progress indicator could track actual Claude Code session activity:
       - Track when a session starts/ends
       - Show task count and progress from Claude's TodoWrite
       - Update progress bar based on completed vs pending tasks
