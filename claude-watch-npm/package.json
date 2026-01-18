@@ -1,5 +1,5 @@
 {
-  "name": "claude-watch",
+  "name": "cc-watch",
   "version": "0.1.0",
   "description": "Control Claude Code from your Apple Watch",
   "type": "module",

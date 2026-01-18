@@ -5,7 +5,7 @@ Control Claude Code from your Apple Watch. Approve actions, track progress, and 
 ## Quick Start
 
 ```bash
-npx claude-watch
+npx cc-watch
 ```
 
 Enter the pairing code shown on your Apple Watch to connect.
@@ -14,14 +14,14 @@ Enter the pairing code shown on your Apple Watch to connect.
 
 | Command | Description |
 |---------|-------------|
-| `npx claude-watch` | Interactive setup wizard |
-| `npx claude-watch status` | Check connection status |
-| `npx claude-watch serve` | Start MCP server (called by Claude Code) |
-| `npx claude-watch unpair` | Remove configuration |
+| `npx cc-watch` | Interactive setup wizard |
+| `npx cc-watch status` | Check connection status |
+| `npx cc-watch serve` | Start MCP server (called by Claude Code) |
+| `npx cc-watch unpair` | Remove configuration |
 
 ## How It Works
 
-1. **Pair** - Run `npx claude-watch` and enter the code on your watch
+1. **Pair** - Run `npx cc-watch` and enter the code on your watch
 2. **Configure** - Claude Code's MCP config is updated automatically
 3. **Use** - Claude will send approval requests to your watch
 
