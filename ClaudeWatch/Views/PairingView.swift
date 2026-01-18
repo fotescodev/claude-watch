@@ -192,11 +192,12 @@ struct PairingCodeDisplayView: View {
                         .font(.claudeFootnote)
                         .foregroundStyle(Claude.textSecondary)
 
-                    // Large code display with spacing
+                    // Large code display - sized to fit watch screen
                     Text(formatCodeForDisplay(code))
-                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                        .font(.system(size: 22, weight: .bold, design: .monospaced))
                         .foregroundStyle(Claude.textPrimary)
-                        .tracking(4)
+                        .minimumScaleFactor(0.8)
+                        .lineLimit(1)
                         .padding(.vertical, Claude.Spacing.md)
 
                     // Waiting indicator
