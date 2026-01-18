@@ -169,9 +169,16 @@ class WatchService: ObservableObject {
         }
     }
 
+    /// Called when app is about to become inactive.
+    ///
+    /// Intentionally empty - watchOS handles connection lifecycle automatically.
+    /// Disconnecting here would cause unnecessary reconnection cycles when the
+    /// user briefly switches apps or receives a notification.
+    ///
+    /// The WebSocket connection is maintained by the system and will naturally
+    /// close when the app enters background (handled by `handleAppDidEnterBackground`).
     func handleAppWillResignActive() {
-        // Don't disconnect - let the system handle it
-        // But we could pause aggressive reconnection if needed
+        // No action needed - watchOS manages background state transitions
     }
 
     func handleAppDidEnterBackground() {

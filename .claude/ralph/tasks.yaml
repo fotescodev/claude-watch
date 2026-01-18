@@ -2229,7 +2229,7 @@ tasks:
       ```
     priority: low
     parallel_group: 19
-    completed: false
+    completed: true
     verification: |
       grep -A 5 'handleAppWillResignActive' ClaudeWatch/Services/WatchService.swift | grep -q '///' && exit 0 || \
       ! grep -q 'handleAppWillResignActive' ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
