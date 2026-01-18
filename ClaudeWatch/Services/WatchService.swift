@@ -626,6 +626,9 @@ class WatchService: ObservableObject {
             state.status = .running
         }
 
+        // Clear the notification for this action
+        clearDeliveredNotification(for: actionId)
+
         playHaptic(.success)
     }
 
@@ -642,6 +645,9 @@ class WatchService: ObservableObject {
             state.status = .running
         }
 
+        // Clear the notification for this action
+        clearDeliveredNotification(for: actionId)
+
         playHaptic(.failure)
     }
 
@@ -651,6 +657,9 @@ class WatchService: ObservableObject {
         // Optimistic update
         state.pendingActions.removeAll()
         state.status = .running
+
+        // Clear ALL delivered notifications
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
 
         playHaptic(.success)
     }
@@ -858,7 +867,32 @@ class WatchService: ObservableObject {
             state.status = .running
         }
 
+        // Clear delivered notifications for this request
+        // APNs notifications may not use requestId as identifier, so we query and remove matching ones
+        clearDeliveredNotification(for: requestId)
+
         playHaptic(approved ? .success : .failure)
+    }
+
+    /// Clear delivered notification for a specific request ID
+    private func clearDeliveredNotification(for requestId: String) {
+        let center = UNUserNotificationCenter.current()
+
+        // Get all delivered notifications and remove ones matching this request
+        center.getDeliveredNotifications { notifications in
+            let idsToRemove = notifications.compactMap { notification -> String? in
+                let userInfo = notification.request.content.userInfo
+                let notificationRequestId = userInfo["requestId"] as? String ?? userInfo["action_id"] as? String
+                if notificationRequestId == requestId {
+                    return notification.request.identifier
+                }
+                return nil
+            }
+
+            if !idsToRemove.isEmpty {
+                center.removeDeliveredNotifications(withIdentifiers: idsToRemove)
+            }
+        }
     }
 
     /// Get device token for APNs (set during notification registration)

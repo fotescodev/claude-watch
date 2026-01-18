@@ -229,6 +229,46 @@ tasks:
     commit_template: "test(e2e): Verify physical watch approval flow"
 
   # ═══════════════════════════════════════════════════════════════════════════
+  # BUG FIXES IN PROGRESS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: "BF1"
+    title: "Clear delivered notifications after approve/reject"
+    description: |
+      PROBLEM: Old notifications keep appearing even after requests are handled.
+      When a user approves/rejects a request, the push notification stays in
+      the notification center and can be tapped again.
+
+      FIX IMPLEMENTED:
+      - Added `clearDeliveredNotification(for:)` method to WatchService
+      - Called after `respondToCloudRequest`, `approveAction`, `rejectAction`
+      - `approveAll` clears ALL delivered notifications
+      - Matches notifications by `requestId` or `action_id` in userInfo
+
+      VERIFICATION:
+      1. Rebuild and deploy to simulator/physical watch
+      2. Trigger an approval request
+      3. Approve from watch
+      4. Verify notification disappears from notification center
+      5. Verify no duplicate notifications appear
+    priority: high
+    parallel_group: 1
+    completed: false
+    verification: |
+      echo "Manual test - verify notifications clear after approval"
+    acceptance_criteria:
+      - "Notification cleared after approve"
+      - "Notification cleared after reject"
+      - "All notifications cleared after approveAll"
+      - "No stale notifications in notification center"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - bug-fix
+      - notifications
+    commit_template: "fix(notifications): Clear delivered notifications after approval"
+
+  # ═══════════════════════════════════════════════════════════════════════════
   # FUTURE ENHANCEMENTS
   # ═══════════════════════════════════════════════════════════════════════════
 
