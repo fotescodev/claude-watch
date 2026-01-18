@@ -21,7 +21,8 @@
 #   --create-pr             Auto-create PRs on task completion
 #   --draft-pr              Create draft PRs instead
 #   --base-branch NAME      Base branch for PRs (default: main)
-#   --parallel              Enable parallel worker execution mode
+#   --parallel              Enable parallel worker execution (DEFAULT)
+#   --serial, --no-parallel Disable parallel mode, run sequentially
 #   --max-workers N         Number of parallel workers (default: 3)
 #   --parallel-group N      Only run tasks in specific parallel group
 #
@@ -65,7 +66,7 @@ BRANCH_PER_TASK=false
 CREATE_PR=false
 DRAFT_PR=false
 BASE_BRANCH="main"
-PARALLEL_MODE=false
+PARALLEL_MODE=true  # Default: parallel execution enabled
 MAX_WORKERS=3
 PARALLEL_GROUP=""
 AGGREGATE_MODE=false
@@ -134,7 +135,8 @@ Options:
   --create-pr             Auto-create PRs on task completion
   --draft-pr              Create draft PRs instead
   --base-branch NAME      Base branch for PRs (default: main)
-  --parallel              Enable parallel worker execution mode
+  --parallel              Enable parallel worker execution (DEFAULT)
+  --serial, --no-parallel Disable parallel mode, run sequentially
   --max-workers N         Number of parallel workers (default: 3)
   --parallel-group N      Only run tasks in specific parallel group
   --aggregate             Force learning aggregation
@@ -2105,6 +2107,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --parallel)
             PARALLEL_MODE=true
+            shift
+            ;;
+        --serial|--no-parallel)
+            PARALLEL_MODE=false
             shift
             ;;
         --max-workers)
