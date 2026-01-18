@@ -282,10 +282,24 @@ get_workers() {
 }
 
 get_parallel_status() {
-    # Get parallel execution status from parallel-tasks.py
-    # Returns JSON with runnable tasks grouped by parallel_group
-    local result=$(python3 "$SCRIPT_DIR/parallel-tasks.py" 2>/dev/null)
-    echo "$result"
+    # Get parallel execution status from existing parallel system
+    # Reads from parallel/queue.yaml if it exists
+    local queue_file="$SCRIPT_DIR/parallel/queue.yaml"
+
+    if [[ ! -f "$queue_file" ]]; then
+        echo '{"status":"inactive"}'
+        return
+    fi
+
+    # Get current group and pending task count using yq
+    local current_group=$(yq '[.tasks[] | select(.status != "completed") | .parallel_group] | min // 0' "$queue_file" 2>/dev/null || echo "0")
+    local pending_count=$(yq "[.tasks[] | select(.parallel_group == $current_group and .status == \"pending\")] | length" "$queue_file" 2>/dev/null || echo "0")
+    local running_count=$(yq "[.tasks[] | select(.parallel_group == $current_group and .status == \"running\")] | length" "$queue_file" 2>/dev/null || echo "0")
+
+    # Get task IDs in current group
+    local task_ids=$(yq ".tasks[] | select(.parallel_group == $current_group and .status != \"completed\") | .id" "$queue_file" 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+
+    echo "{\"status\":\"ready\",\"parallel_group\":$current_group,\"pending\":$pending_count,\"running\":$running_count,\"tasks\":\"$task_ids\"}"
 }
 
 generate_sparkline() {
@@ -482,25 +496,24 @@ render_details() {
     fi
 
     #═══════════════════════════════════════════════════════════════════════════
-    # PARALLEL EXECUTION STATUS
+    # PARALLEL EXECUTION STATUS (when running ./ralph.sh --parallel)
     #═══════════════════════════════════════════════════════════════════════════
 
     local parallel_json=$(get_parallel_status)
-    local parallel_status=$(echo "$parallel_json" | jq -r '.status // "unknown"' 2>/dev/null)
-    local parallel_group=$(echo "$parallel_json" | jq -r '.parallel_group // 0' 2>/dev/null)
-    local parallel_count=$(echo "$parallel_json" | jq -r '.count // 0' 2>/dev/null)
+    local parallel_status=$(echo "$parallel_json" | jq -r '.status // "inactive"' 2>/dev/null)
 
-    if [[ "$parallel_status" == "ready" && "$parallel_count" -gt 0 ]]; then
-        echo -e "${pad}    ${CYAN}${BOLD}⚡ PARALLEL GROUP ${parallel_group}${NC} ${GRAY}(${parallel_count} tasks can run simultaneously)${NC}"
-        echo ""
+    if [[ "$parallel_status" == "ready" ]]; then
+        local parallel_group=$(echo "$parallel_json" | jq -r '.parallel_group // 0' 2>/dev/null)
+        local pending=$(echo "$parallel_json" | jq -r '.pending // 0' 2>/dev/null)
+        local running_tasks=$(echo "$parallel_json" | jq -r '.running // 0' 2>/dev/null)
+        local task_ids=$(echo "$parallel_json" | jq -r '.tasks // ""' 2>/dev/null)
 
-        # Show tasks that can run in parallel
-        local parallel_tasks=$(echo "$parallel_json" | jq -r '.tasks[]? | "  \(.id)|\(.title)"' 2>/dev/null)
-        while IFS='|' read -r tid ttitle; do
-            [[ -z "$tid" ]] && continue
-            tid=$(echo "$tid" | sed 's/^ *//')
-            printf "${pad}    ${CORAL}▸${NC}  ${WHITE}%-8s${NC} ${GRAY}%s${NC}\n" "[$tid]" "${ttitle:0:35}"
-        done <<< "$parallel_tasks"
+        echo -e "${pad}    ${CYAN}${BOLD}⚡ PARALLEL GROUP ${parallel_group}${NC}"
+        echo -e "${pad}       ${GREEN}${running_tasks} running${NC}  ${GRAY}│${NC}  ${YELLOW}${pending} pending${NC}"
+
+        if [[ -n "$task_ids" && "$task_ids" != "null" ]]; then
+            echo -e "${pad}       ${DIM}Tasks: ${task_ids}${NC}"
+        fi
         echo ""
     fi
 
