@@ -436,7 +436,7 @@ tasks:
       - ClaudeWatch/Complications/ComplicationViews.swift
     priority: low
     parallel_group: 4
-    completed: false
+    completed: true
     depends_on:
       - "FV1"
     acceptance_criteria:
