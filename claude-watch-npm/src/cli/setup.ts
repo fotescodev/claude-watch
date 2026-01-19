@@ -305,8 +305,9 @@ async function showComplete(): Promise<void> {
 
 /**
  * Main setup wizard
+ * @param wrapper - Optional wrapper command to use when launching Claude (e.g., 'specstory')
  */
-export async function runSetup(): Promise<void> {
+export async function runSetup(wrapper?: string): Promise<void> {
   showHeader();
 
   // Check existing config
