@@ -88,27 +88,62 @@ tasks:
     assigned_worker: null
     started_at: null
   # ═══════════════════════════════════════════════════════════════════════════
-  # FUTURE ENHANCEMENTS
+  # FEATURE: Real Task Progress Tracking
   # ═══════════════════════════════════════════════════════════════════════════
-  - id: "FE1"
-    title: "Real task progress tracking from Claude Code sessions"
+  - id: "FE1a"
+    title: "Add hook to capture TodoWrite events from Claude Code"
     description: |
-      DEFERRED: After BF2 is complete, consider deeper integration.
-
-      The progress indicator could track actual Claude Code session activity:
-      - Track when a session starts/ends
-      - Show task count and progress from Claude's TodoWrite
-      - Update progress bar based on completed vs pending tasks
-      - Show "Working on: [task name]" when actively processing
-
-      Requires: Extending the hook/worker protocol to send session metadata.
-    priority: low
-    parallel_group: 99
+      Create PostToolUse hook that intercepts TodoWrite tool calls.
+      Parse task list, calculate progress, send to /session-progress endpoint.
+      Reference: .claude/hooks/watch-approval-cloud.py
+    priority: medium
+    parallel_group: 1
     completed: false
     tags:
       - enhancement
-      - deferred
-    commit_template: "feat(progress): Real task progress tracking"
+      - hooks
+      - progress-tracking
+    commit_template: "feat(hooks): Add progress tracker for TodoWrite events"
+    status: pending
+    assigned_worker: null
+    started_at: null
+
+  - id: "FE1b"
+    title: "Add /session-progress endpoint to Cloudflare worker"
+    description: |
+      Add POST /session-progress to receive progress from hook.
+      Store in KV, send silent push to watch.
+      Add GET endpoint for polling fallback.
+    priority: medium
+    parallel_group: 2
+    completed: false
+    depends_on:
+      - "FE1a"
+    tags:
+      - enhancement
+      - worker
+      - progress-tracking
+    commit_template: "feat(worker): Add session-progress endpoint"
+    status: pending
+    assigned_worker: null
+    started_at: null
+
+  - id: "FE1c"
+    title: "Display task progress in watch MainView"
+    description: |
+      Add SessionProgress struct to WatchService.
+      Handle progress notification type.
+      Update StatusHeader to show current task and progress bar.
+    priority: medium
+    parallel_group: 3
+    completed: false
+    depends_on:
+      - "FE1b"
+    tags:
+      - enhancement
+      - ui
+      - progress-tracking
+    commit_template: "feat(ui): Display real-time task progress"
     status: pending
     assigned_worker: null
     started_at: null
