@@ -13,10 +13,10 @@ Configuration:
 - Set CLAUDE_WATCH_PAIRING_ID environment variable, OR
 - Create ~/.claude-watch-pairing file with your pairing ID
 
-SESSION ISOLATION:
-- Only runs when CLAUDE_WATCH_SESSION_ACTIVE=1 is set
-- This env var is set by `npx cc-watch` when starting a watch-enabled session
-- Other Claude Code sessions will not send progress updates to the watch
+NOTE: Unlike approval requests (watch-approval-cloud.py), progress updates
+are sent from ALL Claude Code sessions when paired. This enables passive
+monitoring of any session from the watch. Session isolation only applies
+to approval/rejection actions, not progress tracking.
 """
 import json
 import os
@@ -194,11 +194,12 @@ def send_progress(pairing_id: str, tasks: list, current_task: str | None, curren
 
 
 def main():
-    # SESSION ISOLATION: Only run for cc-watch sessions
-    # cc-watch sets CLAUDE_WATCH_SESSION_ACTIVE=1 when starting
-    # Other Claude Code sessions will not send progress to the watch
-    if os.environ.get("CLAUDE_WATCH_SESSION_ACTIVE") != "1":
-        sys.exit(0)  # Not a watch session - skip progress tracking
+    # PROGRESS ALWAYS SENT: Unlike approval requests, progress updates are
+    # sent from ALL Claude Code sessions. This allows passive monitoring of
+    # any session from the watch.
+    #
+    # For approval requests (watch-approval-cloud.py), session isolation still
+    # applies - only cc-watch sessions can approve/reject from the watch.
 
     try:
         input_data = json.load(sys.stdin)
