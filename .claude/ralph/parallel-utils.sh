@@ -141,7 +141,16 @@ get_current_group() {
     fi
 
     # Find the minimum parallel_group among tasks that aren't completed
-    yq '[.tasks[] | select(.status != "completed") | .parallel_group] | min // empty' "$queue_file" 2>/dev/null || echo ""
+    # Note: Use double quotes with escaped inner quotes to avoid yq lexer issues with !=
+    local result
+    result=$(yq "[.tasks[] | select(.status != \"completed\") | .parallel_group] | min" "$queue_file" 2>/dev/null)
+
+    # Return empty if null or no result
+    if [[ -z "$result" || "$result" == "null" ]]; then
+        echo ""
+    else
+        echo "$result"
+    fi
 }
 
 # Mark a task as assigned to a worker
