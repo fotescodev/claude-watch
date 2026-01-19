@@ -3,6 +3,7 @@ import { runSetup } from "./cli/setup.js";
 import { runStatus } from "./cli/status.js";
 import { runUnpair } from "./cli/unpair.js";
 import { runServe } from "./cli/serve.js";
+import { runCcWatch } from "./cli/cc-watch.js";
 
 const HELP = `
   Claude Watch - Control Claude Code from your Apple Watch
@@ -12,6 +13,7 @@ const HELP = `
 
   Commands:
     (default)   Interactive setup wizard
+    watch       Start progress monitor (alias: cc-watch)
     status      Check connection status
     serve       Start MCP server (called by Claude Code)
     unpair      Remove configuration
@@ -19,6 +21,7 @@ const HELP = `
 
   Examples:
     npx claude-watch           # Run setup wizard
+    npx claude-watch watch     # Start progress monitor
     npx claude-watch status    # Check status
     npx claude-watch unpair    # Remove configuration
 `;
@@ -31,6 +34,11 @@ async function main(): Promise<void> {
     case "":
     case "setup":
       await runSetup();
+      break;
+
+    case "watch":
+    case "cc-watch":
+      await runCcWatch();
       break;
 
     case "status":
@@ -74,5 +82,6 @@ export { runSetup } from "./cli/setup.js";
 export { runStatus } from "./cli/status.js";
 export { runUnpair } from "./cli/unpair.js";
 export { runServe } from "./cli/serve.js";
+export { runCcWatch } from "./cli/cc-watch.js";
 export { runMCPServer, createMCPServer } from "./server/index.js";
 export * from "./types/index.js";
