@@ -355,6 +355,9 @@ export async function runSetup(wrapper?: string): Promise<void> {
   // Save config
   const config = createPairingConfig(cloudUrl);
   config.pairingId = pairingId;
+  if (wrapper) {
+    config.wrapper = wrapper;
+  }
   savePairingConfig(config);
 
   // Configure Claude Code
