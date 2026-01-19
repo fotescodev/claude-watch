@@ -157,6 +157,12 @@ def main():
         # Allow the action to proceed if watch is not configured (fail open)
         sys.exit(0)
 
+    # Check if session was ended from watch BEFORE creating request
+    if check_session_ended(pairing_id):
+        debug_log("SESSION", "Session was ended from watch, using terminal mode", f"pairing={pairing_id[:8]}")
+        print("Watch session ended. Using terminal mode.", file=sys.stderr)
+        sys.exit(0)  # Allow action - terminal will handle permission
+
     # Build approval request
     request_data = {
         "pairingId": pairing_id,
