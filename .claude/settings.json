@@ -76,6 +76,15 @@
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/post-swift-edit.sh"
           }
         ]
+      },
+      {
+        "matcher": "TodoWrite",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/progress-tracker.py"
+          }
+        ]
       }
     ],
     "PreToolUse": []

@@ -648,7 +648,7 @@ tasks:
       ```
     priority: medium
     parallel_group: 1
-    completed: false
+    completed: true
     verification: |
       [ -f .claude/hooks/progress-tracker.py ] && \
       grep -q "PostToolUse" .claude/settings.json && \
@@ -667,7 +667,6 @@ tasks:
       - hooks
       - progress-tracking
     commit_template: "feat(hooks): Add progress tracker for TodoWrite events"
-
   - id: "FE1b"
     title: "Add /session-progress endpoint to Cloudflare worker"
     description: |
@@ -723,7 +722,6 @@ tasks:
       - worker
       - progress-tracking
     commit_template: "feat(worker): Add session-progress endpoint"
-
   - id: "FE1c"
     title: "Display task progress in watch MainView"
     description: |
