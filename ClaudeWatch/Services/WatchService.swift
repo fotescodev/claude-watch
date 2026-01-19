@@ -1482,6 +1482,14 @@ struct TodoItem: Identifiable {
             case .completed: return Color.green
             }
         }
+
+        var systemIcon: String {
+            switch self {
+            case .pending: return "circle"
+            case .inProgress: return "circle.dotted.circle"
+            case .completed: return "checkmark.circle.fill"
+            }
+        }
     }
 
     init(content: String, status: String, activeForm: String? = nil) {

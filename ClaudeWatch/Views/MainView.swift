@@ -250,49 +250,42 @@ struct StatusHeader: View {
     }
 
     /// Session progress view showing rich state from TodoWrite
+    /// Optimized spacing to fit within watch bezel
     @ViewBuilder
     private func sessionProgressView(_ progress: SessionProgress) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             // Activity header with pulsing dot
-            HStack(spacing: 6) {
+            HStack(spacing: 5) {
                 Circle()
                     .fill(Claude.orange)
-                    .frame(width: 8, height: 8)
+                    .frame(width: 6, height: 6)
                     .opacity(reduceMotion ? 1.0 : 0.5 + 0.5 * Double(pulsePhase))
 
                 // Current activity or task name
                 if let activity = progress.currentActivity ?? progress.currentTask {
                     Text(activity)
-                        .font(.claudeHeadline)
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(Claude.textPrimary)
-                        .lineLimit(2)
+                        .lineLimit(1)
                 } else {
                     Text("Working...")
-                        .font(.claudeHeadline)
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(Claude.textPrimary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Elapsed time
-            if progress.elapsedSeconds > 0 {
-                Text(progress.formattedElapsedTime)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundColor(Claude.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
             // Todo list (show up to 3 items to save space on watch)
             if !progress.tasks.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 3) {
                     ForEach(progress.tasks.prefix(3)) { task in
-                        HStack(spacing: 6) {
+                        HStack(spacing: 5) {
                             Text(task.status.icon)
-                                .font(.system(size: 10))
+                                .font(.system(size: 9))
                                 .foregroundColor(task.status.color)
 
                             Text(task.content)
-                                .font(.system(size: 11))
+                                .font(.system(size: 10))
                                 .foregroundColor(task.status == .completed ? Claude.textSecondary : Claude.textPrimary)
                                 .lineLimit(1)
                         }
@@ -300,8 +293,8 @@ struct StatusHeader: View {
 
                     // Show "... and X more" if there are more tasks
                     if progress.tasks.count > 3 {
-                        Text("... and \(progress.tasks.count - 3) more")
-                            .font(.system(size: 10, weight: .regular))
+                        Text("+\(progress.tasks.count - 3) more")
+                            .font(.system(size: 9, weight: .regular))
                             .foregroundColor(Claude.textSecondary)
                     }
                 }
@@ -309,80 +302,42 @@ struct StatusHeader: View {
             }
 
             // Progress bar with stats
-            VStack(spacing: 4) {
+            VStack(spacing: 2) {
                 ProgressView(value: progress.progress)
                     .tint(Claude.orange)
 
                 HStack {
                     Text("\(Int(progress.progress * 100))%")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .foregroundColor(Claude.textSecondary)
 
                     Spacer()
 
                     Text("\(progress.completedCount)/\(progress.totalCount)")
-                        .font(.system(size: 10, weight: .regular))
+                        .font(.system(size: 9, weight: .regular))
                         .foregroundColor(Claude.textSecondary)
                 }
             }
 
-            // Stop/Resume controls - interrupt Claude Code session
-            HStack(spacing: 8) {
-                // Stop button
-                Button {
-                    WKInterfaceDevice.current().play(.click)
-                    Task {
+            // Stop/Resume toggle - single icon button
+            Button {
+                WKInterfaceDevice.current().play(.click)
+                Task {
+                    if service.isSessionInterrupted {
+                        await service.sendInterrupt(action: .resume)
+                    } else {
                         await service.sendInterrupt(action: .stop)
                     }
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "pause.fill")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text("Stop")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
+                }
+            } label: {
+                Image(systemName: service.isSessionInterrupted ? "play.fill" : "pause.fill")
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(service.isSessionInterrupted ? Color.gray.opacity(0.5) : Color.red.opacity(0.8))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-                .buttonStyle(.plain)
-                .disabled(service.isSessionInterrupted)
-
-                // Resume button
-                Button {
-                    WKInterfaceDevice.current().play(.click)
-                    Task {
-                        await service.sendInterrupt(action: .resume)
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text("Resume")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(service.isSessionInterrupted ? Claude.success : Color.gray.opacity(0.5))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-                .buttonStyle(.plain)
-                .disabled(!service.isSessionInterrupted)
+                    .frame(width: 36, height: 36)
+                    .background(service.isSessionInterrupted ? Claude.success : Claude.danger)
+                    .clipShape(Circle())
             }
-
-            // Show paused indicator when interrupted
-            if service.isSessionInterrupted {
-                HStack(spacing: 4) {
-                    Image(systemName: "pause.circle.fill")
-                        .font(.system(size: 10))
-                    Text("Session Paused")
-                        .font(.system(size: 10, weight: .medium))
-                }
-                .foregroundColor(Claude.warning)
-            }
+            .buttonStyle(.plain)
         }
     }
 
