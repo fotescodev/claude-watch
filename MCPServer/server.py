@@ -614,6 +614,22 @@ async def websocket_handler(websocket, watch_manager: WatchConnectionManager):
                     if token and watch_manager.apns_sender:
                         watch_manager.apns_sender.register_device(token)
 
+                elif msg_type == "ralph_progress":
+                    # Handle Ralph progress events from CLI
+                    # Broadcast to all connected watches for monitoring
+                    event = data.get("event", "unknown")
+                    progress = data.get("progress", 0.0)
+                    message = data.get("message", "")
+                    metadata = data.get("metadata", {})
+                    await watch_manager.broadcast({
+                        "type": "ralph_progress",
+                        "event": event,
+                        "progress": progress,
+                        "message": message,
+                        "metadata": metadata,
+                        "timestamp": datetime.now().isoformat()
+                    })
+
                 elif msg_type == "ping":
                     await watch_manager.send_to(websocket, {"type": "pong"})
 
