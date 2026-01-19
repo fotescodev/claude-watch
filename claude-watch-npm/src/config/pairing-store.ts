@@ -5,6 +5,8 @@ import type { PairingConfig } from "../types/index.js";
 
 const CONFIG_DIR = join(homedir(), ".claude-watch");
 const CONFIG_PATH = join(CONFIG_DIR, "config.json");
+// Legacy pairing file for hooks
+const LEGACY_PAIRING_PATH = join(homedir(), ".claude-watch-pairing");
 
 // Default cloud URL - Cloudflare Worker
 const DEFAULT_CLOUD_URL = "https://claude-watch.fotescodev.workers.dev";
@@ -40,6 +42,11 @@ export function readPairingConfig(): PairingConfig | null {
 export function savePairingConfig(config: PairingConfig): void {
   ensureConfigDir();
   writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2) + "\n");
+
+  // Also write to legacy file for hooks compatibility
+  if (config.pairingId) {
+    writeFileSync(LEGACY_PAIRING_PATH, config.pairingId + "\n");
+  }
 }
 
 /**

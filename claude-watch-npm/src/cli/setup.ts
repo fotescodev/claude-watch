@@ -1,6 +1,7 @@
 import chalk from "chalk";
 import ora from "ora";
 import prompts from "prompts";
+import { spawn } from "child_process";
 import {
   savePairingConfig,
   isPaired,
@@ -46,14 +47,55 @@ async function checkExistingConfig(): Promise<boolean> {
     });
 
     if (!response.reconfigure) {
-      console.log();
-      console.log(chalk.green("  No changes made."));
-      console.log();
+      // Already paired - offer to start Claude anyway
+      await offerStartClaude();
       return false;
     }
   }
 
   return true;
+}
+
+/**
+ * Offer to start Claude Code (used when already paired)
+ */
+async function offerStartClaude(): Promise<void> {
+  const response = await prompts({
+    type: "confirm",
+    name: "startClaude",
+    message: "Start Claude Code with watch approvals?",
+    initial: true,
+  });
+
+  if (response.startClaude) {
+    // Ask for project directory
+    const dirResponse = await prompts({
+      type: "text",
+      name: "projectDir",
+      message: "Project directory:",
+      initial: process.cwd(),
+    });
+
+    const projectDir = dirResponse.projectDir || process.cwd();
+
+    console.log();
+    console.log(chalk.cyan(`  Starting Claude Code in ${projectDir}...`));
+    console.log();
+
+    const claude = spawn("claude", [], {
+      stdio: "inherit",
+      shell: true,
+      cwd: projectDir,
+    });
+
+    claude.on("error", (err) => {
+      console.error(chalk.red(`  Failed to start Claude: ${err.message}`));
+    });
+
+    await new Promise<void>((resolve) => {
+      claude.on("close", () => resolve());
+    });
+  }
 }
 
 /**
@@ -199,20 +241,66 @@ async function verifyCloud(cloudUrl: string): Promise<boolean> {
 }
 
 /**
- * Show completion message
+ * Show completion message and optionally start Claude Code
  */
-function showComplete(): void {
+async function showComplete(): Promise<void> {
   console.log();
-  console.log(chalk.green.bold("  Done!"));
+  console.log(chalk.green.bold("  Paired!"));
   console.log();
   console.log(
     chalk.dim("  Your watch will buzz when Claude needs approval.")
   );
   console.log();
-  console.log(chalk.dim("  Commands:"));
-  console.log(chalk.dim("    npx claude-watch status   Check connection"));
-  console.log(chalk.dim("    npx claude-watch unpair   Remove configuration"));
-  console.log();
+
+  // Ask if user wants to start Claude Code
+  const response = await prompts({
+    type: "confirm",
+    name: "startClaude",
+    message: "Start Claude Code with watch approvals enabled?",
+    initial: true,
+  });
+
+  if (response.startClaude) {
+    // Ask for project directory
+    const dirResponse = await prompts({
+      type: "text",
+      name: "projectDir",
+      message: "Project directory (or Enter for current):",
+      initial: process.cwd(),
+    });
+
+    const projectDir = dirResponse.projectDir || process.cwd();
+
+    console.log();
+    console.log(chalk.cyan(`  Starting Claude Code in ${projectDir}...`));
+    console.log(chalk.dim("  (All tool calls will require watch approval)"));
+    console.log();
+
+    // Start Claude Code in the specified directory
+    const claude = spawn("claude", [], {
+      stdio: "inherit",
+      shell: true,
+      cwd: projectDir,
+    });
+
+    claude.on("error", (err) => {
+      console.error(chalk.red(`  Failed to start Claude: ${err.message}`));
+      console.log();
+      console.log(chalk.dim("  Try running 'claude' manually."));
+    });
+
+    // Wait for Claude to exit
+    await new Promise<void>((resolve) => {
+      claude.on("close", () => resolve());
+    });
+  } else {
+    console.log();
+    console.log(chalk.dim("  Commands:"));
+    console.log(chalk.dim("    claude                    Start Claude Code"));
+    console.log(chalk.dim("    npx claude-watch status   Check connection"));
+    console.log(chalk.dim("    npx claude-watch unpair   Remove configuration"));
+    console.log();
+  }
 }
 
 /**
@@ -272,6 +360,6 @@ export async function runSetup(): Promise<void> {
   console.log();
   configureClaude();
 
-  // Show completion
-  showComplete();
+  // Show completion and optionally start Claude
+  await showComplete();
 }
