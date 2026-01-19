@@ -32,9 +32,13 @@ struct PairingView: View {
 
 // MARK: - Unpaired Main View
 struct UnpairedMainView: View {
+    @ObservedObject private var service = WatchService.shared
     let onPairNow: () -> Void
     let onLocalMode: () -> Void
     let onDemoMode: () -> Void
+
+    // Ensure "Preparing..." is shown for at least 1 second so user sees feedback
+    @State private var minimumDelayPassed = false
 
     var body: some View {
         VStack(spacing: Claude.Spacing.md) {
@@ -71,20 +75,37 @@ struct UnpairedMainView: View {
             )
 
             // Action buttons - compact
+            // Show "Pair Now" only after BOTH: token is ready AND minimum delay passed
             VStack(spacing: Claude.Spacing.xs) {
-                Button(action: {
-                    WKInterfaceDevice.current().play(.click)
-                    onPairNow()
-                }) {
-                    Text("Pair Now")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Claude.orange)
-                        .clipShape(Capsule())
+                if service.isAPNsTokenReady && minimumDelayPassed {
+                    Button(action: {
+                        WKInterfaceDevice.current().play(.click)
+                        onPairNow()
+                    }) {
+                        Text("Pair Now")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Claude.orange)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    // Waiting for APNs token registration
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                            .tint(Claude.orange)
+                        Text("Preparing...")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Claude.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Claude.surface1)
+                    .clipShape(Capsule())
                 }
-                .buttonStyle(.plain)
 
                 HStack(spacing: Claude.Spacing.sm) {
                     Button(action: {
@@ -112,6 +133,14 @@ struct UnpairedMainView: View {
             }
         }
         .padding(Claude.Spacing.md)
+        .onAppear {
+            // Start minimum delay timer (1 second) so user sees "Preparing..." feedback
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    minimumDelayPassed = true
+                }
+            }
+        }
     }
 }
 
