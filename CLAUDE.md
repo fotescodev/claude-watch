@@ -173,6 +173,7 @@ curl http://localhost:8788/state
 - Use force unwrapping (`!`) without justification
 - Block the main thread with synchronous network calls
 - Ignore notification permission states
+- **NEVER disable or clear PreToolUse hooks in `.claude/settings.json`** - The watch approval hook uses session isolation via `CLAUDE_WATCH_SESSION_ACTIVE` env var. It stays registered but only activates when cc-watch is running. DO NOT TOUCH IT.
 
 ## Key Files
 - `ClaudeWatchApp.swift` - App entry, notification setup
