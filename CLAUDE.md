@@ -50,6 +50,7 @@ inbox/ → plans/ → tasks.yaml → archive/
 | `.claude/inbox/` | Raw ideas, quick captures |
 | `.claude/archive/` | Completed or obsolete content |
 | `docs/` | User-facing guides only |
+| `docs/solutions/` | **Documented fixes** - check [INDEX.md](docs/solutions/INDEX.md) when debugging |
 
 ## Coding Standards
 
@@ -78,6 +79,8 @@ inbox/ → plans/ → tasks.yaml → archive/
 - Handle both foreground and background delivery
 - Use `UNNotificationAction` for approve/reject actions
 - Support `UNNotificationCategory` for action grouping
+- **Silent push** (`content-available: 1`) needs `didReceiveRemoteNotification`, NOT `willPresent`
+  - See: `docs/solutions/integration-issues/watchos-silent-push-ui-update.md`
 
 ## Testing Commands
 ```bash
