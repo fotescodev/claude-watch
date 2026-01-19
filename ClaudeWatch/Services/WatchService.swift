@@ -30,6 +30,7 @@ class WatchService: ObservableObject {
     @AppStorage("cloudServerURL") var cloudServerURL = "https://claude-watch.fotescodev.workers.dev"
     @AppStorage("pairingId") var pairingId: String = ""
     @AppStorage("useCloudMode") var useCloudMode = true  // Use cloud relay by default
+    @AppStorage("permissionMode") private var storedMode: String = PermissionMode.normal.rawValue
 
     /// Whether the watch is paired with a Claude Code instance
     var isPaired: Bool {
@@ -72,6 +73,11 @@ class WatchService: ObservableObject {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         urlSession = URLSession(configuration: config)
+
+        // Restore persisted mode
+        if let mode = PermissionMode(rawValue: storedMode) {
+            state.mode = mode
+        }
 
         // Start network monitoring
         startNetworkMonitoring()
@@ -671,13 +677,17 @@ class WatchService: ObservableObject {
     }
 
     func setMode(_ mode: PermissionMode) {
-        send([
-            "type": "set_mode",
-            "mode": mode.rawValue
-        ])
-
-        // Optimistic update
+        // Persist mode locally
+        storedMode = mode.rawValue
         state.mode = mode
+
+        // Only send to WebSocket if not in cloud mode (cloud mode has no WebSocket)
+        if !useCloudMode {
+            send([
+                "type": "set_mode",
+                "mode": mode.rawValue
+            ])
+        }
 
         // Haptic feedback based on mode
         switch mode {
@@ -1091,7 +1101,7 @@ class WatchService: ObservableObject {
         state.progress = 0.45
         state.status = .waiting
         state.model = "opus"
-        state.mode = .normal
+        // Preserve persisted mode (don't overwrite with .normal)
 
         // Add some pending actions
         state.pendingActions = [
