@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import ora from "ora";
 import prompts from "prompts";
-import { spawn } from "child_process";
+import { spawn, type ChildProcess } from "child_process";
 import {
   isPaired,
   readPairingConfig,
@@ -10,6 +10,13 @@ import {
 } from "../config/pairing-store.js";
 import { CloudClient } from "../cloud/client.js";
 import type { SessionState, WatchMessage } from "../types/index.js";
+
+// YOLO mode flags for autonomous execution (from ralph.sh pattern)
+const YOLO_FLAGS = [
+  "--print",
+  "--verbose",
+  "--dangerously-skip-permissions",
+] as const;
 
 // Default URLs
 const DEFAULT_CLOUD_URL = "https://claude-watch.fotescodev.workers.dev";
@@ -46,6 +53,83 @@ function checkEnvironment(): { valid: boolean; errors: string[] } {
   }
 
   return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Execute Claude CLI in YOLO mode (autonomous execution without approval prompts)
+ * This mirrors the pattern from ralph.sh for autonomous task execution
+ */
+function executeClaudeYolo(
+  prompt: string,
+  onOutput?: (data: string) => void
+): ChildProcess {
+  // Build command args following ralph.sh pattern (line 1238)
+  const args = [
+    ...YOLO_FLAGS,
+    prompt,
+  ];
+
+  const claudeProcess = spawn("claude", args, {
+    stdio: ["pipe", "pipe", "pipe"],
+    env: {
+      ...process.env,
+      // Ensure ANTHROPIC_API_KEY is passed through
+    },
+  });
+
+  if (onOutput) {
+    claudeProcess.stdout?.on("data", (data: Buffer) => {
+      onOutput(data.toString());
+    });
+
+    claudeProcess.stderr?.on("data", (data: Buffer) => {
+      onOutput(data.toString());
+    });
+  }
+
+  return claudeProcess;
+}
+
+/**
+ * Execute ralph.sh script with YOLO mode flags
+ * Falls back to direct Claude CLI execution if ralph.sh is not available
+ */
+async function executeRalph(
+  taskPrompt: string,
+  onProgress?: (message: string) => void
+): Promise<{ success: boolean; exitCode: number }> {
+  return new Promise((resolve) => {
+    const progressHandler = (data: string): void => {
+      if (onProgress) {
+        // Split by newlines and emit each line
+        const lines = data.split("\n").filter((line) => line.trim());
+        for (const line of lines) {
+          onProgress(line);
+        }
+      }
+    };
+
+    // Execute Claude directly with YOLO flags
+    // This mirrors the ralph.sh execution pattern: claude --print --verbose --dangerously-skip-permissions
+    const claudeProcess = executeClaudeYolo(taskPrompt, progressHandler);
+
+    claudeProcess.on("close", (code) => {
+      resolve({
+        success: code === 0,
+        exitCode: code ?? 1,
+      });
+    });
+
+    claudeProcess.on("error", (error) => {
+      if (onProgress) {
+        onProgress(`Error: ${error.message}`);
+      }
+      resolve({
+        success: false,
+        exitCode: 1,
+      });
+    });
+  });
 }
 
 /**
