@@ -359,6 +359,21 @@ async function startProgressMonitor(
 export async function runCcWatch(): Promise<void> {
   showHeader();
 
+  // Validate environment variables before proceeding
+  const envCheck = checkEnvironment();
+  if (!envCheck.valid) {
+    console.log(chalk.red("  Environment validation failed:"));
+    console.log();
+    for (const error of envCheck.errors) {
+      console.log(chalk.red(`    • ${error}`));
+    }
+    console.log();
+    console.log(chalk.dim("  Set ANTHROPIC_API_KEY to use cc-watch:"));
+    console.log(chalk.dim("    export ANTHROPIC_API_KEY=your-api-key"));
+    console.log();
+    process.exit(1);
+  }
+
   // Check if already paired
   const paired = isPaired();
   const config = readPairingConfig();
