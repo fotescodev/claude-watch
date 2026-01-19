@@ -12,6 +12,11 @@ Configuration:
 - Set CLAUDE_WATCH_PAIRING_ID environment variable, OR
 - Create ~/.claude-watch-pairing file with your pairing ID
 - Run: claude-watch-pair to set up pairing interactively
+
+SESSION ISOLATION:
+- Only runs when CLAUDE_WATCH_SESSION_ACTIVE=1 is set
+- This env var is set by `npx cc-watch` when starting a watch-enabled session
+- Other Claude Code sessions will not interact with the watch
 """
 import json
 import os
@@ -24,6 +29,27 @@ import urllib.error
 # Cloud server configuration
 CLOUD_SERVER = "https://claude-watch.fotescodev.workers.dev"
 PAIRING_CONFIG_FILE = os.path.expanduser("~/.claude-watch-pairing")
+
+# Notification debouncing - prevent barrage of notifications
+# Only send a notification if this many seconds have passed since the last one
+NOTIFICATION_DEBOUNCE_SECONDS = 3
+LAST_NOTIFICATION_FILE = "/tmp/claude-watch-last-notification"
+
+# Debug logging
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEBUG_LOG_SCRIPT = os.path.join(SCRIPT_DIR, "watch-debug-log.sh")
+
+
+def debug_log(level: str, message: str, details: str = ""):
+    """Inject event into watch debug monitor."""
+    if os.path.exists(DEBUG_LOG_SCRIPT):
+        try:
+            cmd = [DEBUG_LOG_SCRIPT, level, message]
+            if details:
+                cmd.append(details)
+            subprocess.run(cmd, capture_output=True, timeout=1)
+        except Exception:
+            pass  # Silent fail - don't break the hook
 
 # Simulator configuration
 SIMULATOR_NAME = "Apple Watch Series 11 (46mm)"
@@ -60,6 +86,11 @@ def get_pairing_id() -> str | None:
 
 
 def main():
+    # Session isolation: Only run if this session was started with cc-watch
+    # This prevents other Claude Code sessions from interacting with the watch
+    if not os.environ.get("CLAUDE_WATCH_SESSION_ACTIVE"):
+        sys.exit(0)
+
     try:
         input_data = json.load(sys.stdin)
     except json.JSONDecodeError:
@@ -71,6 +102,8 @@ def main():
     # Skip tools that don't need approval
     if tool_name not in TOOLS_REQUIRING_APPROVAL:
         sys.exit(0)
+
+    debug_log("HOOK", f"PreToolUse triggered: {tool_name}", f"tool={tool_name}")
 
     # Get pairing ID from config
     pairing_id = get_pairing_id()
@@ -91,18 +124,25 @@ def main():
 
     try:
         # Step 1: Create the request on cloud server
+        debug_log("CLOUD", "Creating approval request", f"title={request_data['title'][:30]}")
         request_id = create_request(request_data)
         if not request_id:
+            debug_log("ERROR", "Failed to create request")
             print("Failed to create request", file=sys.stderr)
             sys.exit(0)
 
+        debug_log("REQUEST", f"Request created: {request_id[:8]}", f"id={request_id}")
+
         # Step 2: Send simulated push notification to simulator
+        debug_log("APNS", "Sending push notification", f"id={request_id[:8]}")
         send_simulator_notification(request_id, request_data)
 
         # Step 3: Poll for approval (blocking)
+        debug_log("BLOCK", "Waiting for watch response...", f"id={request_id[:8]}")
         approved = wait_for_response(request_id)
 
         if approved:
+            debug_log("APPROVE", f"✓ Approved: {request_data['title'][:25]}", f"id={request_id[:8]}")
             output = {
                 "hookSpecificOutput": {
                     "hookEventName": "PreToolUse",
@@ -112,13 +152,16 @@ def main():
             print(json.dumps(output))
             sys.exit(0)
         else:
+            debug_log("REJECT", f"✗ Rejected: {request_data['title'][:25]}", f"id={request_id[:8]}")
             print("Action rejected by watch", file=sys.stderr)
             sys.exit(2)
 
     except urllib.error.URLError as e:
+        debug_log("ERROR", "Cloud server unavailable", str(e)[:50])
         print(f"Cloud server unavailable: {e}", file=sys.stderr)
         sys.exit(0)
     except Exception as e:
+        debug_log("ERROR", "Hook error", str(e)[:50])
         print(f"Hook error: {e}", file=sys.stderr)
         sys.exit(0)
 
@@ -250,6 +293,7 @@ def wait_for_response(request_id: str, timeout: int = 300) -> bool:
         time.sleep(poll_interval)
 
     # Timeout - treat as rejection
+    debug_log("TIMEOUT", f"Request timed out after {timeout}s", f"id={request_id[:8]}")
     return False
 
 
