@@ -6,7 +6,8 @@ When Claude Code updates its todo list, this hook:
 1. Parses the todo list from tool input
 2. Calculates progress (completed/total)
 3. Finds the current in_progress task
-4. Sends progress to Cloudflare worker for watch display
+4. Tracks elapsed time since session started
+5. Sends progress to Cloudflare worker for watch display
 
 Configuration:
 - Set CLAUDE_WATCH_PAIRING_ID environment variable, OR
@@ -15,12 +16,14 @@ Configuration:
 import json
 import os
 import sys
+import time
 import urllib.request
 import urllib.error
 
 # Cloud server configuration
 CLOUD_SERVER = "https://claude-watch.fotescodev.workers.dev"
 PAIRING_CONFIG_FILE = os.path.expanduser("~/.claude-watch-pairing")
+SESSION_STATE_FILE = os.path.expanduser("~/.claude-watch-session")
 
 
 def get_pairing_id() -> str | None:
@@ -47,6 +50,63 @@ def get_pairing_id() -> str | None:
             print(f"Warning: Could not read {PAIRING_CONFIG_FILE}: {e}", file=sys.stderr)
 
     return None
+
+
+def get_session_state() -> dict:
+    """
+    Load or create session state tracking elapsed time.
+
+    Session state is stored per-pairing to track:
+    - Session start time (first TodoWrite in this session)
+    - Previous tasks hash (to detect new sessions)
+
+    Returns dict with:
+    - startTime: Unix timestamp when session started
+    - elapsedSeconds: Seconds since session started
+    """
+    if os.path.exists(SESSION_STATE_FILE):
+        try:
+            with open(SESSION_STATE_FILE, 'r') as f:
+                state = json.load(f)
+                elapsed = int(time.time() - state.get("startTime", time.time()))
+                return {
+                    "startTime": state.get("startTime"),
+                    "elapsedSeconds": elapsed
+                }
+        except (IOError, OSError, json.JSONDecodeError):
+            pass
+
+    # New session - record start time
+    start_time = time.time()
+    save_session_state(start_time)
+    return {
+        "startTime": start_time,
+        "elapsedSeconds": 0
+    }
+
+
+def save_session_state(start_time: float):
+    """Save session start time to state file."""
+    try:
+        with open(SESSION_STATE_FILE, 'w') as f:
+            json.dump({"startTime": start_time}, f)
+    except (IOError, OSError):
+        pass
+
+
+def reset_session_if_needed(tasks: list):
+    """
+    Reset session if tasks changed significantly (new session detected).
+
+    Heuristic: If all tasks are pending (fresh start), reset the timer.
+    """
+    if not tasks:
+        return
+
+    all_pending = all(t.get("status") == "pending" for t in tasks)
+    if all_pending:
+        # Fresh task list - new session
+        save_session_state(time.time())
 
 
 def parse_todos(tool_input: dict) -> tuple[list[dict], str | None, float]:
@@ -87,7 +147,7 @@ def parse_todos(tool_input: dict) -> tuple[list[dict], str | None, float]:
     return tasks, current_task, progress
 
 
-def send_progress(pairing_id: str, tasks: list, current_task: str | None, progress: float):
+def send_progress(pairing_id: str, tasks: list, current_task: str | None, progress: float, elapsed_seconds: int):
     """Send progress update to Cloudflare worker."""
     completed_count = sum(1 for t in tasks if t["status"] == "completed")
     total_count = len(tasks)
@@ -98,7 +158,8 @@ def send_progress(pairing_id: str, tasks: list, current_task: str | None, progre
         "currentTask": current_task,
         "progress": progress,
         "completedCount": completed_count,
-        "totalCount": total_count
+        "totalCount": total_count,
+        "elapsedSeconds": elapsed_seconds
     }
 
     try:
