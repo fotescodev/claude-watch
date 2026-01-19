@@ -19,6 +19,21 @@ import { CloudClient } from "../cloud/client.js";
 type ConnectionMode = "cloud" | "local";
 
 /**
+ * Build the command and arguments for launching Claude Code.
+ * If a wrapper is provided, uses the pattern: <wrapper> run claude
+ * Otherwise, launches claude directly.
+ *
+ * @param wrapper - Optional wrapper command (e.g., 'specstory')
+ * @returns Object with command and args for spawn()
+ */
+function buildClaudeCommand(wrapper?: string): { command: string; args: string[] } {
+  if (wrapper) {
+    return { command: wrapper, args: ["run", "claude"] };
+  }
+  return { command: "claude", args: [] };
+}
+
+/**
  * Display the header
  */
 function showHeader(): void {
@@ -78,11 +93,18 @@ async function offerStartClaude(): Promise<void> {
 
     const projectDir = dirResponse.projectDir || process.cwd();
 
+    // Get wrapper from config (if configured)
+    const config = readPairingConfig();
+    const { command, args } = buildClaudeCommand(config?.wrapper);
+
     console.log();
     console.log(chalk.cyan(`  Starting Claude Code in ${projectDir}...`));
+    if (config?.wrapper) {
+      console.log(chalk.dim(`  Using wrapper: ${config.wrapper}`));
+    }
     console.log();
 
-    const claude = spawn("claude", [], {
+    const claude = spawn(command, args, {
       stdio: "inherit",
       shell: true,
       cwd: projectDir,
@@ -271,13 +293,20 @@ async function showComplete(): Promise<void> {
 
     const projectDir = dirResponse.projectDir || process.cwd();
 
+    // Get wrapper from config (if configured)
+    const config = readPairingConfig();
+    const { command, args } = buildClaudeCommand(config?.wrapper);
+
     console.log();
     console.log(chalk.cyan(`  Starting Claude Code in ${projectDir}...`));
+    if (config?.wrapper) {
+      console.log(chalk.dim(`  Using wrapper: ${config.wrapper}`));
+    }
     console.log(chalk.dim("  (All tool calls will require watch approval)"));
     console.log();
 
     // Start Claude Code in the specified directory
-    const claude = spawn("claude", [], {
+    const claude = spawn(command, args, {
       stdio: "inherit",
       shell: true,
       cwd: projectDir,
@@ -305,8 +334,9 @@ async function showComplete(): Promise<void> {
 
 /**
  * Main setup wizard
+ * @param wrapper - Optional wrapper command to use when launching Claude (e.g., 'specstory')
  */
-export async function runSetup(): Promise<void> {
+export async function runSetup(wrapper?: string): Promise<void> {
   showHeader();
 
   // Check existing config
@@ -354,6 +384,9 @@ export async function runSetup(): Promise<void> {
   // Save config
   const config = createPairingConfig(cloudUrl);
   config.pairingId = pairingId;
+  if (wrapper) {
+    config.wrapper = wrapper;
+  }
   savePairingConfig(config);
 
   // Configure Claude Code
