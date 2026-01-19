@@ -714,6 +714,7 @@ class WatchService: ObservableObject {
 
         // Clear ALL delivered notifications
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+    }
 
     /// Legacy method for toggling YOLO mode.
     /// Now delegates to `cycleMode()` to cycle through all permission modes.
