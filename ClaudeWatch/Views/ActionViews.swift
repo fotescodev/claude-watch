@@ -28,12 +28,11 @@ struct ErrorBanner: View {
                     .fill(Claude.danger)
             )
             .transition(.move(edge: .top).combined(with: .opacity))
-            .onAppear {
-                // Auto-dismiss after 3 seconds
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                    withAnimation(.easeOut(duration: 0.3)) {
-                        isVisible = false
-                    }
+            .task {
+                // Auto-dismiss after 3 seconds (auto-cancelled on disappear)
+                try? await Task.sleep(for: .seconds(3))
+                withAnimation(.easeOut(duration: 0.3)) {
+                    isVisible = false
                 }
             }
             .accessibilityLabel("Error: \(message)")
