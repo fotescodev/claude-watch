@@ -75,6 +75,9 @@ GENERATE_SKILLS_MODE=false
 SKILL_STATS_MODE=false
 NO_SKILLS=false
 
+# MCPServer connection for progress streaming
+MCP_SERVER_URL="${MCP_SERVER_URL:-http://localhost:8788}"
+
 # Colors (auto-detect terminal support)
 if [[ -t 1 ]] && [[ "${TERM:-dumb}" != "dumb" ]]; then
     RED='\033[0;31m'
@@ -112,6 +115,29 @@ log_verbose() {
     if [[ "$VERBOSE" == "true" ]]; then
         echo -e "${BLUE}[ralph]${NC} $*" >&2
     fi
+}
+
+# Post progress to MCPServer WebSocket for cc-watch streaming
+# Args: event, progress (0.0-1.0), message, [metadata_json]
+post_progress() {
+    local event="$1"
+    local progress="${2:-0.0}"
+    local message="${3:-}"
+    local metadata="${4:-\{\}}"
+
+    # Don't fail on network errors - progress reporting is best-effort
+    # Also skip if in dry-run mode
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_verbose "Progress: $event ($progress) - $message"
+        return 0
+    fi
+
+    # Use curl to POST progress to MCPServer
+    # Timeout after 2s to avoid blocking the main loop
+    curl -s --max-time 2 -X POST "$MCP_SERVER_URL/ralph/progress" \
+        -H "Content-Type: application/json" \
+        -d "{\"event\": \"$event\", \"progress\": $progress, \"message\": \"$message\", \"metadata\": $metadata}" \
+        >/dev/null 2>&1 || log_verbose "Failed to post progress (MCPServer may not be running)"
 }
 
 show_help() {
@@ -1762,6 +1788,9 @@ run_loop() {
     init_metrics
     init_session_log
 
+    # Post initial progress to MCPServer
+    post_progress "started" 0.0 "Ralph Loop starting..."
+
     local iteration=0
     local consecutive_failures=0
 
@@ -1771,12 +1800,14 @@ run_loop() {
         # Check iteration limit
         if [[ $MAX_ITERATIONS -gt 0 ]] && [[ $iteration -gt $MAX_ITERATIONS ]]; then
             log "Reached maximum iterations ($MAX_ITERATIONS)"
+            post_progress "finished" 1.0 "Reached maximum iterations"
             break
         fi
 
         # Check if all tasks complete
         if all_tasks_complete; then
             log_success "All tasks completed!"
+            post_progress "finished" 1.0 "All tasks completed!"
             break
         fi
 
@@ -1799,6 +1830,7 @@ run_loop() {
         fi
 
         log "Selected task: $next_task_id"
+        post_progress "task_selected" 0.1 "Selected task: $next_task_id" "{\"task_id\": \"$next_task_id\", \"iteration\": $iteration}"
 
         # Build combined prompt with progressive disclosure (task-specific modules)
         local combined_prompt
@@ -1811,17 +1843,20 @@ run_loop() {
         fi
 
         # Run Claude session with task-specific prompt
+        post_progress "executing" 0.2 "Running Claude session for $next_task_id" "{\"task_id\": \"$next_task_id\", \"session_id\": \"$session_id\"}"
         if run_claude_session "$combined_prompt" "$session_id"; then
             # Clean up temp prompt file
             rm -f "$combined_prompt"
             # ═══════════════════════════════════════════════════════════════
             # VALIDATION PHASE - All checks must pass before metrics update
             # ═══════════════════════════════════════════════════════════════
+            post_progress "validating" 0.6 "Session complete, running validation..." "{\"task_id\": \"$next_task_id\"}"
 
             # CHECK 0: Project sync - all Swift files must be in Xcode project
             if ! run_project_sync_check; then
                 log_error "CRITICAL: Swift files missing from Xcode project!"
                 log_error "Files exist on disk but won't compile"
+                post_progress "error" 0.0 "Project sync failed - missing files" "{\"task_id\": \"$next_task_id\", \"check\": \"project_sync\"}"
                 log_session_end "$session_id" "FAILED" "Project sync failed - missing files"
                 update_metrics "$session_id" "failed" "$next_task_id"
                 jq '.buildFailures += 1' "$METRICS_FILE" > "$METRICS_FILE.tmp" && mv "$METRICS_FILE.tmp" "$METRICS_FILE"
@@ -1840,6 +1875,7 @@ run_loop() {
             # CHECK 0.5: Mandatory build verification
             if ! run_build_check; then
                 log_error "CRITICAL: Build failed!"
+                post_progress "error" 0.0 "Build verification failed" "{\"task_id\": \"$next_task_id\", \"check\": \"build\"}"
                 log_session_end "$session_id" "FAILED" "Build verification failed"
                 update_metrics "$session_id" "failed" "$next_task_id"
                 jq '.buildFailures += 1' "$METRICS_FILE" > "$METRICS_FILE.tmp" && mv "$METRICS_FILE.tmp" "$METRICS_FILE"
@@ -1931,6 +1967,7 @@ run_loop() {
             # ALL CHECKS PASSED - Now safe to update metrics
             # ═══════════════════════════════════════════════════════════════
             log_success "All validation checks passed for task $next_task_id"
+            post_progress "task_completed" 0.9 "Task $next_task_id completed successfully" "{\"task_id\": \"$next_task_id\", \"iteration\": $iteration}"
             log_session_end "$session_id" "COMPLETED" "Session completed successfully"
             update_metrics "$session_id" "completed" "$next_task_id"
             consecutive_failures=0
@@ -1949,6 +1986,7 @@ run_loop() {
             # Clean up temp prompt file
             rm -f "$combined_prompt"
 
+            post_progress "error" 0.0 "Claude session failed for task $next_task_id" "{\"task_id\": \"$next_task_id\", \"session_id\": \"$session_id\"}"
             log_session_end "$session_id" "FAILED" "Session failed"
             update_metrics "$session_id" "failed" "$next_task_id"
 
@@ -1959,6 +1997,7 @@ run_loop() {
 
             if [[ $consecutive_failures -ge $MAX_RETRIES ]]; then
                 log_error "Too many consecutive failures ($consecutive_failures). Stopping."
+                post_progress "error" 0.0 "Too many consecutive failures, stopping" "{\"failures\": $consecutive_failures}"
                 return 1
             fi
 
@@ -1988,6 +2027,7 @@ run_loop() {
 cleanup() {
     echo ""
     log "Received interrupt signal (Ctrl+C), shutting down gracefully..."
+    post_progress "interrupted" 0.0 "Ralph interrupted by user (Ctrl+C)"
     echo ""
 
     # Shutdown workers if in parallel mode

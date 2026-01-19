@@ -265,6 +265,36 @@ class WatchConnectionManager:
                 self.state.task_name, success
             )
 
+    async def stream_ralph_progress(
+        self,
+        event: str,
+        progress: float = 0.0,
+        message: str = "",
+        metadata: dict = None
+    ):
+        """
+        Stream Ralph progress events to all connected watches.
+
+        Args:
+            event: Progress event type (e.g., 'started', 'subtask_complete', 'finished')
+            progress: Progress value between 0.0 and 1.0
+            message: Human-readable progress message
+            metadata: Optional additional data (subtask info, file paths, etc.)
+        """
+        # Update internal progress state
+        self.state.progress = progress
+        if message:
+            self.state.task_description = message
+
+        await self.broadcast({
+            "type": "ralph_progress",
+            "event": event,
+            "progress": progress,
+            "message": message,
+            "metadata": metadata or {},
+            "timestamp": datetime.now().isoformat()
+        })
+
 
 # =============================================================================
 # APNs Push Notifications
@@ -614,6 +644,22 @@ async def websocket_handler(websocket, watch_manager: WatchConnectionManager):
                     if token and watch_manager.apns_sender:
                         watch_manager.apns_sender.register_device(token)
 
+                elif msg_type == "ralph_progress":
+                    # Handle Ralph progress events from CLI
+                    # Broadcast to all connected watches for monitoring
+                    event = data.get("event", "unknown")
+                    progress = data.get("progress", 0.0)
+                    message = data.get("message", "")
+                    metadata = data.get("metadata", {})
+                    await watch_manager.broadcast({
+                        "type": "ralph_progress",
+                        "event": event,
+                        "progress": progress,
+                        "message": message,
+                        "metadata": metadata,
+                        "timestamp": datetime.now().isoformat()
+                    })
+
                 elif msg_type == "ping":
                     await watch_manager.send_to(websocket, {"type": "pong"})
 
@@ -697,6 +743,47 @@ def create_rest_app(watch_manager: WatchConnectionManager) -> web.Application:
         })
         return web.json_response({"success": True})
 
+    async def post_ralph_progress(request):
+        """Receive progress events from Ralph and broadcast to watches.
+
+        Expected JSON body:
+        {
+            "event": "started|subtask_complete|finished|error",
+            "progress": 0.0-1.0,
+            "message": "Human-readable progress message",
+            "metadata": { optional additional data }
+        }
+        """
+        try:
+            data = await request.json()
+        except json.JSONDecodeError:
+            return web.json_response({"error": "Invalid JSON"}, status=400)
+
+        event = data.get("event", "unknown")
+        progress = data.get("progress", 0.0)
+        message = data.get("message", "")
+        metadata = data.get("metadata", {})
+
+        # Validate progress value
+        if not isinstance(progress, (int, float)) or progress < 0.0 or progress > 1.0:
+            return web.json_response(
+                {"error": "progress must be a number between 0.0 and 1.0"},
+                status=400
+            )
+
+        await watch_manager.stream_ralph_progress(
+            event=event,
+            progress=progress,
+            message=message,
+            metadata=metadata
+        )
+
+        return web.json_response({
+            "success": True,
+            "event": event,
+            "progress": progress
+        })
+
     async def post_wait_for_response(request):
         """Block until action is approved or rejected by watch.
 
@@ -761,6 +848,7 @@ def create_rest_app(watch_manager: WatchConnectionManager) -> web.Application:
     app.router.add_post("/test/action", post_test_action)
     app.router.add_post("/test/notify", post_test_notify)
     app.router.add_post("/action/wait", post_wait_for_response)
+    app.router.add_post("/ralph/progress", post_ralph_progress)
 
     return app
 
