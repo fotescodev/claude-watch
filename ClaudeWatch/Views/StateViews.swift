@@ -19,7 +19,7 @@ struct EmptyStateView: View {
         }
     }
 
-    /// When paired: show connection status and "ready for approvals" message
+    /// When paired: show waiting-for-activity state that matches progress view layout
     private var pairedEmptyState: some View {
         VStack(spacing: 8) {
             // Connection status header
@@ -39,21 +39,47 @@ struct EmptyStateView: View {
 
             Spacer()
 
-            // Ready icon
-            Image(systemName: "checkmark.circle")
-                .font(.system(size: 32, weight: .light))
-                .foregroundColor(Claude.success)
+            // Progress-ready layout: matches StatusHeader.sessionProgressView structure
+            VStack(spacing: 6) {
+                // Activity header with pulsing dot
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(Claude.textSecondary)
+                        .frame(width: 6, height: 6)
 
-            // Main message
-            Text("Ready")
-                .font(.claudeHeadline)
-                .foregroundColor(Claude.textPrimary)
+                    Text("Listening...")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Claude.textSecondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Subtitle
-            Text("Approvals will appear here")
-                .font(.claudeCaption)
-                .foregroundColor(Claude.textSecondary)
-                .multilineTextAlignment(.center)
+                // Placeholder for tasks area
+                Text("Activity will appear here")
+                    .font(.system(size: 10))
+                    .foregroundColor(Claude.textTertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+
+                // Empty progress bar (ready to fill)
+                VStack(spacing: 2) {
+                    ProgressView(value: 0)
+                        .tint(Claude.orange)
+
+                    HStack {
+                        Text("0%")
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundColor(Claude.textTertiary)
+
+                        Spacer()
+
+                        Text("0/0")
+                            .font(.system(size: 9, weight: .regular))
+                            .foregroundColor(Claude.textTertiary)
+                    }
+                }
+            }
+            .padding(12)
+            .glassEffectCompat(RoundedRectangle(cornerRadius: 16))
 
             Spacer()
 

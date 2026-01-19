@@ -180,8 +180,9 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         } else {
             // Parse notification payload and add to pending actions
             addPendingActionFromNotification(userInfo: userInfo)
-            // Show notification even when app is in foreground
-            completionHandler([.banner, .sound])
+            // App is in foreground - suppress banner, let UI show the action inline
+            // The action is already added to pendingActions queue above
+            completionHandler([])
         }
     }
 

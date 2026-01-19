@@ -253,16 +253,22 @@ struct StatusHeader: View {
     /// Optimized spacing to fit within watch bezel
     @ViewBuilder
     private func sessionProgressView(_ progress: SessionProgress) -> some View {
+        let isComplete = progress.progress >= 1.0 || (progress.totalCount > 0 && progress.completedCount == progress.totalCount)
+
         VStack(spacing: 6) {
-            // Activity header with pulsing dot
+            // Activity header with status indicator
             HStack(spacing: 5) {
                 Circle()
-                    .fill(Claude.orange)
+                    .fill(isComplete ? Claude.success : Claude.orange)
                     .frame(width: 6, height: 6)
-                    .opacity(reduceMotion ? 1.0 : 0.5 + 0.5 * Double(pulsePhase))
+                    .opacity(isComplete || reduceMotion ? 1.0 : 0.5 + 0.5 * Double(pulsePhase))
 
-                // Current activity or task name
-                if let activity = progress.currentActivity ?? progress.currentTask {
+                // Show completion state, current activity, or working status
+                if isComplete {
+                    Text("Complete")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Claude.success)
+                } else if let activity = progress.currentActivity ?? progress.currentTask {
                     Text(activity)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(Claude.textPrimary)
@@ -304,7 +310,7 @@ struct StatusHeader: View {
             // Progress bar with stats
             VStack(spacing: 2) {
                 ProgressView(value: progress.progress)
-                    .tint(Claude.orange)
+                    .tint(isComplete ? Claude.success : Claude.orange)
 
                 HStack {
                     Text("\(Int(progress.progress * 100))%")
@@ -358,8 +364,9 @@ struct StatusHeader: View {
 
     private var statusText: String {
         // Override status text when showing session progress
-        if service.sessionProgress != nil {
-            return "Working"
+        if let progress = service.sessionProgress {
+            let isComplete = progress.progress >= 1.0 || (progress.totalCount > 0 && progress.completedCount == progress.totalCount)
+            return isComplete ? "Complete" : "Working"
         }
 
         switch service.state.status {
@@ -373,8 +380,9 @@ struct StatusHeader: View {
 
     private var statusColor: Color {
         // Override status color when showing session progress
-        if service.sessionProgress != nil {
-            return Claude.orange
+        if let progress = service.sessionProgress {
+            let isComplete = progress.progress >= 1.0 || (progress.totalCount > 0 && progress.completedCount == progress.totalCount)
+            return isComplete ? Claude.success : Claude.orange
         }
 
         switch service.state.status {
