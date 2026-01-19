@@ -1,6 +1,6 @@
 {
   "name": "cc-watch",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Control Claude Code from your Apple Watch - approve actions, track progress, receive notifications",
   "type": "module",
   "bin": {

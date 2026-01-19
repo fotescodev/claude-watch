@@ -86,6 +86,10 @@ async function offerStartClaude(): Promise<void> {
       stdio: "inherit",
       shell: true,
       cwd: projectDir,
+      env: {
+        ...process.env,
+        CLAUDE_WATCH_SESSION_ACTIVE: "1",
+      },
     });
 
     claude.on("error", (err) => {
@@ -277,10 +281,15 @@ async function showComplete(): Promise<void> {
     console.log();
 
     // Start Claude Code in the specified directory
+    // Set CLAUDE_WATCH_SESSION_ACTIVE=1 so hooks know this is a watch session
     const claude = spawn("claude", [], {
       stdio: "inherit",
       shell: true,
       cwd: projectDir,
+      env: {
+        ...process.env,
+        CLAUDE_WATCH_SESSION_ACTIVE: "1",
+      },
     });
 
     claude.on("error", (err) => {
