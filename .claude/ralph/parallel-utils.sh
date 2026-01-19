@@ -311,6 +311,7 @@ get_next_eligible_task() {
 # Returns: task_id or empty
 claim_task() {
     local worker_id="$1"
+    local queue_file="$PARALLEL_DIR/queue.yaml"
 
     (
         flock -x 200
@@ -319,11 +320,19 @@ claim_task() {
         task_id=$(get_next_eligible_task "$worker_id")
 
         if [[ -n "$task_id" ]]; then
-            # Mark as assigned
-            assign_task "$task_id" "$worker_id"
+            # Mark as assigned (inline to avoid nested flock deadlock)
+            yq -i "(.tasks[] | select(.id == \"$task_id\")).status = \"assigned\"" "$queue_file"
+            yq -i "(.tasks[] | select(.id == \"$task_id\")).assigned_worker = \"$worker_id\"" "$queue_file"
+            yq -i "(.tasks[] | select(.id == \"$task_id\")).started_at = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$queue_file"
 
             # Acquire file locks for this task
-            acquire_task_locks "$task_id" "$worker_id"
+            local files
+            files=$(yq ".tasks[] | select(.id == \"$task_id\") | .files[]?" "$TASKS_FILE" 2>/dev/null)
+            while IFS= read -r file; do
+                [[ -z "$file" ]] && continue
+                file=$(echo "$file" | tr -d '"')
+                acquire_file_lock "$file" "$worker_id" "$task_id"
+            done <<< "$files"
 
             echo "$task_id"
         fi
