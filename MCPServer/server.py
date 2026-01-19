@@ -265,6 +265,36 @@ class WatchConnectionManager:
                 self.state.task_name, success
             )
 
+    async def stream_ralph_progress(
+        self,
+        event: str,
+        progress: float = 0.0,
+        message: str = "",
+        metadata: dict = None
+    ):
+        """
+        Stream Ralph progress events to all connected watches.
+
+        Args:
+            event: Progress event type (e.g., 'started', 'subtask_complete', 'finished')
+            progress: Progress value between 0.0 and 1.0
+            message: Human-readable progress message
+            metadata: Optional additional data (subtask info, file paths, etc.)
+        """
+        # Update internal progress state
+        self.state.progress = progress
+        if message:
+            self.state.task_description = message
+
+        await self.broadcast({
+            "type": "ralph_progress",
+            "event": event,
+            "progress": progress,
+            "message": message,
+            "metadata": metadata or {},
+            "timestamp": datetime.now().isoformat()
+        })
+
 
 # =============================================================================
 # APNs Push Notifications
