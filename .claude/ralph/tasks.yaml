@@ -405,7 +405,7 @@ tasks:
       - No crashes in app logs
     priority: high
     parallel_group: 1
-    completed: false
+    completed: true
     verification: |
       SIMULATOR="Apple Watch Series 11 (46mm)"
       xcrun simctl list devices booted | grep -q "Watch" && \
