@@ -248,18 +248,22 @@ struct SettingsSheet: View {
             } else {
                 // Pairing/Unpairing
                 if service.isPaired {
+                    // End Session - signals Mac to stop watch mode
                     Button {
-                        service.unpair()
-                        WKInterfaceDevice.current().play(.click)
+                        Task {
+                            await service.endSession()
+                            WKInterfaceDevice.current().play(.success)
+                            dismiss()
+                        }
                     } label: {
                         SettingsActionRow(
-                            icon: "link.badge.plus",
-                            title: "Unpair",
+                            icon: "stop.circle.fill",
+                            title: "End Session",
                             color: Claude.danger
                         )
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Unpair from Claude Code")
+                    .accessibilityLabel("End watch session and disconnect")
                 } else {
                     Button {
                         showingPairing = true

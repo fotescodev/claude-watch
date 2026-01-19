@@ -990,7 +990,41 @@ class WatchService: ObservableObject {
         pairingId = ""
         connectionStatus = .disconnected
         state = WatchState()
+        sessionProgress = nil
         playHaptic(.click)
+    }
+
+    /// End the current session and signal the Mac to stop watch mode
+    /// This is called from the watch UI when user wants to disconnect
+    func endSession() async {
+        guard isPaired else { return }
+
+        let currentPairingId = pairingId
+
+        // Signal the cloud server that this session is ending
+        // The Mac-side hooks will detect this and stop waiting for watch approval
+        do {
+            let url = URL(string: "\(cloudServerURL)/session-end")!
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+            let body = ["pairingId": currentPairingId]
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+            let (_, response) = try await urlSession.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse {
+                print("Session end signal sent: \(httpResponse.statusCode)")
+            }
+        } catch {
+            print("Failed to send session end signal: \(error)")
+            // Continue with local cleanup even if cloud signal fails
+        }
+
+        // Clear local state on main actor
+        await MainActor.run {
+            unpair()
+        }
     }
 
     // MARK: - Cloud Polling

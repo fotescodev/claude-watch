@@ -194,8 +194,11 @@ def send_progress(pairing_id: str, tasks: list, current_task: str | None, curren
 
 
 def main():
-    # Session isolation disabled for now - all sessions send progress to watch
-    # To re-enable: check os.environ.get("CLAUDE_WATCH_SESSION_ACTIVE")
+    # SESSION ISOLATION: Only run for cc-watch sessions
+    # cc-watch sets CLAUDE_WATCH_SESSION_ACTIVE=1 when starting
+    # Other Claude Code sessions will not send progress to the watch
+    if os.environ.get("CLAUDE_WATCH_SESSION_ACTIVE") != "1":
+        sys.exit(0)  # Not a watch session - skip progress tracking
 
     try:
         input_data = json.load(sys.stdin)

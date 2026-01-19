@@ -902,6 +902,68 @@ export default {
         return jsonResponse(JSON.parse(progressData));
       }
 
+      // POST /session-end - Watch signals session should end
+      // This allows the watch to disconnect and signal Mac to stop watch mode
+      if (path === '/session-end' && request.method === 'POST') {
+        const { pairingId } = await request.json();
+
+        if (!pairingId) {
+          return jsonResponse({ error: 'Missing pairingId' }, 400);
+        }
+
+        // Mark session as ended (expires in 1 hour - enough time for hooks to detect)
+        await env.PAIRINGS.put(`session-ended:${pairingId}`, JSON.stringify({
+          ended: true,
+          endedAt: Date.now()
+        }), { expirationTtl: 3600 });
+
+        // Cancel all pending requests for this pairing
+        const pendingKey = `pending:${pairingId}`;
+        const pendingData = await env.REQUESTS.get(pendingKey);
+        if (pendingData) {
+          const pendingIds = JSON.parse(pendingData);
+          for (const requestId of pendingIds) {
+            const requestData = await env.REQUESTS.get(`request:${requestId}`);
+            if (requestData) {
+              const req = JSON.parse(requestData);
+              req.status = 'session_ended';
+              req.respondedAt = Date.now();
+              await env.REQUESTS.put(`request:${requestId}`, JSON.stringify(req), {
+                expirationTtl: 60
+              });
+            }
+          }
+          // Clear pending list
+          await env.REQUESTS.delete(pendingKey);
+        }
+
+        // Clear progress data
+        await env.PAIRINGS.delete(`progress:${pairingId}`);
+
+        return jsonResponse({
+          success: true,
+          message: 'Session ended'
+        });
+      }
+
+      // GET /session-status/:pairingId - Check if session has been ended from watch
+      if (path.startsWith('/session-status/') && request.method === 'GET') {
+        const pairingId = path.split('/')[2];
+
+        const endedData = await env.PAIRINGS.get(`session-ended:${pairingId}`);
+        if (endedData) {
+          const ended = JSON.parse(endedData);
+          return jsonResponse({
+            sessionActive: false,
+            endedAt: ended.endedAt
+          });
+        }
+
+        return jsonResponse({
+          sessionActive: true
+        });
+      }
+
       // Health check
       if (path === '/health') {
         return jsonResponse({ status: 'ok', timestamp: Date.now() });

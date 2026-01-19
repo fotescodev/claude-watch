@@ -130,8 +130,11 @@ def get_pairing_id() -> str | None:
 
 
 def main():
-    # Session isolation disabled for now - all sessions go to watch
-    # To re-enable: check os.environ.get("CLAUDE_WATCH_SESSION_ACTIVE")
+    # SESSION ISOLATION: Only run for cc-watch sessions
+    # cc-watch sets CLAUDE_WATCH_SESSION_ACTIVE=1 when starting
+    # Other Claude Code sessions will not interact with the watch
+    if os.environ.get("CLAUDE_WATCH_SESSION_ACTIVE") != "1":
+        sys.exit(0)  # Not a watch session - let terminal handle permissions
 
     try:
         input_data = json.load(sys.stdin)
@@ -187,7 +190,7 @@ def main():
         debug_log("BLOCK", "Waiting for watch response...", f"id={request_id[:8]}")
         approved = wait_for_response(request_id)
 
-        if approved:
+        if approved is True:
             debug_log("APPROVE", f"✓ Approved: {request_data['title'][:25]}", f"id={request_id[:8]}")
             output = {
                 "hookSpecificOutput": {
@@ -196,6 +199,12 @@ def main():
                 }
             }
             print(json.dumps(output))
+            sys.exit(0)
+        elif approved is None:
+            # Session ended from watch - fall back to terminal mode
+            debug_log("SESSION", "Watch session ended, falling back to terminal", f"id={request_id[:8]}")
+            print("Watch session ended. Falling back to terminal mode.", file=sys.stderr)
+            # Allow the action to proceed - terminal will handle permission
             sys.exit(0)
         else:
             debug_log("REJECT", f"✗ Rejected: {request_data['title'][:25]}", f"id={request_id[:8]}")
@@ -321,8 +330,29 @@ def send_simulator_notification(request_id: str, request_data: dict, pending_cou
         print(f"Failed to send notification: {e}", file=sys.stderr)
 
 
-def wait_for_response(request_id: str, timeout: int = 300) -> bool:
-    """Poll the cloud server for the response."""
+def check_session_ended(pairing_id: str) -> bool:
+    """Check if the session was ended from the watch."""
+    try:
+        req = urllib.request.Request(
+            f"{CLOUD_SERVER}/session-status/{pairing_id}",
+            method="GET"
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            result = json.loads(resp.read())
+            return not result.get("sessionActive", True)
+    except Exception:
+        return False  # Assume session is active if we can't check
+
+
+def wait_for_response(request_id: str, timeout: int = 300) -> bool | None:
+    """
+    Poll the cloud server for the response.
+
+    Returns:
+        True - approved
+        False - rejected
+        None - session ended (watch disconnected)
+    """
     start_time = time.time()
     poll_interval = 1.0  # Poll every second
 
@@ -341,6 +371,10 @@ def wait_for_response(request_id: str, timeout: int = 300) -> bool:
                     return True
                 elif status == "rejected":
                     return False
+                elif status == "session_ended":
+                    # User ended session from watch - fall back to terminal mode
+                    debug_log("SESSION", "Session ended from watch", f"id={request_id[:8]}")
+                    return None
                 # Still pending, continue polling
 
         except Exception as e:
