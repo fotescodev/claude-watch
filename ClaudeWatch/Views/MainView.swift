@@ -325,6 +325,25 @@ struct StatusHeader: View {
                         .foregroundColor(Claude.textSecondary)
                 }
             }
+
+            // Stop button - interrupt Claude Code
+            Button {
+                WKInterfaceDevice.current().play(.click)
+                service.sendPrompt("Stop")
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("Stop")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(Color.red.opacity(0.8))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            .buttonStyle(.plain)
         }
     }
 
