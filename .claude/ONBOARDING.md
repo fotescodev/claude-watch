@@ -1,6 +1,27 @@
 # Claude Watch - Session Onboarding
 
-**Read this first.** This document tells you where to find what you need.
+> **IMPORTANT**: This document is your starting point. Read it, run `/progress`, then start working.
+
+---
+
+## Instant Orientation (Do This First)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  1. Run /progress                                               │
+│     → Shows: current phase, next tasks, blockers, recent work   │
+│                                                                 │
+│  2. Read .claude/state/SESSION_STATE.md                         │
+│     → Shows: handoff notes, decisions, what happened last time  │
+│                                                                 │
+│  3. Check tasks.yaml for your specific task                     │
+│     → Shows: detailed task description, acceptance criteria     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**DO NOT** randomly explore the codebase. Use the structured context above.
+
+---
 
 ## What is Claude Watch?
 
@@ -10,84 +31,148 @@ A watchOS app that lets developers approve/reject Claude Code changes from their
 - Voice commands
 - Watch face complications
 
-## What's Next?
+**Current Status**: ~90% feature complete, preparing for TestFlight
 
-**Check `ralph/tasks.yaml`** - this is the single source of truth for current work.
+---
 
-```bash
-cat .claude/ralph/tasks.yaml | head -100
-```
-
-Tasks are organized by:
-- `priority`: critical > high > medium > low
-- `parallel_group`: Lower numbers = higher priority
-- `completed`: true/false
-
-## The Funnel Model
+## Session Workflow
 
 ```
-inbox/ → plans/ → tasks.yaml → archive/
-(ideas)  (refined)  (execute)   (done)
-                         ↓
-                   solutions/
-                 (documented)
+SESSION START
+│
+├─→ /progress            # See phase, tasks, blockers
+│
+├─→ SESSION_STATE.md     # Read handoff notes
+│
+├─→ Pick a task from tasks.yaml
+│
+│   BEFORE NEW PHASE
+│   └─→ /discuss-phase N  # Capture decisions first
+│
+│   DURING IMPLEMENTATION
+│   └─→ Commit atomically per task
+│
+│   BEFORE SHIPPING
+│   └─→ /ship-check       # Validate submission readiness
+│
+SESSION END
+│
+└─→ Update SESSION_STATE.md with handoff notes
 ```
 
-| Directory | Purpose |
-|-----------|---------|
-| `inbox/` | Raw ideas, quick captures (unprocessed) |
-| `plans/` | Refined plans ready for review |
-| `context/` | Always-on context (PRD, personas, journeys) |
-| `solutions/` | **Architecture docs, solved problems** |
-| `scope-creep/` | Future dreams (CarPlay, iOS app) - ignore for now |
-| `ralph/tasks.yaml` | THE source of truth for execution |
-| `archive/` | Completed or obsolete content |
+---
 
-## Key Files
+## Key Commands
 
+| Command | Purpose | When |
+|---------|---------|------|
+| `/progress` | Quick status overview | **Session start** |
+| `/discuss-phase N` | Capture decisions | Before new phase |
+| `/ship-check` | Pre-submission validation | Before TestFlight |
+| `/build` | Build for simulator | Development |
+| `/deploy-device` | Deploy to watch | Device testing |
+| `/fix-build` | Diagnose build errors | When build fails |
+
+---
+
+## File Hierarchy (What to Read When)
+
+### Orientation (read first)
 | File | Purpose |
 |------|---------|
-| `/CLAUDE.md` | Coding standards, project structure |
-| `/CONTRIBUTING.md` | Developer setup, PR process |
-| `.claude/ralph/tasks.yaml` | Current work queue |
-| `.claude/solutions/claude-watch-architecture.md` | **System architecture, data flows, APIs** |
-| `.claude/plans/` | Active plans under consideration |
-| `.claude/decisions/` | Architecture Decision Records (ADRs) |
+| `.claude/state/SESSION_STATE.md` | **Handoff context** - what happened, what's next |
+| `.claude/ralph/tasks.yaml` | **Task queue** - current work definitions |
+
+### Context (read as needed)
+| File | Purpose |
+|------|---------|
+| `CLAUDE.md` | Coding standards, project structure |
+| `.claude/context/PRD.md` | Product requirements |
+| `.claude/plans/APPSTORE-ROADMAP.md` | 8-10 week shipping plan |
+| `.claude/plans/phase5-CONTEXT.md` | Current phase decisions |
+
+### Reference (read when debugging)
+| Directory | Purpose |
+|-----------|---------|
+| `docs/solutions/` | Documented fixes for past issues |
+| `.claude/decisions/` | Architecture Decision Records |
+
+---
 
 ## Directory Structure
 
 ```
 .claude/
-├── ONBOARDING.md          # You are here
-├── inbox/                  # Unprocessed ideas
-├── plans/                  # Refined plans
-├── context/                # Always-on context (PRD, personas)
-├── solutions/              # Architecture docs, solved problems
-│   └── claude-watch-architecture.md  # System diagrams & APIs
-├── scope-creep/            # Future dreams - ignore for now
+├── state/
+│   └── SESSION_STATE.md    # ← START HERE (handoff persistence)
 ├── ralph/
-│   ├── tasks.yaml          # THE execution queue
-│   ├── ralph.sh            # Task executor
-│   └── PROMPT.md           # Working prompts
-├── decisions/              # ADRs
-├── archive/                # Completed/obsolete
-│   ├── plans/
-│   ├── ralphie/
-│   └── sessions/
-├── settings.json           # Claude settings
-└── SKILLS.md               # Skill definitions
+│   └── tasks.yaml          # ← Task definitions
+├── commands/               # Slash commands
+│   ├── progress.md         # /progress
+│   ├── discuss-phase.md    # /discuss-phase
+│   └── ship-check.md       # /ship-check
+├── plans/                  # Roadmaps and phase context
+│   ├── APPSTORE-ROADMAP.md
+│   └── phase5-CONTEXT.md
+├── context/                # Always-on context
+│   └── PRD.md
+├── hooks/                  # Integration with Claude Code
+├── agents/                 # Specialized subagents
+├── inbox/                  # Raw ideas (unprocessed)
+├── scope-creep/            # Future dreams (ignore)
+└── archive/                # Completed work
 ```
 
-## Quick Start
+---
 
-1. **Check current work**: `cat .claude/ralph/tasks.yaml | grep -A5 'completed: false' | head -30`
-2. **Find incomplete tasks**: Look for `completed: false` in tasks.yaml
-3. **Read CLAUDE.md**: For coding standards and patterns
-4. **Build the app**: `xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm)'`
+## Don't Waste Tokens
+
+**DON'T:**
+- Explore random directories looking for context
+- Read old session logs in `.specstory/` or `archive/`
+- Hunt through multiple plan directories
+- Search the entire codebase to "understand the project"
+
+**DO:**
+1. Run `/progress` for instant orientation
+2. Read `SESSION_STATE.md` for handoff context
+3. Read the specific task from `tasks.yaml`
+4. Read source files only when implementing
+
+---
+
+## Ralph + GSD Integration
+
+**Ralph** handles task execution. **GSD practices** handle session management.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        SESSION LIFECYCLE                         │
+│                                                                 │
+│  GSD: /progress              Ralph: tasks.yaml                  │
+│       ↓                            ↓                            │
+│  "You're in Phase 5"         "BF1: Fix notifications"           │
+│  "3 blockers exist"          "Priority: critical"               │
+│       ↓                            ↓                            │
+│  GSD: /discuss-phase         Ralph: Execute task                │
+│       ↓                            ↓                            │
+│  phase5-CONTEXT.md           Commit atomically                  │
+│       ↓                            ↓                            │
+│  GSD: /ship-check            Ralph: Mark complete               │
+│       ↓                            ↓                            │
+│  "Ready to ship"             Update tasks.yaml                  │
+│       ↓                            ↓                            │
+│  GSD: Update SESSION_STATE   Ralph: Archive completed           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key principle**: GSD provides the "where are we" context. Ralph provides the "what to do" details.
+
+---
 
 ## Pairing Flow (CRITICAL)
 
-**Watch shows code → CLI receives code** (NOT the other way around!)
+**Watch shows code → CLI receives code**
 
 ```bash
 # 1. On watch: Tap "Pair Now" → watch displays code
@@ -96,11 +181,22 @@ npx cc-watch
 # 3. Enter the code from watch into CLI
 ```
 
-The old flow (CLI shows code, enter on watch) is **OBSOLETE**.
+---
 
-## Don't Waste Tokens
+## Quick Reference
 
-- Don't explore random directories looking for context
-- Don't read old session logs in `.specstory/`
-- Don't hunt through multiple plan directories
-- **Do** check tasks.yaml first, then CLAUDE.md if needed
+```bash
+# Build for simulator
+xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
+  -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm)'
+
+# Find incomplete tasks
+grep -A5 'completed: false' .claude/ralph/tasks.yaml | head -30
+
+# Check session state
+cat .claude/state/SESSION_STATE.md
+```
+
+---
+
+*Last updated: 2026-01-19*
