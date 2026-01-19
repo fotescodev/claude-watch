@@ -86,6 +86,38 @@ class AppDelegate: NSObject, WKApplicationDelegate {
         print("Failed to register for remote notifications: \(error)")
     }
 
+    /// Handle silent/background push notifications (content-available: 1)
+    func didReceiveRemoteNotification(_ userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (WKBackgroundFetchResult) -> Void) {
+        let notificationType = userInfo["type"] as? String
+
+        if notificationType == "progress" {
+            // Handle progress update
+            let currentTask = userInfo["currentTask"] as? String
+            let progress = userInfo["progress"] as? Double ?? 0
+            let completedCount = userInfo["completedCount"] as? Int ?? 0
+            let totalCount = userInfo["totalCount"] as? Int ?? 0
+
+            Task { @MainActor in
+                let service = WatchService.shared
+
+                if totalCount > 0 {
+                    service.sessionProgress = SessionProgress(
+                        currentTask: currentTask,
+                        progress: progress,
+                        completedCount: completedCount,
+                        totalCount: totalCount
+                    )
+                } else {
+                    service.sessionProgress = nil
+                }
+            }
+
+            completionHandler(.newData)
+        } else {
+            completionHandler(.noData)
+        }
+    }
+
     // MARK: - App Lifecycle
 
     func applicationDidBecomeActive() {
@@ -115,12 +147,45 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        // Parse notification payload and add to pending actions
         let userInfo = notification.request.content.userInfo
-        addPendingActionFromNotification(userInfo: userInfo)
 
-        // Show notification even when app is in foreground
-        completionHandler([.banner, .sound])
+        // Check notification type
+        let notificationType = userInfo["type"] as? String
+
+        if notificationType == "progress" {
+            // Handle progress update - update UI without showing banner
+            handleProgressNotification(userInfo: userInfo)
+            completionHandler([])
+        } else {
+            // Parse notification payload and add to pending actions
+            addPendingActionFromNotification(userInfo: userInfo)
+            // Show notification even when app is in foreground
+            completionHandler([.banner, .sound])
+        }
+    }
+
+    /// Handle progress notification from Claude Code's TodoWrite hook
+    private func handleProgressNotification(userInfo: [AnyHashable: Any]) {
+        let currentTask = userInfo["currentTask"] as? String
+        let progress = userInfo["progress"] as? Double ?? 0
+        let completedCount = userInfo["completedCount"] as? Int ?? 0
+        let totalCount = userInfo["totalCount"] as? Int ?? 0
+
+        Task { @MainActor in
+            let service = WatchService.shared
+
+            if totalCount > 0 {
+                service.sessionProgress = SessionProgress(
+                    currentTask: currentTask,
+                    progress: progress,
+                    completedCount: completedCount,
+                    totalCount: totalCount
+                )
+            } else {
+                // Clear progress if no tasks
+                service.sessionProgress = nil
+            }
+        }
     }
 
     /// Parse notification payload and add to WatchService pending actions

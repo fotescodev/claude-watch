@@ -789,7 +789,7 @@ tasks:
       ```
     priority: medium
     parallel_group: 3
-    completed: false
+    completed: true
     depends_on:
       - "FE1b"
     verification: |

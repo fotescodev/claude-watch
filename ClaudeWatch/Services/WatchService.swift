@@ -20,6 +20,7 @@ class WatchService: ObservableObject {
     @Published var connectionStatus: ConnectionStatus = .disconnected
     @Published var lastError: String?
     @Published var isSendingPrompt = false
+    @Published var sessionProgress: SessionProgress?
 
     // MARK: - Foundation Models (On-Device AI)
     @Published var foundationModelsStatus: FoundationModelsStatus = .checking
@@ -1141,6 +1142,21 @@ struct WatchState {
     // Convenience for backward compatibility
     var yoloMode: Bool {
         mode == .autoAccept
+    }
+}
+
+/// Session progress from Claude Code's TodoWrite hook
+struct SessionProgress {
+    var currentTask: String?
+    var progress: Double  // 0.0 to 1.0
+    var completedCount: Int
+    var totalCount: Int
+
+    init(currentTask: String? = nil, progress: Double = 0, completedCount: Int = 0, totalCount: Int = 0) {
+        self.currentTask = currentTask
+        self.progress = progress
+        self.completedCount = completedCount
+        self.totalCount = totalCount
     }
 }
 

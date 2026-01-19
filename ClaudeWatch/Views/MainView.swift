@@ -55,7 +55,7 @@ struct MainView: View {
                         Spacer()
                     }
                     .glassEffectIDCompat("mainState", in: glassNamespace)
-                } else if service.state.pendingActions.isEmpty && service.state.status == .idle {
+                } else if service.state.pendingActions.isEmpty && service.state.status == .idle && service.sessionProgress == nil {
                     EmptyStateView()
                         .glassEffectIDCompat("mainState", in: glassNamespace)
                 } else {
@@ -152,7 +152,7 @@ struct MainView: View {
             return .offline
         } else if case .reconnecting = service.connectionStatus {
             return .reconnecting
-        } else if service.state.pendingActions.isEmpty && service.state.status == .idle {
+        } else if service.state.pendingActions.isEmpty && service.state.status == .idle && service.sessionProgress == nil {
             return .empty
         } else {
             return .main
@@ -202,29 +202,34 @@ struct StatusHeader: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            // Task name is primary (what Claude is doing)
-            if !service.state.taskName.isEmpty {
-                Text(service.state.taskName)
-                    .font(.claudeHeadline)
-                    .foregroundColor(Claude.textPrimary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
+            // Show session progress from TodoWrite if available
+            if let progress = service.sessionProgress {
+                sessionProgressView(progress)
             } else {
-                Text(idleMessage)
-                    .font(.claudeHeadline)
-                    .foregroundColor(Claude.textPrimary)
-                    .multilineTextAlignment(.center)
-            }
+                // Fallback to existing task name display
+                if !service.state.taskName.isEmpty {
+                    Text(service.state.taskName)
+                        .font(.claudeHeadline)
+                        .foregroundColor(Claude.textPrimary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                } else {
+                    Text(idleMessage)
+                        .font(.claudeHeadline)
+                        .foregroundColor(Claude.textPrimary)
+                        .multilineTextAlignment(.center)
+                }
 
-            // Progress bar with percentage when running
-            if service.state.status == .running || service.state.status == .waiting {
-                VStack(spacing: 4) {
-                    ProgressView(value: service.state.progress)
-                        .tint(Claude.orange)
+                // Progress bar with percentage when running (fallback)
+                if service.state.status == .running || service.state.status == .waiting {
+                    VStack(spacing: 4) {
+                        ProgressView(value: service.state.progress)
+                            .tint(Claude.orange)
 
-                    Text("\(Int(service.state.progress * 100))%")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundColor(Claude.textSecondary)
+                        Text("\(Int(service.state.progress * 100))%")
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundColor(Claude.textSecondary)
+                    }
                 }
             }
 
@@ -244,6 +249,48 @@ struct StatusHeader: View {
         .glassEffectCompat(RoundedRectangle(cornerRadius: 16))
     }
 
+    /// Session progress view showing current task from TodoWrite
+    @ViewBuilder
+    private func sessionProgressView(_ progress: SessionProgress) -> some View {
+        VStack(spacing: 6) {
+            // Current task label
+            Text("Working on:")
+                .font(.claudeCaption)
+                .foregroundColor(Claude.textSecondary)
+
+            // Current task name
+            if let currentTask = progress.currentTask {
+                Text(currentTask)
+                    .font(.claudeHeadline)
+                    .foregroundColor(Claude.textPrimary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+            } else {
+                Text("Processing...")
+                    .font(.claudeHeadline)
+                    .foregroundColor(Claude.textPrimary)
+            }
+
+            // Progress bar with actual percentage
+            VStack(spacing: 4) {
+                ProgressView(value: progress.progress)
+                    .tint(Claude.orange)
+
+                HStack {
+                    Text("\(Int(progress.progress * 100))%")
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundColor(Claude.textSecondary)
+
+                    Spacer()
+
+                    Text("\(progress.completedCount)/\(progress.totalCount) tasks")
+                        .font(.system(size: 10, weight: .regular))
+                        .foregroundColor(Claude.textSecondary)
+                }
+            }
+        }
+    }
+
     private var idleMessage: String {
         switch service.state.status {
         case .idle:
@@ -260,6 +307,11 @@ struct StatusHeader: View {
     }
 
     private var statusText: String {
+        // Override status text when showing session progress
+        if service.sessionProgress != nil {
+            return "Working"
+        }
+
         switch service.state.status {
         case .idle: return "Idle"
         case .running: return "Working"
@@ -270,6 +322,11 @@ struct StatusHeader: View {
     }
 
     private var statusColor: Color {
+        // Override status color when showing session progress
+        if service.sessionProgress != nil {
+            return Claude.orange
+        }
+
         switch service.state.status {
         case .idle: return Claude.textSecondary
         case .running: return Claude.orange
