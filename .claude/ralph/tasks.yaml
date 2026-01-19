@@ -705,7 +705,7 @@ tasks:
       ```
     priority: medium
     parallel_group: 2
-    completed: false
+    completed: true
     depends_on:
       - "FE1a"
     verification: |

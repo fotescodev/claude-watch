@@ -809,6 +809,79 @@ export default {
         });
       }
 
+      // POST /session-progress - Receive session progress from Claude Code hook
+      if (path === '/session-progress' && request.method === 'POST') {
+        const { pairingId, tasks, currentTask, progress, completedCount, totalCount } = await request.json();
+
+        if (!pairingId) {
+          return jsonResponse({ error: 'Missing pairingId' }, 400);
+        }
+
+        // Get pairing to find device token
+        const pairingData = await env.PAIRINGS.get(`pairing:${pairingId}`);
+        if (!pairingData) {
+          return jsonResponse({ error: 'Invalid pairing' }, 404);
+        }
+
+        const pairing = JSON.parse(pairingData);
+
+        // Store progress in KV (expires in 1 hour)
+        await env.PAIRINGS.put(`progress:${pairingId}`, JSON.stringify({
+          tasks: tasks || [],
+          currentTask: currentTask || null,
+          progress: progress || 0,
+          completedCount: completedCount || 0,
+          totalCount: totalCount || 0,
+          updatedAt: Date.now()
+        }), { expirationTtl: 3600 });
+
+        // Send silent push notification to watch
+        let apnsResult = { success: false };
+        if (pairing.deviceToken) {
+          const apnsPayload = {
+            aps: {
+              'content-available': 1
+            },
+            type: 'progress',
+            currentTask: currentTask || null,
+            progress: progress || 0,
+            completedCount: completedCount || 0,
+            totalCount: totalCount || 0
+          };
+          apnsResult = await sendAPNs(env, pairing.deviceToken, apnsPayload);
+        }
+
+        return jsonResponse({
+          success: true,
+          apnsSent: apnsResult.success
+        });
+      }
+
+      // GET /session-progress/:pairingId - Poll for session progress (fallback)
+      if (path.startsWith('/session-progress/') && request.method === 'GET') {
+        const pairingId = path.split('/')[2];
+
+        // Verify pairing exists
+        const pairingData = await env.PAIRINGS.get(`pairing:${pairingId}`);
+        if (!pairingData) {
+          return jsonResponse({ error: 'Invalid pairing' }, 404);
+        }
+
+        // Get stored progress
+        const progressData = await env.PAIRINGS.get(`progress:${pairingId}`);
+        if (!progressData) {
+          return jsonResponse({
+            currentTask: null,
+            progress: 0,
+            completedCount: 0,
+            totalCount: 0,
+            tasks: []
+          });
+        }
+
+        return jsonResponse(JSON.parse(progressData));
+      }
+
       // Health check
       if (path === '/health') {
         return jsonResponse({ status: 'ok', timestamp: Date.now() });
