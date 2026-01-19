@@ -19,6 +19,21 @@ import { CloudClient } from "../cloud/client.js";
 type ConnectionMode = "cloud" | "local";
 
 /**
+ * Build the command and arguments for launching Claude Code.
+ * If a wrapper is provided, uses the pattern: <wrapper> run claude
+ * Otherwise, launches claude directly.
+ *
+ * @param wrapper - Optional wrapper command (e.g., 'specstory')
+ * @returns Object with command and args for spawn()
+ */
+function buildClaudeCommand(wrapper?: string): { command: string; args: string[] } {
+  if (wrapper) {
+    return { command: wrapper, args: ["run", "claude"] };
+  }
+  return { command: "claude", args: [] };
+}
+
+/**
  * Display the header
  */
 function showHeader(): void {
