@@ -1,0 +1,115 @@
+tasks:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AUTOMATED E2E TESTING (Simulator)
+  # No manual setup required - fully automated
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "E2E1"
+    title: "Automated simulator e2e test: notification → UI update → approve"
+    description: |
+      FULLY AUTOMATED E2E TEST - No manual setup required.
+
+      This test verifies the complete notification flow in the simulator:
+      1. Build the app
+      2. Boot simulator if needed
+      3. Install app
+      4. Launch app
+      5. Send test push notification
+      6. Verify app processes notification (check logs)
+
+      EXECUTION STEPS (Ralph should run these):
+      ```bash
+      # 1. Get simulator name
+      SIMULATOR="Apple Watch Series 11 (46mm)"
+
+      # 2. Boot simulator if not running
+      xcrun simctl boot "$SIMULATOR" 2>/dev/null || true
+
+      # 3. Build app
+      xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
+        -destination "platform=watchOS Simulator,name=$SIMULATOR" build
+
+      # 4. Install app
+      xcrun simctl install "$SIMULATOR" \
+        ~/Library/Developer/Xcode/DerivedData/ClaudeWatch-*/Build/Products/Debug-watchsimulator/ClaudeWatch.app
+
+      # 5. Launch app
+      xcrun simctl launch "$SIMULATOR" com.edgeoftrust.claudewatch
+
+      # 6. Wait for app to initialize
+      sleep 2
+
+      # 7. Send test notification
+      cat > /tmp/e2e-test-notification.json << 'EOF'
+      {
+        "aps": {
+          "alert": {"title": "E2E Test", "body": "Automated test notification"},
+          "sound": "default",
+          "category": "CLAUDE_ACTION"
+        },
+        "requestId": "e2e-test-$(date +%s)",
+        "type": "bash",
+        "title": "E2E Test Action",
+        "description": "echo 'Hello from automated test'"
+      }
+      EOF
+      xcrun simctl push "$SIMULATOR" com.edgeoftrust.claudewatch /tmp/e2e-test-notification.json
+
+      # 8. Verify notification was received (check simulator logs)
+      sleep 1
+      xcrun simctl spawn "$SIMULATOR" log show --last 10s --predicate 'subsystem == "com.edgeoftrust.claudewatch"' 2>/dev/null || echo "Notification sent successfully"
+      ```
+
+      SUCCESS CRITERIA:
+      - Build succeeds
+      - App installs and launches
+      - Notification is delivered to simulator
+      - No crashes in app logs
+    priority: high
+    parallel_group: 1
+    completed: false
+    verification: |
+      SIMULATOR="Apple Watch Series 11 (46mm)"
+      xcrun simctl list devices booted | grep -q "Watch" && \
+      xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
+        -destination "platform=watchOS Simulator,name=$SIMULATOR" build 2>&1 | grep -q "BUILD SUCCEEDED"
+    acceptance_criteria:
+      - "Build succeeds"
+      - "App installs on simulator"
+      - "App launches without crash"
+      - "Notification delivered to simulator"
+    files:
+      - "ClaudeWatch/"
+    tags:
+      - e2e
+      - automated
+      - simulator
+    commit_template: "test(e2e): Automated simulator notification flow"
+    status: pending
+    assigned_worker: null
+    started_at: null
+  # ═══════════════════════════════════════════════════════════════════════════
+  # FUTURE ENHANCEMENTS
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "FE1"
+    title: "Real task progress tracking from Claude Code sessions"
+    description: |
+      DEFERRED: After BF2 is complete, consider deeper integration.
+
+      The progress indicator could track actual Claude Code session activity:
+      - Track when a session starts/ends
+      - Show task count and progress from Claude's TodoWrite
+      - Update progress bar based on completed vs pending tasks
+      - Show "Working on: [task name]" when actively processing
+
+      Requires: Extending the hook/worker protocol to send session metadata.
+    priority: low
+    parallel_group: 99
+    completed: false
+    tags:
+      - enhancement
+      - deferred
+    commit_template: "feat(progress): Real task progress tracking"
+    status: pending
+    assigned_worker: null
+    started_at: null
+current_group: 1

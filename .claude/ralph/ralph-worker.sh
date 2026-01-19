@@ -241,7 +241,7 @@ execute_task() {
     log_worker "Starting Claude session for $task_id"
 
     # Use timeout to prevent runaway tasks
-    if timeout "$TASK_TIMEOUT" bash -c "cat '$prompt_file' | claude --print --verbose" >> "$task_log" 2>&1; then
+    if timeout "$TASK_TIMEOUT" bash -c "cat '$prompt_file' | claude --print --verbose --dangerously-skip-permissions" >> "$task_log" 2>&1; then
         log_worker "Task $task_id execution completed"
         return 0
     else

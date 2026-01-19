@@ -1235,7 +1235,7 @@ run_claude_session() {
     # Capture output to temp file for token parsing
     local output_file="/tmp/ralph-claude-output-$$.log"
 
-    if cat "$prompt_file" | claude --print --verbose 2>&1 | tee -a "$progress_log" "$output_file"; then
+    if cat "$prompt_file" | claude --print --verbose --dangerously-skip-permissions 2>&1 | tee -a "$progress_log" "$output_file"; then
         echo "✓ Session $session_id completed at $(date '+%H:%M:%S')" >> "$progress_log"
         log_success "Session $session_id completed"
 

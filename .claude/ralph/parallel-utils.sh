@@ -76,7 +76,7 @@ check_file_available() {
 release_worker_locks() {
     local worker_id="$1"
 
-    for lock_file in "$PARALLEL_DIR/locks/"*.lock 2>/dev/null; do
+    for lock_file in "$PARALLEL_DIR/locks/"*.lock; do
         [[ -f "$lock_file" ]] || continue
         if grep -q "^$worker_id:" "$lock_file" 2>/dev/null; then
             rm -f "$lock_file"
@@ -87,7 +87,7 @@ release_worker_locks() {
 # List all active locks
 list_active_locks() {
     local count=0
-    for lock_file in "$PARALLEL_DIR/locks/"*.lock 2>/dev/null; do
+    for lock_file in "$PARALLEL_DIR/locks/"*.lock; do
         [[ -f "$lock_file" ]] || continue
         local file
         file=$(basename "$lock_file" .lock | tr '_' '/')
@@ -437,7 +437,7 @@ worker_is_alive() {
 # Get count of active workers
 get_active_worker_count() {
     local count=0
-    for status_file in "$PARALLEL_DIR/workers/"*.status 2>/dev/null; do
+    for status_file in "$PARALLEL_DIR/workers/"*.status; do
         [[ -f "$status_file" ]] || continue
         local status
         status=$(cat "$status_file")
