@@ -652,6 +652,12 @@ export default {
           return jsonResponse({ error: 'Missing required fields' }, 400);
         }
 
+        // Check if session was ended from watch
+        const sessionEnded = await env.PAIRINGS.get(`session-ended:${pairingId}`);
+        if (sessionEnded) {
+          return jsonResponse({ error: 'Session ended', sessionEnded: true }, 400);
+        }
+
         // Get pairing to find device token
         const pairingData = await env.PAIRINGS.get(`pairing:${pairingId}`);
         if (!pairingData) {
