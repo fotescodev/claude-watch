@@ -326,24 +326,63 @@ struct StatusHeader: View {
                 }
             }
 
-            // Stop button - interrupt Claude Code
-            Button {
-                WKInterfaceDevice.current().play(.click)
-                service.sendPrompt("Stop")
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "stop.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                    Text("Stop")
-                        .font(.system(size: 13, weight: .semibold))
+            // Stop/Resume controls - interrupt Claude Code session
+            HStack(spacing: 8) {
+                // Stop button
+                Button {
+                    WKInterfaceDevice.current().play(.click)
+                    Task {
+                        await service.sendInterrupt(action: .stop)
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "pause.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Stop")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(service.isSessionInterrupted ? Color.gray.opacity(0.5) : Color.red.opacity(0.8))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(Color.red.opacity(0.8))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .buttonStyle(.plain)
+                .disabled(service.isSessionInterrupted)
+
+                // Resume button
+                Button {
+                    WKInterfaceDevice.current().play(.click)
+                    Task {
+                        await service.sendInterrupt(action: .resume)
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Resume")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(service.isSessionInterrupted ? Claude.success : Color.gray.opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .disabled(!service.isSessionInterrupted)
             }
-            .buttonStyle(.plain)
+
+            // Show paused indicator when interrupted
+            if service.isSessionInterrupted {
+                HStack(spacing: 4) {
+                    Image(systemName: "pause.circle.fill")
+                        .font(.system(size: 10))
+                    Text("Session Paused")
+                        .font(.system(size: 10, weight: .medium))
+                }
+                .foregroundColor(Claude.warning)
+            }
         }
     }
 

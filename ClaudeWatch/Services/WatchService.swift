@@ -21,6 +21,7 @@ class WatchService: ObservableObject {
     @Published var lastError: String?
     @Published var isSendingPrompt = false
     @Published var sessionProgress: SessionProgress?
+    @Published var isAPNsTokenReady = false
 
     /// Track when session progress was last updated (for staleness check)
     var lastProgressUpdate: Date?
@@ -83,6 +84,11 @@ class WatchService: ObservableObject {
         // Restore persisted mode
         if let mode = PermissionMode(rawValue: storedMode) {
             state.mode = mode
+        }
+
+        // Check if APNs token is already registered (from previous session)
+        if UserDefaults.standard.string(forKey: "apnsDeviceToken") != nil {
+            isAPNsTokenReady = true
         }
 
         // Start network monitoring
@@ -1028,6 +1034,54 @@ class WatchService: ObservableObject {
         }
     }
 
+    // MARK: - Session Interrupt Controls
+
+    /// Interrupt action types for stop/resume from watch
+    enum InterruptAction: String {
+        case stop
+        case resume
+        case clear
+    }
+
+    /// Current interrupt state (true = session paused)
+    @Published var isSessionInterrupted: Bool = false
+
+    /// Send interrupt signal to pause or resume Claude Code session.
+    /// When stopped, PreToolUse hook will block all tool calls until resume.
+    /// - Parameter action: The interrupt action (.stop, .resume, or .clear)
+    func sendInterrupt(action: InterruptAction) async {
+        guard isPaired else { return }
+
+        do {
+            let url = URL(string: "\(cloudServerURL)/session-interrupt")!
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+            let body: [String: Any] = [
+                "pairingId": pairingId,
+                "action": action.rawValue
+            ]
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+            let (data, response) = try await urlSession.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse,
+               httpResponse.statusCode == 200 {
+                // Parse response to get interrupt state
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let interrupted = json["interrupted"] as? Bool {
+                    await MainActor.run {
+                        self.isSessionInterrupted = interrupted
+                    }
+                }
+                playHaptic(action == .stop ? .stop : .start)
+            }
+        } catch {
+            print("Failed to send interrupt signal: \(error)")
+        }
+    }
+
     // MARK: - Cloud Polling
 
     /// Starts polling the cloud server for pending approval requests.
@@ -1219,6 +1273,9 @@ class WatchService: ObservableObject {
 
         // Save token to UserDefaults for use during cloud pairing
         UserDefaults.standard.set(tokenString, forKey: "apnsDeviceToken")
+
+        // Mark APNs as ready - pairing can now proceed with valid token
+        isAPNsTokenReady = true
 
         send([
             "type": "register_push_token",

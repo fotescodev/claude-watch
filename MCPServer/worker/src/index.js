@@ -970,6 +970,102 @@ export default {
         });
       }
 
+      // POST /session-interrupt - Watch sends interrupt signal (stop/resume)
+      if (path === '/session-interrupt' && request.method === 'POST') {
+        const { pairingId, action } = await request.json();
+
+        if (!pairingId) {
+          return jsonResponse({ error: 'Missing pairingId' }, 400);
+        }
+
+        if (!action || !['stop', 'resume', 'clear'].includes(action)) {
+          return jsonResponse({ error: 'Invalid action. Must be: stop, resume, or clear' }, 400);
+        }
+
+        // Verify pairing exists
+        const pairingData = await env.PAIRINGS.get(`pairing:${pairingId}`);
+        if (!pairingData) {
+          return jsonResponse({ error: 'Invalid pairing' }, 404);
+        }
+
+        const interruptKey = `interrupt:${pairingId}`;
+
+        if (action === 'clear') {
+          // Clear interrupt state
+          await env.PAIRINGS.delete(interruptKey);
+          return jsonResponse({
+            success: true,
+            action: 'clear',
+            interrupted: false
+          });
+        }
+
+        // Store interrupt state (expires in 1 hour)
+        await env.PAIRINGS.put(interruptKey, JSON.stringify({
+          action,
+          requestedAt: Date.now(),
+          requestedBy: 'watch'
+        }), { expirationTtl: 3600 });
+
+        return jsonResponse({
+          success: true,
+          action,
+          interrupted: action === 'stop'
+        });
+      }
+
+      // GET /session-interrupt/:pairingId - Check interrupt state (for PreToolUse hook)
+      if (path.startsWith('/session-interrupt/') && request.method === 'GET') {
+        const pairingId = path.split('/')[2];
+
+        // Verify pairing exists
+        const pairingData = await env.PAIRINGS.get(`pairing:${pairingId}`);
+        if (!pairingData) {
+          return jsonResponse({ error: 'Invalid pairing' }, 404);
+        }
+
+        const interruptKey = `interrupt:${pairingId}`;
+        const interruptData = await env.PAIRINGS.get(interruptKey);
+
+        if (!interruptData) {
+          return jsonResponse({
+            interrupted: false,
+            action: null
+          });
+        }
+
+        const interrupt = JSON.parse(interruptData);
+
+        // If action was 'resume', clear the interrupt and return not interrupted
+        if (interrupt.action === 'resume') {
+          await env.PAIRINGS.delete(interruptKey);
+          return jsonResponse({
+            interrupted: false,
+            action: 'resume',
+            clearedAt: Date.now()
+          });
+        }
+
+        return jsonResponse({
+          interrupted: interrupt.action === 'stop',
+          action: interrupt.action,
+          requestedAt: interrupt.requestedAt
+        });
+      }
+
+      // DELETE /session-interrupt/:pairingId - Clear interrupt state
+      if (path.startsWith('/session-interrupt/') && request.method === 'DELETE') {
+        const pairingId = path.split('/')[2];
+
+        const interruptKey = `interrupt:${pairingId}`;
+        await env.PAIRINGS.delete(interruptKey);
+
+        return jsonResponse({
+          success: true,
+          interrupted: false
+        });
+      }
+
       // Health check
       if (path === '/health') {
         return jsonResponse({ status: 'ok', timestamp: Date.now() });

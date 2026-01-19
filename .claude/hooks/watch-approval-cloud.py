@@ -163,6 +163,14 @@ def main():
         print("Watch session ended. Using terminal mode.", file=sys.stderr)
         sys.exit(0)  # Allow action - terminal will handle permission
 
+    # Check if session is interrupted (paused) from watch
+    is_interrupted, interrupt_action = check_session_interrupted(pairing_id)
+    if is_interrupted:
+        debug_log("INTERRUPT", "Session paused from watch - blocking tool", f"pairing={pairing_id[:8]}")
+        print("⏸️  Session paused from watch. Tap Resume on watch to continue.", file=sys.stderr)
+        # Return a rejection to block the tool
+        sys.exit(2)
+
     # Build approval request
     request_data = {
         "pairingId": pairing_id,
@@ -348,6 +356,30 @@ def check_session_ended(pairing_id: str) -> bool:
             return not result.get("sessionActive", True)
     except Exception:
         return False  # Assume session is active if we can't check
+
+
+def check_session_interrupted(pairing_id: str) -> tuple[bool, str | None]:
+    """
+    Check if the session is interrupted (paused) from the watch.
+
+    Returns:
+        (is_interrupted, action) tuple:
+        - (True, "stop") - Session is paused, block all tools
+        - (False, "resume") - Session was resumed, proceed
+        - (False, None) - No interrupt state
+    """
+    try:
+        req = urllib.request.Request(
+            f"{CLOUD_SERVER}/session-interrupt/{pairing_id}",
+            method="GET"
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            result = json.loads(resp.read())
+            is_interrupted = result.get("interrupted", False)
+            action = result.get("action")
+            return (is_interrupted, action)
+    except Exception:
+        return (False, None)  # Assume not interrupted if we can't check
 
 
 def wait_for_response(request_id: str, timeout: int = 300) -> bool | None:
