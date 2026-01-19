@@ -130,10 +130,8 @@ def get_pairing_id() -> str | None:
 
 
 def main():
-    # Session isolation: Only run if this session was started with cc-watch
-    # This prevents other Claude Code sessions from interacting with the watch
-    if not os.environ.get("CLAUDE_WATCH_SESSION_ACTIVE"):
-        sys.exit(0)
+    # Session isolation disabled for now - all sessions go to watch
+    # To re-enable: check os.environ.get("CLAUDE_WATCH_SESSION_ACTIVE")
 
     try:
         input_data = json.load(sys.stdin)

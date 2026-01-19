@@ -47,14 +47,12 @@ struct RecordingIndicator: View {
                 // Haptic feedback on recording stop
                 WKInterfaceDevice.current().play(.stop)
             }
-        }
-        .accessibilityLabel(isRecording ? "Recording in progress" : "Not recording")
-        .accessibilityAddTraits(isRecording ? .updatesFrequently : [])
-        .onChange(of: isRecording) { _, newValue in
             // VoiceOver announcement for recording state change
             let announcement = newValue ? "Recording started" : "Recording stopped"
             AccessibilityNotification.Announcement(announcement).post()
         }
+        .accessibilityLabel(isRecording ? "Recording in progress" : "Not recording")
+        .accessibilityAddTraits(isRecording ? .updatesFrequently : [])
     }
 
     private func startPulseAnimation() {
