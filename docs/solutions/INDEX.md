@@ -4,6 +4,11 @@ Quick reference for previously solved problems. **Check here before debugging.**
 
 ## By Category
 
+### TestFlight / App Store
+| Problem | File | Severity |
+|---------|------|----------|
+| TestFlight preparation issues and prevention | [testflight-prevention-guide.md](testflight-preparation/testflight-prevention-guide.md) | Critical |
+
 ### Integration Issues
 | Problem | File | Severity |
 |---------|------|----------|
@@ -35,6 +40,11 @@ _None documented yet_
 | `@Published` state change not reflected in view | [watchos-silent-push-ui-update.md](integration-issues/watchos-silent-push-ui-update.md) |
 
 ## Quick Lookups
+
+### TestFlight Preparation
+- **APNs not working in TestFlight?** → Check Release entitlements use `production` APNs environment
+- **App Store rejection for privacy?** → Add `PrivacyInfo.xcprivacy` with required API declarations
+- **Actions disappearing?** → Merge cloud + local state, don't replace (race condition fix)
 
 ### watchOS Notifications
 - **Silent push (`content-available: 1`)** → Use `didReceiveRemoteNotification`, NOT `willPresent`
