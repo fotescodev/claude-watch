@@ -152,6 +152,8 @@ class WatchService: ObservableObject {
 
     // MARK: - App Lifecycle
 
+    /// Handles app transition to active state.
+    /// Resets reconnection backoff and initiates connection (polling in cloud mode, WebSocket otherwise).
     func handleAppDidBecomeActive() {
         // Don't try to connect in demo mode
         guard !isDemoMode else { return }
@@ -194,6 +196,8 @@ class WatchService: ObservableObject {
         // No action needed - watchOS manages background state transitions
     }
 
+    /// Handles app entering background state.
+    /// Stops polling in cloud mode to conserve battery, or sends final state request in WebSocket mode.
     func handleAppDidEnterBackground() {
         // Stop polling in background to save battery
         if useCloudMode {
@@ -209,6 +213,11 @@ class WatchService: ObservableObject {
     }
 
     // MARK: - Connection
+
+    /// Establishes WebSocket connection to the MCP server.
+    /// Skips WebSocket creation in cloud mode (uses polling instead).
+    /// Cancels existing reconnection attempts, cleans up previous connections,
+    /// and initiates handshake with timeout monitoring.
     func connect() {
         // Skip WebSocket connection in cloud mode - use polling instead
         if useCloudMode {
@@ -249,6 +258,8 @@ class WatchService: ObservableObject {
         sendImmediate(["type": "get_state"])
     }
 
+    /// Closes the WebSocket connection and cancels all pending tasks.
+    /// Resets connection state to disconnected. Safe to call when already disconnected.
     func disconnect() {
         pingTask?.cancel()
         reconnectTask?.cancel()
@@ -634,6 +645,9 @@ class WatchService: ObservableObject {
     }
 
     // MARK: - Actions
+
+    /// Approves a specific pending action and notifies the server.
+    /// Optimistically removes the action from local state and provides haptic feedback.
     func approveAction(_ actionId: String) {
         send([
             "type": "action_response",
@@ -653,6 +667,8 @@ class WatchService: ObservableObject {
         playHaptic(.success)
     }
 
+    /// Rejects a specific pending action and notifies the server.
+    /// Optimistically removes the action from local state and provides haptic feedback.
     func rejectAction(_ actionId: String) {
         send([
             "type": "action_response",
@@ -672,6 +688,8 @@ class WatchService: ObservableObject {
         playHaptic(.failure)
     }
 
+    /// Approves all pending actions at once.
+    /// Clears all pending actions locally and notifies server to proceed with all requests.
     func approveAll() {
         if useCloudMode && isPaired {
             // Cloud mode: approve each pending action via cloud API
@@ -697,14 +715,24 @@ class WatchService: ObservableObject {
         // Clear ALL delivered notifications
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
 
+    /// Legacy method for toggling YOLO mode.
+    /// Now delegates to `cycleMode()` to cycle through all permission modes.
+    func toggleYolo() {
+        // Legacy support - now cycles through modes
+        cycleMode()
         playHaptic(.success)
     }
 
+    /// Cycles through permission modes in sequence (normal → auto-accept → plan).
+    /// Updates server state and provides haptic feedback for the new mode.
     func cycleMode() {
         let newMode = state.mode.next()
         setMode(newMode)
     }
 
+    /// Sets the permission mode for Claude Code interactions.
+    /// Automatically approves pending actions when entering auto-accept mode.
+    /// - Parameter mode: The permission mode to activate (normal, autoAccept, or plan)
     func setMode(_ mode: PermissionMode) {
         // Persist mode locally
         storedMode = mode.rawValue
@@ -733,6 +761,9 @@ class WatchService: ObservableObject {
         }
     }
 
+    /// Sends a voice prompt to Claude Code for processing.
+    /// Sets temporary state flag while sending and provides haptic feedback on completion.
+    /// - Parameter text: The transcribed voice input to send as a prompt
     func sendPrompt(_ text: String) {
         isSendingPrompt = true
 
@@ -766,6 +797,12 @@ class WatchService: ObservableObject {
 
     // MARK: - Cloud Mode (Production)
 
+    /// Complete pairing with Claude Code using a 6-character code.
+    /// Sends the pairing code and device token to the cloud server to establish a persistent connection.
+    /// - Parameter code: The 6-character pairing code displayed in Claude Code
+    /// - Throws: `CloudError.invalidCode` if the code is invalid or expired,
+    ///           `CloudError.invalidResponse` if the server response is malformed,
+    ///           `CloudError.serverError` if the server returns an error status code
     /// Initiate pairing - watch requests a code to display
     /// Returns the code to display and a watchId for polling
     func initiatePairing() async throws -> (code: String, watchId: String) {
@@ -881,7 +918,11 @@ class WatchService: ObservableObject {
         startPolling()
     }
 
-    /// Respond to an approval request via cloud API
+    /// Respond to an approval request via cloud API.
+    /// Sends the user's approval or rejection decision to the cloud server for the specified request.
+    /// - Parameter requestId: The unique identifier of the pending request
+    /// - Parameter approved: Whether to approve (true) or reject (false) the request
+    /// - Throws: `CloudError.serverError` if the server returns an error status code or the response is invalid
     func respondToCloudRequest(_ requestId: String, approved: Bool) async throws {
         let url = URL(string: "\(cloudServerURL)/respond/\(requestId)")!
         var request = URLRequest(url: url)
@@ -942,7 +983,8 @@ class WatchService: ObservableObject {
         return UserDefaults.standard.string(forKey: "apnsDeviceToken")
     }
 
-    /// Unpair from Claude Code
+    /// Disconnects from Claude Code and clears all pairing data.
+    /// Stops active polling, resets pairing ID, clears app state, and provides haptic feedback.
     func unpair() {
         stopPolling()
         pairingId = ""
@@ -953,7 +995,9 @@ class WatchService: ObservableObject {
 
     // MARK: - Cloud Polling
 
-    /// Start polling for pending requests (alternative to APNs)
+    /// Starts polling the cloud server for pending approval requests.
+    /// Creates a background task that periodically fetches new requests every 2 seconds.
+    /// Only active when in cloud mode with an active pairing. Safe to call multiple times.
     func startPolling() {
         guard useCloudMode && isPaired else { return }
         guard pollingTask == nil else { return }
@@ -974,7 +1018,8 @@ class WatchService: ObservableObject {
         }
     }
 
-    /// Stop polling
+    /// Stops the active polling task.
+    /// Cancels the background polling task and cleans up resources.
     func stopPolling() {
         pollingTask?.cancel()
         pollingTask = nil
@@ -1110,6 +1155,10 @@ class WatchService: ObservableObject {
     }
 
     // MARK: - Haptics
+
+    /// Triggers haptic feedback on the Apple Watch.
+    /// Provides tactile feedback for user actions and system events.
+    /// - Parameter type: The haptic pattern to play (success, failure, notification, click, etc.)
     func playHaptic(_ type: WKHapticType) {
         WKInterfaceDevice.current().play(type)
     }
@@ -1126,6 +1175,10 @@ class WatchService: ObservableObject {
     }
 
     // MARK: - Push Token Registration
+
+    /// Registers the APNs device token for push notifications.
+    /// Saves the token locally for cloud pairing and sends it to the server for remote notifications.
+    /// - Parameter token: The device token provided by APNs during notification registration
     func registerPushToken(_ token: Data) {
         let tokenString = token.map { String(format: "%02.2hhx", $0) }.joined()
 
@@ -1139,6 +1192,11 @@ class WatchService: ObservableObject {
     }
 
     // MARK: - Demo Mode (for UI testing)
+
+    /// Loads demonstration data for UI testing and preview purposes.
+    /// Populates the app with sample task state, pending actions, and simulated connection.
+    /// Sets demo mode flag, simulates connected state, and adds three sample pending actions.
+    /// Provides haptic feedback to confirm demo data loading.
     func loadDemoData() {
         // Enable demo mode flag
         isDemoMode = true
