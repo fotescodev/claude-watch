@@ -26,7 +26,7 @@ class WatchService: ObservableObject {
     @Published var foundationModelsStatus: FoundationModelsStatus = .checking
 
     // MARK: - Configuration
-    @AppStorage("serverURL") var serverURLString = "ws://192.168.1.165:8787"
+    @AppStorage("serverURL") var serverURLString = "wss://localhost:8787"
     @AppStorage("cloudServerURL") var cloudServerURL = "https://claude-watch.fotescodev.workers.dev"
     @AppStorage("pairingId") var pairingId: String = ""
     @AppStorage("useCloudMode") var useCloudMode = true  // Use cloud relay by default
@@ -998,10 +998,18 @@ class WatchService: ObservableObject {
 
         // Update state on main thread for SwiftUI
         await MainActor.run {
-            state.pendingActions = newActions
+            // Merge: keep notification-added actions that aren't in cloud response
+            // This prevents race conditions where notification arrives before cloud updates
+            let cloudIds = Set(newActions.map { $0.id })
+            let localOnly = state.pendingActions.filter { !cloudIds.contains($0.id) }
+
+            // Combine cloud actions with local-only actions
+            state.pendingActions = newActions + localOnly
 
             if !state.pendingActions.isEmpty {
                 state.status = .waiting
+            } else {
+                state.status = .idle
             }
 
             // Play haptic for new actions

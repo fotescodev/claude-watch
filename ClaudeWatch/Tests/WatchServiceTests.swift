@@ -284,6 +284,82 @@ final class WatchServiceTests: XCTestCase {
         XCTAssertNil(PermissionMode(rawValue: "invalid"))
     }
 
+    // MARK: - Mode Persistence (Cloud Mode Fix)
+
+    func testSetModePersistsLocally() {
+        // Given: Service in any mode
+        service.state.mode = .normal
+
+        // When: Set mode to autoAccept
+        service.setMode(.autoAccept)
+
+        // Then: Mode should be updated in state
+        XCTAssertEqual(service.state.mode, .autoAccept)
+    }
+
+    func testSetModeWorksInCloudMode() {
+        // Given: Cloud mode enabled (default)
+        service.useCloudMode = true
+
+        // When: Cycle through all modes
+        service.setMode(.normal)
+        XCTAssertEqual(service.state.mode, .normal)
+
+        service.setMode(.autoAccept)
+        XCTAssertEqual(service.state.mode, .autoAccept)
+
+        service.setMode(.plan)
+        XCTAssertEqual(service.state.mode, .plan)
+    }
+
+    func testCycleModeWorksInCloudMode() {
+        // Given: Cloud mode enabled, starting at normal
+        service.useCloudMode = true
+        service.state.mode = .normal
+
+        // When/Then: Cycle through all modes
+        service.cycleMode()
+        XCTAssertEqual(service.state.mode, .autoAccept)
+
+        service.cycleMode()
+        XCTAssertEqual(service.state.mode, .plan)
+
+        service.cycleMode()
+        XCTAssertEqual(service.state.mode, .normal)
+    }
+
+    func testDemoModePreservesPersistedMode() {
+        // Given: Mode set to plan before demo mode
+        service.setMode(.plan)
+
+        // When: Load demo data
+        service.loadDemoData()
+
+        // Then: Mode should still be plan (not reset to .normal)
+        XCTAssertEqual(service.state.mode, .plan)
+    }
+
+    func testAutoAcceptModeApprovesAllPending() {
+        // Given: Pending actions exist
+        let action = PendingAction(
+            id: "test-auto",
+            type: "file_edit",
+            title: "Test",
+            description: "",
+            filePath: nil,
+            command: nil,
+            timestamp: Date()
+        )
+        service.state.pendingActions = [action]
+        service.state.mode = .normal
+
+        // When: Switch to autoAccept mode
+        service.setMode(.autoAccept)
+
+        // Then: Pending actions should be cleared (auto-approved)
+        XCTAssertTrue(service.state.pendingActions.isEmpty)
+    }
+
     // MARK: - Session Status
 
     func testSessionStatusDisplayNames() {

@@ -185,6 +185,10 @@ struct SettingsSheet: View {
                     Text("Paired")
                         .font(.claudeHeadline)
                         .foregroundStyle(Claude.success)
+                    // Show pairingId for debugging
+                    Text(String(service.pairingId.prefix(8)) + "...")
+                        .font(.claudeCaption)
+                        .foregroundStyle(Claude.textTertiary)
                 } else {
                     Text("Not Paired")
                         .font(.claudeHeadline)
