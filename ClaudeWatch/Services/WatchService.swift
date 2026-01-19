@@ -1097,7 +1097,9 @@ class WatchService: ObservableObject {
                 guard let self = self else { return }
 
                 do {
+                    // Fetch both pending requests AND session progress
                     try await self.fetchPendingRequests()
+                    try await self.fetchSessionProgress()
                 } catch {
                     print("Polling error: \(error)")
                 }
@@ -1192,6 +1194,64 @@ class WatchService: ObservableObject {
                Date().timeIntervalSince(lastUpdate) > progressStaleThreshold {
                 sessionProgress = nil
                 lastProgressUpdate = nil
+            }
+        }
+    }
+
+    /// Fetch session progress from cloud server (polling fallback for silent push)
+    private func fetchSessionProgress() async throws {
+        let url = URL(string: "\(cloudServerURL)/session-progress/\(pairingId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await urlSession.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            return
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return
+        }
+
+        let currentTask = json["currentTask"] as? String
+        let currentActivity = json["currentActivity"] as? String
+        let progress = json["progress"] as? Double ?? 0
+        let completedCount = json["completedCount"] as? Int ?? 0
+        let totalCount = json["totalCount"] as? Int ?? 0
+        let elapsedSeconds = json["elapsedSeconds"] as? Int ?? 0
+
+        // Parse tasks array
+        let tasksArray = json["tasks"] as? [[String: Any]] ?? []
+        let tasks = tasksArray.map { taskDict -> TodoItem in
+            TodoItem(
+                content: taskDict["content"] as? String ?? "",
+                status: taskDict["status"] as? String ?? "pending",
+                activeForm: taskDict["activeForm"] as? String
+            )
+        }
+
+        await MainActor.run {
+            if totalCount > 0 {
+                sessionProgress = SessionProgress(
+                    currentTask: currentTask,
+                    currentActivity: currentActivity,
+                    progress: progress,
+                    completedCount: completedCount,
+                    totalCount: totalCount,
+                    elapsedSeconds: elapsedSeconds,
+                    tasks: tasks
+                )
+                lastProgressUpdate = Date()
+            } else if sessionProgress != nil {
+                // Only clear if we had progress before (avoid clearing on initial empty response)
+                // Check staleness threshold
+                if let lastUpdate = lastProgressUpdate,
+                   Date().timeIntervalSince(lastUpdate) > progressStaleThreshold {
+                    sessionProgress = nil
+                    lastProgressUpdate = nil
+                }
             }
         }
     }
