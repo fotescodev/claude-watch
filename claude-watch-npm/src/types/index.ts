@@ -91,6 +91,7 @@ export interface PairingConfig {
   cloudUrl: string;
   createdAt: string;
   watchId?: string;
+  wrapper?: string;
 }
 
 export interface MCPServerConfig {
