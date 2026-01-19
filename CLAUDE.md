@@ -1,6 +1,48 @@
 # Project: Claude Watch
 
-> **New Claude session?** Read `.claude/ONBOARDING.md` first.
+> **New Claude session?** Start with `/progress` to orient yourself.
+
+## Session Workflow (GSD-Inspired)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  SESSION START                                                  │
+│  1. Run /progress → See current phase, tasks, blockers          │
+│  2. Read .claude/state/SESSION_STATE.md → Handoff context       │
+│                                                                 │
+│  BEFORE NEW PHASE                                               │
+│  3. Run /discuss-phase N → Capture decisions upfront            │
+│  4. Creates .claude/plans/phase{N}-CONTEXT.md                   │
+│                                                                 │
+│  DURING IMPLEMENTATION                                          │
+│  5. Use tasks.yaml for task tracking                            │
+│  6. Commit atomically per task                                  │
+│                                                                 │
+│  BEFORE SHIPPING                                                │
+│  7. Run /ship-check → Pre-submission validation                 │
+│                                                                 │
+│  SESSION END                                                    │
+│  8. Update SESSION_STATE.md with handoff notes                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Key Commands
+
+| Command | Purpose | When to Use |
+|---------|---------|-------------|
+| `/progress` | Show current phase, tasks, blockers | Session start, orientation |
+| `/discuss-phase N` | Capture implementation decisions | Before starting new phase |
+| `/ship-check` | Pre-submission validation | Before TestFlight/App Store |
+| `/build` | Build for simulator | Development |
+| `/deploy-device` | Deploy to physical watch | Device testing |
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `.claude/state/SESSION_STATE.md` | Handoff persistence across sessions |
+| `.claude/ralph/tasks.yaml` | Task definitions and progress |
+| `.claude/plans/phase{N}-CONTEXT.md` | Pre-implementation decisions |
 
 ## Quick Reference
 - **Platform**: watchOS 10.0+
@@ -43,8 +85,10 @@ inbox/ → plans/ → tasks.yaml → archive/
 
 | Directory | Purpose |
 |-----------|---------|
+| `.claude/state/SESSION_STATE.md` | **Handoff persistence** - read at session start |
 | `.claude/ralph/tasks.yaml` | **THE** source of truth for current work |
-| `.claude/plans/` | Refined plans and roadmap items |
+| `.claude/plans/` | Refined plans, roadmap, and phase CONTEXT files |
+| `.claude/commands/` | Slash commands (`/progress`, `/ship-check`, etc.) |
 | `.claude/context/` | Always-on context (personas, PRD, journeys) |
 | `.claude/scope-creep/` | Future dreams (CarPlay, iOS app) - ignore |
 | `.claude/inbox/` | Raw ideas, quick captures |
