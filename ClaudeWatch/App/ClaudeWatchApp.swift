@@ -245,6 +245,8 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         let requestId = userInfo["requestId"] as? String ?? userInfo["action_id"] as? String
 
         Task { @MainActor in
+            defer { completionHandler() }
+
             let service = WatchService.shared
 
             switch response.actionIdentifier {
@@ -280,7 +282,6 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             case UNNotificationDefaultActionIdentifier:
                 // User tapped notification - add action if not already present
                 addPendingActionFromNotification(userInfo: userInfo)
-                break
 
             case UNNotificationDismissActionIdentifier:
                 // User dismissed notification
@@ -290,7 +291,5 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                 break
             }
         }
-
-        completionHandler()
     }
 }
