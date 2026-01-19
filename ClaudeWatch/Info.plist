@@ -24,8 +24,16 @@
 	<string>$(PRODUCT_MODULE_NAME).ComplicationController</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>localhost</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSIncludesSubdomains</key>
+				<false/>
+			</dict>
+		</dict>
 	</dict>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Claude Watch needs microphone access for voice input prompts.</string>
@@ -38,6 +46,10 @@
 	</array>
 	<key>WKApplication</key>
 	<true/>
+	<key>WKBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>WKWatchOnly</key>
 	<true/>
 </dict>

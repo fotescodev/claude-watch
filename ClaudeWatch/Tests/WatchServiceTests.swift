@@ -68,6 +68,7 @@ final class WatchServiceTests: XCTestCase {
     func testInvalidURLSetsError() {
         // Given: A malformed URL (spaces make it invalid for URL(string:))
         service.serverURLString = "ws://invalid url with spaces"
+        service.useCloudMode = false  // Disable cloud mode to test WebSocket URL validation
 
         // When: Connect is called
         service.connect()
@@ -258,6 +259,107 @@ final class WatchServiceTests: XCTestCase {
         XCTAssertEqual(PermissionMode.plan.icon, "doc.text.magnifyingglass")
     }
 
+    func testPermissionModeColors() {
+        XCTAssertEqual(PermissionMode.normal.color, "blue")
+        XCTAssertEqual(PermissionMode.autoAccept.color, "red")
+        XCTAssertEqual(PermissionMode.plan.color, "purple")
+    }
+
+    func testPermissionModeDescriptions() {
+        XCTAssertEqual(PermissionMode.normal.description, "Approve each action")
+        XCTAssertEqual(PermissionMode.autoAccept.description, "Auto-approve all")
+        XCTAssertEqual(PermissionMode.plan.description, "Read-only planning")
+    }
+
+    func testPermissionModeRawValues() {
+        XCTAssertEqual(PermissionMode.normal.rawValue, "normal")
+        XCTAssertEqual(PermissionMode.autoAccept.rawValue, "auto_accept")
+        XCTAssertEqual(PermissionMode.plan.rawValue, "plan")
+    }
+
+    func testPermissionModeFromRawValue() {
+        XCTAssertEqual(PermissionMode(rawValue: "normal"), .normal)
+        XCTAssertEqual(PermissionMode(rawValue: "auto_accept"), .autoAccept)
+        XCTAssertEqual(PermissionMode(rawValue: "plan"), .plan)
+        XCTAssertNil(PermissionMode(rawValue: "invalid"))
+    }
+
+    // MARK: - Mode Persistence (Cloud Mode Fix)
+
+    func testSetModePersistsLocally() {
+        // Given: Service in any mode
+        service.state.mode = .normal
+
+        // When: Set mode to autoAccept
+        service.setMode(.autoAccept)
+
+        // Then: Mode should be updated in state
+        XCTAssertEqual(service.state.mode, .autoAccept)
+    }
+
+    func testSetModeWorksInCloudMode() {
+        // Given: Cloud mode enabled (default)
+        service.useCloudMode = true
+
+        // When: Cycle through all modes
+        service.setMode(.normal)
+        XCTAssertEqual(service.state.mode, .normal)
+
+        service.setMode(.autoAccept)
+        XCTAssertEqual(service.state.mode, .autoAccept)
+
+        service.setMode(.plan)
+        XCTAssertEqual(service.state.mode, .plan)
+    }
+
+    func testCycleModeWorksInCloudMode() {
+        // Given: Cloud mode enabled, starting at normal
+        service.useCloudMode = true
+        service.state.mode = .normal
+
+        // When/Then: Cycle through all modes
+        service.cycleMode()
+        XCTAssertEqual(service.state.mode, .autoAccept)
+
+        service.cycleMode()
+        XCTAssertEqual(service.state.mode, .plan)
+
+        service.cycleMode()
+        XCTAssertEqual(service.state.mode, .normal)
+    }
+
+    func testDemoModePreservesPersistedMode() {
+        // Given: Mode set to plan before demo mode
+        service.setMode(.plan)
+
+        // When: Load demo data
+        service.loadDemoData()
+
+        // Then: Mode should still be plan (not reset to .normal)
+        XCTAssertEqual(service.state.mode, .plan)
+    }
+
+    func testAutoAcceptModeApprovesAllPending() {
+        // Given: Pending actions exist
+        let action = PendingAction(
+            id: "test-auto",
+            type: "file_edit",
+            title: "Test",
+            description: "",
+            filePath: nil,
+            command: nil,
+            timestamp: Date()
+        )
+        service.state.pendingActions = [action]
+        service.state.mode = .normal
+
+        // When: Switch to autoAccept mode
+        service.setMode(.autoAccept)
+
+        // Then: Pending actions should be cleared (auto-approved)
+        XCTAssertTrue(service.state.pendingActions.isEmpty)
+    }
+
     // MARK: - Session Status
 
     func testSessionStatusDisplayNames() {
@@ -266,6 +368,31 @@ final class WatchServiceTests: XCTestCase {
         XCTAssertEqual(SessionStatus.waiting.displayName, "WAITING")
         XCTAssertEqual(SessionStatus.completed.displayName, "DONE")
         XCTAssertEqual(SessionStatus.failed.displayName, "FAILED")
+    }
+
+    func testSessionStatusColors() {
+        XCTAssertEqual(SessionStatus.idle.color, "gray")
+        XCTAssertEqual(SessionStatus.running.color, "green")
+        XCTAssertEqual(SessionStatus.waiting.color, "orange")
+        XCTAssertEqual(SessionStatus.completed.color, "green")
+        XCTAssertEqual(SessionStatus.failed.color, "red")
+    }
+
+    func testSessionStatusRawValues() {
+        XCTAssertEqual(SessionStatus.idle.rawValue, "idle")
+        XCTAssertEqual(SessionStatus.running.rawValue, "running")
+        XCTAssertEqual(SessionStatus.waiting.rawValue, "waiting")
+        XCTAssertEqual(SessionStatus.completed.rawValue, "completed")
+        XCTAssertEqual(SessionStatus.failed.rawValue, "failed")
+    }
+
+    func testSessionStatusFromRawValue() {
+        XCTAssertEqual(SessionStatus(rawValue: "idle"), .idle)
+        XCTAssertEqual(SessionStatus(rawValue: "running"), .running)
+        XCTAssertEqual(SessionStatus(rawValue: "waiting"), .waiting)
+        XCTAssertEqual(SessionStatus(rawValue: "completed"), .completed)
+        XCTAssertEqual(SessionStatus(rawValue: "failed"), .failed)
+        XCTAssertNil(SessionStatus(rawValue: "invalid"))
     }
 
     // MARK: - Pending Action
@@ -320,5 +447,66 @@ final class WatchServiceTests: XCTestCase {
             PendingAction(id: "", type: "unknown", title: "", description: "", filePath: nil, command: nil, timestamp: Date()).icon,
             "gear"
         )
+    }
+
+    func testPendingActionTypeColor() {
+        XCTAssertEqual(
+            PendingAction(id: "", type: "file_edit", title: "", description: "", filePath: nil, command: nil, timestamp: Date()).typeColor,
+            "blue"
+        )
+        XCTAssertEqual(
+            PendingAction(id: "", type: "file_create", title: "", description: "", filePath: nil, command: nil, timestamp: Date()).typeColor,
+            "green"
+        )
+        XCTAssertEqual(
+            PendingAction(id: "", type: "file_delete", title: "", description: "", filePath: nil, command: nil, timestamp: Date()).typeColor,
+            "red"
+        )
+        XCTAssertEqual(
+            PendingAction(id: "", type: "bash", title: "", description: "", filePath: nil, command: nil, timestamp: Date()).typeColor,
+            "orange"
+        )
+        XCTAssertEqual(
+            PendingAction(id: "", type: "api_call", title: "", description: "", filePath: nil, command: nil, timestamp: Date()).typeColor,
+            "purple"
+        )
+    }
+
+    func testPendingActionTimestampParsing() {
+        // With valid timestamp
+        let data: [String: Any] = [
+            "id": "test",
+            "type": "bash",
+            "title": "Test",
+            "description": "Test",
+            "timestamp": "2024-06-15T14:30:00Z"
+        ]
+        let action = PendingAction(from: data)
+        XCTAssertNotNil(action)
+
+        // Without timestamp (should default to now)
+        let dataNoTimestamp: [String: Any] = [
+            "id": "test2",
+            "type": "bash",
+            "title": "Test2",
+            "description": "Test2"
+        ]
+        let action2 = PendingAction(from: dataNoTimestamp)
+        XCTAssertNotNil(action2)
+    }
+
+    func testPendingActionCommandField() {
+        let data: [String: Any] = [
+            "id": "test",
+            "type": "bash",
+            "title": "Run command",
+            "description": "Execute npm",
+            "command": "npm install"
+        ]
+
+        let action = PendingAction(from: data)
+
+        XCTAssertNotNil(action)
+        XCTAssertEqual(action?.command, "npm install")
     }
 }

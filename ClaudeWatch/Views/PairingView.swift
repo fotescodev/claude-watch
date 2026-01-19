@@ -1,120 +1,301 @@
 import SwiftUI
+import WatchKit
 
-/// View for pairing the watch with Claude Code via a 6-character code
+// MARK: - Pairing View
 struct PairingView: View {
     @ObservedObject var service: WatchService
-    @State private var code: String = ""
-    @State private var isSubmitting = false
-    @State private var errorMessage: String?
-    @FocusState private var isCodeFocused: Bool
-
-    private let codeLength = 7 // ABC-123 format
+    @State private var showCodeDisplay = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                // Header
-                Image(systemName: "link.circle.fill")
-                    .font(.system(size: 40))
-                    .foregroundStyle(.blue)
+        ZStack {
+            Claude.background.ignoresSafeArea()
+
+            if showCodeDisplay {
+                PairingCodeDisplayView(service: service, onBack: { showCodeDisplay = false })
+            } else {
+                UnpairedMainView(
+                    onPairNow: { showCodeDisplay = true },
+                    onLocalMode: {
+                        service.useCloudMode = false
+                        service.objectWillChange.send()
+                        service.connect()
+                    },
+                    onDemoMode: {
+                        service.isDemoMode = true
+                        service.loadDemoData()
+                    }
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Unpaired Main View
+struct UnpairedMainView: View {
+    let onPairNow: () -> Void
+    let onLocalMode: () -> Void
+    let onDemoMode: () -> Void
+
+    var body: some View {
+        VStack(spacing: Claude.Spacing.md) {
+            // Status indicator
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Claude.textTertiary)
+                    .frame(width: 6, height: 6)
+                Text("Not Connected")
+                    .font(.claudeFootnote)
+                    .foregroundStyle(Claude.textSecondary)
+                Spacer()
+            }
+
+            // Empty state card - compact
+            VStack(spacing: Claude.Spacing.sm) {
+                Image(systemName: "link")
+                    .font(.system(size: 28))
+                    .foregroundStyle(Claude.orange)
 
                 Text("Pair with Claude")
-                    .font(.headline)
+                    .font(.claudeHeadline)
+                    .foregroundStyle(Claude.textPrimary)
 
-                Text("Enter the code shown in your terminal")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-
-                // Code input
-                TextField("ABC-123", text: $code)
-                    .font(.system(.title3, design: .monospaced))
-                    .textCase(.uppercase)
-                    .multilineTextAlignment(.center)
-                    .focused($isCodeFocused)
-                    .onChange(of: code) { _, newValue in
-                        // Auto-format: add hyphen after 3 chars
-                        let filtered = newValue.uppercased().filter { $0.isLetter || $0.isNumber || $0 == "-" }
-                        if filtered.count == 3 && !filtered.contains("-") {
-                            code = filtered + "-"
-                        } else if filtered.count <= codeLength {
-                            code = filtered
-                        } else {
-                            code = String(filtered.prefix(codeLength))
-                        }
-
-                        // Clear error when typing
-                        errorMessage = nil
-                    }
-                    .accessibilityLabel("Pairing code input")
-                    .accessibilityHint("Enter the 7-character code shown in your terminal")
-
-                // Error message
-                if let error = errorMessage {
-                    Text(error)
-                        .font(.caption2)
-                        .foregroundStyle(.red)
-                }
-
-                // Submit button
-                Button(action: submitCode) {
-                    if isSubmitting {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                    } else {
-                        Text("Connect")
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(code.count != codeLength || isSubmitting)
-                .accessibilityLabel(isSubmitting ? "Connecting to Claude Code" : "Connect to Claude Code")
-                .accessibilityHint("Submits the pairing code to connect")
-
-                // Local mode button (for testing with local server)
-                Button("Use Local Mode") {
-                    service.useCloudMode = false
-                    service.objectWillChange.send()  // Trigger view refresh
-                    service.connect()
-                }
-                .font(.caption)
-                .foregroundStyle(.blue)
-                .accessibilityLabel("Use local mode")
-                .accessibilityHint("Connect directly to local WebSocket server")
-
-                // Skip button for demo mode
-                Button("Use Demo Mode") {
-                    service.isDemoMode = true
-                    service.loadDemoData()
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Use demo mode")
-                .accessibilityHint("Skip pairing and use sample data")
+                Text("Get code to enter in CLI")
+                    .font(.claudeFootnote)
+                    .foregroundStyle(Claude.textSecondary)
             }
-            .padding()
+            .padding(Claude.Spacing.md)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: Claude.Radius.medium)
+                    .fill(Claude.surface1)
+            )
+
+            // Action buttons - compact
+            VStack(spacing: Claude.Spacing.xs) {
+                Button(action: {
+                    WKInterfaceDevice.current().play(.click)
+                    onPairNow()
+                }) {
+                    Text("Pair Now")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Claude.orange)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+
+                HStack(spacing: Claude.Spacing.sm) {
+                    Button(action: {
+                        WKInterfaceDevice.current().play(.click)
+                        onLocalMode()
+                    }) {
+                        Text("Local")
+                            .font(.claudeFootnote)
+                            .foregroundColor(Claude.orange)
+                    }
+                    .buttonStyle(.plain)
+
+                    Text("•").foregroundStyle(Claude.textTertiary)
+
+                    Button(action: {
+                        WKInterfaceDevice.current().play(.click)
+                        onDemoMode()
+                    }) {
+                        Text("Demo")
+                            .font(.claudeFootnote)
+                            .foregroundColor(Claude.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
-        // Removed auto-focus - let user tap to enter code
+        .padding(Claude.Spacing.md)
+    }
+}
+
+// MARK: - Pairing Code Display View (NEW FLOW)
+struct PairingCodeDisplayView: View {
+    @ObservedObject var service: WatchService
+    let onBack: () -> Void
+
+    @State private var code: String?
+    @State private var watchId: String?
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+    @State private var showSuccess = false
+    @State private var pollingTask: Task<Void, Never>?
+
+    var body: some View {
+        if showSuccess {
+            ConnectedSuccessView()
+        } else {
+            VStack(spacing: Claude.Spacing.sm) {
+                // Header with back button
+                HStack {
+                    Button(action: {
+                        WKInterfaceDevice.current().play(.click)
+                        pollingTask?.cancel()
+                        onBack()
+                    }) {
+                        HStack(spacing: 2) {
+                            Image(systemName: "chevron.left")
+                            Text("Back")
+                        }
+                        .font(.claudeFootnote)
+                        .foregroundStyle(Claude.orange)
+                    }
+                    .buttonStyle(.plain)
+                    Spacer()
+                }
+
+                if isLoading {
+                    // Loading state
+                    Spacer()
+                    ProgressView()
+                        .tint(Claude.orange)
+                    Text("Getting code...")
+                        .font(.claudeFootnote)
+                        .foregroundStyle(Claude.textSecondary)
+                    Spacer()
+                } else if let error = errorMessage {
+                    // Error state
+                    Spacer()
+                    VStack(spacing: Claude.Spacing.sm) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 24))
+                            .foregroundStyle(Claude.danger)
+
+                        Text(error)
+                            .font(.claudeFootnote)
+                            .foregroundStyle(Claude.danger)
+                            .multilineTextAlignment(.center)
+
+                        Button(action: {
+                            WKInterfaceDevice.current().play(.click)
+                            initiatePairing()
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Try Again")
+                            }
+                            .font(.claudeFootnote)
+                            .foregroundStyle(Claude.orange)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Spacer()
+                } else if let code = code {
+                    // Code display state
+                    Text("Enter in CLI:")
+                        .font(.claudeFootnote)
+                        .foregroundStyle(Claude.textSecondary)
+
+                    // Large code display - sized to fit watch screen
+                    Text(formatCodeForDisplay(code))
+                        .font(.system(size: 22, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Claude.textPrimary)
+                        .minimumScaleFactor(0.8)
+                        .lineLimit(1)
+                        .padding(.vertical, Claude.Spacing.md)
+
+                    // Waiting indicator
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                            .tint(Claude.orange)
+                        Text("Waiting for CLI...")
+                            .font(.claudeFootnote)
+                            .foregroundStyle(Claude.textSecondary)
+                    }
+
+                    Spacer()
+
+                    // Code expires info
+                    Text("Code expires in 5 min")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Claude.textTertiary)
+                }
+            }
+            .padding(Claude.Spacing.md)
+            .onAppear {
+                initiatePairing()
+            }
+            .onDisappear {
+                pollingTask?.cancel()
+            }
+        }
     }
 
-    private func submitCode() {
-        guard code.count == codeLength else { return }
+    /// Format code with spaces for readability: "472913" -> "4 7 2 9 1 3"
+    private func formatCodeForDisplay(_ code: String) -> String {
+        return code.map { String($0) }.joined(separator: " ")
+    }
 
-        isSubmitting = true
+    private func initiatePairing() {
+        isLoading = true
         errorMessage = nil
+        code = nil
+        watchId = nil
 
         Task {
             do {
-                try await service.completePairing(code: code)
+                let result = try await service.initiatePairing()
                 await MainActor.run {
-                    isSubmitting = false
-                    WKInterfaceDevice.current().play(.success)
-                    // View will auto-dismiss since service.isPaired becomes true
+                    self.code = result.code
+                    self.watchId = result.watchId
+                    self.isLoading = false
+                    WKInterfaceDevice.current().play(.click)
+                    startPolling(watchId: result.watchId)
                 }
             } catch {
                 await MainActor.run {
                     errorMessage = error.localizedDescription
-                    isSubmitting = false
+                    isLoading = false
+                    WKInterfaceDevice.current().play(.failure)
+                }
+            }
+        }
+    }
+
+    private func startPolling(watchId: String) {
+        pollingTask?.cancel()
+
+        pollingTask = Task {
+            // Poll every 2 seconds for up to 5 minutes
+            let maxAttempts = 150 // 5 min / 2 sec
+            var attempt = 0
+
+            while !Task.isCancelled && attempt < maxAttempts {
+                do {
+                    let status = try await service.checkPairingStatus(watchId: watchId)
+
+                    if status.paired, let pairingId = status.pairingId {
+                        await MainActor.run {
+                            service.finishPairing(pairingId: pairingId)
+                            showSuccess = true
+                            WKInterfaceDevice.current().play(.success)
+                        }
+                        return
+                    }
+                } catch {
+                    // Session expired or error
+                    await MainActor.run {
+                        errorMessage = "Code expired. Tap to try again."
+                        WKInterfaceDevice.current().play(.failure)
+                    }
+                    return
+                }
+
+                try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+                attempt += 1
+            }
+
+            // Timeout
+            if !Task.isCancelled {
+                await MainActor.run {
+                    errorMessage = "Timed out waiting for CLI."
                     WKInterfaceDevice.current().play(.failure)
                 }
             }
@@ -122,6 +303,63 @@ struct PairingView: View {
     }
 }
 
-#Preview {
+// MARK: - Connected Success View
+struct ConnectedSuccessView: View {
+    var body: some View {
+        VStack(spacing: Claude.Spacing.md) {
+            Spacer()
+
+            // Success icon
+            ZStack {
+                Circle()
+                    .fill(Claude.success.opacity(0.2))
+                    .frame(width: 50, height: 50)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(Claude.success)
+            }
+
+            // Title
+            Text("Connected!")
+                .font(.claudeHeadline)
+                .foregroundStyle(Claude.textPrimary)
+
+            // Description
+            Text("Paired with Claude Code")
+                .font(.claudeFootnote)
+                .foregroundStyle(Claude.textSecondary)
+
+            Spacer()
+
+            // Pro tip
+            HStack(spacing: 6) {
+                Image(systemName: "lightbulb.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Claude.warning)
+                Text("Raise wrist to approve")
+                    .font(.claudeFootnote)
+                    .foregroundStyle(Claude.textSecondary)
+            }
+            .padding(Claude.Spacing.sm)
+            .background(Claude.surface1)
+            .clipShape(RoundedRectangle(cornerRadius: Claude.Radius.small))
+        }
+        .padding(Claude.Spacing.md)
+    }
+}
+
+#Preview("Pairing View") {
     PairingView(service: WatchService())
+}
+
+#Preview("Unpaired Main") {
+    UnpairedMainView(onPairNow: {}, onLocalMode: {}, onDemoMode: {})
+}
+
+#Preview("Code Display") {
+    PairingCodeDisplayView(service: WatchService(), onBack: {})
+}
+
+#Preview("Connected Success") {
+    ConnectedSuccessView()
 }

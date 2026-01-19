@@ -1,0 +1,12 @@
+task_id: "FE1a"
+timestamp: "2026-01-19T01:59:37Z"
+outcome: success
+title: "Add hook to capture TodoWrite events from Claude Code"
+tags: [enhancement hooks progress-tracking ]
+categories: [general]
+
+successes: []
+failures: []
+discoveries: []
+missing_context: []
+wished_for_skills: []

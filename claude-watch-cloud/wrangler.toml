@@ -1,0 +1,23 @@
+name = "claude-watch"
+main = "src/index.ts"
+compatibility_date = "2024-06-14"
+
+# KV Namespaces - create with:
+# wrangler kv:namespace create PAIRING_KV
+# wrangler kv:namespace create CONNECTIONS_KV
+# wrangler kv:namespace create MESSAGES_KV
+
+[[kv_namespaces]]
+binding = "PAIRING_KV"
+id = "c7048e3a88014332aa54f6de551aa6d5"
+
+[[kv_namespaces]]
+binding = "CONNECTIONS_KV"
+id = "5f74eee974a2403b88b0c302eab1c379"
+
+[[kv_namespaces]]
+binding = "MESSAGES_KV"
+id = "cce8befe22604990878d0ae0fd10fd52"
+
+[vars]
+ENVIRONMENT = "production"

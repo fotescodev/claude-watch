@@ -1,5 +1,7 @@
 # Project: Claude Watch
 
+> **New Claude session?** Read `.claude/ONBOARDING.md` first.
+
 ## Quick Reference
 - **Platform**: watchOS 10.0+
 - **Language**: Swift 5.9+
@@ -32,6 +34,24 @@ claude-watch/
     └── server.py                   # WebSocket + MCP + APNs bridge
 ```
 
+## Documentation Structure
+
+```
+inbox/ → plans/ → tasks.yaml → archive/
+(ideas)  (refined)  (execute)   (done)
+```
+
+| Directory | Purpose |
+|-----------|---------|
+| `.claude/ralph/tasks.yaml` | **THE** source of truth for current work |
+| `.claude/plans/` | Refined plans and roadmap items |
+| `.claude/context/` | Always-on context (personas, PRD, journeys) |
+| `.claude/scope-creep/` | Future dreams (CarPlay, iOS app) - ignore |
+| `.claude/inbox/` | Raw ideas, quick captures |
+| `.claude/archive/` | Completed or obsolete content |
+| `docs/` | User-facing guides only |
+| `docs/solutions/` | **Documented fixes** - check [INDEX.md](docs/solutions/INDEX.md) when debugging |
+
 ## Coding Standards
 
 ### Swift Style
@@ -59,6 +79,8 @@ claude-watch/
 - Handle both foreground and background delivery
 - Use `UNNotificationAction` for approve/reject actions
 - Support `UNNotificationCategory` for action grouping
+- **Silent push** (`content-available: 1`) needs `didReceiveRemoteNotification`, NOT `willPresent`
+  - See: `docs/solutions/integration-issues/watchos-silent-push-ui-update.md`
 
 ## Testing Commands
 ```bash
@@ -68,6 +90,29 @@ xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'plat
 # Run on device (requires provisioning)
 xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS'
 ```
+
+## Pairing Flow (IMPORTANT)
+
+**The watch shows the code, the CLI receives it:**
+
+```
+┌─────────────────┐         ┌─────────────────┐
+│   Apple Watch   │         │    Mac CLI      │
+│                 │         │                 │
+│  1. Tap "Pair"  │         │                 │
+│  2. Shows code  │ ──────> │  3. npx cc-watch│
+│     "ABC-123"   │         │  4. Enter code  │
+│                 │         │  5. Paired!     │
+└─────────────────┘         └─────────────────┘
+```
+
+```bash
+# On Mac - after watch displays code:
+npx cc-watch
+# Enter the code FROM the watch INTO the CLI
+```
+
+**DO NOT** use the old flow (CLI shows code → enter on watch). That is obsolete.
 
 ## Server Commands
 ```bash

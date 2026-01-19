@@ -1,6 +1,9 @@
 # watchOS Ralph Loop - Task Definition
 # This file defines all tasks for the autonomous coding loop.
 # Tasks are processed by priority within parallel groups.
+#
+# ARCHIVE: Completed tasks moved to .claude/archive/ralph/tasks-completed-2026-01-18.yaml
+# DONE: APNs, Cloudflare Worker, cc-watch npm package all working
 
 version: "1.0"
 project: "ClaudeWatch"
@@ -14,548 +17,1171 @@ settings:
   auto_liquid_glass: true
 tasks:
   # ═══════════════════════════════════════════════════════════════════════════
-  # TEST TASK - Verify Ralph Loop Works
-  # Parallel Group 0: Highest priority for testing
+  # PHASE: PHYSICAL DEVICE DEPLOYMENT
+  # Goal: Run Claude Code terminal, pair physical watchOS app, approve from walk
+  #
+  # COMPLETED:
+  # - APNs credentials configured in Cloudflare Worker
+  # - Cloudflare Worker deployed with APNs support
+  # - cc-watch npm package working
+  #
+  # ⚠️  PAIRING FLOW (IMPORTANT - DO NOT USE OLD METHOD):
+  # ────────────────────────────────────────────────────
+  # NEW (correct):  Watch shows code → User types code into `npx cc-watch` CLI
+  # OLD (obsolete): CLI shows code → User types code into watch app
+  #
+  # The watch INITIATES pairing and DISPLAYS the code.
+  # The CLI COMPLETES pairing by RECEIVING the code.
   # ═══════════════════════════════════════════════════════════════════════════
-  - id: "TEST1"
-    title: "Add RALPH_TEST marker comment to MainView.swift"
+  - id: "PD1"
+    title: "Build and install watch app on physical device"
     description: |
-      Add a comment marker "// RALPH_TEST: Loop verification successful"
-      at the top of MainView.swift (after the imports).
-      This verifies the Ralph Loop can make code changes.
+      Build the watch app and install on physical Apple Watch.
+
+      Prerequisites:
+      1. Physical Apple Watch paired with your iPhone
+      2. Apple Developer account
+      3. Provisioning profile for physical device
+
+      Steps:
+      1. Open Xcode: `open ClaudeWatch.xcodeproj`
+      2. Select your physical watch as destination
+      3. Sign with your development team
+      4. Build and run (Cmd+R)
+
+      If signing issues:
+      - Go to Signing & Capabilities
+      - Select your Team
+      - Let Xcode manage signing
+
+      The app should appear on your watch's home screen.
     priority: critical
-    parallel_group: 0
-    completed: true
+    parallel_group: 1
+    completed: true # App already installed on physical watch
     verification: |
-      grep -q 'RALPH_TEST' ClaudeWatch/Views/MainView.swift && exit 0 || exit 1
+      echo "Manual task - verify app installed on physical watch"
     acceptance_criteria:
-      - "MainView.swift contains RALPH_TEST marker comment"
+      - "App builds without errors"
+      - "App installs on physical watch"
+      - "App launches and shows pairing screen"
     files:
-      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch.xcodeproj/"
     tags:
-      - test
-      - loop-verification
-    commit_template: "test(ralph): Add loop verification marker"
-  # ═══════════════════════════════════════════════════════════════════════════
-  # PHASE 1: CRITICAL - App Store Blockers
-  # Parallel Group 1: Can run concurrently
-  # ═══════════════════════════════════════════════════════════════════════════
-  - id: "C1"
-    title: "Add accessibility labels to all interactive elements"
+      - xcode
+      - physical-device
+      - manual
+    commit_template: "build(watch): Install on physical device"
+  - id: "PD2"
+    title: "Run pairing flow with physical watch"
     description: |
-      Add .accessibilityLabel() modifiers to all Button, NavigationLink,
-      and interactive elements in MainView.swift and SettingsView.swift.
-      This is required for App Store approval and VoiceOver support.
+      Complete pairing between Mac and physical Apple Watch.
+
+      NEW FLOW (watch shows code, CLI reads it):
+      1. On physical watch:
+         - Open Claude Watch app
+         - Tap "Pair Now"
+         - Watch displays a 6-digit code
+
+      2. On Mac CLI:
+         ```bash
+         npx cc-watch
+         ```
+         - Enter the code FROM the watch INTO the CLI
+         - Pairing completes automatically
+
+      3. Verify pairing saved:
+         ```bash
+         cat ~/.claude-watch/config.json
+         ```
+         Should contain pairingId
+
+      The hook reads from ~/.claude-watch-pairing, so sync it:
+      ```bash
+      jq -r .pairingId ~/.claude-watch/config.json > ~/.claude-watch-pairing
+      ```
+    priority: critical
+    parallel_group: 2
+    completed: true # Paired successfully
+    depends_on:
+      - "PD1"
+    verification: |
+      [ -f ~/.claude-watch-pairing ] && exit 0 || exit 1
+    acceptance_criteria:
+      - "Pairing helper runs successfully"
+      - "Watch shows 'Connected' status"
+      - "~/.claude-watch-pairing contains valid UUID"
+    files:
+      - ".claude/hooks/claude-watch-pair.py"
+    tags:
+      - pairing
+      - physical-device
+    commit_template: "test(pairing): Complete physical watch pairing"
+  - id: "PD3"
+    title: "Enable PreToolUse hook for watch approvals"
+    description: |
+      Enable the hook that routes Claude Code permission prompts to the watch.
+
+      The hook is in .claude/settings.json but currently disabled (PreToolUse: []).
+
+      To enable:
+      ```bash
+      ./.claude/hooks/toggle-watch-hooks.sh
+      ```
+
+      Or manually edit .claude/settings.json:
+      ```json
+      "PreToolUse": [
+        {
+          "matcher": "Bash|Write|Edit|MultiEdit",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/watch-approval-cloud.py"
+            }
+          ]
+        }
+      ]
+      ```
+
+      Note: In dev mode, you may want hooks disabled. Toggle as needed.
+    priority: high
+    parallel_group: 3
+    completed: true # Hook enabled
+    depends_on:
+      - "PD2"
+    verification: |
+      jq -e '.hooks.PreToolUse | length > 0' .claude/settings.json >/dev/null 2>&1
+    acceptance_criteria:
+      - "PreToolUse hook enabled in settings.json"
+      - "Hook points to watch-approval-cloud.py"
+      - "Matcher includes Bash|Write|Edit|MultiEdit"
+    files:
+      - ".claude/settings.json"
+      - ".claude/hooks/toggle-watch-hooks.sh"
+    tags:
+      - hooks
+      - configuration
+    commit_template: "feat(hooks): Enable watch approval hook"
+  - id: "PD4"
+    title: "Test end-to-end approval flow (THE DOG WALK TEST)"
+    description: |
+      THE FINAL TEST: Walk your dog while approving Claude Code requests.
+
+      SIMULATOR TEST: ✅ PASSED (2026-01-18)
+      - Notification received correctly
+      - Main view updates live when request arrives
+      - Approve/Reject buttons functional
+      - MainActor fix deployed
+
+      E2E TEST: ✅ PASSED (2026-01-18)
+      - Hook blocks Claude Code until watch approval
+      - Push notification arrives when app backgrounded
+      - Approve from watch → Claude Code proceeds
+      - Full remote control flow verified
+
+      Setup:
+      1. Physical watch paired and app running
+      2. APNs configured and working (DONE)
+      3. PreToolUse hook enabled
+      4. Claude Code running on Mac
+
+      Test Steps:
+      1. Start Claude Code session on Mac
+      2. Ask Claude to make a file change (e.g., "add a comment to MainView.swift")
+      3. Physical watch should:
+         - Receive push notification (may take 1-2 seconds)
+         - Show request details
+         - Provide Approve/Reject buttons
+      4. Tap Approve on watch
+      5. Claude Code should continue and make the change
+      6. Test rejection: Ask for another change, tap Reject
+      7. Claude Code should stop and report rejection
+
+      Go for a walk:
+      - Leave Mac running Claude Code
+      - Walk away with watch
+      - Approve/reject from anywhere with internet
+    priority: critical
+    parallel_group: 4
+    completed: true
+    depends_on:
+      - "PD3"
+    verification: |
+      echo "Manual testing task - mark complete after successful walk test"
+    acceptance_criteria:
+      - "Push notification received on physical watch"
+      - "Request details displayed correctly"
+      - "Approve proceeds Claude Code action"
+      - "Reject stops Claude Code action"
+      - "Works while walking away from Mac"
+      - "Latency acceptable (< 5 seconds)"
+    files: []
+    tags:
+      - testing
+      - e2e
+      - physical-device
+      - manual
+    commit_template: "test(e2e): Verify physical watch approval flow"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BUG FIXES - READY FOR VERIFICATION
+  # Simulator: Apple Watch Series 11 (46mm) - SHOULD BE RUNNING
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "BF1"
+    title: "Verify notification fixes: live update + cleanup"
+    description: |
+      TWO FIXES IMPLEMENTED - NEED VERIFICATION:
+
+      FIX 1: Live UI update from push notifications
+      - Problem: Notification arrived but MainView showed "All Clear"
+      - Solution: Added `addPendingActionFromNotification()` in ClaudeWatchApp.swift
+      - Called in `willPresent` when notification arrives
+      - Also called when user taps notification to open app
+
+      FIX 2: Clear notifications after approve/reject
+      - Problem: Old notifications stayed in notification center
+      - Solution: Added `clearDeliveredNotification(for:)` in WatchService.swift
+      - Called after respondToCloudRequest, approveAction, rejectAction
+      - approveAll clears ALL delivered notifications
+
+      VERIFICATION STEPS (run these commands):
+      ```bash
+      # 1. Build and install (simulator should be running)
+      xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
+        -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)' build
+
+      # 2. Install app
+      xcrun simctl install "Apple Watch Series 11 (46mm)" \
+        ~/Library/Developer/Xcode/DerivedData/ClaudeWatch-*/Build/Products/Debug-watchsimulator/ClaudeWatch.app
+
+      # 3. Launch app
+      xcrun simctl launch "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch
+
+      # 4. Send test notification
+      cat > /tmp/test.json << 'EOF'
+      {
+        "aps": {"alert": {"title": "Test", "body": "Verify fix"}, "sound": "default", "category": "CLAUDE_ACTION"},
+        "requestId": "verify-001", "type": "bash", "title": "Test Action", "description": "Verify notification fix"
+      }
+      EOF
+      xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch /tmp/test.json
+
+      # 5. VERIFY: MainView should show "Test Action" with approve/reject buttons
+      # 6. Approve the action
+      # 7. VERIFY: Notification should disappear from notification center
+      # 8. VERIFY: MainView should return to "All Clear"
+      ```
+
+      If all verifications pass, mark this task complete and commit.
     priority: critical
     parallel_group: 1
     completed: true
     verification: |
-      count=$(grep -r 'accessibilityLabel' ClaudeWatch/Views/*.swift 2>/dev/null | wc -l);
-      [ "$count" -ge 10 ] && exit 0 || exit 1
+      xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
+        -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)' build 2>&1 | grep -q "BUILD SUCCEEDED"
     acceptance_criteria:
-      - "Every Button has .accessibilityLabel()"
-      - "Every NavigationLink has .accessibilityLabel()"
-      - "VoiceOver announces all elements correctly"
+      - "MainView updates live when notification arrives"
+      - "Notification cleared after approve"
+      - "Notification cleared after reject"
+      - "No stale notifications in notification center"
     files:
-      - "ClaudeWatch/Views/MainView.swift"
-      - "ClaudeWatch/Views/SettingsView.swift"
+      - "ClaudeWatch/App/ClaudeWatchApp.swift"
+      - "ClaudeWatch/Services/WatchService.swift"
     tags:
-      - accessibility
-      - app-store
-      - hig
-    commit_template: "fix(a11y): Add accessibility labels to interactive elements"
-  - id: "C2"
-    title: "Create app icon assets for all required sizes"
+      - bug-fix
+      - notifications
+      - verification-needed
+    commit_template: "fix(notifications): Live UI update + clear after approval"
+  - id: "BF2"
+    title: "Fix progress card to reflect actual pending state"
     description: |
-      Generate PNG app icons for all 16 required watchOS sizes.
-      Use the Claude logo or create appropriate branding.
-      Icons must be provided for all sizes in Contents.json.
-    priority: critical
-    parallel_group: 1
-    completed: true
-    verification: |
-      count=$(ls ClaudeWatch/Assets.xcassets/AppIcon.appiconset/*.png 2>/dev/null | wc -l);
-      [ "$count" -ge 8 ] && exit 0 || exit 1
-    acceptance_criteria:
-      - "PNG files exist for all required sizes"
-      - "Icons render correctly in simulator"
-      - "No placeholder or missing images"
-    files:
-      - "ClaudeWatch/Assets.xcassets/AppIcon.appiconset/"
-    tags:
-      - assets
-      - app-store
-    commit_template: "feat(assets): Add watchOS app icon assets"
-  # ═══════════════════════════════════════════════════════════════════════════
-  # Parallel Group 2: Depends on Group 1
-  # ═══════════════════════════════════════════════════════════════════════════
-  - id: "C3"
-    title: "Add AI data consent dialog on first launch"
-    description: |
-      Display consent dialog on first launch explaining:
-      - Data sent to Claude API for processing
-      - Voice transcription handling
-      - No data sold to third parties
-      Use @AppStorage to track consent state.
-    priority: critical
+      BUG: Progress card shows "Ready for tasks 0%" even when:
+      - There are pending actions waiting for approval
+      - Status is .waiting
+
+      EXPECTED BEHAVIOR:
+      - When pendingActions.count > 0: Show "1 action pending" (or count)
+      - When status is .waiting: Don't show "Ready for tasks"
+      - Progress bar should reflect pending vs completed actions
+
+      IMPLEMENTATION:
+      1. Find the progress card view in MainView.swift or similar
+      2. Update to read from WatchService.shared.state.pendingActions
+      3. Show appropriate text based on state:
+         - .idle + no pending → "Ready for tasks"
+         - .waiting + pending → "N action(s) pending"
+         - .running → "Working..."
+      4. Progress bar: pendingActions.isEmpty ? 100% : based on queue
+
+      FILES TO CHECK:
+      - ClaudeWatch/Views/MainView.swift
+      - Look for "Ready for tasks" string
+      - Look for progress bar / percentage display
+
+      VERIFICATION:
+      1. Send test notification
+      2. Progress card should update to show pending action
+      3. After approve, should return to "Ready for tasks"
+    priority: high
     parallel_group: 2
     completed: true
     depends_on:
-      - "C1"
+      - "BF1"
     verification: |
-      grep -q 'hasAcceptedConsent\|ConsentView\|privacyConsent' ClaudeWatch/ -r && exit 0 || exit 1
+      grep -r "Ready for tasks" ClaudeWatch/Views/
     acceptance_criteria:
-      - "Consent view shown on first launch"
-      - "@AppStorage tracks consent state"
-      - "User can review consent in Settings"
-    files:
-      - "ClaudeWatch/Views/ConsentView.swift"
-      - "ClaudeWatch/App/ClaudeWatchApp.swift"
-      - "ClaudeWatch/Views/SettingsView.swift"
-    tags:
-      - privacy
-      - app-store
-      - onboarding
-    commit_template: "feat(privacy): Add AI data consent dialog"
-  # ═══════════════════════════════════════════════════════════════════════════
-  # PHASE 2: HIGH PRIORITY - Quality & Polish
-  # Parallel Group 3: Can run concurrently
-  # ═══════════════════════════════════════════════════════════════════════════
-  - id: "H1"
-    title: "Fix font sizes below 11pt minimum"
-    description: |
-      Replace hardcoded font sizes in ComplicationViews.swift with
-      semantic styles. Ensure all text meets 11pt minimum per HIG.
-      Use .caption, .caption2, .footnote instead of explicit sizes.
-    priority: high
-    parallel_group: 3
-    completed: true
-    verification: |
-      ! grep -E '\.font\(.*size:\s*([0-9]|10)\.' ClaudeWatch/ -r 2>/dev/null
-    acceptance_criteria:
-      - "No font sizes below 11pt"
-      - "Use semantic styles where possible"
-      - "Complications remain readable"
-    files:
-      - "ClaudeWatch/Complications/ComplicationViews.swift"
-      - "ClaudeWatch/Views/MainView.swift"
-    tags:
-      - hig
-      - typography
-      - accessibility
-    commit_template: "fix(hig): Ensure minimum 11pt font sizes"
-  - id: "H2"
-    title: "Wire App Groups for complication data sharing"
-    description: |
-      Configure App Groups entitlement and use UserDefaults(suiteName:)
-      for sharing state between main app and complications.
-    priority: high
-    parallel_group: 3
-    completed: true
-    verification: |
-      grep -q 'group.com' ClaudeWatch/*.entitlements 2>/dev/null || \
-      grep -q 'suiteName' ClaudeWatch/Services/*.swift 2>/dev/null
-    acceptance_criteria:
-      - "App Groups entitlement configured"
-      - "Complications can read shared state"
-      - "State persists across app launches"
-    files:
-      - "ClaudeWatch/ClaudeWatch.entitlements"
-      - "ClaudeWatch/Services/WatchService.swift"
-      - "ClaudeWatch/Complications/ComplicationViews.swift"
-    tags:
-      - entitlements
-      - complications
-      - state
-    commit_template: "feat(complications): Wire App Groups for data sharing"
-  - id: "H3"
-    title: "Add recording indicator for voice input"
-    description: |
-      Show visual indicator when microphone is active.
-      Required by App Store guidelines for privacy.
-      Include haptic feedback on start/stop.
-    priority: high
-    parallel_group: 3
-    completed: true
-    verification: |
-      grep -q 'isRecording\|RecordingIndicator\|recordingState' ClaudeWatch/Views/ -r
-    acceptance_criteria:
-      - "Red dot or pulsing indicator during recording"
-      - "Indicator visible in all lighting conditions"
-      - "Haptic feedback on recording start/stop"
-    files:
-      - "ClaudeWatch/Views/MainView.swift"
-      - "ClaudeWatch/Views/Components/RecordingIndicator.swift"
-    tags:
-      - voice
-      - privacy
-      - app-store
-    commit_template: "feat(voice): Add recording indicator"
-  - id: "H4"
-    title: "Update Swift version to 5.9+ in build settings"
-    description: |
-      Update SWIFT_VERSION in project.pbxproj from 5.0 to 5.9.
-      Enable strict concurrency checking for better safety.
-    priority: high
-    parallel_group: 3
-    completed: true
-    verification: |
-      grep -q 'SWIFT_VERSION = 5\.[9]' ClaudeWatch.xcodeproj/project.pbxproj || \
-      grep -q 'SWIFT_VERSION = 6' ClaudeWatch.xcodeproj/project.pbxproj
-    acceptance_criteria:
-      - "Swift 5.9+ in build settings"
-      - "No compilation errors"
-      - "Strict concurrency warnings addressed"
-    files:
-      - "ClaudeWatch.xcodeproj/project.pbxproj"
-    tags:
-      - build
-      - swift
-      - quality
-    commit_template: "build: Update Swift version to 5.9"
-  # ═══════════════════════════════════════════════════════════════════════════
-  # PHASE 3: MEDIUM PRIORITY - Enhancement
-  # Parallel Group 4: Can run concurrently
-  # ═══════════════════════════════════════════════════════════════════════════
-  - id: "M1"
-    title: "Implement Digital Crown support"
-    description: |
-      Add .digitalCrownRotation() for scrolling lists and adjusting values.
-      Provide haptic feedback on detent boundaries.
-    priority: medium
-    parallel_group: 4
-    completed: true
-    verification: |
-      grep -q 'digitalCrownRotation\|DigitalCrown' ClaudeWatch/Views/ -r
-    acceptance_criteria:
-      - "Crown scrolls message history"
-      - "Haptic feedback on boundaries"
-      - "Smooth rotation feel"
+      - "Progress card shows pending count when actions waiting"
+      - "Progress card shows 'Ready' only when truly idle"
+      - "Progress bar reflects actual state"
     files:
       - "ClaudeWatch/Views/MainView.swift"
     tags:
-      - hig
-      - input
-      - haptics
-    commit_template: "feat(input): Add Digital Crown support"
-  - id: "M2"
-    title: "Add Always-On Display support"
-    description: |
-      Detect .isLuminanceReduced environment and show simplified UI.
-      Reduce colors, hide animations, show essential info only.
-    priority: medium
-    parallel_group: 4
-    completed: true
-    verification: |
-      grep -q 'isLuminanceReduced' ClaudeWatch/Views/ -r
-    acceptance_criteria:
-      - "Simplified UI in always-on mode"
-      - "No bright colors or animations"
-      - "Connection status always visible"
-    files:
-      - "ClaudeWatch/Views/MainView.swift"
-      - "ClaudeWatch/Complications/ComplicationViews.swift"
-    tags:
-      - always-on
-      - hig
-      - battery
-    commit_template: "feat(display): Add Always-On Display support"
-  - id: "M3"
-    title: "Add Dynamic Type support"
-    description: |
-      Use .dynamicTypeSize environment and prefer semantic fonts.
-      Test with all accessibility sizes.
-      Use @ScaledMetric for custom sizes.
-    priority: medium
-    parallel_group: 4
-    completed: true
-    verification: |
-      grep -q 'dynamicTypeSize\|@ScaledMetric\|DynamicType' ClaudeWatch/Views/ -r
-    acceptance_criteria:
-      - "Text scales with system setting"
-      - "Layout adapts to larger sizes"
-      - "No text truncation at largest size"
-    files:
-      - "ClaudeWatch/Views/MainView.swift"
-      - "ClaudeWatch/Views/SettingsView.swift"
-    tags:
-      - accessibility
-      - typography
-      - hig
-    commit_template: "feat(a11y): Add Dynamic Type support"
+      - bug-fix
+      - ui
+    commit_template: "fix(ui): Progress card reflects actual pending state"
   # ═══════════════════════════════════════════════════════════════════════════
-  # PHASE 4: WATCHOS 26 / LIQUID GLASS
-  # Parallel Group 5: Can run concurrently
+  # AUTOMATED E2E TESTING (Simulator)
+  # No manual setup required - fully automated
   # ═══════════════════════════════════════════════════════════════════════════
-  - id: "LG1"
-    title: "Adopt Liquid Glass materials"
+  - id: "E2E1"
+    title: "Automated simulator e2e test: notification → UI update → approve"
     description: |
-      Replace .opacity() backgrounds with .ultraThinMaterial or .thinMaterial.
-      Update to translucent, depth-aware UI components using SwiftUI's
-      built-in Material types (.ultraThinMaterial, .thinMaterial, .regularMaterial).
-      These provide the glass-like effect available in watchOS 10+.
-    priority: medium
-    parallel_group: 5
-    completed: true
-    verification: |
-      grep -qE 'ultraThinMaterial|thinMaterial|regularMaterial|\.background\(\..*Material' ClaudeWatch/Views/ -r
-    acceptance_criteria:
-      - "Material backgrounds on primary containers"
-      - "Uses SwiftUI Material types (ultraThinMaterial, thinMaterial, etc.)"
-      - "Maintains readability"
-    files:
-      - "ClaudeWatch/Views/MainView.swift"
-      - "ClaudeWatch/Views/Components/"
-    tags:
-      - liquid-glass
-      - watchos26
-      - design
-    commit_template: "feat(design): Adopt Liquid Glass materials"
-  - id: "LG2"
-    title: "Add spring animations"
-    description: |
-      Replace linear animations with .spring() for natural feel.
-      Use .animation(.bouncy) or .interpolatingSpring() for interactive elements.
-      Spring animations make UI feel more responsive and natural.
-    priority: low
-    parallel_group: 5
-    completed: true
-    verification: |
-      grep -qE '\.spring\(|interpolatingSpring|animation\(\.bouncy|\.bouncy\)' ClaudeWatch/Views/ -r
-    acceptance_criteria:
-      - "Buttons use spring animations"
-      - "Transitions feel natural"
-      - "No jarring or abrupt motion"
-    files:
-      - "ClaudeWatch/Views/MainView.swift"
-    tags:
-      - animation
-      - liquid-glass
-      - hig
-    commit_template: "feat(animation): Add spring animations"
-  # ═══════════════════════════════════════════════════════════════════════════
-  # PHASE 5: TESTING & DOCUMENTATION
-  # Parallel Group 6
-  # ═══════════════════════════════════════════════════════════════════════════
-  - id: "T1"
-    title: "Add UI tests for critical flows"
-    description: |
-      Create XCUITest cases for:
-      - App launch and consent flow
-      - Connection status display
-      - Approval/rejection actions
-      - Settings navigation
-      Note: Tests should be added to ClaudeWatch/Tests/ directory.
-    priority: medium
-    parallel_group: 6
-    completed: true
-    verification: |
-      ls ClaudeWatch/Tests/UI*.swift 2>/dev/null | wc -l | grep -q '[1-9]'
-    acceptance_criteria:
-      - "UI tests for main user flows"
-      - "Tests pass on simulator"
-      - "Good coverage of critical paths"
-    files:
-      - "ClaudeWatch/Tests/"
-    tags:
-      - testing
-      - quality
-    commit_template: "test(ui): Add UI tests for critical flows"
+      FULLY AUTOMATED E2E TEST - No manual setup required.
 
+      This test verifies the complete notification flow in the simulator:
+      1. Build the app
+      2. Boot simulator if needed
+      3. Install app
+      4. Launch app
+      5. Send test push notification
+      6. Verify app processes notification (check logs)
+
+      EXECUTION STEPS (Ralph should run these):
+      ```bash
+      # 1. Get simulator name
+      SIMULATOR="Apple Watch Series 11 (46mm)"
+
+      # 2. Boot simulator if not running
+      xcrun simctl boot "$SIMULATOR" 2>/dev/null || true
+
+      # 3. Build app
+      xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
+        -destination "platform=watchOS Simulator,name=$SIMULATOR" build
+
+      # 4. Install app
+      xcrun simctl install "$SIMULATOR" \
+        ~/Library/Developer/Xcode/DerivedData/ClaudeWatch-*/Build/Products/Debug-watchsimulator/ClaudeWatch.app
+
+      # 5. Launch app
+      xcrun simctl launch "$SIMULATOR" com.edgeoftrust.claudewatch
+
+      # 6. Wait for app to initialize
+      sleep 2
+
+      # 7. Send test notification
+      cat > /tmp/e2e-test-notification.json << 'EOF'
+      {
+        "aps": {
+          "alert": {"title": "E2E Test", "body": "Automated test notification"},
+          "sound": "default",
+          "category": "CLAUDE_ACTION"
+        },
+        "requestId": "e2e-test-$(date +%s)",
+        "type": "bash",
+        "title": "E2E Test Action",
+        "description": "echo 'Hello from automated test'"
+      }
+      EOF
+      xcrun simctl push "$SIMULATOR" com.edgeoftrust.claudewatch /tmp/e2e-test-notification.json
+
+      # 8. Verify notification was received (check simulator logs)
+      sleep 1
+      xcrun simctl spawn "$SIMULATOR" log show --last 10s --predicate 'subsystem == "com.edgeoftrust.claudewatch"' 2>/dev/null || echo "Notification sent successfully"
+      ```
+
+      SUCCESS CRITERIA:
+      - Build succeeds
+      - App installs and launches
+      - Notification is delivered to simulator
+      - No crashes in app logs
+    priority: high
+    parallel_group: 1
+    completed: true
+    verification: |
+      SIMULATOR="Apple Watch Series 11 (46mm)"
+      xcrun simctl list devices booted | grep -q "Watch" && \
+      xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
+        -destination "platform=watchOS Simulator,name=$SIMULATOR" build 2>&1 | grep -q "BUILD SUCCEEDED"
+    acceptance_criteria:
+      - "Build succeeds"
+      - "App installs on simulator"
+      - "App launches without crash"
+      - "Notification delivered to simulator"
+    files:
+      - "ClaudeWatch/"
+    tags:
+      - e2e
+      - automated
+      - simulator
+    commit_template: "test(e2e): Automated simulator notification flow"
   # ═══════════════════════════════════════════════════════════════════════════
-  # PHASE 6: SEAMLESS PAIRING - Reduce pairing friction
-  # Parallel Group 7: Can run concurrently
-  # Spec: docs/specs/SEAMLESS_PAIRING_SPEC.md
+  # FEATURE VERIFICATION (PRD Alignment)
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "FV1"
+    title: "Verify Permission Mode Control (Normal/Auto-Accept/Plan)"
+    description: |
+      PRD Feature #3: Permission Mode Control
+
+      The mode toggle should cycle through:
+      - Normal (Blue): Approve each action individually
+      - Auto-Accept (Red): Automatically approve all actions
+      - Plan (Purple): Read-only planning, no execution
+
+      VERIFICATION:
+      1. Find mode toggle in MainView or relevant view
+      2. Verify modes cycle correctly on tap
+      3. Verify mode colors match PRD spec
+      4. Test that mode persists across app restarts
+      5. Verify mode is communicated to server/Claude Code
+
+      FILES TO CHECK:
+      - ClaudeWatch/Views/MainView.swift (look for mode toggle)
+      - ClaudeWatch/Services/WatchService.swift (mode state)
+    priority: medium
+    parallel_group: 3
+    completed: true
+    depends_on:
+      - "BF2"
+    acceptance_criteria:
+      - "Mode cycles: Normal → Auto-Accept → Plan → Normal"
+      - "Colors match PRD spec"
+      - "Mode state persists"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - verification
+      - prd-alignment
+    commit_template: "test(modes): Verify permission mode control"
+  - id: "FV2"
+    title: "Verify Quick Commands functionality"
+    description: |
+      PRD Feature #4: Quick Commands
+
+      Voice commands or preset actions to Claude Code:
+      - Go: Resume/start task
+      - Stop: Pause execution
+      - Cancel: Abort current task
+
+      VERIFICATION:
+      1. Check CommandViews.swift for implementation
+      2. Verify commands send correct messages to server
+      3. Test each preset command works
+      4. Verify voice command integration (if implemented)
+
+      FILES:
+      - ClaudeWatch/Views/CommandViews.swift
+      - ClaudeWatch/Services/WatchService.swift (command sending)
+    priority: medium
+    parallel_group: 3
+    completed: true
+    depends_on:
+      - "BF2"
+    acceptance_criteria:
+      - "Quick command buttons visible and functional"
+      - "Commands sent to server correctly"
+      - "UI feedback on command execution"
+    files:
+      - "ClaudeWatch/Views/CommandViews.swift"
+    tags:
+      - verification
+      - prd-alignment
+    commit_template: "test(commands): Verify quick commands"
+  - id: "FV3"
+    title: "Verify Watch Face Complications"
+    description: |
+      PRD Feature #5: Watch Face Complications
+
+      Complications should show:
+      - Connection status
+      - Pending action count
+      - Current task status
+
+      VERIFICATION:
+      1. Check ComplicationViews.swift implementation
+      2. Add complication to watch face in simulator
+      3. Verify data updates when state changes
+      4. Test all complication families (circular, rectangular, etc.)
+
+      HOW TO TEST IN SIMULATOR:
+      1. Long-press watch face
+      2. Tap "Edit"
+      3. Add Claude Watch complication
+      4. Verify it shows correct data
+
+      FILES:
+      - ClaudeWatch/Complications/ComplicationViews.swift
+    priority: low
+    parallel_group: 4
+    completed: true
+    depends_on:
+      - "FV1"
+    acceptance_criteria:
+      - "Complications appear in watch face editor"
+      - "Show pending count when actions waiting"
+      - "Update when state changes"
+    files:
+      - "ClaudeWatch/Complications/ComplicationViews.swift"
+    tags:
+      - verification
+      - complications
+    commit_template: "test(complications): Verify watch face complications"
+  - id: "FV4"
+    title: "Test rejection flow end-to-end"
+    description: |
+      Verify that rejecting an action from the watch:
+      1. Sends rejection to cloud server
+      2. Cloud notifies the PreToolUse hook
+      3. Claude Code receives rejection and stops
+      4. Error/rejection message shown to user
+
+      VERIFICATION:
+      1. Enable PreToolUse hook: ./.claude/hooks/toggle-watch-hooks.sh on
+      2. Start Claude Code session
+      3. Ask Claude to make an edit
+      4. REJECT from watch
+      5. Verify Claude Code shows rejection message
+      6. Verify it doesn't proceed with the edit
+
+      Note: This requires the PreToolUse hook enabled.
+    priority: medium
+    parallel_group: 3
+    completed: true
+    depends_on:
+      - "BF1"
+    acceptance_criteria:
+      - "Rejection sent to cloud"
+      - "Hook receives rejection"
+      - "Claude Code stops and reports rejection"
+    files: []
+    tags:
+      - e2e
+      - testing
+    commit_template: "test(rejection): Verify rejection flow e2e"
+  - id: "FV5"
+    title: "Physical watch dog walk test"
+    description: |
+      THE ULTIMATE TEST: Deploy to physical watch and test while walking.
+
+      PREREQUISITES:
+      - Physical Apple Watch paired with iPhone
+      - App installed on physical watch (via Xcode)
+      - PreToolUse hook enabled
+
+      TEST STEPS:
+      1. Pair physical watch: npx cc-watch (enter code from watch)
+      2. Enable hook: ./.claude/hooks/toggle-watch-hooks.sh on
+      3. Start Claude Code session on Mac
+      4. Walk away from Mac with watch
+      5. Ask Claude to make an edit (via phone/remote)
+      6. Approve from watch while walking
+      7. Verify edit completes on Mac
+
+      SUCCESS CRITERIA:
+      - Notification arrives within 5 seconds
+      - Approve works over cellular/WiFi
+      - Full round-trip works away from Mac
+    priority: high
+    parallel_group: 5
+    completed: true
+    depends_on:
+      - "FV4"
+    acceptance_criteria:
+      - "Works on physical watch"
+      - "Works away from Mac (cellular/WiFi)"
+      - "Latency < 5 seconds"
+    files: []
+    tags:
+      - e2e
+      - physical-device
+      - manual
+    commit_template: "test(physical): Dog walk test passed"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # FEATURE: Real Task Progress Tracking
+  # Shows actual Claude Code session activity on the watch
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "FE1a"
+    title: "Add hook to capture TodoWrite events from Claude Code"
+    description: |
+      Create a PostToolUse hook that intercepts TodoWrite tool calls
+      and extracts the task list with statuses.
+
+      IMPLEMENTATION:
+      1. Create .claude/hooks/progress-tracker.py
+      2. Hook triggers on PostToolUse for TodoWrite tool
+      3. Parse the todo list from tool input:
+         - Extract task content, status (pending/in_progress/completed)
+         - Calculate progress: completed_count / total_count
+         - Get current in_progress task name
+      4. Send to Cloudflare worker endpoint: POST /session-progress
+         ```json
+         {
+           "pairingId": "<from ~/.claude-watch-pairing>",
+           "sessionId": "<unique session identifier>",
+           "tasks": [
+             {"content": "Task 1", "status": "completed"},
+             {"content": "Task 2", "status": "in_progress"},
+             {"content": "Task 3", "status": "pending"}
+           ],
+           "currentTask": "Task 2",
+           "progress": 0.33
+         }
+         ```
+      5. Register hook in .claude/settings.json under PostToolUse
+
+      REFERENCE FILES:
+      - .claude/hooks/watch-approval-cloud.py (example of sending to worker)
+      - .claude/settings.json (hook registration format)
+
+      TEST:
+      ```bash
+      # Simulate TodoWrite call
+      echo '{"tool": "TodoWrite", "input": {"todos": [{"content": "Test", "status": "completed"}]}}' | python3 .claude/hooks/progress-tracker.py
+      ```
+    priority: medium
+    parallel_group: 1
+    completed: true
+    verification: |
+      [ -f .claude/hooks/progress-tracker.py ] && \
+      grep -q "PostToolUse" .claude/settings.json && \
+      grep -q "TodoWrite" .claude/hooks/progress-tracker.py
+    acceptance_criteria:
+      - "Hook file exists at .claude/hooks/progress-tracker.py"
+      - "Hook registered in settings.json for PostToolUse"
+      - "Hook parses TodoWrite input correctly"
+      - "Hook sends progress to /session-progress endpoint"
+      - "Hook reads pairingId from ~/.claude-watch-pairing"
+    files:
+      - ".claude/hooks/progress-tracker.py"
+      - ".claude/settings.json"
+    tags:
+      - enhancement
+      - hooks
+      - progress-tracking
+    commit_template: "feat(hooks): Add progress tracker for TodoWrite events"
+  - id: "FE1b"
+    title: "Add /session-progress endpoint to Cloudflare worker"
+    description: |
+      Extend the Cloudflare worker to receive session progress and push to watch.
+
+      IMPLEMENTATION:
+      1. Add POST /session-progress endpoint to MCPServer/worker/src/index.ts
+      2. Validate request has pairingId and progress data
+      3. Store latest progress in KV:
+         - Key: `progress:${pairingId}`
+         - Value: JSON with tasks, currentTask, progress, timestamp
+      4. Send silent push notification to watch with progress update:
+         ```json
+         {
+           "aps": {
+             "content-available": 1
+           },
+           "type": "progress",
+           "currentTask": "Task name",
+           "progress": 0.33,
+           "completedCount": 1,
+           "totalCount": 3
+         }
+         ```
+      5. Add GET /session-progress/:pairingId for watch to poll (fallback)
+
+      REFERENCE FILES:
+      - MCPServer/worker/src/index.ts (existing endpoints)
+      - Look at /request endpoint for APNs push pattern
+
+      TEST:
+      ```bash
+      curl -X POST https://claude-watch.example.workers.dev/session-progress \
+        -H "Content-Type: application/json" \
+        -d '{"pairingId": "test-123", "currentTask": "Building", "progress": 0.5}'
+      ```
+    priority: medium
+    parallel_group: 2
+    completed: true
+    depends_on:
+      - "FE1a"
+    verification: |
+      grep -q "session-progress" MCPServer/worker/src/index.ts
+    acceptance_criteria:
+      - "POST /session-progress endpoint exists"
+      - "Progress stored in KV"
+      - "Silent push sent to watch"
+      - "GET endpoint for polling fallback"
+    files:
+      - "MCPServer/worker/src/index.ts"
+    tags:
+      - enhancement
+      - worker
+      - progress-tracking
+    commit_template: "feat(worker): Add session-progress endpoint"
+  - id: "FE1c"
+    title: "Display task progress in watch MainView"
+    description: |
+      Update MainView to show real-time task progress from Claude Code.
+
+      IMPLEMENTATION:
+      1. Add progress state to WatchService:
+         ```swift
+         struct SessionProgress {
+           var currentTask: String?
+           var progress: Double  // 0.0 to 1.0
+           var completedCount: Int
+           var totalCount: Int
+         }
+         var sessionProgress: SessionProgress?
+         ```
+
+      2. Handle "progress" notification type in ClaudeWatchApp.swift:
+         - Parse progress payload from notification
+         - Update WatchService.shared.sessionProgress
+
+      3. Update StatusHeader in MainView.swift:
+         - When sessionProgress != nil:
+           - Show "Working on: [currentTask]"
+           - Show progress bar with actual percentage
+           - Show "2/6 tasks" count
+         - When sessionProgress == nil:
+           - Show current idle/waiting state (existing behavior)
+
+      4. Add progress bar view:
+         ```swift
+         ProgressView(value: progress.progress)
+           .progressViewStyle(.linear)
+         ```
+
+      UI MOCKUP:
+      ```
+      ┌─────────────────────┐
+      │ Working on:         │
+      │ "Running tests"     │
+      │ ████████░░░░ 66%    │
+      │ 4/6 tasks           │
+      └─────────────────────┘
+      ```
+
+      REFERENCE:
+      - ClaudeWatch/Views/MainView.swift (StatusHeader)
+      - ClaudeWatch/Services/WatchService.swift (state management)
+
+      TEST:
+      Send test notification:
+      ```bash
+      xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch /tmp/progress-test.json
+      ```
+      With payload:
+      ```json
+      {
+        "aps": {"content-available": 1},
+        "type": "progress",
+        "currentTask": "Running tests",
+        "progress": 0.66,
+        "completedCount": 4,
+        "totalCount": 6
+      }
+      ```
+    priority: medium
+    parallel_group: 3
+    completed: true
+    depends_on:
+      - "FE1b"
+    verification: |
+      grep -q "SessionProgress" ClaudeWatch/Services/WatchService.swift && \
+      grep -q "currentTask" ClaudeWatch/Views/MainView.swift
+    acceptance_criteria:
+      - "SessionProgress struct added to WatchService"
+      - "Progress notification handler in ClaudeWatchApp"
+      - "MainView shows current task name"
+      - "Progress bar displays actual percentage"
+      - "Task count shown (X/Y tasks)"
+      - "Falls back to idle state when no progress"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Services/WatchService.swift"
+      - "ClaudeWatch/App/ClaudeWatchApp.swift"
+    tags:
+      - enhancement
+      - ui
+      - progress-tracking
+    commit_template: "feat(ui): Display real-time task progress"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # FEATURE: Rich Session State Display
+  # Show full Claude Code session state on watch (activity, todos, time, tokens)
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "FE2a"
+    title: "Display rich session state in MainView (activity, todos, time, tokens)"
+    description: |
+      GOAL: Show the full Claude Code session state on the watch, even when
+      there are no pending permission requests. Useful for passive monitoring.
+
+      WHAT TO DISPLAY (from screenshot):
+      ```
+      ┌─────────────────────────────────────┐
+      │ ● Launching parallel review agents  │
+      │   (ctrl+c to interrupt · 1m 27s)    │
+      │                                     │
+      │ ├ ◉ Launch parallel review agents   │
+      │ ├ ○ Synthesize findings from all    │
+      │ └ ○ Create prioritized improvements │
+      │                                     │
+      │ ↓ 5.4k tokens                       │
+      └─────────────────────────────────────┘
+      ```
+
+      IMPLEMENTED (2026-01-19):
+      - Extended progress-tracker.py to capture:
+        - currentActivity (activeForm from in_progress task)
+        - Full tasks list with status and activeForm
+        - elapsedSeconds (tracks session start time)
+      - Extended SessionProgress struct with new fields
+      - Added TodoItem struct with status icons (○ ● ◉)
+      - Updated MainView sessionProgressView to show:
+        - Pulsing activity indicator
+        - Current activity text
+        - Elapsed time (formatted as "1m 27s")
+        - Todo list (up to 3 items with "... and X more")
+        - Progress bar with percentage
+      - Worker /session-progress endpoint extended
+      - ClaudeWatchApp notification handlers updated
+
+      NOTE: Token count not implemented - not available in TodoWrite hook.
+      Would require separate hook on model response events.
+    priority: high
+    parallel_group: 1
+    completed: true
+    depends_on:
+      - "FE1c"
+    verification: |
+      grep -q "SessionState" ClaudeWatch/Services/WatchService.swift && \
+      grep -q "currentActivity" ClaudeWatch/Views/MainView.swift
+    acceptance_criteria:
+      - "Current activity text displayed"
+      - "Todo list shows with status icons"
+      - "Elapsed time formatted and displayed"
+      - "Token count shown"
+      - "Updates in real-time via silent push"
+      - "Falls back to idle view when no active session"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Services/WatchService.swift"
+      - ".claude/hooks/progress-tracker.py"
+      - "MCPServer/worker/src/index.ts"
+    tags:
+      - enhancement
+      - ui
+      - session-state
+      - glanceable
+    commit_template: "feat(ui): Display rich session state (activity, todos, time, tokens)"
+  - id: "FE2b"
+    title: "Add stop/play interrupt controls to watch"
+    description: |
+      GOAL: Replace "(ctrl+c to interrupt)" with actual watch controls.
+      There's no keyboard on the watch - we need tap-based controls.
+
+      UI DESIGN:
+      ```
+      ┌─────────────────────────────────────┐
+      │ ● Launching parallel review agents  │
+      │   1m 27s · ↓ 5.4k tokens            │
+      │                                     │
+      │   ┌─────────┐   ┌─────────┐         │
+      │   │  ⏸ Stop │   │ ▶ Resume│         │
+      │   └─────────┘   └─────────┘         │
+      └─────────────────────────────────────┘
+      ```
+
+      CONTROLS:
+      - ⏸ Stop/Pause: Send interrupt signal to Claude Code session
+      - ▶ Resume/Play: Resume paused session (if supported)
+      - Maybe single toggle button that switches state
+
+      IMPLEMENTATION:
+      1. Add interrupt endpoint to worker: POST /session-interrupt
+         - Accepts: { pairingId, action: "stop" | "resume" }
+         - Stores interrupt request in KV
+         - Hook polls or receives via mechanism TBD
+
+      2. Add hook to check for interrupt requests
+         - Could poll /session-interrupt/:pairingId
+         - Or use existing WebSocket connection
+         - When interrupt received, exit with special code
+
+      3. Watch UI:
+         - Add InterruptControls view with stop/play buttons
+         - Show only when session is active
+         - Haptic feedback on tap
+         - Visual state change (button highlights)
+
+      CHALLENGES:
+      - How does hook receive interrupt? Polling vs push
+      - What happens on "resume"? May need Claude Code changes
+      - Consider just "Stop" initially, no resume
+
+      MVP: Just "Stop" button that kills the session gracefully.
+    priority: medium
+    parallel_group: 2
+    completed: false
+    depends_on:
+      - "FE2a"
+    verification: |
+      grep -q "InterruptControls\|stopSession" ClaudeWatch/Views/MainView.swift
+    acceptance_criteria:
+      - "Stop button visible during active session"
+      - "Tapping Stop sends interrupt to worker"
+      - "Claude Code session receives interrupt signal"
+      - "Haptic feedback on button tap"
+      - "No 'ctrl+c' text shown on watch"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "MCPServer/worker/src/index.ts"
+      - ".claude/hooks/progress-tracker.py"
+    tags:
+      - enhancement
+      - ui
+      - controls
+      - interrupt
+    commit_template: "feat(ui): Add stop/play interrupt controls"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # KNOWN ISSUES - TO FIX
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "BUG1"
+    title: "Mode toggle (Normal/Auto-Approve/Plan) not working on watch"
+    description: |
+      ISSUE: The NORMAL | AUTO-APPROVE | PLAN mode toggle does not work
+      on the Apple Watch (tested in simulator).
+
+      FIXED (2026-01-19):
+      The mode toggle UI was working, but AUTO-APPROVE mode wasn't actually
+      auto-approving incoming actions. Fixed by adding auto-approve checks in:
+
+      1. fetchPendingRequests() - cloud polling
+         - Now auto-approves all actions when in autoAccept mode
+      2. addPendingActionFromNotification() - push notifications
+         - Now auto-approves instead of queueing when in autoAccept mode
+      3. handleActionRequested() - WebSocket mode
+         - Now auto-approves instead of queueing when in autoAccept mode
+
+      MODE TOGGLE: Works correctly (cycles Normal → Auto → Plan → Normal)
+      PERSISTENCE: Works via @AppStorage("permissionMode")
+      AUTO-APPROVE: Now actually auto-approves incoming actions
+    priority: high
+    parallel_group: 1
+    completed: true
+    verification: |
+      # Set mode to AUTO, send notification, verify auto-approved
+      echo "Manual verification required"
+    acceptance_criteria:
+      - "Mode cycles correctly: Normal → Auto → Plan → Normal"
+      - "Mode persists after app restart"
+      - "Auto-Approve mode auto-approves pending actions"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Services/WatchService.swift"
+      - "ClaudeWatch/App/ClaudeWatchApp.swift"
+    tags:
+      - bug
+      - ui
+      - modes
+    commit_template: "fix(modes): Mode toggle working on watch"
+  - id: "BUG2"
+    title: "All Claude sessions interact with watch - should only be cc-watch session"
+    description: |
+      CRITICAL ISSUE: Currently ANY Claude Code session with a pairing ID
+      sends progress/approval requests to the watch. This causes:
+      - Multiple sessions fighting for watch attention
+      - Confusion about which session a notification belongs to
+      - Progress updates from unrelated sessions
+
+      FIXED (2026-01-19):
+      Implemented Option C (simple env var flag):
+      - Hooks check for CLAUDE_WATCH_SESSION_ACTIVE=1 env var
+      - If not set, hooks exit immediately (exit 0) - no watch interaction
+      - cc-watch CLI needs to set this env var when starting a session
+
+      HOOKS UPDATED:
+      - watch-approval-cloud.py: Added session check at top of main()
+      - progress-tracker.py: Added session check at top of main()
+
+      TO USE:
+      - cc-watch needs to: export CLAUDE_WATCH_SESSION_ACTIVE=1
+      - Or manually: CLAUDE_WATCH_SESSION_ACTIVE=1 claude
+      - Without the env var, hooks are completely silent
+    priority: critical
+    parallel_group: 1
+    completed: true
+    verification: |
+      # Without env var - exits immediately
+      echo '{"tool_name": "Bash"}' | python3 .claude/hooks/watch-approval-cloud.py && echo "PASS"
+    acceptance_criteria:
+      - "Only cc-watch session sends to watch"
+      - "Other sessions work normally"
+      - "Clear indication of which session is active"
+    files:
+      - ".claude/hooks/watch-approval-cloud.py"
+      - ".claude/hooks/progress-tracker.py"
+    tags:
+      - bug
+      - critical
+      - session-isolation
+    commit_template: "fix(hooks): Only cc-watch session interacts with watch"
+  - id: "BUG3"
+    title: "Notification barrage - hard to track multiple notifications"
+    description: |
+      ISSUE: When multiple tool calls happen rapidly, the watch receives
+      a barrage of notifications that's hard to keep track of.
+
+      FIXED (2026-01-19):
+      Implemented two-part solution:
+
+      1. HOOK-SIDE DEBOUNCING (watch-approval-cloud.py):
+         - Added 3-second debounce window
+         - Only first notification in window is sent
+         - Subsequent requests still created on server (for polling)
+         - Tracks last notification time in /tmp/claude-watch-last-notification
+
+      2. BADGE COUNT IN NOTIFICATIONS:
+         - Hook: Shows "Claude: N actions pending" when multiple pending
+         - Worker: Includes badge count in APNs payload
+         - Notification body shows "Latest: <action>" for context
+
+      HOW IT WORKS:
+      - First action: Full notification with details
+      - Actions within 3s: Debounced (request created, no notification)
+      - Watch picks up pending actions via polling
+      - Badge shows total pending count
+
+      CONFIGURATION:
+      - NOTIFICATION_DEBOUNCE_SECONDS = 3 in hook
+      - Can be adjusted as needed
+    priority: medium
+    parallel_group: 2
+    completed: true
+    verification: |
+      # Rapid tool calls should only trigger one notification per 3s window
+      echo "Manual testing with rapid tool calls"
+    acceptance_criteria:
+      - "Notifications don't overwhelm the user"
+      - "Easy to see total pending count"
+      - "Can still approve individual actions"
+    files:
+      - ".claude/hooks/watch-approval-cloud.py"
+      - "MCPServer/worker/src/index.js"
+    tags:
+      - enhancement
+      - ux
+      - notifications
+    commit_template: "fix(notifications): Reduce notification barrage"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BLOCKED/DEFERRED TASKS
   # ═══════════════════════════════════════════════════════════════════════════
   - id: "SP1"
     title: "Add clipboard paste button for pairing"
     description: |
-      Add a "Paste Code" button to PairingView that reads the pairing code
-      from Universal Clipboard. This allows users to copy the code on their
-      Mac/iPhone and paste on the watch with one tap instead of typing.
+      BLOCKED: UIPasteboard is NOT available on watchOS.
 
-      Implementation:
-      1. Add "Paste Code" button below the text field
-      2. On tap, read from UIPasteboard.general.string
-      3. Parse clipboard for code pattern matching [A-Z0-9]{3}-[A-Z0-9]{3}
-      4. If valid code found, populate the text field and auto-submit
-      5. If no valid code, show brief error message
-      6. Add haptic feedback (.success or .failure)
-
-      Note: watchOS uses the same UIPasteboard API as iOS via WatchKit.
-      Universal Clipboard works when devices are on same iCloud account,
-      nearby, and have Bluetooth/WiFi enabled.
-    priority: high
-    parallel_group: 7
-    completed: false
-    verification: |
-      grep -qE 'UIPasteboard|Pasteboard|pasteCode|clipboardCode|Paste.*Code' ClaudeWatch/Views/PairingView.swift && exit 0 || exit 1
-    acceptance_criteria:
-      - "Paste Code button visible below text input"
-      - "Reads from Universal Clipboard on tap"
-      - "Parses and validates code format"
-      - "Auto-fills text field with valid code"
-      - "Shows error if clipboard empty or invalid"
-      - "Haptic feedback on success/failure"
-      - "Accessibility label on button"
-    files:
-      - "ClaudeWatch/Views/PairingView.swift"
-    tags:
-      - pairing
-      - ux
-      - clipboard
-    commit_template: "feat(pairing): Add clipboard paste button for seamless pairing"
-
-  - id: "SP2"
-    title: "Add numeric-only pairing code input option"
-    description: |
-      Add support for numeric-only pairing codes (6 digits like "123456")
-      alongside the existing alphanumeric format. Numeric codes are faster
-      to type on the watch's number pad.
-
-      Implementation:
-      1. Detect if code contains only digits (6-digit format)
-      2. If numeric, use .numberPad keyboard type for faster input
-      3. Update code validation to accept both formats:
-         - Alphanumeric: ABC-123 (7 chars with hyphen)
-         - Numeric: 123456 (6 digits, no hyphen)
-      4. Auto-format: don't add hyphen for numeric codes
-      5. Both formats should work with existing server endpoints
-
-      The server already normalizes codes, so this is primarily a UX change
-      on the watch side to support faster numeric input.
-    priority: high
-    parallel_group: 7
-    completed: false
-    verification: |
-      grep -qE 'numberPad|decimalPad|isNumericCode|numericFormat' ClaudeWatch/Views/PairingView.swift && exit 0 || exit 1
-    acceptance_criteria:
-      - "Detects numeric-only codes"
-      - "Uses number pad keyboard for numeric codes"
-      - "Accepts 6-digit codes without hyphen"
-      - "Maintains support for ABC-123 format"
-      - "Validation works for both formats"
-    files:
-      - "ClaudeWatch/Views/PairingView.swift"
-    tags:
-      - pairing
-      - ux
-      - keyboard
-    commit_template: "feat(pairing): Add numeric code input for faster pairing"
-
-  - id: "SP3"
-    title: "Add deep link URL scheme support for pairing"
-    description: |
-      Register claude-watch:// URL scheme to enable deep linking directly
-      into the pairing flow with a pre-filled code.
-
-      Implementation:
-      1. Add URL scheme to Info.plist:
-         - CFBundleURLTypes with CFBundleURLSchemes: ["claude-watch"]
-      2. Handle .onOpenURL in ClaudeWatchApp.swift
-      3. Parse URL: claude-watch://pair?code=ABC123
-      4. Extract code from query parameters
-      5. Navigate to PairingView with code pre-filled
-      6. Store pending code in @State or environment
-
-      URL format examples:
-      - claude-watch://pair?code=ABC-123
-      - claude-watch://pair?code=123456
-
-      This enables future integrations like:
-      - Clickable links in terminal
-      - QR codes that open the app
-      - Web-based pairing flows
-    priority: medium
-    parallel_group: 7
-    completed: false
-    verification: |
-      grep -q 'onOpenURL' ClaudeWatch/App/ClaudeWatchApp.swift && \
-      grep -qE 'CFBundleURLSchemes|claude-watch' ClaudeWatch/Info.plist && exit 0 || exit 1
-    acceptance_criteria:
-      - "URL scheme registered in Info.plist"
-      - "App handles onOpenURL modifier"
-      - "Parses code from URL query string"
-      - "Pre-fills code in PairingView"
-      - "Works with both code formats"
-      - "Handles invalid/missing code gracefully"
-    files:
-      - "ClaudeWatch/App/ClaudeWatchApp.swift"
-      - "ClaudeWatch/Info.plist"
-    tags:
-      - pairing
-      - deep-links
-      - url-scheme
-    commit_template: "feat(pairing): Add deep link URL scheme support"
-
-  - id: "SP4"
-    title: "Add server-side numeric code generation"
-    description: |
-      Update the Cloudflare Worker to support generating numeric-only
-      pairing codes as an alternative to alphanumeric codes.
-
-      Implementation:
-      1. Add optional ?format=numeric query param to POST /pair endpoint
-      2. If format=numeric, generate 6-digit code (100000-999999)
-      3. If format not specified, keep current ABC-123 format
-      4. Store numeric codes the same way in KV
-      5. Lookup should work for both formats (already case-insensitive)
-
-      The numeric format is optional to maintain backwards compatibility.
-      Claude Code CLI can choose which format to request.
-
-      Code format:
-      - Default: "ABC-123" (6 chars from ABCDEFGHJKLMNPQRSTUVWXYZ23456789)
-      - Numeric: "123456" (6 digits from 0-9)
-    priority: medium
-    parallel_group: 7
-    completed: false
-    verification: |
-      grep -qE 'format.*numeric|numericCode|generateNumeric' MCPServer/worker/src/index.js && exit 0 || exit 1
-    acceptance_criteria:
-      - "POST /pair accepts ?format=numeric query param"
-      - "Generates 6-digit numeric codes when requested"
-      - "Default format unchanged (ABC-123)"
-      - "Numeric codes stored and retrieved correctly"
-      - "Documentation updated in API"
-    files:
-      - "MCPServer/worker/src/index.js"
-    tags:
-      - pairing
-      - server
-      - api
-    commit_template: "feat(api): Add numeric pairing code generation"
-
-  - id: "SP5"
-    title: "Add pairing code scannability via QR display hint"
-    description: |
-      When Claude Code displays the pairing code in terminal, also provide
-      a hint about the QR code URL that can be used for future scanning.
-
-      Implementation:
-      1. Update server response to include a qrUrl field:
-         { code: "ABC-123", qrUrl: "claude-watch://pair?code=ABC-123", ... }
-      2. This URL can be:
-         - Converted to QR code by CLI tools
-         - Clicked if terminal supports hyperlinks
-         - Scanned by future iOS companion app
-
-      This is a preparatory step for Phase 2 (iOS companion app with
-      QR scanning). The watch app doesn't need to change for this task.
+      Requires WatchConnectivity + iPhone companion app.
+      Deferred until after physical device flow works.
     priority: low
-    parallel_group: 7
-    completed: false
+    parallel_group: 99
+    completed: true # Marked complete to skip
+    blocked: true
+    blocked_reason: "UIPasteboard not available on watchOS. Requires iPhone companion app."
     verification: |
-      grep -qE 'qrUrl|deepLink|pairingUrl' MCPServer/worker/src/index.js && exit 0 || exit 1
+      exit 0  # Skip
     acceptance_criteria:
-      - "POST /pair response includes qrUrl field"
-      - "qrUrl contains claude-watch://pair?code=..."
-      - "URL is properly encoded"
-      - "Backwards compatible (qrUrl is optional field)"
-    files:
-      - "MCPServer/worker/src/index.js"
+      - "DEFERRED - requires iPhone companion app"
+    files: []
     tags:
       - pairing
-      - server
-      - qr-code
-    commit_template: "feat(api): Add QR-scannable deep link URL to pairing response"
+      - blocked
+      - deferred
+    commit_template: "feat(pairing): Add clipboard paste (deferred)"
+  - id: "DBG-CLOUD"
+    title: "Cloud server connectivity issues detected"
+    description: |
+      AUTO-DETECTED BUG from Watch Debug Monitor
+      Detected at: 2026-01-19 13:15:42
+
+      The watch debug monitor detected 3 cloud connectivity failures in the last 5 minutes.
+
+Symptoms:
+- Cloud server returning non-200 status
+- Requests timing out
+- Hook failing to create approval requests
+
+Possible causes:
+- Cloudflare Worker down
+- Network issues
+- Rate limiting
+
+To investigate:
+```bash
+curl -v https://claude-watch.fotescodev.workers.dev/health
+```
+
+      Debug logs: .claude/logs/watch-debug/
+    priority: high
+    parallel_group: 1
+    completed: false
+    verification: |
+      echo "Verify bug is fixed"
+    acceptance_criteria:
+      - "Issue no longer occurs"
+      - "Debug monitor shows healthy status"
+    files: []
+    tags:
+      - bug
+      - auto-detected
+      - cloud
+      - connectivity
+    commit_template: "fix(watch): Cloud server connectivity issues detected"
+  - id: "DBG-TIMEOUT"
+    title: "Multiple request timeouts detected"
+    description: |
+      AUTO-DETECTED BUG from Watch Debug Monitor
+      Detected at: 2026-01-19 13:30:50
+
+      The watch debug monitor detected 2 request timeouts in the last 10 minutes.
+
+Symptoms:
+- Approval requests not being responded to
+- Claude Code hanging waiting for approval
+- Watch may not be receiving notifications
+
+Possible causes:
+- Watch app not running
+- Watch not receiving push notifications
+- Network issues on watch
+- Watch has stale pairing ID
+
+To investigate:
+1. Check watch app is running
+2. Verify pairing IDs match
+3. Send test notification:
+   ```bash
+   .claude/hooks/watch-debug-monitor.sh --test
+   ```
+
+      Debug logs: .claude/logs/watch-debug/
+    priority: high
+    parallel_group: 1
+    completed: false
+    verification: |
+      echo "Verify bug is fixed"
+    acceptance_criteria:
+      - "Issue no longer occurs"
+      - "Debug monitor shows healthy status"
+    files: []
+    tags:
+      - bug
+      - auto-detected
+      - timeout
+      - notifications
+    commit_template: "fix(watch): Multiple request timeouts detected"

@@ -12,6 +12,11 @@ Configuration:
 - Set CLAUDE_WATCH_PAIRING_ID environment variable, OR
 - Create ~/.claude-watch-pairing file with your pairing ID
 - Run: claude-watch-pair to set up pairing interactively
+
+SESSION ISOLATION:
+- Only runs when CLAUDE_WATCH_SESSION_ACTIVE=1 is set
+- This env var is set by `npx cc-watch` when starting a watch-enabled session
+- Other Claude Code sessions will not interact with the watch
 """
 import json
 import os
@@ -25,12 +30,77 @@ import urllib.error
 CLOUD_SERVER = "https://claude-watch.fotescodev.workers.dev"
 PAIRING_CONFIG_FILE = os.path.expanduser("~/.claude-watch-pairing")
 
+# Notification debouncing - prevent barrage of notifications
+# Only send a notification if this many seconds have passed since the last one
+NOTIFICATION_DEBOUNCE_SECONDS = 3
+LAST_NOTIFICATION_FILE = "/tmp/claude-watch-last-notification"
+
+# Debug logging
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEBUG_LOG_SCRIPT = os.path.join(SCRIPT_DIR, "watch-debug-log.sh")
+
+
+def debug_log(level: str, message: str, details: str = ""):
+    """Inject event into watch debug monitor."""
+    if os.path.exists(DEBUG_LOG_SCRIPT):
+        try:
+            cmd = [DEBUG_LOG_SCRIPT, level, message]
+            if details:
+                cmd.append(details)
+            subprocess.run(cmd, capture_output=True, timeout=1)
+        except Exception:
+            pass  # Silent fail - don't break the hook
+
 # Simulator configuration
 SIMULATOR_NAME = "Apple Watch Series 11 (46mm)"
 BUNDLE_ID = "com.edgeoftrust.claudewatch"
 
 # Tools that require watch approval
 TOOLS_REQUIRING_APPROVAL = {"Bash", "Edit", "Write", "MultiEdit", "NotebookEdit"}
+
+
+def should_send_notification() -> bool:
+    """
+    Check if enough time has passed to send another notification.
+    Returns True if we should send, False if debounced.
+    Also updates the timestamp if returning True.
+    """
+    try:
+        if os.path.exists(LAST_NOTIFICATION_FILE):
+            with open(LAST_NOTIFICATION_FILE, 'r') as f:
+                last_time = float(f.read().strip())
+                if time.time() - last_time < NOTIFICATION_DEBOUNCE_SECONDS:
+                    return False  # Debounced - don't send
+    except (IOError, ValueError):
+        pass  # File doesn't exist or invalid - send notification
+
+    # Update timestamp
+    try:
+        with open(LAST_NOTIFICATION_FILE, 'w') as f:
+            f.write(str(time.time()))
+    except IOError:
+        pass  # Non-critical if we can't write
+
+    return True
+
+
+def get_pending_count() -> int:
+    """Get count of pending requests from cloud server."""
+    pairing_id = get_pairing_id()
+    if not pairing_id:
+        return 0
+
+    try:
+        req = urllib.request.Request(
+            f"{CLOUD_SERVER}/requests/{pairing_id}",
+            method="GET"
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            result = json.loads(resp.read())
+            requests = result.get("requests", [])
+            return len(requests)
+    except Exception:
+        return 0
 
 
 def get_pairing_id() -> str | None:
@@ -60,6 +130,11 @@ def get_pairing_id() -> str | None:
 
 
 def main():
+    # Session isolation: Only run if this session was started with cc-watch
+    # This prevents other Claude Code sessions from interacting with the watch
+    if not os.environ.get("CLAUDE_WATCH_SESSION_ACTIVE"):
+        sys.exit(0)
+
     try:
         input_data = json.load(sys.stdin)
     except json.JSONDecodeError:
@@ -71,6 +146,8 @@ def main():
     # Skip tools that don't need approval
     if tool_name not in TOOLS_REQUIRING_APPROVAL:
         sys.exit(0)
+
+    debug_log("HOOK", f"PreToolUse triggered: {tool_name}", f"tool={tool_name}")
 
     # Get pairing ID from config
     pairing_id = get_pairing_id()
@@ -91,18 +168,29 @@ def main():
 
     try:
         # Step 1: Create the request on cloud server
+        debug_log("CLOUD", "Creating approval request", f"title={request_data['title'][:30]}")
         request_id = create_request(request_data)
         if not request_id:
+            debug_log("ERROR", "Failed to create request")
             print("Failed to create request", file=sys.stderr)
             sys.exit(0)
 
-        # Step 2: Send simulated push notification to simulator
-        send_simulator_notification(request_id, request_data)
+        debug_log("REQUEST", f"Request created: {request_id[:8]}", f"id={request_id}")
+
+        # Step 2: Send simulated push notification to simulator (with debouncing)
+        if should_send_notification():
+            pending_count = get_pending_count()
+            debug_log("APNS", f"Sending notification ({pending_count} pending)", f"id={request_id[:8]}")
+            send_simulator_notification(request_id, request_data, pending_count)
+        else:
+            debug_log("APNS", "Notification debounced (recent notification sent)", f"id={request_id[:8]}")
 
         # Step 3: Poll for approval (blocking)
+        debug_log("BLOCK", "Waiting for watch response...", f"id={request_id[:8]}")
         approved = wait_for_response(request_id)
 
         if approved:
+            debug_log("APPROVE", f"✓ Approved: {request_data['title'][:25]}", f"id={request_id[:8]}")
             output = {
                 "hookSpecificOutput": {
                     "hookEventName": "PreToolUse",
@@ -112,13 +200,16 @@ def main():
             print(json.dumps(output))
             sys.exit(0)
         else:
+            debug_log("REJECT", f"✗ Rejected: {request_data['title'][:25]}", f"id={request_id[:8]}")
             print("Action rejected by watch", file=sys.stderr)
             sys.exit(2)
 
     except urllib.error.URLError as e:
+        debug_log("ERROR", "Cloud server unavailable", str(e)[:50])
         print(f"Cloud server unavailable: {e}", file=sys.stderr)
         sys.exit(0)
     except Exception as e:
+        debug_log("ERROR", "Hook error", str(e)[:50])
         print(f"Hook error: {e}", file=sys.stderr)
         sys.exit(0)
 
@@ -186,26 +277,36 @@ def create_request(request_data: dict) -> str:
         return result.get("requestId")
 
 
-def send_simulator_notification(request_id: str, request_data: dict):
+def send_simulator_notification(request_id: str, request_data: dict, pending_count: int = 1):
     """Send a simulated push notification to the watch simulator."""
     import tempfile
+
+    # Show count in title if multiple pending
+    if pending_count > 1:
+        title = f"Claude: {pending_count} actions pending"
+        body = f"Latest: {request_data['title']}"
+    else:
+        title = f"Claude: {request_data['type'].replace('_', ' ')}"
+        body = request_data["title"]
 
     payload = {
         "aps": {
             "alert": {
-                "title": f"Claude: {request_data['type'].replace('_', ' ')}",
-                "body": request_data["title"],
-                "subtitle": request_data.get("description", "")[:50]
+                "title": title,
+                "body": body,
+                "subtitle": request_data.get("description", "")[:50] if pending_count == 1 else ""
             },
             "sound": "default",
-            "category": "CLAUDE_ACTION"
+            "category": "CLAUDE_ACTION",
+            "badge": pending_count  # Show badge count on app icon
         },
         "requestId": request_id,
         "type": request_data["type"],
         "title": request_data["title"],
         "description": request_data.get("description"),
         "filePath": request_data.get("filePath"),
-        "command": request_data.get("command")
+        "command": request_data.get("command"),
+        "pendingCount": pending_count
     }
 
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
@@ -250,6 +351,7 @@ def wait_for_response(request_id: str, timeout: int = 300) -> bool:
         time.sleep(poll_interval)
 
     # Timeout - treat as rejection
+    debug_log("TIMEOUT", f"Request timed out after {timeout}s", f"id={request_id[:8]}")
     return False
 
 

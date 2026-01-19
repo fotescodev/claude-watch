@@ -1,0 +1,12 @@
+task_id: "BF1"
+timestamp: "2026-01-18T23:02:40Z"
+outcome: success
+title: "Verify notification fixes: live update + cleanup"
+tags: [bug-fix notifications verification-needed ]
+categories: [ async]
+
+successes: []
+failures: []
+discoveries: []
+missing_context: []
+wished_for_skills: []

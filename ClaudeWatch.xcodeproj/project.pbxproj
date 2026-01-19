@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		APP001 /* ClaudeWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC001 /* ClaudeWatchApp.swift */; };
 		CMP002 /* ComplicationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC014 /* ComplicationViews.swift */; };
+		PRIVACY001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = RES_PRIVACY /* PrivacyInfo.xcprivacy */; };
 		RES001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = RES_ASSETS /* Assets.xcassets */; };
 		SVC001 /* WatchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC011 /* WatchService.swift */; };
 		TEST001 /* ReconnectionConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC001 /* ReconnectionConfigTests.swift */; };
@@ -20,6 +21,12 @@
 		VIEW002 /* PairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC005 /* PairingView.swift */; };
 		VIEW003 /* ConsentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC006 /* ConsentView.swift */; };
 		VIEW004 /* RecordingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC007 /* RecordingIndicator.swift */; };
+		DS001 /* Claude.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_DS001 /* Claude.swift */; };
+		VIEW005 /* StateViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC008 /* StateViews.swift */; };
+		VIEW006 /* ActionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC009 /* ActionViews.swift */; };
+		VIEW007 /* CommandViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC010 /* CommandViews.swift */; };
+		VIEW008 /* SheetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC012 /* SheetViews.swift */; };
+		MODEL001 /* ApprovalRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_MODEL001 /* ApprovalRequest.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,10 +41,12 @@
 
 /* Begin PBXFileReference section */
 		86B9C9412F1965EB005C3830 /* ClaudeWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ClaudeWatch.entitlements; sourceTree = "<group>"; };
+		ENT_RELEASE /* ClaudeWatch-Release.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "ClaudeWatch-Release.entitlements"; sourceTree = "<group>"; };
 		PROD001 /* ClaudeWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClaudeWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		PROD002 /* ClaudeWatchTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClaudeWatchTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		RES_ASSETS /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		RES_INFO /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		RES_PRIVACY /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		SRC001 /* ClaudeWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeWatchApp.swift; sourceTree = "<group>"; };
 		SRC004 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		SRC005 /* PairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingView.swift; sourceTree = "<group>"; };
@@ -50,9 +59,31 @@
 		TEST_SRC003 /* WebSocketErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketErrorTests.swift; sourceTree = "<group>"; };
 		TEST_SRC004 /* QueuedMessageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueuedMessageTests.swift; sourceTree = "<group>"; };
 		TEST_SRC005 /* WatchServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchServiceTests.swift; sourceTree = "<group>"; };
+		SRC_DS001 /* Claude.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Claude.swift; sourceTree = "<group>"; };
+		SRC008 /* StateViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateViews.swift; sourceTree = "<group>"; };
+		SRC009 /* ActionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionViews.swift; sourceTree = "<group>"; };
+		SRC010 /* CommandViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandViews.swift; sourceTree = "<group>"; };
+		SRC012 /* SheetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetViews.swift; sourceTree = "<group>"; };
+		SRC_MODEL001 /* ApprovalRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalRequest.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		GRP_MODELS /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				SRC_MODEL001 /* ApprovalRequest.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		GRP_DESIGNSYSTEM /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				SRC_DS001 /* Claude.swift */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
 		GRP_APP /* App */ = {
 			isa = PBXGroup;
 			children = (
@@ -110,9 +141,13 @@
 			isa = PBXGroup;
 			children = (
 				GRP_COMPONENTS /* Components */,
+				SRC009 /* ActionViews.swift */,
+				SRC010 /* CommandViews.swift */,
 				SRC006 /* ConsentView.swift */,
 				SRC004 /* MainView.swift */,
 				SRC005 /* PairingView.swift */,
+				SRC012 /* SheetViews.swift */,
+				SRC008 /* StateViews.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -121,13 +156,17 @@
 			isa = PBXGroup;
 			children = (
 				86B9C9412F1965EB005C3830 /* ClaudeWatch.entitlements */,
+				ENT_RELEASE /* ClaudeWatch-Release.entitlements */,
 				GRP_APP /* App */,
+				GRP_DESIGNSYSTEM /* DesignSystem */,
+				GRP_MODELS /* Models */,
 				GRP_VIEWS /* Views */,
 				GRP_SERVICES /* Services */,
 				GRP_COMPLICATIONS /* Complications */,
 				GRP_TESTS /* Tests */,
 				RES_ASSETS /* Assets.xcassets */,
 				RES_INFO /* Info.plist */,
+				RES_PRIVACY /* PrivacyInfo.xcprivacy */,
 			);
 			path = ClaudeWatch;
 			sourceTree = "<group>";
@@ -219,6 +258,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				RES001 /* Assets.xcassets in Resources */,
+				PRIVACY001 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -230,12 +270,18 @@
 			buildActionMask = 2147483647;
 			files = (
 				APP001 /* ClaudeWatchApp.swift in Sources */,
+				DS001 /* Claude.swift in Sources */,
 				VIEW001 /* MainView.swift in Sources */,
 				VIEW002 /* PairingView.swift in Sources */,
 				VIEW003 /* ConsentView.swift in Sources */,
 				VIEW004 /* RecordingIndicator.swift in Sources */,
+				VIEW005 /* StateViews.swift in Sources */,
+				VIEW006 /* ActionViews.swift in Sources */,
+				VIEW007 /* CommandViews.swift in Sources */,
+				VIEW008 /* SheetViews.swift in Sources */,
 				SVC001 /* WatchService.swift in Sources */,
 				CMP002 /* ComplicationViews.swift in Sources */,
+				MODEL001 /* ApprovalRequest.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -418,7 +464,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = ClaudeWatch/ClaudeWatch.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "ClaudeWatch/ClaudeWatch-Release.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 98R5RJKR5F;

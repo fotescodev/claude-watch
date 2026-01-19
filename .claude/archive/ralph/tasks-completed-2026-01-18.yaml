@@ -1,0 +1,2791 @@
+# watchOS Ralph Loop - Task Definition
+# This file defines all tasks for the autonomous coding loop.
+# Tasks are processed by priority within parallel groups.
+
+version: "1.0"
+project: "ClaudeWatch"
+platform: "watchOS"
+min_deployment: "10.6"
+swift_version: "5.9"
+settings:
+  require_build_pass: true
+  require_accessibility: true
+  require_hig_compliance: true
+  auto_liquid_glass: true
+tasks:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TEST TASK - Verify Ralph Loop Works
+  # Parallel Group 0: Highest priority for testing
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "TEST1"
+    title: "Add RALPH_TEST marker comment to MainView.swift"
+    description: |
+      Add a comment marker "// RALPH_TEST: Loop verification successful"
+      at the top of MainView.swift (after the imports).
+      This verifies the Ralph Loop can make code changes.
+    priority: critical
+    parallel_group: 0
+    completed: true
+    verification: |
+      grep -q 'RALPH_TEST' ClaudeWatch/Views/MainView.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "MainView.swift contains RALPH_TEST marker comment"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - test
+      - loop-verification
+    commit_template: "test(ralph): Add loop verification marker"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 1: CRITICAL - App Store Blockers
+  # Parallel Group 1: Can run concurrently
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "C1"
+    title: "Add accessibility labels to all interactive elements"
+    description: |
+      Add .accessibilityLabel() modifiers to all Button, NavigationLink,
+      and interactive elements in MainView.swift and SettingsView.swift.
+      This is required for App Store approval and VoiceOver support.
+    priority: critical
+    parallel_group: 1
+    completed: true
+    verification: |
+      count=$(grep -r 'accessibilityLabel' ClaudeWatch/Views/*.swift 2>/dev/null | wc -l);
+      [ "$count" -ge 10 ] && exit 0 || exit 1
+    acceptance_criteria:
+      - "Every Button has .accessibilityLabel()"
+      - "Every NavigationLink has .accessibilityLabel()"
+      - "VoiceOver announces all elements correctly"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Views/SettingsView.swift"
+    tags:
+      - accessibility
+      - app-store
+      - hig
+    commit_template: "fix(a11y): Add accessibility labels to interactive elements"
+  - id: "C2"
+    title: "Create app icon assets for all required sizes"
+    description: |
+      Generate PNG app icons for all 16 required watchOS sizes.
+      Use the Claude logo or create appropriate branding.
+      Icons must be provided for all sizes in Contents.json.
+    priority: critical
+    parallel_group: 1
+    completed: true
+    verification: |
+      count=$(ls ClaudeWatch/Assets.xcassets/AppIcon.appiconset/*.png 2>/dev/null | wc -l);
+      [ "$count" -ge 8 ] && exit 0 || exit 1
+    acceptance_criteria:
+      - "PNG files exist for all required sizes"
+      - "Icons render correctly in simulator"
+      - "No placeholder or missing images"
+    files:
+      - "ClaudeWatch/Assets.xcassets/AppIcon.appiconset/"
+    tags:
+      - assets
+      - app-store
+    commit_template: "feat(assets): Add watchOS app icon assets"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Parallel Group 2: Depends on Group 1
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "C3"
+    title: "Add AI data consent dialog on first launch"
+    description: |
+      Display consent dialog on first launch explaining:
+      - Data sent to Claude API for processing
+      - Voice transcription handling
+      - No data sold to third parties
+      Use @AppStorage to track consent state.
+    priority: critical
+    parallel_group: 2
+    completed: true
+    depends_on:
+      - "C1"
+    verification: |
+      grep -q 'hasAcceptedConsent\|ConsentView\|privacyConsent' ClaudeWatch/ -r && exit 0 || exit 1
+    acceptance_criteria:
+      - "Consent view shown on first launch"
+      - "@AppStorage tracks consent state"
+      - "User can review consent in Settings"
+    files:
+      - "ClaudeWatch/Views/ConsentView.swift"
+      - "ClaudeWatch/App/ClaudeWatchApp.swift"
+      - "ClaudeWatch/Views/SettingsView.swift"
+    tags:
+      - privacy
+      - app-store
+      - onboarding
+    commit_template: "feat(privacy): Add AI data consent dialog"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 2: HIGH PRIORITY - Quality & Polish
+  # Parallel Group 3: Can run concurrently
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "H1"
+    title: "Fix font sizes below 11pt minimum"
+    description: |
+      Replace hardcoded font sizes in ComplicationViews.swift with
+      semantic styles. Ensure all text meets 11pt minimum per HIG.
+      Use .caption, .caption2, .footnote instead of explicit sizes.
+    priority: high
+    parallel_group: 3
+    completed: true
+    verification: |
+      ! grep -E '\.font\(.*size:\s*([0-9]|10)\.' ClaudeWatch/ -r 2>/dev/null
+    acceptance_criteria:
+      - "No font sizes below 11pt"
+      - "Use semantic styles where possible"
+      - "Complications remain readable"
+    files:
+      - "ClaudeWatch/Complications/ComplicationViews.swift"
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - hig
+      - typography
+      - accessibility
+    commit_template: "fix(hig): Ensure minimum 11pt font sizes"
+  - id: "H2"
+    title: "Wire App Groups for complication data sharing"
+    description: |
+      Configure App Groups entitlement and use UserDefaults(suiteName:)
+      for sharing state between main app and complications.
+    priority: high
+    parallel_group: 3
+    completed: true
+    verification: |
+      grep -q 'group.com' ClaudeWatch/*.entitlements 2>/dev/null || \
+      grep -q 'suiteName' ClaudeWatch/Services/*.swift 2>/dev/null
+    acceptance_criteria:
+      - "App Groups entitlement configured"
+      - "Complications can read shared state"
+      - "State persists across app launches"
+    files:
+      - "ClaudeWatch/ClaudeWatch.entitlements"
+      - "ClaudeWatch/Services/WatchService.swift"
+      - "ClaudeWatch/Complications/ComplicationViews.swift"
+    tags:
+      - entitlements
+      - complications
+      - state
+    commit_template: "feat(complications): Wire App Groups for data sharing"
+  - id: "H3"
+    title: "Add recording indicator for voice input"
+    description: |
+      Show visual indicator when microphone is active.
+      Required by App Store guidelines for privacy.
+      Include haptic feedback on start/stop.
+    priority: high
+    parallel_group: 3
+    completed: true
+    verification: |
+      grep -q 'isRecording\|RecordingIndicator\|recordingState' ClaudeWatch/Views/ -r
+    acceptance_criteria:
+      - "Red dot or pulsing indicator during recording"
+      - "Indicator visible in all lighting conditions"
+      - "Haptic feedback on recording start/stop"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Views/Components/RecordingIndicator.swift"
+    tags:
+      - voice
+      - privacy
+      - app-store
+    commit_template: "feat(voice): Add recording indicator"
+  - id: "H4"
+    title: "Update Swift version to 5.9+ in build settings"
+    description: |
+      Update SWIFT_VERSION in project.pbxproj from 5.0 to 5.9.
+      Enable strict concurrency checking for better safety.
+    priority: high
+    parallel_group: 3
+    completed: true
+    verification: |
+      grep -q 'SWIFT_VERSION = 5\.[9]' ClaudeWatch.xcodeproj/project.pbxproj || \
+      grep -q 'SWIFT_VERSION = 6' ClaudeWatch.xcodeproj/project.pbxproj
+    acceptance_criteria:
+      - "Swift 5.9+ in build settings"
+      - "No compilation errors"
+      - "Strict concurrency warnings addressed"
+    files:
+      - "ClaudeWatch.xcodeproj/project.pbxproj"
+    tags:
+      - build
+      - swift
+      - quality
+    commit_template: "build: Update Swift version to 5.9"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 3: MEDIUM PRIORITY - Enhancement
+  # Parallel Group 4: Can run concurrently
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "M1"
+    title: "Implement Digital Crown support"
+    description: |
+      Add .digitalCrownRotation() for scrolling lists and adjusting values.
+      Provide haptic feedback on detent boundaries.
+    priority: medium
+    parallel_group: 4
+    completed: true
+    verification: |
+      grep -q 'digitalCrownRotation\|DigitalCrown' ClaudeWatch/Views/ -r
+    acceptance_criteria:
+      - "Crown scrolls message history"
+      - "Haptic feedback on boundaries"
+      - "Smooth rotation feel"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - hig
+      - input
+      - haptics
+    commit_template: "feat(input): Add Digital Crown support"
+  - id: "M2"
+    title: "Add Always-On Display support"
+    description: |
+      Detect .isLuminanceReduced environment and show simplified UI.
+      Reduce colors, hide animations, show essential info only.
+    priority: medium
+    parallel_group: 4
+    completed: true
+    verification: |
+      grep -q 'isLuminanceReduced' ClaudeWatch/Views/ -r
+    acceptance_criteria:
+      - "Simplified UI in always-on mode"
+      - "No bright colors or animations"
+      - "Connection status always visible"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Complications/ComplicationViews.swift"
+    tags:
+      - always-on
+      - hig
+      - battery
+    commit_template: "feat(display): Add Always-On Display support"
+  - id: "M3"
+    title: "Add Dynamic Type support"
+    description: |
+      Use .dynamicTypeSize environment and prefer semantic fonts.
+      Test with all accessibility sizes.
+      Use @ScaledMetric for custom sizes.
+    priority: medium
+    parallel_group: 4
+    completed: true
+    verification: |
+      grep -q 'dynamicTypeSize\|@ScaledMetric\|DynamicType' ClaudeWatch/Views/ -r
+    acceptance_criteria:
+      - "Text scales with system setting"
+      - "Layout adapts to larger sizes"
+      - "No text truncation at largest size"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Views/SettingsView.swift"
+    tags:
+      - accessibility
+      - typography
+      - hig
+    commit_template: "feat(a11y): Add Dynamic Type support"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 4: WATCHOS 26 / LIQUID GLASS
+  # Parallel Group 5: Can run concurrently
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "LG1"
+    title: "Adopt Liquid Glass materials"
+    description: |
+      Replace .opacity() backgrounds with .ultraThinMaterial or .thinMaterial.
+      Update to translucent, depth-aware UI components using SwiftUI's
+      built-in Material types (.ultraThinMaterial, .thinMaterial, .regularMaterial).
+      These provide the glass-like effect available in watchOS 10+.
+    priority: medium
+    parallel_group: 5
+    completed: true
+    verification: |
+      grep -qE 'ultraThinMaterial|thinMaterial|regularMaterial|\.background\(\..*Material' ClaudeWatch/Views/ -r
+    acceptance_criteria:
+      - "Material backgrounds on primary containers"
+      - "Uses SwiftUI Material types (ultraThinMaterial, thinMaterial, etc.)"
+      - "Maintains readability"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Views/Components/"
+    tags:
+      - liquid-glass
+      - watchos26
+      - design
+    commit_template: "feat(design): Adopt Liquid Glass materials"
+  - id: "LG2"
+    title: "Add spring animations"
+    description: |
+      Replace linear animations with .spring() for natural feel.
+      Use .animation(.bouncy) or .interpolatingSpring() for interactive elements.
+      Spring animations make UI feel more responsive and natural.
+    priority: low
+    parallel_group: 5
+    completed: true
+    verification: |
+      grep -qE '\.spring\(|interpolatingSpring|animation\(\.bouncy|\.bouncy\)' ClaudeWatch/Views/ -r
+    acceptance_criteria:
+      - "Buttons use spring animations"
+      - "Transitions feel natural"
+      - "No jarring or abrupt motion"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - animation
+      - liquid-glass
+      - hig
+    commit_template: "feat(animation): Add spring animations"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 5: TESTING & DOCUMENTATION
+  # Parallel Group 6
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "T1"
+    title: "Add UI tests for critical flows"
+    description: |
+      Create XCUITest cases for:
+      - App launch and consent flow
+      - Connection status display
+      - Approval/rejection actions
+      - Settings navigation
+      Note: Tests should be added to ClaudeWatch/Tests/ directory.
+    priority: medium
+    parallel_group: 6
+    completed: true
+    verification: |
+      ls ClaudeWatch/Tests/UI*.swift 2>/dev/null | wc -l | grep -q '[1-9]'
+    acceptance_criteria:
+      - "UI tests for main user flows"
+      - "Tests pass on simulator"
+      - "Good coverage of critical paths"
+    files:
+      - "ClaudeWatch/Tests/"
+    tags:
+      - testing
+      - quality
+    commit_template: "test(ui): Add UI tests for critical flows"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 6: SEAMLESS PAIRING - Reduce pairing friction
+  # Parallel Group 7: Can run concurrently
+  # Spec: docs/specs/SEAMLESS_PAIRING_SPEC.md
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "SP1"
+    title: "Add clipboard paste button for pairing"
+    description: |
+      ⚠️ BLOCKED: UIPasteboard is NOT available on watchOS.
+
+      The original plan to use UIPasteboard.general cannot work on watchOS.
+      UIPasteboard is an iOS-only API - watchOS does not have direct clipboard access.
+
+      ALTERNATIVE APPROACH (requires Phase 8 - iPhone companion app):
+      Use WatchConnectivity to sync clipboard from paired iPhone:
+      1. Create iPhone companion app target
+      2. On iPhone: Read UIPasteboard and send via WCSession.sendMessage
+      3. On Watch: Receive message and populate pairing code field
+
+      This task is DEFERRED until after MVP (SP2 + SP4) ships.
+      The numeric input approach (SP2) eliminates most of the friction
+      that clipboard paste was meant to solve.
+
+      For now, users can:
+      1. Type the 6-digit numeric code (SP2)
+      2. Use deep link from terminal (SP3, if implemented)
+    priority: low
+    parallel_group: 8
+    completed: true # Marked complete to skip - redesign needed
+    blocked: true
+    blocked_reason: "UIPasteboard not available on watchOS. Requires WatchConnectivity + iPhone companion app."
+    verification: |
+      # Skip - task blocked
+      exit 0
+    acceptance_criteria:
+      - "DEFERRED - requires iPhone companion app"
+    files:
+      - "ClaudeWatch/Views/PairingView.swift"
+    tags:
+      - pairing
+      - ux
+      - clipboard
+      - blocked
+    commit_template: "feat(pairing): Add clipboard paste button for seamless pairing"
+  - id: "SP2"
+    title: "Add numeric-only pairing code input option"
+    description: |
+      Add support for numeric-only pairing codes (6 digits like "123456")
+      alongside the existing alphanumeric format. Numeric codes are faster
+      to type on the watch.
+
+      RESEARCH FINDINGS (2026-01-17):
+      - watchOS doesn't have .numberPad keyboard type like iOS
+      - Use TextFieldLink (watchOS 10+) with custom input validation
+      - Set .textContentType(.oneTimeCode) for autofill hints
+      - Leading zeros must be preserved (e.g., "012345")
+
+      Implementation:
+      1. Add TextFieldLink for numeric code entry
+      2. Validate exactly 6 digits (allow leading zeros)
+      3. Update code validation to accept both formats:
+         - Alphanumeric: ABC-123 (7 chars with hyphen)
+         - Numeric: 123456 (6 digits, no hyphen)
+      4. Show inline error for invalid input
+      5. Add haptic feedback on validation
+
+      The server already normalizes codes, so this is primarily a UX change
+      on the watch side to support faster numeric input.
+    priority: high
+    parallel_group: 7
+    completed: true
+    verification: |
+      grep -qE 'TextFieldLink|isNumericCode|numericFormat|oneTimeCode|validateCode' ClaudeWatch/Views/PairingView.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "TextFieldLink for code entry (watchOS 10+)"
+      - "Accepts 6-digit codes with leading zeros"
+      - "Maintains support for ABC-123 format"
+      - "Validation works for both formats"
+      - "Inline error display for invalid codes"
+      - "Haptic feedback on validation"
+    files:
+      - "ClaudeWatch/Views/PairingView.swift"
+    tags:
+      - pairing
+      - ux
+      - keyboard
+    commit_template: "feat(pairing): Add numeric code input for faster pairing"
+  - id: "SP3"
+    title: "Add deep link URL scheme support for pairing"
+    description: |
+      DEFERRED: Not needed for MVP. SP2 (numeric input) solves the friction problem.
+
+      Register claude-watch:// URL scheme to enable deep linking directly
+      into the pairing flow with a pre-filled code.
+
+      Implementation (when needed):
+      1. Add URL scheme to Info.plist:
+         - CFBundleURLTypes with CFBundleURLSchemes: ["claude-watch"]
+      2. Handle .onOpenURL in ClaudeWatchApp.swift
+      3. Parse URL: claude-watch://pair?code=ABC123
+
+      RESEARCH FINDINGS (2026-01-17):
+      - Adds complexity without proportional UX benefit
+      - Requires QR code generation on server side
+      - Users still need to scan/click - numeric typing is comparable effort
+      - Consider for Phase 8 after MVP validation
+    priority: low
+    parallel_group: 8
+    completed: true # Deferred - not needed for MVP
+    deferred: true
+    deferred_reason: "SP2 (numeric input) provides sufficient UX improvement for MVP"
+    verification: |
+      # Deferred - skip verification
+      exit 0
+    acceptance_criteria:
+      - "DEFERRED - implement after MVP validation"
+    files:
+      - "ClaudeWatch/App/ClaudeWatchApp.swift"
+      - "ClaudeWatch/Info.plist"
+    tags:
+      - pairing
+      - deep-links
+      - url-scheme
+      - deferred
+    commit_template: "feat(pairing): Add deep link URL scheme support"
+  - id: "SP4"
+    title: "Add server-side numeric code generation with rate limiting"
+    description: |
+      Update the Cloudflare Worker to support generating numeric-only
+      pairing codes as an alternative to alphanumeric codes.
+
+      SECURITY REQUIREMENT (from research 2026-01-17):
+      Numeric codes reduce entropy from ~30 bits to ~20 bits.
+      MUST add rate limiting to prevent brute force attacks.
+
+      Implementation:
+      1. Add optional ?format=numeric query param to POST /pair endpoint
+      2. If format=numeric, generate 6-digit code using crypto.getRandomValues
+      3. Preserve leading zeros (e.g., "012345" not "12345")
+      4. Add rate limiting via Cloudflare KV:
+         - Max 5 attempts per pairing ID per 15 minutes
+         - Return 429 with retryAfter when exceeded
+      5. Store numeric codes the same way in KV
+      6. Lookup should work for both formats
+
+      Rate limiting pattern:
+      ```javascript
+      const RATE_LIMIT = { maxAttempts: 5, windowMs: 15 * 60 * 1000 };
+      async function checkRateLimit(pairingId, env) {
+        const key = `rate:${pairingId}`;
+        const attempts = parseInt(await env.KV.get(key) || '0');
+        if (attempts >= RATE_LIMIT.maxAttempts) {
+          return { blocked: true, retryAfter: RATE_LIMIT.windowMs };
+        }
+        await env.KV.put(key, String(attempts + 1), { expirationTtl: 900 });
+        return { blocked: false };
+      }
+      ```
+    priority: high
+    parallel_group: 7
+    completed: true
+    verification: |
+      grep -qE 'format.*numeric|numericCode|generateNumeric|rateLimit|RATE_LIMIT' MCPServer/worker/src/index.js && exit 0 || exit 1
+    acceptance_criteria:
+      - "POST /pair accepts ?format=numeric query param"
+      - "Generates 6-digit numeric codes with leading zeros preserved"
+      - "Rate limiting: max 5 attempts per 15 minutes per pairing ID"
+      - "Returns 429 with retryAfter when rate limited"
+      - "Default format unchanged (ABC-123)"
+      - "Numeric codes stored and retrieved correctly"
+    files:
+      - "MCPServer/worker/src/index.js"
+    tags:
+      - pairing
+      - server
+      - api
+      - security
+    commit_template: "feat(api): Add numeric pairing code generation with rate limiting"
+  - id: "SP5"
+    title: "Add pairing code scannability via QR display hint"
+    description: |
+      DEFERRED: Nice-to-have after MVP. Depends on SP3 (deep links) being implemented.
+
+      When Claude Code displays the pairing code in terminal, also provide
+      a hint about the QR code URL that can be used for future scanning.
+
+      Implementation (when needed):
+      1. Update server response to include a qrUrl field:
+         { code: "ABC-123", qrUrl: "claude-watch://pair?code=ABC-123", ... }
+      2. This URL can be:
+         - Converted to QR code by CLI tools
+         - Clicked if terminal supports hyperlinks
+         - Scanned by future iOS companion app
+
+      RESEARCH FINDINGS (2026-01-17):
+      - Requires SP3 (deep links) to be useful
+      - SP3 is deferred, so SP5 should also be deferred
+      - Numeric input (SP2) provides sufficient UX for MVP
+    priority: low
+    parallel_group: 8
+    completed: true # Deferred - depends on SP3
+    deferred: true
+    deferred_reason: "Depends on SP3 (deep links) which is deferred"
+    verification: |
+      # Deferred - skip verification
+      exit 0
+    acceptance_criteria:
+      - "DEFERRED - implement after SP3"
+    files:
+      - "MCPServer/worker/src/index.js"
+    tags:
+      - pairing
+      - server
+      - qr-code
+      - deferred
+    commit_template: "feat(api): Add QR-scannable deep link URL to pairing response"
+  # --- Phase 7.0: Pre-Planning Verification (parallel_group: 9) ---
+  - id: "UX0"
+    # ═══════════════════════════════════════════════════════════════════════════
+    # PHASE 7: UX IMPROVEMENTS - Component Architecture & Design System (FLATTENED)
+    # From: plans/feat-ux-improvement-watchos.md (DEEPENED + SIMPLIFIED)
+    # Updated: 2026-01-17 - Flattened from 14 files to 5 files per plan review
+    # Parallel Groups 10-14
+    #
+    # KEY LEARNINGS APPLIED:
+    # - Over-engineering prevention: Read existing code before designing new components
+    # - watchOS 26: Liquid Glass, native TextField for dictation, WKApplication
+    # - Async state: Always use @MainActor Task with defer for loading states
+    # - NavigationStack: Required at outermost level for toolbar visibility
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    title: "Verify existing code before component extraction"
+    description: |
+      CRITICAL: Pre-planning code review to prevent over-engineering.
+      From documented learning: 80% of planned features often already exist.
+
+      Verification steps:
+      1. Read MainView.swift lines 7-29 (Claude enum) - confirm it exists
+      2. Read lines 157-173 (animation extensions) - confirm patterns
+      3. Check ConsentView.swift for duplicate Claude enum
+      4. Check ComplicationViews.swift for duplicate Claude enum
+      5. Document what can be REUSED vs what needs to be CREATED
+
+      This task MUST complete before any extraction begins.
+    priority: critical
+    parallel_group: 9
+    completed: true
+    verification: |
+      # Verify we've read the key files
+      grep -q 'enum Claude' ClaudeWatch/Views/MainView.swift && \
+      grep -q 'buttonSpring\|spring' ClaudeWatch/Views/MainView.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "MainView.swift Claude enum location documented"
+      - "Animation extensions location documented"
+      - "Duplicate enums identified in ConsentView and ComplicationViews"
+      - "Pre-planning checklist completed"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Views/ConsentView.swift"
+      - "ClaudeWatch/Complications/ComplicationViews.swift"
+    tags:
+      - pre-planning
+      - verification
+      - anti-overengineering
+    commit_template: "docs(ux): Complete pre-planning verification for component extraction"
+  # --- Phase 7.1: Design System Centralization (parallel_group: 10) ---
+  # FLATTENED: Single Claude.swift contains colors, materials, spacing, button styles, animations
+  - id: "UX1"
+    title: "Create unified Claude design system"
+    description: |
+      Create DesignSystem/Claude.swift as SINGLE file containing all design tokens.
+      FLATTENED from 3 files (Claude.swift, ClaudeButtonStyle.swift, ClaudeAnimations.swift).
+
+      Implementation:
+      1. Create ClaudeWatch/DesignSystem/ directory
+      2. Create Claude.swift with:
+         - Brand colors (orange, orangeLight, orangeDark)
+         - Semantic colors (success, danger, warning, info)
+         - Surface colors (background, surface1, surface2, surface3)
+         - Text colors (textPrimary, textSecondary, textTertiary)
+         - Materials enum with card, overlay, prominent
+         - Spacing enum with xs, sm, md, lg, xl
+         - Radius enum with small, medium, large, xlarge
+         - ClaudePrimaryButtonStyle with press feedback
+         - Animation extensions (buttonSpring, bouncySpring, etc.)
+      3. Add file to project.pbxproj
+    priority: critical
+    parallel_group: 10
+    completed: true
+    verification: |
+      [ -f "ClaudeWatch/DesignSystem/Claude.swift" ] && \
+      grep -q 'enum Claude' ClaudeWatch/DesignSystem/Claude.swift && \
+      grep -q 'ClaudePrimaryButtonStyle\|ButtonStyle' ClaudeWatch/DesignSystem/Claude.swift && \
+      grep -q 'buttonSpring\|Animation' ClaudeWatch/DesignSystem/Claude.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "Claude.swift contains all color definitions"
+      - "Materials, Spacing, and Radius nested enums defined"
+      - "ClaudePrimaryButtonStyle with press feedback included"
+      - "Animation extensions included"
+      - "Single file - no separate ButtonStyle or Animations files"
+    files:
+      - "ClaudeWatch/DesignSystem/Claude.swift"
+      - "ClaudeWatch.xcodeproj/project.pbxproj"
+    tags:
+      - design-system
+      - refactor
+      - ux
+      - flattened
+    commit_template: "refactor(design): Create unified Claude design system (flattened)"
+  - id: "UX2"
+    title: "Remove duplicate Claude enum from other files"
+    description: |
+      Remove duplicate Claude color definitions from ConsentView.swift
+      and ComplicationViews.swift. Update imports to use centralized system.
+
+      Implementation:
+      1. Remove duplicate Claude enum from ConsentView.swift
+      2. Update ConsentView to use centralized Claude colors
+      3. Update ComplicationViews.swift to use centralized colors
+      4. Remove Claude enum and animation extensions from MainView.swift
+      5. Verify no color definitions outside DesignSystem/
+    priority: high
+    parallel_group: 10
+    depends_on:
+      - "UX1"
+    completed: true
+    verification: |
+      ! grep -q 'private enum Claude' ClaudeWatch/Views/ConsentView.swift && \
+      ! grep -q 'private enum Claude' ClaudeWatch/Complications/ComplicationViews.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "No duplicate Claude enum in ConsentView.swift"
+      - "No duplicate Claude enum in ComplicationViews.swift"
+      - "No Claude enum in MainView.swift"
+      - "All files use centralized design system"
+    files:
+      - "ClaudeWatch/Views/ConsentView.swift"
+      - "ClaudeWatch/Complications/ComplicationViews.swift"
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - design-system
+      - cleanup
+      - refactor
+    commit_template: "refactor(design): Remove duplicate Claude enum definitions"
+  # --- Phase 7.2: Component Extraction - FLATTENED (parallel_group: 11) ---
+  # 4 view files instead of 14 files across 6 directories
+  - id: "UX3"
+    title: "Create StateViews.swift with all state views"
+    description: |
+      FLATTENED: Create Views/StateViews.swift containing all state views in ONE file.
+      Replaces: States/EmptyStateView.swift, OfflineStateView.swift, ReconnectingView.swift, AlwaysOnDisplayView.swift
+
+      Implementation:
+      1. Create ClaudeWatch/Views/StateViews.swift
+      2. Extract from MainView.swift:
+         - EmptyStateView
+         - OfflineStateView
+         - ReconnectingView
+         - AlwaysOnDisplayView
+      3. Add SwiftUI previews for each view
+      4. Add file to project.pbxproj
+
+      Target: ~200 lines for all state views together
+    priority: high
+    parallel_group: 11
+    depends_on:
+      - "UX1"
+    completed: true
+    verification: |
+      [ -f "ClaudeWatch/Views/StateViews.swift" ] && \
+      grep -q 'EmptyStateView' ClaudeWatch/Views/StateViews.swift && \
+      grep -q 'OfflineStateView' ClaudeWatch/Views/StateViews.swift && \
+      grep -q 'AlwaysOnDisplayView' ClaudeWatch/Views/StateViews.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "StateViews.swift contains all state views"
+      - "Each view has SwiftUI preview"
+      - "File under 300 lines"
+    files:
+      - "ClaudeWatch/Views/StateViews.swift"
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch.xcodeproj/project.pbxproj"
+    tags:
+      - component-extraction
+      - refactor
+      - flattened
+    commit_template: "refactor(views): Extract state views to StateViews.swift"
+  - id: "UX4"
+    title: "Create ActionViews.swift with action queue and cards"
+    description: |
+      FLATTENED: Create Views/ActionViews.swift containing action components in ONE file.
+      Replaces: ActionQueue/ActionQueueView.swift, PrimaryActionCard.swift, CompactActionCard.swift + StatusHeader
+
+      Implementation:
+      1. Create ClaudeWatch/Views/ActionViews.swift
+      2. Extract from MainView.swift:
+         - StatusHeader
+         - ActionQueueView
+         - PrimaryActionCard
+         - CompactActionCard
+      3. Add SwiftUI previews for each view
+      4. Add file to project.pbxproj
+
+      Target: ~250 lines for all action views together
+    priority: high
+    parallel_group: 11
+    depends_on:
+      - "UX1"
+    completed: true
+    verification: |
+      [ -f "ClaudeWatch/Views/ActionViews.swift" ] && \
+      grep -q 'StatusHeader' ClaudeWatch/Views/ActionViews.swift && \
+      grep -q 'PrimaryActionCard' ClaudeWatch/Views/ActionViews.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "ActionViews.swift contains StatusHeader, ActionQueueView, action cards"
+      - "Each view has SwiftUI preview"
+      - "File under 300 lines"
+    files:
+      - "ClaudeWatch/Views/ActionViews.swift"
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch.xcodeproj/project.pbxproj"
+    tags:
+      - component-extraction
+      - refactor
+      - flattened
+    commit_template: "refactor(views): Extract action views to ActionViews.swift"
+  - id: "UX5"
+    title: "Create CommandViews.swift with command grid and mode selector"
+    description: |
+      FLATTENED: Create Views/CommandViews.swift containing command components in ONE file.
+      Replaces: Commands/CommandGrid.swift, CommandButton.swift + Components/ModeSelector.swift
+
+      Implementation:
+      1. Create ClaudeWatch/Views/CommandViews.swift
+      2. Extract from MainView.swift:
+         - CommandGrid
+         - CommandButton
+         - ModeSelector
+      3. Add SwiftUI previews for each view
+      4. Add file to project.pbxproj
+
+      Target: ~150 lines for all command views together
+    priority: high
+    parallel_group: 11
+    depends_on:
+      - "UX1"
+    completed: true
+    verification: |
+      [ -f "ClaudeWatch/Views/CommandViews.swift" ] && \
+      grep -q 'CommandGrid' ClaudeWatch/Views/CommandViews.swift && \
+      grep -q 'ModeSelector' ClaudeWatch/Views/CommandViews.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "CommandViews.swift contains CommandGrid, CommandButton, ModeSelector"
+      - "Each view has SwiftUI preview"
+      - "File under 300 lines"
+    files:
+      - "ClaudeWatch/Views/CommandViews.swift"
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch.xcodeproj/project.pbxproj"
+    tags:
+      - component-extraction
+      - refactor
+      - flattened
+    commit_template: "refactor(views): Extract command views to CommandViews.swift"
+  - id: "UX6"
+    title: "Create SheetViews.swift with voice input and settings"
+    description: |
+      FLATTENED: Create Views/SheetViews.swift containing sheet views in ONE file.
+      Replaces: Sheets/VoiceInputSheet.swift, SettingsSheet.swift
+
+      RESEARCH INSIGHT (watchOS 26):
+      VoiceInputSheet should use native SwiftUI TextField which auto-enables dictation.
+      Do NOT use deprecated presentTextInputController API.
+
+      Implementation:
+      1. Create ClaudeWatch/Views/SheetViews.swift
+      2. Extract from MainView.swift:
+         - VoiceInputSheet (use native TextField, not WatchKit voice input)
+         - SettingsSheet (with complete Exit Demo Mode state reset)
+      3. Add SwiftUI previews
+      4. Add file to project.pbxproj
+
+      Modern VoiceInputSheet pattern:
+      ```swift
+      struct VoiceInputSheet: View {
+          @State private var inputText = ""
+          @FocusState private var isTextFieldFocused: Bool
+
+          var body: some View {
+              VStack {
+                  TextField("Type or dictate...", text: $inputText)
+                      .focused($isTextFieldFocused)
+                  // Suggestion chips...
+              }
+          }
+      }
+      ```
+
+      Target: ~200 lines for both sheet views together
+    priority: high
+    parallel_group: 11
+    depends_on:
+      - "UX1"
+    completed: true
+    verification: |
+      [ -f "ClaudeWatch/Views/SheetViews.swift" ] && \
+      grep -q 'VoiceInputSheet' ClaudeWatch/Views/SheetViews.swift && \
+      grep -q 'SettingsSheet' ClaudeWatch/Views/SheetViews.swift && \
+      grep -q 'TextField\|FocusState' ClaudeWatch/Views/SheetViews.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "SheetViews.swift contains VoiceInputSheet and SettingsSheet"
+      - "Uses native TextField (not WatchKit presentTextInputController)"
+      - "SettingsSheet has complete Exit Demo Mode state reset"
+      - "File under 300 lines"
+    files:
+      - "ClaudeWatch/Views/SheetViews.swift"
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch.xcodeproj/project.pbxproj"
+    tags:
+      - component-extraction
+      - refactor
+      - flattened
+      - deprecation-fix
+    commit_template: "refactor(views): Extract sheet views to SheetViews.swift"
+  - id: "UX7"
+    title: "Refactor MainView to compose extracted components"
+    description: |
+      Final MainView refactoring to compose all extracted components.
+      MainView should now only contain composition logic.
+
+      Implementation:
+      1. Remove all extracted views from MainView.swift
+      2. Import extracted view files
+      3. MainView body should compose:
+         - StateViews (EmptyStateView, etc.)
+         - ActionViews (StatusHeader, ActionQueueView, etc.)
+         - CommandViews (CommandGrid, ModeSelector)
+         - SheetViews (VoiceInputSheet, SettingsSheet)
+      4. Add SwiftUI previews
+
+      Target: MainView.swift under 250 lines
+    priority: high
+    parallel_group: 11
+    depends_on:
+      - "UX3"
+      - "UX4"
+      - "UX5"
+      - "UX6"
+    completed: true
+    verification: |
+      lines=$(wc -l < ClaudeWatch/Views/MainView.swift | tr -d ' ');
+      [ "$lines" -lt 300 ] && exit 0 || echo "MainView has $lines lines (target: <300)" && exit 1
+    acceptance_criteria:
+      - "MainView.swift under 250 lines"
+      - "Only composition, no embedded components"
+      - "Imports all extracted view files"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - refactor
+      - composition
+      - flattened
+    commit_template: "refactor(views): Refactor MainView to compose extracted components"
+  # --- Phase 7.3: Accessibility Enhancements (parallel_group: 12) ---
+  - id: "UX8"
+    title: "Add Reduce Motion support to all animations"
+    description: |
+      Add @Environment(\.accessibilityReduceMotion) checks to all animated views.
+
+      Implementation:
+      1. Add reduceMotion environment to all views with animations
+      2. Disable/simplify animations when reduceMotion is true
+      3. Check pulse animations in ActionViews.swift (StatusHeader)
+      4. Check button press animations
+      5. Check transition animations
+    priority: medium
+    parallel_group: 12
+    depends_on:
+      - "UX3"
+      - "UX4"
+      - "UX5"
+      - "UX6"
+    completed: true
+    verification: |
+      count=$(grep -r 'accessibilityReduceMotion' ClaudeWatch/Views/ 2>/dev/null | wc -l);
+      [ "$count" -ge 5 ] && exit 0 || exit 1
+    acceptance_criteria:
+      - "All animated views check reduceMotion"
+      - "Animations disabled when reduceMotion is true"
+      - "No jarring motion for vestibular-sensitive users"
+    files:
+      - "ClaudeWatch/Views/ActionViews.swift"
+      - "ClaudeWatch/Views/CommandViews.swift"
+      - "ClaudeWatch/DesignSystem/Claude.swift"
+    tags:
+      - accessibility
+      - animation
+      - a11y
+    commit_template: "fix(a11y): Add Reduce Motion support to all animations"
+  - id: "UX9"
+    title: "Add VoiceOver announcements for state changes"
+    description: |
+      Add proper VoiceOver announcements for mode changes and recording state.
+
+      Implementation:
+      1. Add UIAccessibility.post(notification:) for mode changes
+      2. Add announcement when recording starts/stops
+      3. Ensure VoiceOver reads primary action first (Approve before Reject)
+      4. Add accessibilityAction for AssistiveTouch gestures
+    priority: medium
+    parallel_group: 12
+    completed: true
+    verification: |
+      grep -rq 'UIAccessibility.post\|accessibilityAction' ClaudeWatch/Views/ && exit 0 || exit 1
+    acceptance_criteria:
+      - "Mode changes announced to VoiceOver"
+      - "Recording state changes announced"
+      - "Approve button read before Reject"
+    files:
+      - "ClaudeWatch/Views/CommandViews.swift"
+      - "ClaudeWatch/Views/ActionViews.swift"
+    tags:
+      - accessibility
+      - voiceover
+      - a11y
+    commit_template: "fix(a11y): Add VoiceOver announcements for state changes"
+  - id: "UX10"
+    title: "Add high contrast mode support"
+    description: |
+      Add support for increased contrast accessibility setting.
+
+      Implementation:
+      1. Add @Environment(\.colorSchemeContrast) checks
+      2. Increase te
+      xt color opacity for tertiary text in high contrast
+      3. Add stronger borders/outlines in high contrast mode
+      4. Test WCAG 2.1 AA contrast ratios
+    priority: medium
+    parallel_group: 12
+    completed: true
+    verification: |
+      grep -rq 'colorSchemeContrast\|accessibilityContrast' ClaudeWatch/Views/ && exit 0 || exit 1
+    acceptance_criteria:
+      - "High contrast mode detected"
+      - "Text colors adjusted for high contrast"
+      - "Meets WCAG 2.1 AA standards"
+    files:
+      - "ClaudeWatch/DesignSystem/Claude.swift"
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - accessibility
+      - contrast
+      - a11y
+    commit_template: "fix(a11y): Add high contrast mode support"
+  # --- Phase 7.4: Animation Modernization & Liquid Glass (parallel_group: 13) ---
+  - id: "UX11"
+    title: "Add symbol effects to status icons"
+    description: |
+      Add modern symbol effects to SF Symbol icons for visual feedback.
+      watchOS 26 supports full symbol effects API.
+
+      Implementation:
+      1. Add .symbolEffect(.pulse) to status icons when running/waiting
+      2. Add .symbolEffect(.bounce) on connection status changes
+      3. Add .contentTransition(.symbolEffect) for icon state changes
+      4. Respect reduceMotion preference
+    priority: medium
+    parallel_group: 13
+    depends_on:
+      - "UX8"
+    completed: true
+    verification: |
+      grep -rq 'symbolEffect\|contentTransition' ClaudeWatch/Views/ && exit 0 || exit 1
+    acceptance_criteria:
+      - "Status icons have symbol effects"
+      - "Effects respect reduceMotion"
+      - "Smooth icon state transitions"
+    files:
+      - "ClaudeWatch/Views/ActionViews.swift"
+      - "ClaudeWatch/Views/StateViews.swift"
+    tags:
+      - animation
+      - sf-symbols
+      - watchos26
+    commit_template: "feat(animation): Add symbol effects to status icons"
+  - id: "UX12"
+    title: "Replace manual haptics with sensoryFeedback modifier"
+    description: |
+      Migrate from WKInterfaceDevice.current().play() to SwiftUI sensoryFeedback
+      modifier where appropriate. watchOS 26 fully supports sensoryFeedback.
+
+      Implementation:
+      1. Replace .play(.success) with .sensoryFeedback(.success, trigger:)
+      2. Replace .play(.failure) with .sensoryFeedback(.error, trigger:)
+      3. Replace .play(.click) with .sensoryFeedback(.selection, trigger:)
+      4. Keep WKInterfaceDevice for complex haptic patterns
+    priority: medium
+    parallel_group: 13
+    completed: true
+    verification: |
+      count=$(grep -r 'sensoryFeedback' ClaudeWatch/Views/ 2>/dev/null | wc -l);
+      [ "$count" -ge 3 ] && exit 0 || exit 1
+    acceptance_criteria:
+      - "Button feedback uses sensoryFeedback modifier"
+      - "Haptics still work correctly"
+      - "Code is more SwiftUI-native"
+    files:
+      - "ClaudeWatch/Views/ActionViews.swift"
+      - "ClaudeWatch/Views/CommandViews.swift"
+      - "ClaudeWatch/DesignSystem/Claude.swift"
+    tags:
+      - haptics
+      - watchos26
+      - swiftui
+    commit_template: "refactor(haptics): Use sensoryFeedback modifier"
+  - id: "UX13"
+    title: "Adopt Liquid Glass materials for watchOS 26"
+    description: |
+      Adopt watchOS 26 Liquid Glass design system using .glassEffect() modifier.
+
+      Implementation:
+      1. Add .glassEffect() to card backgrounds
+      2. Update materials in Claude.swift to use Liquid Glass
+      3. Test visual appearance on watchOS 26 simulator
+      4. Ensure fallback for older watchOS versions if needed
+    priority: medium
+    parallel_group: 13
+    completed: true
+    verification: |
+      grep -rq 'glassEffect\|liquidGlass' ClaudeWatch/ && exit 0 || exit 1
+    acceptance_criteria:
+      - "Cards use Liquid Glass effect"
+      - "Visual style matches watchOS 26 HIG"
+      - "No visual regressions"
+    files:
+      - "ClaudeWatch/DesignSystem/Claude.swift"
+      - "ClaudeWatch/Views/ActionViews.swift"
+      - "ClaudeWatch/Views/StateViews.swift"
+    tags:
+      - liquid-glass
+      - watchos26
+      - design
+    commit_template: "feat(design): Adopt Liquid Glass materials for watchOS 26"
+  # --- Phase 7.5: Error Handling & State Recovery (parallel_group: 14) ---
+  # KEY LEARNINGS APPLIED:
+  # - Async state: Use @MainActor Task with defer inside for loading states
+  # - NavigationStack: Required for toolbar visibility on watchOS
+  # - Complete state reset: Must reset ALL related variables atomically
+  - id: "UX14"
+    title: "Add inline error banners for network failures"
+    description: |
+      Add user-visible error feedback when network operations fail.
+
+      RESEARCH INSIGHT (from docs/solutions/ui-bugs/pairing-flow-loading-spinner):
+      Always use @MainActor Task with defer inside to reset loading states.
+
+      Implementation:
+      1. Add ErrorBanner view to ActionViews.swift
+      2. Show banner when approval/rejection fails
+      3. Show banner when polling fails
+      4. Auto-dismiss after 3 seconds
+      5. Add haptic feedback for errors
+      6. Use correct defer pattern:
+
+      ```swift
+      func performAction() {
+          isLoading = true
+          Task { @MainActor in
+              defer { isLoading = false }
+              do {
+                  try await service.perform()
+                  WKInterfaceDevice.current().play(.success)
+              } catch {
+                  errorMessage = error.localizedDescription
+              }
+          }
+      }
+      ```
+    priority: medium
+    parallel_group: 14
+    completed: true
+    verification: |
+      grep -rq 'ErrorBanner\|showError\|errorMessage' ClaudeWatch/Views/ && exit 0 || exit 1
+    acceptance_criteria:
+      - "ErrorBanner view exists in ActionViews.swift"
+      - "Network failures show inline error"
+      - "Errors auto-dismiss after 3 seconds"
+      - "Uses correct @MainActor defer pattern"
+    files:
+      - "ClaudeWatch/Views/ActionViews.swift"
+    tags:
+      - error-handling
+      - ux
+      - feedback
+      - async-pattern
+    commit_template: "feat(ux): Add inline error banners for network failures"
+  - id: "UX15"
+    title: "Add Approve All confirmation"
+    description: |
+      Add confirmation before batch approving all pending actions.
+
+      Implementation:
+      1. Add .confirmationDialog to Approve All button
+      2. Show action count in confirmation
+      3. Require explicit tap to confirm
+      4. Add haptic feedback on confirm
+    priority: low
+    parallel_group: 14
+    completed: true
+    verification: |
+      grep -rq 'confirmationDialog\|confirmApproveAll' ClaudeWatch/Views/ && exit 0 || exit 1
+    acceptance_criteria:
+      - "Approve All shows confirmation"
+      - "Shows number of actions to approve"
+      - "Can cancel batch approval"
+    files:
+      - "ClaudeWatch/Views/ActionViews.swift"
+    tags:
+      - ux
+      - safety
+      - confirmation
+    commit_template: "feat(ux): Add confirmation for Approve All"
+  - id: "UX16"
+    title: "Verify NavigationStack at app root"
+    description: |
+      CRITICAL LEARNING (from docs/solutions/ui-bugs/watchos-demo-mode-stuck-no-exit):
+      Toolbar items require NavigationStack context to render on watchOS.
+      Without NavigationStack at the outermost level, settings toolbar is invisible.
+
+      Implementation:
+      1. Verify ClaudeWatchApp.swift wraps MainView in NavigationStack
+      2. Ensure toolbar items appear correctly
+      3. Verify every view state has an escape path (exit button visible)
+
+      Required pattern:
+      ```swift
+      // ClaudeWatchApp.swift
+      WindowGroup {
+          NavigationStack {
+              MainView()  // Toolbar now visible
+          }
+      }
+      ```
+
+      If NavigationStack is missing, add it. This prevents users from getting
+      stuck in demo mode or other states with no escape.
+    priority: critical
+    parallel_group: 14
+    completed: true
+    verification: |
+      grep -q 'NavigationStack' ClaudeWatch/App/ClaudeWatchApp.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "NavigationStack wraps MainView in ClaudeWatchApp"
+      - "Settings toolbar button visible in all states"
+      - "Every state has an escape path"
+    files:
+      - "ClaudeWatch/App/ClaudeWatchApp.swift"
+    tags:
+      - navigation
+      - critical-fix
+      - toolbar
+    commit_template: "fix(nav): Ensure NavigationStack at app root for toolbar visibility"
+  - id: "UX17"
+    title: "Add complete state reset for Exit Demo Mode"
+    description: |
+      CRITICAL LEARNING (from docs/solutions/ui-bugs/watchos-demo-mode-stuck-no-exit):
+      Incomplete state reset leaves app stuck. Must reset ALL related variables.
+
+      Implementation in WatchService.swift:
+      ```swift
+      // BUG: Incomplete reset
+      func exitDemoMode() {
+          isDemoMode = false
+          state = WatchState()
+          // Missing: connectionStatus, pairingId
+      }
+
+      // FIXED: Atomic complete reset
+      func exitDemoMode() {
+          isDemoMode = false
+          state = WatchState()
+          connectionStatus = .disconnected
+          pairingId = ""  // Critical - enables PairingView
+      }
+      ```
+
+      Also ensure StateViews.swift EmptyStateView has "Pair with Code" button when unpaired.
+    priority: high
+    parallel_group: 14
+    completed: true
+    verification: |
+      grep -q 'exitDemoMode\|pairingId.*=.*""' ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "exitDemoMode resets isDemoMode, state, connectionStatus, and pairingId"
+      - "EmptyStateView shows Pair with Code when unpaired"
+      - "Exit Demo Mode returns to PairingView correctly"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+      - "ClaudeWatch/Views/StateViews.swift"
+    tags:
+      - state-management
+      - critical-fix
+      - recovery
+    commit_template: "fix(state): Add complete state reset for Exit Demo Mode"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # INFRASTRUCTURE: Ralph Parallel Execution
+  # Parallel Group 15: Tooling improvements
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "INFRA1"
+    title: "Implement parallel worker infrastructure for Ralph"
+    description: |
+      Implement the parallel execution system as specified in PARALLEL-IMPL-SPEC.md.
+
+      Phase 1 - Create parallel infrastructure:
+      1. Create .claude/ralph/parallel/ directory structure
+      2. Create parallel-utils.sh with locking and queue functions
+      3. Create ralph-worker.sh worker process script
+
+      Phase 2 - Extend ralph.sh:
+      1. Add --parallel, --max-workers, --parallel-group arguments
+      2. Add run_parallel_loop() coordinator function
+      3. Add worker spawning and shutdown logic
+
+      Phase 3 - Add validation pipeline:
+      1. Implement validate_parallel_batch() with syntax check
+      2. Add merge_worktree_to_main() for git coordination
+      3. Integrate with existing build verification
+
+      Reference: .claude/ralph/PARALLEL-IMPL-SPEC.md
+    priority: high
+    parallel_group: 15
+    completed: true
+    verification: |
+      [[ -f ".claude/ralph/parallel-utils.sh" ]] && \
+      [[ -f ".claude/ralph/ralph-worker.sh" ]] && \
+      grep -q 'parallel' .claude/ralph/ralph.sh && exit 0 || exit 1
+    acceptance_criteria:
+      - "parallel-utils.sh exists with locking functions"
+      - "ralph-worker.sh exists and is executable"
+      - "ralph.sh supports --parallel flag"
+      - "Workers can claim and execute tasks"
+    files:
+      - ".claude/ralph/parallel-utils.sh"
+      - ".claude/ralph/ralph-worker.sh"
+      - ".claude/ralph/ralph.sh"
+    tags:
+      - infrastructure
+      - parallel
+      - tooling
+    commit_template: "feat(ralph): Implement parallel worker execution system"
+  - id: "INFRA2"
+    title: "Add parallel thread visualization to monitor-ralph.sh"
+    description: |
+      Update monitor-ralph.sh to display parallel execution status with
+      visual thread representation to help developers understand which
+      tasks are grouped into which threads.
+
+      Visualization requirements:
+      1. Show 3 worker threads with status (idle/running/paused)
+      2. Display current task ID and title for each active worker
+      3. Show progress bar estimation for running tasks
+      4. Visualize task queue grouped by parallel_group
+      5. Show file locks held by each worker
+      6. Use color coding: green=running, yellow=idle, red=stopped
+
+      ASCII layout for parallel threads:
+      ```
+      ┌─────────────────────────────────────────────────────────┐
+      │  WORKER THREADS                                          │
+      ├─────────────────────────────────────────────────────────┤
+      │  ▶ Thread 1 ─── UX3: Create StateViews.swift            │
+      │              [████████████░░░░░░░░] 60%                  │
+      │                                                          │
+      │  ▶ Thread 2 ─── UX4: Create ActionViews.swift           │
+      │              [██████░░░░░░░░░░░░░░] 30%                  │
+      │                                                          │
+      │  ○ Thread 3 ─── waiting for task...                      │
+      └─────────────────────────────────────────────────────────┘
+
+      TASK QUEUE BY PARALLEL GROUP
+      ├─────────────────────────────────────────────────────────┤
+      │  ✓ Group 10 [2/2] ───────────────────────────────────── │
+      │    [UX1] [UX2]                                           │
+      │                                                          │
+      │  ► Group 11 [1/4] ───────────────────────────────────── │
+      │    [UX3] [UX4] [UX5] [UX6]                               │
+      │    └── Can run in parallel (no file conflicts)          │
+      └─────────────────────────────────────────────────────────┘
+      ```
+
+      Reference: .claude/ralph/PARALLEL-IMPL-SPEC.md section 2.1
+    priority: medium
+    parallel_group: 15
+    completed: true
+    depends_on:
+      - "INFRA1"
+    verification: |
+      grep -q 'show_parallel_threads\|WORKER THREADS' .claude/ralph/monitor-ralph.sh && exit 0 || exit 1
+    acceptance_criteria:
+      - "Monitor shows worker thread status visualization"
+      - "Task queue displays by parallel_group"
+      - "File locks are visible when held"
+      - "Color coding matches status"
+    files:
+      - ".claude/ralph/monitor-ralph.sh"
+    tags:
+      - infrastructure
+      - parallel
+      - monitoring
+      - visualization
+    commit_template: "feat(ralph): Add parallel thread visualization to monitor"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # iOS 26 / watchOS 13: Foundation Models & Liquid Glass
+  # Parallel Group 16: Platform modernization
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "FM1"
+    title: "Add Foundation Models availability check to WatchService"
+    description: |
+      Integrate Apple's on-device LLM (Foundation Models framework) for local
+      AI processing without cloud dependency.
+
+      Implementation:
+      1. Import FoundationModels framework
+      2. Add SystemLanguageModel.default availability check
+      3. Create graceful fallback for unsupported devices
+      4. Show download progress when .modelNotReady
+
+      Reference: Read Apple's hidden docs first:
+      /Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/
+        Versions/A/Resources/AdditionalDocumentation/
+        FoundationModels-Using-on-device-LLM-in-your-app.md
+
+      Use cases for Claude Watch:
+      - Parse notifications locally without network
+      - Summarize pending actions on-device
+      - Voice command processing offline
+      - Privacy-preserving action classification
+    priority: medium
+    parallel_group: 16
+    completed: true
+    verification: |
+      grep -q 'FoundationModels\|SystemLanguageModel' ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "FoundationModels imported in WatchService"
+      - "Availability check implemented"
+      - "Fallback UI for unsupported devices"
+      - "Download progress shown when model not ready"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - ios26
+      - foundation-models
+      - on-device-ai
+    commit_template: "feat(ai): Add Foundation Models availability check"
+  - id: "FM2"
+    title: "Create @Generable ApprovalRequest for structured parsing"
+    description: |
+      Use Foundation Models' @Generable macro for type-safe parsing of
+      incoming Claude Code actions.
+
+      Implementation:
+      ```swift
+      import FoundationModels
+
+      @Generable(description: "Parsed approval request from Claude Code")
+      struct ApprovalRequest {
+          @Guide(description: "Action type", .options("file_edit", "command", "api_call"))
+          var actionType: String
+
+          @Guide(description: "Risk level 1-5", .range(1...5))
+          var riskLevel: Int
+
+          @Guide(description: "One sentence summary")
+          var summary: String
+      }
+      ```
+
+      Benefits:
+      - Type-safe structured output from LLM
+      - No manual JSON parsing
+      - Automatic validation via @Guide constraints
+      - Works with streaming via PartiallyGenerated
+    priority: medium
+    parallel_group: 16
+    completed: true
+    depends_on:
+      - "FM1"
+    verification: |
+      grep -q '@Generable' ClaudeWatch/Models/*.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "@Generable struct defined for approval requests"
+      - "@Guide annotations for all fields"
+      - "Integration with LanguageModelSession"
+    files:
+      - "ClaudeWatch/Models/ApprovalRequest.swift"
+    tags:
+      - ios26
+      - foundation-models
+      - structured-generation
+    commit_template: "feat(ai): Add @Generable ApprovalRequest for structured parsing"
+  - id: "LG1"
+    title: "Adopt Liquid Glass design for main UI"
+    description: |
+      Replace custom materials with iOS 26 Liquid Glass for native feel.
+
+      Implementation:
+      1. Replace .background(.regularMaterial) with .glassEffect()
+      2. Use .buttonStyle(.glass) for action buttons
+      3. Use .buttonStyle(.glassProminent) for primary actions
+      4. Wrap related views in GlassEffectContainer
+      5. Add .interactive() for touch-responsive glass
+
+      Reference: Read Apple's hidden docs:
+      /Applications/Xcode.app/Contents/PlugIns/IDEIntelligenceChat.framework/
+        Versions/A/Resources/AdditionalDocumentation/
+        SwiftUI-Implementing-Liquid-Glass-Design.md
+
+      Key patterns:
+      ```swift
+      // Before
+      Text("Status").background(.regularMaterial)
+
+      // After
+      Text("Status").glassEffect(.regular.interactive())
+      ```
+    priority: medium
+    parallel_group: 16
+    completed: true
+    verification: |
+      grep -rq 'glassEffect\|buttonStyle(.glass' ClaudeWatch/Views/ && exit 0 || exit 1
+    acceptance_criteria:
+      - "Main views use .glassEffect()"
+      - "Buttons use .glass or .glassProminent style"
+      - "GlassEffectContainer wraps related views"
+      - "Interactive glass for touch elements"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Views/ActionViews.swift"
+      - "ClaudeWatch/Views/StateViews.swift"
+    tags:
+      - ios26
+      - liquid-glass
+      - design
+    commit_template: "feat(ui): Adopt Liquid Glass design language"
+  - id: "LG2"
+    title: "Add glass morphing transitions between states"
+    description: |
+      Implement smooth morphing transitions using Liquid Glass namespace.
+
+      Implementation:
+      1. Create @Namespace for glass effects
+      2. Add glassEffectID to stateful views
+      3. Use GlassEffectContainer for morphing context
+      4. Animate state changes with .animation()
+
+      Pattern:
+      ```swift
+      @Namespace private var glassNamespace
+
+      GlassEffectContainer {
+          switch state {
+          case .idle:
+              IdleView()
+                  .glassEffect()
+                  .glassEffectID("main", in: glassNamespace)
+          case .pending:
+              PendingView()
+                  .glassEffect()
+                  .glassEffectID("main", in: glassNamespace)
+          }
+      }
+      .animation(.spring, value: state)
+      ```
+    priority: low
+    parallel_group: 16
+    completed: true
+    depends_on:
+      - "LG1"
+    verification: |
+      grep -rq 'glassEffectID\|@Namespace.*glass' ClaudeWatch/Views/ && exit 0 || exit 1
+    acceptance_criteria:
+      - "@Namespace defined for glass morphing"
+      - "glassEffectID on state views"
+      - "Smooth morphing between states"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - ios26
+      - liquid-glass
+      - animation
+    commit_template: "feat(ui): Add glass morphing transitions"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # META: Ralph System Improvements
+  # Parallel Group 17: Self-improvement
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "META1"
+    title: "Implement progressive disclosure in PROMPT.md"
+    description: |
+      Refactor PROMPT.md to use progressive disclosure pattern to reduce
+      token pollution.
+
+      Current problem:
+      - Entire PROMPT.md loads for every task (~300 lines)
+      - Much content is irrelevant to specific task types
+      - Wastes tokens on context that won't be used
+
+      Solution - Modular prompt structure:
+      ```
+      PROMPT.md (core, always loaded)
+        ├── PROMPT-swift.md (loaded for Swift tasks)
+        ├── PROMPT-ui.md (loaded for UI tasks)
+        ├── PROMPT-testing.md (loaded for test tasks)
+        └── PROMPT-infra.md (loaded for infrastructure tasks)
+      ```
+
+      Implementation:
+      1. Extract task-type-specific content to separate files
+      2. Add task type detection in ralph.sh
+      3. Concatenate only relevant prompt modules
+      4. Keep core PROMPT.md under 100 lines
+
+      Pattern: "You do not want to pollute your token system...
+      have it much like in a disclosure way"
+    priority: medium
+    parallel_group: 17
+    completed: true
+    verification: |
+      [[ -f ".claude/ralph/PROMPT-swift.md" ]] || [[ $(wc -l < .claude/ralph/PROMPT.md) -lt 150 ]] && exit 0 || exit 1
+    acceptance_criteria:
+      - "PROMPT.md core under 150 lines"
+      - "Task-type-specific content in separate files"
+      - "ralph.sh detects task type and loads relevant modules"
+    files:
+      - ".claude/ralph/PROMPT.md"
+      - ".claude/ralph/ralph.sh"
+    tags:
+      - meta
+      - token-efficiency
+      - progressive-disclosure
+    commit_template: "refactor(ralph): Implement progressive disclosure in prompts"
+  - id: "META2"
+    title: "Add automatic skill harvesting to Ralph"
+    description: |
+      After successful task completion, automatically analyze the session
+      to extract reusable patterns into skills.
+
+      Implementation:
+      1. Capture session transcript (already in progress log)
+      2. After task completion, run skill extraction prompt
+      3. If pattern is harvestable, create skill file
+      4. Log harvested skills in metrics.json
+
+      Criteria for harvesting:
+      - Non-trivial solution (not simple typo/config)
+      - Applies to multiple situations
+      - Contains non-obvious insight
+
+      Pattern: "Use conversation history to get Claude to review it
+      and suggest to make skills file... turn that into a skill immediately"
+    priority: low
+    parallel_group: 17
+    completed: true
+    depends_on:
+      - "META1"
+    verification: |
+      grep -q 'harvest_skill\|skill_extraction' .claude/ralph/ralph.sh && exit 0 || exit 1
+    acceptance_criteria:
+      - "Session transcript captured after each task"
+      - "Skill extraction runs on successful completion"
+      - "Harvested skills saved to .claude/commands/"
+    files:
+      - ".claude/ralph/ralph.sh"
+    tags:
+      - meta
+      - skill-harvesting
+      - automation
+    commit_template: "feat(ralph): Add automatic skill harvesting"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 8: GLANCEABLE DESIGN - No Scrolling on watchOS
+  # Parallel Group 18: All screens must fit on single view
+  # Reference: docs/solutions/ui-bugs/watchos-glanceable-design.md
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "GD1"
+    title: "Remove ScrollView from MainView mainContentView"
+    description: |
+      CRITICAL UX RULE: Scrolling on watchOS is a design smell.
+      All content must fit on screen without scrolling.
+
+      Current problem:
+      - mainContentView uses ScrollView (line 91)
+      - StatusHeader + ActionQueue + ModeSelector don't fit
+      - User must scroll to see all content
+
+      Solution:
+      1. Remove ScrollView wrapper from mainContentView
+      2. Make StatusHeader compact (single line with icon + status + badge)
+      3. Show EITHER ActionQueue OR ModeSelector (not both)
+      4. Use VStack with Spacers to fill available space
+
+      Target layout:
+      ```
+      ┌─────────────────┐
+      │ [●] Active    3 │  <- Compact status (one line)
+      ├─────────────────┤
+      │   Edit file     │  <- Primary action card
+      │ src/auth.ts     │
+      │  [✓]    [✗]    │  <- Approve/Reject buttons
+      └─────────────────┘
+      ```
+
+      When no pending actions:
+      ```
+      ┌─────────────────┐
+      │ [●] Ready       │  <- Compact status
+      ├─────────────────┤
+      │                 │
+      │   NORMAL    >   │  <- Mode selector (centered)
+      │                 │
+      └─────────────────┘
+      ```
+    priority: critical
+    parallel_group: 18
+    completed: true
+    verification: |
+      ! grep -q 'ScrollView' ClaudeWatch/Views/MainView.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "No ScrollView in mainContentView"
+      - "All content visible without scrolling"
+      - "StatusHeader is single-line compact"
+      - "Shows ActionQueue OR ModeSelector, not both"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - glanceable
+      - ux
+      - critical
+    commit_template: "refactor(ux): Remove ScrollView from MainView for glanceable design"
+  - id: "GD2"
+    title: "Create CompactStatusHeader view"
+    description: |
+      Replace current multi-line StatusHeader with compact single-line version.
+
+      Current StatusHeader issues:
+      - Takes 3+ lines of space
+      - Has large icon container (32pt)
+      - Shows task name on separate line
+      - Progress bar takes additional space
+
+      CompactStatusHeader design:
+      ```swift
+      HStack(spacing: 6) {
+          // Status dot (8pt)
+          Circle()
+              .fill(statusColor)
+              .frame(width: 8, height: 8)
+
+          // Status text
+          Text(statusText)
+              .font(.caption.weight(.semibold))
+
+          Spacer()
+
+          // Pending badge (if any)
+          if pendingCount > 0 {
+              Text("\(pendingCount)")
+                  .font(.caption2.weight(.bold))
+                  .foregroundColor(.white)
+                  .padding(.horizontal, 6)
+                  .padding(.vertical, 2)
+                  .background(Claude.orange)
+                  .clipShape(Capsule())
+          }
+      }
+      .padding(.horizontal, 12)
+      .padding(.vertical, 8)
+      ```
+
+      Add to ActionViews.swift alongside existing StatusHeader.
+    priority: high
+    parallel_group: 18
+    completed: true
+    verification: |
+      grep -q 'CompactStatusHeader' ClaudeWatch/Views/ActionViews.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "CompactStatusHeader is single-line"
+      - "Shows status dot, text, and pending badge"
+      - "Height under 40pt"
+    files:
+      - "ClaudeWatch/Views/ActionViews.swift"
+    tags:
+      - glanceable
+      - component
+    commit_template: "feat(ux): Add CompactStatusHeader for glanceable design"
+  - id: "GD3"
+    title: "Create CompactActionCard view"
+    description: |
+      Replace ActionQueue with single CompactActionCard for primary action.
+
+      Current ActionQueue issues:
+      - Shows multiple cards (primary + compact)
+      - Takes too much vertical space
+      - Requires scrolling to see all
+
+      CompactActionCard design:
+      - Shows ONLY the first pending action
+      - Displays pending count as badge
+      - Tap to cycle through actions (optional)
+
+      ```swift
+      struct CompactActionCard: View {
+          @ObservedObject private var service = WatchService.shared
+
+          var action: PendingAction? {
+              service.state.pendingActions.first
+          }
+
+          var body: some View {
+              if let action = action {
+                  VStack(spacing: 8) {
+                      // Action info
+                      HStack {
+                          Image(systemName: action.typeIcon)
+                              .foregroundColor(action.typeColor)
+                          Text(action.title)
+                              .font(.caption.weight(.semibold))
+                              .lineLimit(1)
+                          Spacer()
+                      }
+
+                      // File path
+                      if let path = action.filePath {
+                          Text(path)
+                              .font(.caption2)
+                              .foregroundColor(.secondary)
+                              .lineLimit(1)
+                      }
+
+                      // Approve/Reject buttons (side by side)
+                      HStack(spacing: 12) {
+                          Button { reject() } label: {
+                              Image(systemName: "xmark")
+                                  .frame(maxWidth: .infinity)
+                          }
+                          .buttonStyle(.bordered)
+                          .tint(.red)
+
+                          Button { approve() } label: {
+                              Image(systemName: "checkmark")
+                                  .frame(maxWidth: .infinity)
+                          }
+                          .buttonStyle(.borderedProminent)
+                          .tint(Claude.orange)
+                      }
+                  }
+                  .padding(12)
+                  .glassEffectCompat(RoundedRectangle(cornerRadius: 12))
+              }
+          }
+      }
+      ```
+    priority: high
+    parallel_group: 18
+    completed: true
+    verification: |
+      grep -q 'CompactActionCard' ClaudeWatch/Views/ActionViews.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "CompactActionCard shows single action"
+      - "Approve/Reject buttons side by side"
+      - "Fits on screen without scrolling"
+    files:
+      - "ClaudeWatch/Views/ActionViews.swift"
+    tags:
+      - glanceable
+      - component
+    commit_template: "feat(ux): Add CompactActionCard for glanceable design"
+  - id: "GD4"
+    title: "Create CompactModeSelector view"
+    description: |
+      Simplify ModeSelector to fit in available space when no actions pending.
+
+      Current ModeSelector issues:
+      - Takes significant vertical space
+      - Shows icon, title, and description
+      - "Approve each action" text wraps to 2 lines
+
+      CompactModeSelector design:
+      - Single line with mode name and chevron
+      - Tap to cycle modes
+      - Minimal padding
+
+      ```swift
+      struct CompactModeSelector: View {
+          @ObservedObject private var service = WatchService.shared
+
+          var body: some View {
+              Button {
+                  service.cycleMode()
+              } label: {
+                  HStack {
+                      Image(systemName: modeIcon)
+                          .foregroundColor(modeColor)
+
+                      Text(service.state.mode.rawValue.uppercased())
+                          .font(.caption.weight(.bold))
+                          .foregroundColor(modeColor)
+
+                      Spacer()
+
+                      Image(systemName: "chevron.right")
+                          .font(.caption2)
+                          .foregroundColor(.secondary)
+                  }
+                  .padding(.horizontal, 16)
+                  .padding(.vertical, 12)
+                  .background(modeColor.opacity(0.15))
+                  .clipShape(RoundedRectangle(cornerRadius: 10))
+              }
+              .buttonStyle(.plain)
+              .sensoryFeedback(.selection, trigger: service.state.mode)
+          }
+      }
+      ```
+    priority: high
+    parallel_group: 18
+    completed: true
+    verification: |
+      grep -q 'CompactModeSelector' ClaudeWatch/Views/CommandViews.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "CompactModeSelector is single-line"
+      - "Shows mode icon, name, and chevron"
+      - "Tap cycles through modes"
+    files:
+      - "ClaudeWatch/Views/CommandViews.swift"
+    tags:
+      - glanceable
+      - component
+    commit_template: "feat(ux): Add CompactModeSelector for glanceable design"
+  - id: "GD5"
+    title: "Refactor OfflineStateView for glanceable design"
+    description: |
+      Ensure OfflineStateView fits on screen without scrolling.
+
+      Current issues:
+      - Large icon container
+      - Multiple text elements
+      - Two buttons stacked vertically
+
+      Target design:
+      ```
+      ┌─────────────────┐
+      │                 │
+      │    [WiFi ✗]     │  <- Smaller icon (40pt)
+      │    Offline      │  <- Title only
+      │                 │
+      │ [  Retry  ]     │  <- Primary action
+      │    Demo         │  <- Secondary link
+      └─────────────────┘
+      ```
+
+      Changes:
+      1. Reduce icon to 40pt
+      2. Remove subtitle "Can't connect to Claude"
+      3. Make Retry button full-width
+      4. Demo as text link below
+    priority: medium
+    parallel_group: 18
+    completed: true
+    verification: |
+      lines=$(grep -A 50 'struct OfflineStateView' ClaudeWatch/Views/StateViews.swift | grep -c 'spacing');
+      [ "$lines" -le 3 ] && exit 0 || exit 1
+    acceptance_criteria:
+      - "OfflineStateView fits on screen"
+      - "Icon size reduced"
+      - "No subtitle text"
+      - "Retry and Demo options visible"
+    files:
+      - "ClaudeWatch/Views/StateViews.swift"
+    tags:
+      - glanceable
+      - refactor
+    commit_template: "refactor(ux): Make OfflineStateView glanceable"
+  - id: "GD6"
+    title: "Ensure all sheets fit without scrolling"
+    description: |
+      Review and refactor sheet views for glanceable design.
+
+      Sheets to review:
+      1. SettingsSheet - may need pagination instead of scroll
+      2. VoiceInputSheet - should fit on screen
+      3. PairingView - should fit on screen
+
+      For SettingsSheet specifically:
+      - Consider using TabView with pages instead of ScrollView
+      - Or reduce content to essential settings only
+      - Connection status + Demo toggle + Cloud toggle may be enough
+
+      For complex settings, use navigation:
+      ```swift
+      NavigationStack {
+          List {
+              NavigationLink("Connection") { ConnectionSettings() }
+              NavigationLink("Privacy") { PrivacySettings() }
+          }
+      }
+      ```
+    priority: medium
+    parallel_group: 18
+    completed: true
+    verification: |
+      ! grep -q 'ScrollView' ClaudeWatch/Views/SheetViews.swift 2>/dev/null || \
+      grep -q 'TabView\|NavigationStack' ClaudeWatch/Views/SheetViews.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "Essential settings visible without scroll"
+      - "Complex settings use navigation"
+      - "VoiceInputSheet fits on screen"
+    files:
+      - "ClaudeWatch/Views/SheetViews.swift"
+      - "ClaudeWatch/Views/PairingView.swift"
+    tags:
+      - glanceable
+      - sheets
+    commit_template: "refactor(ux): Make sheet views glanceable"
+  - id: "META3"
+    title: "Implement self-improving feedback loop"
+    description: |
+      Make Ralph self-improving: each run captures learnings, aggregates patterns,
+      and generates/updates skills automatically.
+
+      Reference: .claude/ralph/SELF-IMPROVING-SPEC.md
+
+      Core components:
+      1. capture_learnings() - Extract what worked/failed after each task
+      2. load_relevant_skills() - Load skills matching task tags/files
+      3. aggregate_learnings() - Combine learnings by category (every 5 tasks)
+      4. generate_skill() - Create skills when patterns reach threshold (3+)
+
+      Learning capture structure:
+      ```yaml
+      task_id: "UX13"
+      outcome: success
+      successes:
+        - pattern: "Used .glassEffect()"
+          category: "ios26"
+          reusable: true
+      failures:
+        - pattern: "Tried deprecated material"
+          lesson: "Use .glassEffect() for iOS 26+"
+      missing_context:
+        - "Liquid Glass button styles"
+      ```
+
+      Feedback loop:
+      Task → Execute → Capture → Store → Aggregate → Generate Skills → Load → Better Execution
+
+      New CLI options:
+      --aggregate, --show-learnings, --generate-skills, --skill-stats
+    priority: high
+    parallel_group: 17
+    completed: true
+    depends_on:
+      - "META1"
+      - "META2"
+    verification: |
+      grep -q 'capture_learnings\|load_relevant_skills' .claude/ralph/ralph.sh && \
+      [[ -d ".claude/ralph/learnings" ]] && exit 0 || exit 1
+    acceptance_criteria:
+      - "capture_learnings() extracts patterns after each task"
+      - "load_relevant_skills() loads skills matching task tags"
+      - "aggregate_learnings() runs every 5 tasks"
+      - "Skills auto-generated when patterns reach threshold"
+      - "Learnings stored in .claude/ralph/learnings/"
+    files:
+      - ".claude/ralph/ralph.sh"
+      - ".claude/ralph/SELF-IMPROVING-SPEC.md"
+    tags:
+      - meta
+      - self-improvement
+      - machine-learning
+      - automation
+    commit_template: "feat(ralph): Implement self-improving feedback loop"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 9: DEAD UX CLEANUP
+  # Parallel Group 19: Remove dead code, stubs, and placeholder content
+  # From: Dead UX Audit (2026-01-17)
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "DX1"
+    title: "Remove placeholder privacy/support links"
+    description: |
+      Privacy Policy and Support links in SettingsSheet point to placeholder URLs
+      that don't exist: `https://claude-watch.example.com/privacy` and `/support`.
+
+      These are dead ends that provide no value and could confuse users.
+
+      Implementation:
+      1. Remove the Privacy Policy Link from SheetViews.swift (lines 356-374)
+      2. Remove the Support Link from SheetViews.swift (lines 377-395)
+      3. Keep the "Privacy & Consent" button that opens PrivacyInfoView (this works)
+      4. Add a TODO comment for when real URLs are available
+
+      Alternative: Replace with in-app text explaining where to find support.
+    priority: high
+    parallel_group: 19
+    completed: true
+    verification: |
+      ! grep -q 'claude-watch.example.com' ClaudeWatch/Views/SheetViews.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "No placeholder URLs in SheetViews.swift"
+      - "Privacy & Consent button still works"
+      - "No broken links in settings"
+    files:
+      - "ClaudeWatch/Views/SheetViews.swift"
+    tags:
+      - dead-ux
+      - cleanup
+      - settings
+    commit_template: "fix(ux): Remove placeholder privacy/support links"
+  - id: "DX2"
+    title: "Fix RecordingBanner component reference"
+    description: |
+      VoiceInputSheet references `RecordingBanner(recordingState: .recording)` but
+      this component doesn't exist in the codebase.
+
+      Research finding: The existing RecordingIndicator component in H3 task
+      (ClaudeWatch/Views/Components/RecordingIndicator.swift) may serve this purpose.
+
+      Implementation options:
+      1. If RecordingIndicator exists, use it instead of RecordingBanner
+      2. If neither exists, create RecordingBanner
+      3. If the reference is unused, remove it
+
+      Search for:
+      - RecordingIndicator in Views/Components/
+      - RecordingBanner references in SheetViews.swift
+    priority: high
+    parallel_group: 19
+    completed: true
+    verification: |
+      ! grep -q 'RecordingBanner' ClaudeWatch/Views/SheetViews.swift 2>/dev/null || \
+      [ -f "ClaudeWatch/Views/Components/RecordingBanner.swift" ] && exit 0 || exit 1
+    acceptance_criteria:
+      - "No references to non-existent components"
+      - "Recording state properly indicated if needed"
+      - "No build errors"
+    files:
+      - "ClaudeWatch/Views/SheetViews.swift"
+    tags:
+      - dead-ux
+      - component
+      - voice
+    commit_template: "fix(voice): Fix RecordingBanner component reference"
+  - id: "DX3"
+    title: "Fix sendPrompt() async flag tracking"
+    description: |
+      The `isSendingPrompt` flag in WatchService.swift is set to true then
+      immediately false, not actually tracking the send operation completion.
+
+      Current code (lines 622-632):
+      ```swift
+      func sendPrompt(_ text: String) {
+          isSendingPrompt = true  // Set true
+          // ... send logic ...
+          isSendingPrompt = false // Immediately false - doesn't wait!
+      }
+      ```
+
+      This means the loading indicator in VoiceInputSheet never shows properly.
+
+      Fix:
+      ```swift
+      func sendPrompt(_ text: String) async {
+          isSendingPrompt = true
+          defer { isSendingPrompt = false }
+
+          do {
+              try await actualSendOperation(text)
+          } catch {
+              // handle error
+          }
+      }
+      ```
+
+      Or use Task with proper completion:
+      ```swift
+      func sendPrompt(_ text: String) {
+          isSendingPrompt = true
+          Task { @MainActor in
+              defer { isSendingPrompt = false }
+              // ... async send ...
+          }
+      }
+      ```
+    priority: medium
+    parallel_group: 19
+    completed: true
+    verification: |
+      grep -A 10 'func sendPrompt' ClaudeWatch/Services/WatchService.swift | grep -q 'defer\|await' && exit 0 || exit 1
+    acceptance_criteria:
+      - "isSendingPrompt tracks actual send completion"
+      - "Loading indicator shows during send"
+      - "Flag properly resets on success and failure"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - dead-ux
+      - async
+      - state
+    commit_template: "fix(state): Fix sendPrompt async flag tracking"
+  - id: "DX4"
+    title: "Remove legacy toggleYolo() method"
+    description: |
+      The `toggleYolo()` method in WatchService.swift exists for backward
+      compatibility but has no callers in the codebase.
+
+      Current code (lines 588-591):
+      ```swift
+      func toggleYolo() {
+          cycleMode()  // Just delegates
+      }
+      ```
+
+      Grep confirms no callers. Safe to remove.
+
+      Implementation:
+      1. Remove toggleYolo() method from WatchService.swift
+      2. Verify no references exist
+      3. Update any documentation if needed
+    priority: low
+    parallel_group: 19
+    completed: true
+    verification: |
+      ! grep -q 'func toggleYolo' ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "toggleYolo() method removed"
+      - "No references to toggleYolo in codebase"
+      - "Build succeeds"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - dead-ux
+      - cleanup
+      - legacy
+    commit_template: "refactor(service): Remove legacy toggleYolo method"
+  - id: "DX5"
+    title: "Clean up handleAppWillResignActive() stub"
+    description: |
+      The `handleAppWillResignActive()` method in WatchService.swift is an
+      empty stub that does nothing.
+
+      Current code (lines 115-118):
+      ```swift
+      func handleAppWillResignActive() {
+          // Don't disconnect - let the system handle it
+      }
+      ```
+
+      Options:
+      1. Remove the method entirely (caller in ClaudeWatchApp would need update)
+      2. Keep with documentation explaining why it's intentionally empty
+      3. Add actual resign logic if needed
+
+      If keeping, add clear documentation:
+      ```swift
+      /// Called when app is about to become inactive.
+      /// Intentionally empty - watchOS handles connection lifecycle automatically.
+      /// Disconnecting here would cause unnecessary reconnection cycles.
+      func handleAppWillResignActive() {
+          // No action needed - watchOS manages background state
+      }
+      ```
+    priority: low
+    parallel_group: 19
+    completed: true
+    verification: |
+      grep -A 5 'handleAppWillResignActive' ClaudeWatch/Services/WatchService.swift | grep -q '///' && exit 0 || \
+      ! grep -q 'handleAppWillResignActive' ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "Method either removed or properly documented"
+      - "No empty undocumented stubs"
+      - "Build succeeds"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+      - "ClaudeWatch/App/ClaudeWatchApp.swift"
+    tags:
+      - dead-ux
+      - cleanup
+      - documentation
+    commit_template: "docs(service): Document or remove handleAppWillResignActive stub"
+  - id: "DX6"
+    title: "Fix stopNetworkMonitoring() cleanup"
+    description: |
+      The `stopNetworkMonitoring()` method exists (lines 413-416) but is never
+      called, meaning network monitor cleanup is incomplete.
+
+      Current state:
+      - startNetworkMonitoring() called in init()
+      - stopNetworkMonitoring() only in deinit (which may not execute properly)
+      - pathUpdateHandler continues running even when not needed
+
+      Options:
+      1. Remove stopNetworkMonitoring() if cleanup isn't needed (NWPathMonitor
+         is lightweight and can run continuously)
+      2. Call stopNetworkMonitoring() in appropriate lifecycle methods
+      3. Add cancel() call in handleAppDidEnterBackground if needed
+
+      Simplest fix - document that cleanup isn't needed:
+      ```swift
+      /// Network path monitoring runs for app lifetime.
+      /// No explicit cleanup needed - monitor is lightweight and
+      /// automatically released when WatchService is deallocated.
+      private func startNetworkMonitoring() { ... }
+      ```
+    priority: low
+    parallel_group: 19
+    completed: true
+    verification: |
+      grep -q 'stopNetworkMonitoring' ClaudeWatch/Services/WatchService.swift && \
+      (grep -B 2 'stopNetworkMonitoring' ClaudeWatch/Services/WatchService.swift | grep -q '///' || \
+       grep -q 'pathMonitor.cancel()' ClaudeWatch/Services/WatchService.swift) && exit 0 || exit 1
+    acceptance_criteria:
+      - "Network monitoring cleanup documented or implemented"
+      - "No orphaned monitoring handlers"
+      - "Build succeeds"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - dead-ux
+      - cleanup
+      - networking
+    commit_template: "fix(network): Document or fix network monitoring cleanup"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 8: CLOUD PAIRING BACKEND
+  # From: plans/prd-cloud-pairing-backend.md
+  # Priority: High - Required for production deployment
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  # --- Phase 1: Cloud Backend (Critical) ---
+  - id: "CP1"
+    # COMPLETED BY RALPH
+    title: "Create Cloudflare Worker project structure"
+    description: |
+      Create the claude-watch-cloud/ directory with Cloudflare Worker setup:
+      - package.json with hono, wrangler dependencies
+      - wrangler.toml with KV namespace bindings
+      - tsconfig.json for TypeScript
+      - src/index.ts stub
+
+      Directory structure:
+      ```
+      claude-watch-cloud/
+      ├── package.json
+      ├── wrangler.toml
+      ├── tsconfig.json
+      └── src/
+          └── index.ts
+      ```
+    priority: critical
+    parallel_group: 20
+    completed: true
+    verification: |
+      [ -f "claude-watch-cloud/package.json" ] && \
+      [ -f "claude-watch-cloud/wrangler.toml" ] && \
+      [ -f "claude-watch-cloud/src/index.ts" ] && exit 0 || exit 1
+    acceptance_criteria:
+      - "claude-watch-cloud/ directory exists"
+      - "package.json includes hono and wrangler"
+      - "wrangler.toml has KV namespace placeholders"
+      - "TypeScript configured"
+    files:
+      - "claude-watch-cloud/package.json"
+      - "claude-watch-cloud/wrangler.toml"
+      - "claude-watch-cloud/tsconfig.json"
+      - "claude-watch-cloud/src/index.ts"
+    tags:
+      - cloud
+      - cloudflare
+      - infrastructure
+    commit_template: "feat(cloud): Initialize Cloudflare Worker project"
+
+  - id: "CP2"
+    title: "Implement pairing endpoints"
+    description: |
+      Implement the pairing flow endpoints in src/index.ts using Hono:
+
+      1. POST /api/pairing/register
+         - Receives { code, sessionId }
+         - Stores in PAIRING_KV with 5 min TTL
+         - Returns { success: true }
+
+      2. GET /api/pairing/check?sessionId=...
+         - Looks up session by sessionId
+         - Returns { paired: boolean, pairingId?: string }
+
+      3. POST /pair/complete
+         - Receives { code, deviceToken }
+         - Finds session by code
+         - Generates pairingId, marks paired
+         - Stores connection in CONNECTIONS_KV
+         - Returns { pairingId }
+
+      4. POST /api/pairing/cleanup
+         - Cleans up expired sessions
+    priority: critical
+    parallel_group: 20
+    completed: true
+    verification: |
+      grep -q "api/pairing/register" claude-watch-cloud/src/index.ts && \
+      grep -q "api/pairing/check" claude-watch-cloud/src/index.ts && \
+      grep -q "pair/complete" claude-watch-cloud/src/index.ts && exit 0 || exit 1
+    acceptance_criteria:
+      - "All 4 pairing endpoints implemented"
+      - "Proper KV storage with TTLs"
+      - "Error handling for invalid codes"
+      - "TypeScript types for request/response"
+    files:
+      - "claude-watch-cloud/src/index.ts"
+    tags:
+      - cloud
+      - pairing
+      - api
+    commit_template: "feat(cloud): Implement pairing endpoints"
+
+  - id: "CP3"
+    title: "Implement message relay endpoints"
+    description: |
+      Implement message relay endpoints for watch-server communication:
+
+      1. POST /api/message
+         - Receives { pairingId, type, payload }
+         - Queues message in MESSAGES_KV
+         - Supports both to_watch and to_server directions
+
+      2. GET /api/messages?pairingId=...&direction=to_watch
+         - Returns queued messages
+         - Clears queue after reading
+
+      3. POST /respond/:requestId
+         - Receives { approved, pairingId }
+         - Queues action_response for server
+
+      4. GET /health
+         - Returns { status: 'ok' }
+    priority: critical
+    parallel_group: 20
+    completed: true
+    verification: |
+      grep -q "api/message" claude-watch-cloud/src/index.ts && \
+      grep -q "api/messages" claude-watch-cloud/src/index.ts && \
+      grep -q "respond/:requestId" claude-watch-cloud/src/index.ts && \
+      grep -q "/health" claude-watch-cloud/src/index.ts && exit 0 || exit 1
+    acceptance_criteria:
+      - "Message POST endpoint working"
+      - "Message polling GET endpoint working"
+      - "Respond endpoint for approvals"
+      - "Health check endpoint"
+      - "Messages cleared after reading"
+    files:
+      - "claude-watch-cloud/src/index.ts"
+    tags:
+      - cloud
+      - messaging
+      - api
+    commit_template: "feat(cloud): Implement message relay endpoints"
+
+  # --- Phase 2: npm Package Integration (High) ---
+  - id: "CP4"
+    title: "Update npm package cloud URL"
+    description: |
+      Update DEFAULT_CLOUD_URL in src/config/pairing-store.ts to point
+      to the deployed Cloudflare Worker.
+
+      ```typescript
+      const DEFAULT_CLOUD_URL = "https://claude-watch.<account>.workers.dev";
+      ```
+
+      Also update the pairing registration to store by both code AND sessionId:
+
+      ```typescript
+      // In register()
+      await fetch(`${this.cloudUrl}/api/pairing/register`, {
+        method: "POST",
+        body: JSON.stringify({
+          code: this.code,
+          sessionId: this.sessionId,
+        }),
+      });
+      ```
+    priority: high
+    parallel_group: 21
+    completed: true
+    verification: |
+      grep -q "workers.dev" claude-watch-npm/src/config/pairing-store.ts && exit 0 || exit 1
+    acceptance_criteria:
+      - "Cloud URL updated to deployed worker"
+      - "Pairing registration includes sessionId"
+    files:
+      - "claude-watch-npm/src/config/pairing-store.ts"
+      - "claude-watch-npm/src/cloud/pairing.ts"
+    tags:
+      - npm
+      - cloud
+      - config
+    commit_template: "feat(npm): Update cloud URL for production"
+
+  - id: "CP5"
+    title: "Add message polling to npm client"
+    description: |
+      Update src/cloud/client.ts to poll for watch responses:
+
+      Add polling for to_server direction to receive action responses:
+
+      ```typescript
+      async pollMessages(): Promise<CloudMessage[]> {
+        const response = await fetch(
+          `${this.cloudUrl}/api/messages?pairingId=${this.pairingId}&direction=to_server`
+        );
+        // ...
+      }
+      ```
+
+      This enables the MCP server to receive approve/reject responses
+      from the watch.
+    priority: high
+    parallel_group: 21
+    completed: true
+    verification: |
+      grep -q "direction=to_server" claude-watch-npm/src/cloud/client.ts && exit 0 || exit 1
+    acceptance_criteria:
+      - "Client polls for to_server messages"
+      - "Action responses properly parsed"
+      - "Polling interval configurable"
+    files:
+      - "claude-watch-npm/src/cloud/client.ts"
+    tags:
+      - npm
+      - cloud
+      - polling
+    commit_template: "feat(npm): Add message polling for watch responses"
+
+  # --- Phase 3: watchOS Updates (High) ---
+  - id: "CP6"
+    title: "Update watchOS cloud URL default"
+    description: |
+      Update the default cloudServerURL in WatchService.swift to match
+      the deployed Cloudflare Worker:
+
+      ```swift
+      @AppStorage("cloudServerURL") var cloudServerURL = "https://claude-watch.<account>.workers.dev"
+      ```
+
+      This ensures the watch connects to the production cloud relay.
+    priority: high
+    parallel_group: 22
+    completed: true
+    verification: |
+      grep -q "workers.dev" ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "Cloud URL points to production worker"
+      - "URL matches npm package URL"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - watchos
+      - cloud
+      - config
+    commit_template: "feat(watch): Update cloud URL for production"
+
+  - id: "CP7"
+    title: "Improve CloudError descriptions"
+    description: |
+      Update CloudError enum in WatchService.swift with user-friendly
+      error messages:
+
+      ```swift
+      enum CloudError: LocalizedError {
+          case invalidCode
+          case invalidResponse
+          case serverError(Int)
+          case networkUnavailable
+          case timeout
+
+          var errorDescription: String? {
+              switch self {
+              case .invalidCode:
+                  return "Invalid or expired code. Try again."
+              case .invalidResponse:
+                  return "Unexpected server response."
+              case .serverError(let code):
+                  return "Server error (\(code)). Try again."
+              case .networkUnavailable:
+                  return "No network connection."
+              case .timeout:
+                  return "Connection timed out."
+              }
+          }
+      }
+      ```
+
+      Add .networkUnavailable and .timeout cases.
+    priority: high
+    parallel_group: 22
+    completed: true
+    verification: |
+      grep -q "networkUnavailable" ClaudeWatch/Services/WatchService.swift && \
+      grep -q "timeout" ClaudeWatch/Services/WatchService.swift && \
+      grep -q "errorDescription" ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "All error cases have friendly descriptions"
+      - "networkUnavailable case added"
+      - "timeout case added"
+      - "Descriptions are localization-ready"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - watchos
+      - ux
+      - error-handling
+    commit_template: "feat(watch): Improve cloud error descriptions"
+
+  - id: "CP8"
+    title: "Add retry button to pairing error UI"
+    description: |
+      Update PairingCodeEntryView in PairingView.swift to show a
+      retry button when an error occurs:
+
+      ```swift
+      if let error = errorMessage {
+          VStack(spacing: Claude.Spacing.xs) {
+              Text(error)
+                  .font(.claudeFootnote)
+                  .foregroundStyle(Claude.danger)
+
+              Button("Try Again") {
+                  errorMessage = nil
+                  code = ""
+              }
+              .font(.claudeFootnote)
+              .foregroundStyle(Claude.orange)
+          }
+      }
+      ```
+
+      This improves UX by giving users a clear path to retry.
+    priority: high
+    parallel_group: 22
+    completed: true
+    verification: |
+      grep -q "Try Again" ClaudeWatch/Views/PairingView.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "Retry button appears on error"
+      - "Button clears error and code"
+      - "Uses Claude design system"
+    files:
+      - "ClaudeWatch/Views/PairingView.swift"
+    tags:
+      - watchos
+      - ux
+      - pairing
+    commit_template: "feat(watch): Add retry button to pairing errors"
+
+  - id: "CP9"
+    title: "Create SettingsView with unpair option"
+    description: |
+      Create ClaudeWatch/Views/SettingsView.swift with unpair functionality:
+
+      ```swift
+      struct SettingsView: View {
+          @ObservedObject var service: WatchService
+          @State private var showUnpairConfirm = false
+
+          var body: some View {
+              List {
+                  Section("Connection") {
+                      if service.isPaired {
+                          HStack {
+                              Text("Status")
+                              Spacer()
+                              Text(service.connectionStatus.displayName)
+                                  .foregroundStyle(Claude.textSecondary)
+                          }
+
+                          Button("Unpair") {
+                              showUnpairConfirm = true
+                          }
+                          .foregroundStyle(Claude.danger)
+                      }
+                  }
+              }
+              .alert("Unpair?", isPresented: $showUnpairConfirm) {
+                  Button("Cancel", role: .cancel) {}
+                  Button("Unpair", role: .destructive) {
+                      service.unpair()
+                  }
+              } message: {
+                  Text("You'll need to pair again with a new code.")
+              }
+          }
+      }
+      ```
+
+      Also verify unpair() method exists in WatchService.
+    priority: high
+    parallel_group: 22
+    completed: true
+    verification: |
+      grep -q "Unpair" ClaudeWatch/Views/SheetViews.swift && \
+      grep -q "func unpair" ClaudeWatch/Services/WatchService.swift && exit 0 || exit 1
+    acceptance_criteria:
+      - "SettingsView.swift created"
+      - "Shows connection status when paired"
+      - "Unpair button with confirmation alert"
+      - "unpair() method in WatchService"
+    files:
+      - "ClaudeWatch/Views/SettingsView.swift"
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - watchos
+      - ux
+      - settings
+    commit_template: "feat(watch): Add SettingsView with unpair option"
+
+  # --- Phase 4: Testing & Polish (Medium) ---
+  - id: "CP10"
+    title: "Add haptic feedback for pairing states"
+    description: |
+      Ensure haptic feedback is provided for all pairing states:
+
+      1. Code entry: .click when valid code length reached
+      2. Submitting: No haptic (already there)
+      3. Success: .success (already there)
+      4. Error: .failure (already there)
+      5. Retry: .click
+
+      Verify in PairingView.swift:
+      ```swift
+      // On valid code
+      if isValidCode {
+          WKInterfaceDevice.current().play(.click)
+      }
+
+      // On retry
+      Button("Try Again") {
+          WKInterfaceDevice.current().play(.click)
+          errorMessage = nil
+          code = ""
+      }
+      ```
+    priority: medium
+    parallel_group: 23
+    completed: true
+    verification: |
+      grep -c "play(.click)" ClaudeWatch/Views/PairingView.swift | grep -q "[2-9]" && exit 0 || exit 1
+    acceptance_criteria:
+      - "Haptic on valid code entry"
+      - "Haptic on retry button"
+      - "All states have appropriate feedback"
+    files:
+      - "ClaudeWatch/Views/PairingView.swift"
+    tags:
+      - watchos
+      - ux
+      - haptics
+    commit_template: "feat(watch): Add haptics for pairing states"
+
+  - id: "CP11"
+    title: "Persist pairing on app restart"
+    description: |
+      Ensure the watch automatically resumes polling when the app restarts
+      after being paired. In WatchService.init():
+
+      ```swift
+      init() {
+          // ... existing init code ...
+
+          // Resume cloud polling if already paired
+          if useCloudMode && isPaired {
+              startPolling()
+          }
+      }
+      ```
+
+      This ensures the watch doesn't appear disconnected after relaunch.
+    priority: medium
+    parallel_group: 23
+    completed: true
+    verification: |
+      grep -A 10 "init()" ClaudeWatch/Services/WatchService.swift | grep -q "startPolling" && exit 0 || exit 1
+    acceptance_criteria:
+      - "Polling resumes on app restart if paired"
+      - "Connection status correct after restart"
+      - "No manual reconnect needed"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - watchos
+      - reliability
+      - persistence
+    commit_template: "fix(watch): Persist pairing across app restarts"
+
+  - id: "CP12"
+    title: "Test end-to-end pairing flow"
+    description: |
+      Manual testing task to verify the complete pairing flow:
+
+      1. Run `npx claude-watch` on Mac
+      2. See 6-digit code displayed
+      3. Open watch app, tap "Pair Now"
+      4. Enter code on watch
+      5. Verify connection established
+      6. Send test notification from Claude Code
+      7. Verify watch receives it
+      8. Approve from watch
+      9. Verify Claude Code continues
+
+      Document any issues found.
+    priority: medium
+    parallel_group: 24
+    completed: false
+    verification: |
+      echo "Manual testing task - mark complete after testing" && exit 0
+    acceptance_criteria:
+      - "Pairing completes successfully"
+      - "Messages relay correctly"
+      - "Approvals work end-to-end"
+      - "Error cases handled gracefully"
+    files: []
+    tags:
+      - testing
+      - e2e
+      - manual
+    commit_template: "test(e2e): Verify cloud pairing flow"

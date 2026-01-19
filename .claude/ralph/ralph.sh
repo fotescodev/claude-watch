@@ -21,6 +21,10 @@
 #   --create-pr             Auto-create PRs on task completion
 #   --draft-pr              Create draft PRs instead
 #   --base-branch NAME      Base branch for PRs (default: main)
+#   --parallel              Enable parallel worker execution (DEFAULT)
+#   --serial, --no-parallel Disable parallel mode, run sequentially
+#   --max-workers N         Number of parallel workers (default: 3)
+#   --parallel-group N      Only run tasks in specific parallel group
 #
 # Exit Codes:
 #   0   All tasks completed successfully
@@ -62,6 +66,14 @@ BRANCH_PER_TASK=false
 CREATE_PR=false
 DRAFT_PR=false
 BASE_BRANCH="main"
+PARALLEL_MODE=true  # Default: parallel execution enabled
+MAX_WORKERS=3
+PARALLEL_GROUP=""
+AGGREGATE_MODE=false
+SHOW_LEARNINGS_MODE=false
+GENERATE_SKILLS_MODE=false
+SKILL_STATS_MODE=false
+NO_SKILLS=false
 
 # Colors (auto-detect terminal support)
 if [[ -t 1 ]] && [[ "${TERM:-dumb}" != "dumb" ]]; then
@@ -98,7 +110,7 @@ log_error() {
 
 log_verbose() {
     if [[ "$VERBOSE" == "true" ]]; then
-        echo -e "${BLUE}[ralph]${NC} $*"
+        echo -e "${BLUE}[ralph]${NC} $*" >&2
     fi
 }
 
@@ -123,6 +135,15 @@ Options:
   --create-pr             Auto-create PRs on task completion
   --draft-pr              Create draft PRs instead
   --base-branch NAME      Base branch for PRs (default: main)
+  --parallel              Enable parallel worker execution (DEFAULT)
+  --serial, --no-parallel Disable parallel mode, run sequentially
+  --max-workers N         Number of parallel workers (default: 3)
+  --parallel-group N      Only run tasks in specific parallel group
+  --aggregate             Force learning aggregation
+  --show-learnings        Display accumulated learnings
+  --generate-skills       Force skill generation from learnings
+  --no-skills             Run without loading skills (debugging)
+  --skill-stats           Show skill usage statistics
 
 Examples:
   ./ralph.sh                      # Run autonomous loop
@@ -132,6 +153,8 @@ Examples:
   ./ralph.sh --debug              # Run with verbose output
   ./ralph.sh --dry-run            # Preview without executing
   ./ralph.sh --branch-per-task    # Create feature branches
+  ./ralph.sh --parallel           # Run with parallel workers
+  ./ralph.sh --parallel --max-workers 5    # Run with 5 workers
 
 Exit Codes:
   0   All tasks completed / session ended normally
@@ -395,6 +418,601 @@ parse_and_update_tokens() {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# SKILL HARVESTING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+SKILLS_DIR="$PROJECT_ROOT/.claude/commands"
+
+# Check if a task is harvestable (non-trivial, reusable pattern)
+# Args: task_id
+is_harvestable_task() {
+    local task_id="$1"
+
+    # Get task tags
+    local tags
+    tags=$(get_task_tags "$task_id" 2>/dev/null || echo "")
+
+    # Skip trivial tasks (test, config, typo fixes)
+    if echo "$tags" | grep -qE "test|config|typo|trivial"; then
+        return 1  # Not harvestable
+    fi
+
+    # Skip meta tasks (like this one)
+    if echo "$tags" | grep -qE "^meta$|loop-verification"; then
+        return 1
+    fi
+
+    # Get task complexity (file count as proxy)
+    local files_count
+    files_count=$(yq ".tasks[] | select(.id == \"$task_id\") | .files | length" "$TASKS_FILE" 2>/dev/null || echo "0")
+
+    # Harvest if >= 2 files or has specific harvestable tags
+    if [[ "$files_count" -ge 2 ]]; then
+        return 0  # Harvestable
+    fi
+
+    # Check for harvestable patterns in tags
+    if echo "$tags" | grep -qE "pattern|insight|discovery|undocumented|fix"; then
+        return 0  # Harvestable
+    fi
+
+    return 1  # Not harvestable
+}
+
+# Generate skill name from task
+# Args: task_id, task_title
+generate_skill_name() {
+    local task_id="$1"
+    local task_title="$2"
+
+    # Convert to lowercase kebab-case
+    echo "$task_title" | \
+        tr '[:upper:]' '[:lower:]' | \
+        sed 's/[^a-z0-9]/-/g' | \
+        sed 's/--*/-/g' | \
+        sed 's/^-//' | \
+        sed 's/-$//' | \
+        cut -c1-40
+}
+
+# Extract skill from completed task session
+# Args: task_id, session_log_content
+skill_extraction() {
+    local task_id="$1"
+
+    if ! command -v yq &> /dev/null; then
+        log_warning "yq not found, skipping skill extraction"
+        return 1
+    fi
+
+    # Get task details
+    local task_title
+    local task_desc
+    local task_tags
+    task_title=$(yq ".tasks[] | select(.id == \"$task_id\") | .title" "$TASKS_FILE" 2>/dev/null | tr -d '"')
+    task_desc=$(yq ".tasks[] | select(.id == \"$task_id\") | .description" "$TASKS_FILE" 2>/dev/null)
+    task_tags=$(get_task_tags "$task_id" | tr '\n' ', ' | sed 's/,$//')
+
+    if [[ -z "$task_title" ]]; then
+        log_warning "Could not get task title for $task_id"
+        return 1
+    fi
+
+    # Generate skill name
+    local skill_name
+    skill_name=$(generate_skill_name "$task_id" "$task_title")
+
+    # Check if skill already exists
+    if [[ -f "$SKILLS_DIR/$skill_name.md" ]]; then
+        log_verbose "Skill already exists: $skill_name"
+        return 0
+    fi
+
+    log "Extracting skill from task: $task_id"
+
+    # Create skill file
+    mkdir -p "$SKILLS_DIR"
+
+    cat > "$SKILLS_DIR/$skill_name.md" << EOF
+---
+name: $skill_name
+description: Harvested from Ralph task $task_id - $task_title
+tags: [$task_tags, auto-harvested]
+harvested_from: $task_id
+harvested_at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+---
+
+# $task_title
+
+## When to Use
+This skill was automatically harvested from a successful Ralph task completion.
+Use when facing similar patterns in watchOS development.
+
+## Context
+$task_desc
+
+## Implementation Pattern
+This skill was harvested automatically. Review the commit history for task $task_id
+to understand the specific implementation details.
+
+## Files Affected
+$(yq ".tasks[] | select(.id == \"$task_id\") | .files[]" "$TASKS_FILE" 2>/dev/null | sed 's/^/- /')
+
+## Verification
+\`\`\`bash
+$(yq ".tasks[] | select(.id == \"$task_id\") | .verification" "$TASKS_FILE" 2>/dev/null)
+\`\`\`
+EOF
+
+    log_success "Skill harvested: $skill_name"
+    return 0
+}
+
+# Main skill harvesting function
+# Called after successful task completion
+# Args: task_id
+harvest_skill() {
+    local task_id="$1"
+
+    log_verbose "Checking if task $task_id is harvestable..."
+
+    # Check if task is harvestable
+    if ! is_harvestable_task "$task_id"; then
+        log_verbose "Task $task_id not harvestable (trivial or meta)"
+        return 0
+    fi
+
+    # Run skill extraction
+    if skill_extraction "$task_id"; then
+        # Update metrics with harvested skill
+        if command -v jq &> /dev/null && [[ -f "$METRICS_FILE" ]]; then
+            local skill_name
+            skill_name=$(generate_skill_name "$task_id" "$(yq ".tasks[] | select(.id == \"$task_id\") | .title" "$TASKS_FILE" 2>/dev/null | tr -d '"')")
+
+            # Add harvestedSkills array if it doesn't exist, then append
+            jq --arg name "$skill_name" \
+               --arg tid "$task_id" \
+               --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+               'if .harvestedSkills == null then .harvestedSkills = [] else . end |
+                .harvestedSkills += [{
+                  "name": $name,
+                  "taskId": $tid,
+                  "harvestedAt": $ts
+                }]' "$METRICS_FILE" > "$METRICS_FILE.tmp" && mv "$METRICS_FILE.tmp" "$METRICS_FILE"
+
+            log_verbose "Skill logged in metrics.json"
+        fi
+        return 0
+    else
+        log_warning "Skill extraction failed for $task_id"
+        return 1
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SELF-IMPROVEMENT SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════════
+
+LEARNINGS_DIR="$RALPH_DIR/learnings"
+
+# Initialize learnings directory
+init_learnings_dir() {
+    mkdir -p "$LEARNINGS_DIR/aggregated"
+    if [[ ! -f "$LEARNINGS_DIR/.last_aggregation" ]]; then
+        echo "0" > "$LEARNINGS_DIR/.last_aggregation"
+    fi
+}
+
+# Capture learnings after task completion
+# Args: task_id, outcome (success|failure), session_log_path
+capture_learnings() {
+    local task_id="$1"
+    local outcome="$2"
+    local session_log="${3:-}"
+
+    if ! command -v yq &> /dev/null; then
+        log_warning "yq not found, skipping learning capture"
+        return 1
+    fi
+
+    init_learnings_dir
+
+    local timestamp
+    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    local learning_file="$LEARNINGS_DIR/learning-${task_id}-$(date +%Y%m%d-%H%M%S).yaml"
+
+    # Get task metadata
+    local task_title
+    local task_tags
+    local task_files
+    task_title=$(yq ".tasks[] | select(.id == \"$task_id\") | .title" "$TASKS_FILE" 2>/dev/null | tr -d '"')
+    task_tags=$(get_task_tags "$task_id" 2>/dev/null | tr '\n' ' ')
+    task_files=$(yq ".tasks[] | select(.id == \"$task_id\") | .files[]" "$TASKS_FILE" 2>/dev/null | tr '\n' ' ')
+
+    # Determine categories from tags and files
+    local categories=""
+    if echo "$task_tags" | grep -qiE "swiftui|views"; then
+        categories="$categories swiftui"
+    fi
+    if echo "$task_tags" | grep -qiE "ios|watchos"; then
+        categories="$categories watchos"
+    fi
+    if echo "$task_tags" | grep -qiE "accessibility|a11y"; then
+        categories="$categories accessibility"
+    fi
+    if echo "$task_tags" | grep -qiE "liquid|glass|ios26"; then
+        categories="$categories ios26"
+    fi
+    if echo "$task_files" | grep -qiE "Service"; then
+        categories="$categories async"
+    fi
+    if [[ -z "$categories" ]]; then
+        categories="general"
+    fi
+
+    # Create learning entry
+    cat > "$learning_file" << EOF
+task_id: "$task_id"
+timestamp: "$timestamp"
+outcome: $outcome
+title: "$task_title"
+tags: [$task_tags]
+categories: [$categories]
+
+successes: []
+failures: []
+discoveries: []
+missing_context: []
+wished_for_skills: []
+EOF
+
+    log_verbose "Captured learnings to $learning_file"
+
+    # Check if aggregation is needed
+    if should_aggregate; then
+        log "Learning threshold reached, triggering aggregation..."
+        aggregate_learnings
+    fi
+
+    return 0
+}
+
+# Check if aggregation is needed (every 5 learnings)
+should_aggregate() {
+    local learning_count
+    learning_count=$(find "$LEARNINGS_DIR" -maxdepth 1 -name "learning-*.yaml" 2>/dev/null | wc -l | tr -d ' ')
+
+    local last_aggregation
+    last_aggregation=$(cat "$LEARNINGS_DIR/.last_aggregation" 2>/dev/null || echo 0)
+
+    local tasks_since=$((learning_count - last_aggregation))
+
+    [[ $tasks_since -ge 5 ]]
+}
+
+# Aggregate learnings by category
+aggregate_learnings() {
+    log "Aggregating learnings..."
+
+    init_learnings_dir
+
+    if ! command -v yq &> /dev/null; then
+        log_warning "yq not found, skipping aggregation"
+        return 1
+    fi
+
+    # Get all unique categories from learnings
+    local categories
+    categories=$(grep -h "categories:" "$LEARNINGS_DIR"/learning-*.yaml 2>/dev/null | \
+                 sed 's/.*categories: \[//' | sed 's/\]//' | tr ',' '\n' | tr ' ' '\n' | \
+                 sort | uniq | grep -v '^$')
+
+    for category in $categories; do
+        local agg_file="$LEARNINGS_DIR/aggregated/${category}.yaml"
+
+        log_verbose "Aggregating category: $category"
+
+        # Count learnings in this category
+        local count
+        count=$(grep -l "categories:.*$category" "$LEARNINGS_DIR"/learning-*.yaml 2>/dev/null | wc -l | tr -d ' ')
+
+        # Create/update aggregated file
+        cat > "$agg_file" << EOF
+category: "$category"
+aggregated_at: "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+learning_count: $count
+source_files:
+$(grep -l "categories:.*$category" "$LEARNINGS_DIR"/learning-*.yaml 2>/dev/null | sed 's/^/  - /' || echo "  - none")
+EOF
+
+        # Check if category should become a skill
+        check_skill_threshold "$category" "$count"
+    done
+
+    # Update last aggregation marker
+    local learning_count
+    learning_count=$(find "$LEARNINGS_DIR" -maxdepth 1 -name "learning-*.yaml" 2>/dev/null | wc -l | tr -d ' ')
+    echo "$learning_count" > "$LEARNINGS_DIR/.last_aggregation"
+
+    log_success "Aggregation complete"
+    return 0
+}
+
+# Check if category should become a skill (threshold: 3+)
+# Args: category, count
+check_skill_threshold() {
+    local category="$1"
+    local count="$2"
+
+    if [[ $count -ge 3 ]]; then
+        local skill_file="$SKILLS_DIR/${category}-learned.md"
+
+        if [[ ! -f "$skill_file" ]]; then
+            log "Pattern threshold reached for $category ($count learnings), generating skill..."
+            generate_learned_skill "$category"
+        else
+            log_verbose "Skill already exists: ${category}-learned.md"
+        fi
+    fi
+}
+
+# Generate skill from aggregated learnings
+# Args: category
+generate_learned_skill() {
+    local category="$1"
+    local skill_file="$SKILLS_DIR/${category}-learned.md"
+
+    mkdir -p "$SKILLS_DIR"
+
+    # Get source task IDs
+    local task_ids
+    task_ids=$(grep -l "categories:.*$category" "$LEARNINGS_DIR"/learning-*.yaml 2>/dev/null | \
+               xargs -I{} basename {} | sed 's/learning-//' | sed 's/-[0-9]*\.yaml//' | \
+               sort | uniq | tr '\n' ', ' | sed 's/,$//')
+
+    cat > "$skill_file" << EOF
+---
+name: ${category}-learned
+description: Auto-generated patterns from Ralph learnings in category: $category
+tags: [$category, auto-generated, ralph-learned]
+generated_at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+source_tasks: [$task_ids]
+---
+
+# ${category} Patterns (Auto-Generated)
+
+This skill was automatically generated by the Ralph self-improvement system
+when patterns in the "$category" category reached the threshold of 3+ learnings.
+
+## When to Use
+
+Apply these patterns when:
+- Task tags include: $category
+- Working with files related to: $category
+
+## Source Tasks
+
+This skill aggregates learnings from: $task_ids
+
+## Patterns
+
+Review the source learnings in:
+\`\`\`
+.claude/ralph/learnings/aggregated/${category}.yaml
+\`\`\`
+
+## Generated
+
+Auto-generated from Ralph learnings on $(date +%Y-%m-%d)
+EOF
+
+    log_success "Generated skill: $skill_file"
+    return 0
+}
+
+# Load relevant skills for a task before execution
+# Args: task_id, temp_prompt_file
+load_relevant_skills() {
+    local task_id="$1"
+    local temp_prompt="$2"
+
+    if ! command -v yq &> /dev/null; then
+        log_warning "yq not found, skipping skill loading"
+        return 0
+    fi
+
+    # Get task metadata
+    local tags
+    local files
+    tags=$(get_task_tags "$task_id" 2>/dev/null || echo "")
+    files=$(yq ".tasks[] | select(.id == \"$task_id\") | .files[]" "$TASKS_FILE" 2>/dev/null || echo "")
+
+    local loaded_skills=()
+    local skills_count=0
+
+    # Match skills by tag
+    for tag in $tags; do
+        for skill in "$SKILLS_DIR"/*.md; do
+            [[ -f "$skill" ]] || continue
+
+            # Check if skill matches tag
+            if grep -qiE "tags:.*$tag|name:.*$tag" "$skill" 2>/dev/null; then
+                local skill_name
+                skill_name=$(basename "$skill")
+
+                # Avoid duplicates
+                if [[ ! " ${loaded_skills[*]} " =~ " ${skill_name} " ]]; then
+                    log_verbose "Loading skill: $skill_name (matched tag: $tag)"
+                    echo "" >> "$temp_prompt"
+                    echo "---" >> "$temp_prompt"
+                    echo "# Skill: ${skill_name%.md}" >> "$temp_prompt"
+                    cat "$skill" >> "$temp_prompt"
+                    loaded_skills+=("$skill_name")
+                    ((skills_count++))
+                fi
+            fi
+        done
+    done
+
+    # Match skills by file patterns
+    for file in $files; do
+        file=$(echo "$file" | tr -d '"')
+
+        if [[ "$file" == *"Views"* ]]; then
+            # Load swiftui skill
+            for skill_file in "$SKILLS_DIR/swiftui.md" "$SKILLS_DIR/swiftui-learned.md"; do
+                if [[ -f "$skill_file" ]]; then
+                    local sn; sn=$(basename "$skill_file")
+                    if [[ ! " ${loaded_skills[*]} " =~ " ${sn} " ]]; then
+                        log_verbose "Loading skill: $sn (file pattern match)"
+                        echo "" >> "$temp_prompt"
+                        echo "---" >> "$temp_prompt"
+                        echo "# Skill: ${sn%.md}" >> "$temp_prompt"
+                        cat "$skill_file" >> "$temp_prompt"
+                        loaded_skills+=("$sn")
+                        ((skills_count++))
+                    fi
+                fi
+            done
+            # Load liquid-glass skill
+            for skill_file in "$SKILLS_DIR/liquid-glass.md" "$SKILLS_DIR/liquid-glass-learned.md"; do
+                if [[ -f "$skill_file" ]]; then
+                    local sn; sn=$(basename "$skill_file")
+                    if [[ ! " ${loaded_skills[*]} " =~ " ${sn} " ]]; then
+                        log_verbose "Loading skill: $sn (file pattern match)"
+                        echo "" >> "$temp_prompt"
+                        echo "---" >> "$temp_prompt"
+                        echo "# Skill: ${sn%.md}" >> "$temp_prompt"
+                        cat "$skill_file" >> "$temp_prompt"
+                        loaded_skills+=("$sn")
+                        ((skills_count++))
+                    fi
+                fi
+            done
+        fi
+        if [[ "$file" == *"Service"* ]]; then
+            # Load async skill
+            for skill_file in "$SKILLS_DIR/async.md" "$SKILLS_DIR/async-learned.md"; do
+                if [[ -f "$skill_file" ]]; then
+                    local sn; sn=$(basename "$skill_file")
+                    if [[ ! " ${loaded_skills[*]} " =~ " ${sn} " ]]; then
+                        log_verbose "Loading skill: $sn (file pattern match)"
+                        echo "" >> "$temp_prompt"
+                        echo "---" >> "$temp_prompt"
+                        echo "# Skill: ${sn%.md}" >> "$temp_prompt"
+                        cat "$skill_file" >> "$temp_prompt"
+                        loaded_skills+=("$sn")
+                        ((skills_count++))
+                    fi
+                fi
+            done
+        fi
+    done
+
+    # Load auto-generated learned skills
+    for skill in "$SKILLS_DIR"/*-learned.md; do
+        [[ -f "$skill" ]] || continue
+        local skill_name
+        skill_name=$(basename "$skill")
+
+        # Check if any tag matches the skill category
+        local skill_category
+        skill_category=$(echo "$skill_name" | sed 's/-learned\.md//')
+
+        for tag in $tags; do
+            if [[ "$tag" == *"$skill_category"* ]] || [[ "$skill_category" == *"$tag"* ]]; then
+                if [[ ! " ${loaded_skills[*]} " =~ " ${skill_name} " ]]; then
+                    log_verbose "Loading learned skill: $skill_name"
+                    echo "" >> "$temp_prompt"
+                    echo "---" >> "$temp_prompt"
+                    echo "# Learned Skill: ${skill_name%.md}" >> "$temp_prompt"
+                    cat "$skill" >> "$temp_prompt"
+                    loaded_skills+=("$skill_name")
+                    ((skills_count++))
+                fi
+                break
+            fi
+        done
+    done
+
+    log "Loaded $skills_count relevant skills for task $task_id"
+    return 0
+}
+
+# Show accumulated learnings
+show_learnings() {
+    init_learnings_dir
+    log "Accumulated Learnings:"
+    echo ""
+
+    local learning_count
+    learning_count=$(find "$LEARNINGS_DIR" -maxdepth 1 -name "learning-*.yaml" 2>/dev/null | wc -l | tr -d ' ')
+
+    echo "Total learnings captured: $learning_count"
+    echo ""
+
+    if [[ $learning_count -gt 0 ]]; then
+        echo "Recent learnings:"
+        find "$LEARNINGS_DIR" -maxdepth 1 -name "learning-*.yaml" -printf '%T@ %p\n' 2>/dev/null | \
+            sort -rn | head -5 | cut -d' ' -f2- | while read -r file; do
+            echo "  - $(basename "$file")"
+        done
+        echo ""
+    fi
+
+    echo "Aggregated categories:"
+    if [[ -d "$LEARNINGS_DIR/aggregated" ]]; then
+        for agg in "$LEARNINGS_DIR/aggregated"/*.yaml; do
+            [[ -f "$agg" ]] || continue
+            local cat_name
+            cat_name=$(basename "$agg" .yaml)
+            local count
+            count=$(grep "learning_count:" "$agg" 2>/dev/null | sed 's/.*: //')
+            echo "  - $cat_name: $count learnings"
+        done
+    fi
+    echo ""
+
+    echo "Generated skills:"
+    for skill in "$SKILLS_DIR"/*-learned.md; do
+        [[ -f "$skill" ]] || continue
+        echo "  - $(basename "$skill")"
+    done
+}
+
+# Show skill statistics
+show_skill_stats() {
+    init_learnings_dir
+    log "Skill Statistics:"
+    echo ""
+
+    local total_skills=0
+    local learned_skills=0
+    local manual_skills=0
+
+    for skill in "$SKILLS_DIR"/*.md; do
+        [[ -f "$skill" ]] || continue
+        ((total_skills++))
+        if [[ "$skill" == *"-learned.md" ]]; then
+            ((learned_skills++))
+        else
+            ((manual_skills++))
+        fi
+    done
+
+    echo "Total skills: $total_skills"
+    echo "  - Manual skills: $manual_skills"
+    echo "  - Auto-generated: $learned_skills"
+    echo ""
+
+    if [[ -f "$METRICS_FILE" ]] && command -v jq &> /dev/null; then
+        local harvested
+        harvested=$(jq '.harvestedSkills | length' "$METRICS_FILE" 2>/dev/null || echo "0")
+        echo "Skills harvested: $harvested"
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # SESSION LOGGING
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -439,6 +1057,114 @@ $notes
 
 ---
 EOF
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PROGRESSIVE DISCLOSURE - PROMPT MODULE LOADING
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Get tags for a specific task
+# Args: task_id
+get_task_tags() {
+    local task_id="$1"
+
+    if ! command -v yq &> /dev/null; then
+        log_warning "yq not found, cannot get task tags"
+        echo ""
+        return
+    fi
+
+    yq ".tasks[] | select(.id == \"$task_id\") | .tags[]" "$TASKS_FILE" 2>/dev/null | tr -d '"' || echo ""
+}
+
+# Determine which prompt modules to load based on task tags
+# Args: task_id
+# Returns: space-separated list of module files to load
+get_prompt_modules() {
+    local task_id="$1"
+    local modules=""
+
+    local tags
+    tags=$(get_task_tags "$task_id")
+
+    if [[ -z "$tags" ]]; then
+        # No tags, load all modules for safety
+        log_verbose "No tags found, loading all modules"
+        modules="swift ui watchos"
+    else
+        # Check for Swift-related tags
+        if echo "$tags" | grep -qE "swift|swiftui|build|quality"; then
+            modules="$modules swift"
+        fi
+
+        # Check for UI-related tags
+        if echo "$tags" | grep -qE "ui|accessibility|hig|design|haptics"; then
+            modules="$modules ui"
+        fi
+
+        # Check for watchOS-related tags
+        if echo "$tags" | grep -qE "watchos|complications|always-on"; then
+            modules="$modules watchos"
+        fi
+
+        # Check for iOS-related tags
+        if echo "$tags" | grep -qE "ios|iphone|ipad"; then
+            modules="$modules ios"
+        fi
+
+        # Default: if no modules matched, load swift and watchos (project default)
+        if [[ -z "$modules" ]]; then
+            modules="swift watchos"
+        fi
+    fi
+
+    echo "$modules"
+}
+
+# Build combined prompt file from core + relevant modules
+# Args: task_id
+# Returns: path to combined prompt file
+build_combined_prompt() {
+    local task_id="$1"
+    local combined_file="/tmp/ralph-prompt-combined-$$.md"
+
+    # Start with core prompt
+    cat "$PROMPT_FILE" > "$combined_file"
+
+    # Get relevant modules
+    local modules
+    modules=$(get_prompt_modules "$task_id")
+
+    log_verbose "Loading prompt modules: $modules"
+
+    # Append each module if it exists
+    for module in $modules; do
+        local module_file="$RALPH_DIR/PROMPT-${module}.md"
+        if [[ -f "$module_file" ]]; then
+            echo "" >> "$combined_file"
+            echo "---" >> "$combined_file"
+            echo "" >> "$combined_file"
+            cat "$module_file" >> "$combined_file"
+            log_verbose "  Loaded: PROMPT-${module}.md"
+        fi
+    done
+
+    # Check task complexity for review module
+    local files_count
+    files_count=$(yq ".tasks[] | select(.id == \"$task_id\") | .files | length" "$TASKS_FILE" 2>/dev/null || echo "0")
+
+    if [[ "$files_count" -ge 5 ]]; then
+        local review_file="$RALPH_DIR/PROMPT-review.md"
+        if [[ -f "$review_file" ]]; then
+            echo "" >> "$combined_file"
+            echo "---" >> "$combined_file"
+            echo "" >> "$combined_file"
+            cat "$review_file" >> "$combined_file"
+            log_verbose "  Loaded: PROMPT-review.md (complex task)"
+        fi
+    fi
+
+    echo "$combined_file"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -509,7 +1235,7 @@ run_claude_session() {
     # Capture output to temp file for token parsing
     local output_file="/tmp/ralph-claude-output-$$.log"
 
-    if cat "$prompt_file" | claude --print --verbose 2>&1 | tee -a "$progress_log" "$output_file"; then
+    if cat "$prompt_file" | claude --print --verbose --dangerously-skip-permissions 2>&1 | tee -a "$progress_log" "$output_file"; then
         echo "✓ Session $session_id completed at $(date '+%H:%M:%S')" >> "$progress_log"
         log_success "Session $session_id completed"
 
@@ -590,7 +1316,7 @@ create_pull_request() {
 # Get available watchOS simulator dynamically
 get_watch_simulator() {
     local sim_name
-    sim_name=$(xcrun simctl list devices available 2>/dev/null | grep -i "Apple Watch" | head -1 | sed 's/^ *//' | sed 's/ (.*//')
+    sim_name=$(xcrun simctl list devices available 2>/dev/null | grep -i "Apple Watch" | head -1 | sed 's/^ *//' | sed 's/ ([A-F0-9-]*).*//')
 
     if [[ -z "$sim_name" ]]; then
         echo "Apple Watch Series 11 (42mm)"  # Fallback
@@ -645,24 +1371,26 @@ run_build_check() {
     simulator=$(get_watch_simulator)
     log_verbose "Using simulator: $simulator"
 
-    # Run build
+    # Run build and capture exit code properly
+    # Note: -quiet suppresses "BUILD SUCCEEDED" output, so we trust the exit code
     local build_output
     build_output=$(mktemp)
+    local build_exit_code
 
-    if xcodebuild -project ClaudeWatch.xcodeproj \
+    xcodebuild -project ClaudeWatch.xcodeproj \
         -scheme ClaudeWatch \
         -destination "platform=watchOS Simulator,name=$simulator" \
         -quiet \
-        build 2>&1 | tee "$build_output" | tail -10; then
+        build 2>&1 > "$build_output"
+    build_exit_code=$?
 
-        if grep -qE "BUILD SUCCEEDED|Build Succeeded" "$build_output"; then
-            log_success "Build succeeded"
-            rm -f "$build_output"
-            return 0
-        fi
+    if [[ $build_exit_code -eq 0 ]]; then
+        log_success "Build succeeded"
+        rm -f "$build_output"
+        return 0
     fi
 
-    log_error "Build FAILED"
+    log_error "Build FAILED (exit code: $build_exit_code)"
     log_error "Last 20 lines of build output:"
     tail -20 "$build_output"
     rm -f "$build_output"
@@ -751,6 +1479,281 @@ run_init() {
     return $result
 }
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# PARALLEL EXECUTION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Source parallel utilities if in parallel mode
+init_parallel_state() {
+    log "Initializing parallel execution state..."
+
+    # Source parallel utilities
+    source "$RALPH_DIR/parallel-utils.sh"
+
+    # Ensure directories exist
+    ensure_parallel_dirs
+
+    # Initialize the queue
+    init_queue
+
+    # Clear any stale signals
+    clear_shutdown_signal
+    clear_pause_signal
+
+    log_success "Parallel state initialized"
+}
+
+# Spawn worker processes
+# Args: num_workers
+spawn_workers() {
+    local num_workers="$1"
+
+    log "Spawning $num_workers worker processes..."
+
+    for i in $(seq 1 "$num_workers"); do
+        log_verbose "Starting worker $i"
+
+        # Run worker in background
+        "$RALPH_DIR/ralph-worker.sh" "$i" &
+
+        local pid=$!
+        echo "$pid" > "$RALPH_DIR/parallel/workers/worker-$i.pid"
+
+        log_verbose "Worker $i started with PID $pid"
+    done
+
+    # Wait a moment for workers to initialize
+    sleep 2
+
+    log_success "All $num_workers workers spawned"
+}
+
+# Shutdown all workers gracefully
+shutdown_workers() {
+    log "Shutting down workers..."
+
+    # Send shutdown signal
+    send_shutdown_signal
+
+    # Wait for workers to exit (up to 30 seconds)
+    local timeout=30
+    local elapsed=0
+
+    while [[ $elapsed -lt $timeout ]]; do
+        local active
+        active=$(get_active_worker_count)
+
+        if [[ "$active" == "0" ]]; then
+            break
+        fi
+
+        log_verbose "Waiting for $active workers to exit..."
+        sleep 2
+        ((elapsed+=2))
+    done
+
+    # Force kill any remaining workers
+    for pid_file in "$RALPH_DIR/parallel/workers/"*.pid; do
+        [[ -f "$pid_file" ]] || continue
+        local pid
+        pid=$(cat "$pid_file")
+        if kill -0 "$pid" 2>/dev/null; then
+            log_warning "Force killing worker $pid"
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+        rm -f "$pid_file"
+    done
+
+    clear_shutdown_signal
+    log_success "All workers shutdown"
+}
+
+# Handle parallel group failure
+# Args: group_number
+handle_group_failure() {
+    local group="$1"
+
+    log_error "Handling failure for parallel group $group"
+
+    # Pause workers
+    send_pause_signal
+
+    # Get failed tasks in this group
+    local failed_tasks
+    failed_tasks=$(yq ".tasks[] | select(.parallel_group == $group and .status == \"failed\") | .id" "$RALPH_DIR/parallel/queue.yaml" 2>/dev/null)
+
+    if [[ -n "$failed_tasks" ]]; then
+        log_error "Failed tasks in group $group:"
+        echo "$failed_tasks" | while read -r task_id; do
+            [[ -n "$task_id" ]] && log_error "  - $task_id"
+        done
+    fi
+
+    # Reset failed tasks to pending for retry
+    yq -i "(.tasks[] | select(.parallel_group == $group and .status == \"failed\")).status = \"pending\"" "$RALPH_DIR/parallel/queue.yaml"
+
+    # Resume workers
+    clear_pause_signal
+}
+
+# Run validation for a parallel group
+# Args: group_number
+run_group_validation() {
+    local group="$1"
+
+    log "Running validation for parallel group $group..."
+
+    # Pause workers during validation
+    send_pause_signal
+
+    # Get completed tasks in this group
+    local completed_tasks
+    completed_tasks=$(yq ".tasks[] | select(.parallel_group == $group and .status == \"completed\") | .id" "$RALPH_DIR/parallel/queue.yaml" 2>/dev/null | tr '\n' ' ')
+
+    # Run Xcode project sync check
+    if ! run_project_sync_check; then
+        log_error "Project sync check failed for group $group"
+        clear_pause_signal
+        return 1
+    fi
+
+    # Run build check
+    if ! run_build_check; then
+        log_error "Build check failed for group $group"
+        clear_pause_signal
+        return 2
+    fi
+
+    # Run verification for each completed task
+    for task_id in $completed_tasks; do
+        [[ -z "$task_id" ]] && continue
+        task_id=$(echo "$task_id" | tr -d '"')
+
+        if ! run_task_verification "$task_id"; then
+            log_error "Task verification failed for $task_id"
+            clear_pause_signal
+            return 3
+        fi
+    done
+
+    clear_pause_signal
+    log_success "Group $group validation passed"
+    return 0
+}
+
+# Main parallel execution loop
+run_parallel_loop() {
+    log "Starting parallel execution mode..."
+    log "Max workers: $MAX_WORKERS"
+    log "Press Ctrl+C to stop"
+    echo ""
+
+    init_metrics
+    init_session_log
+    init_parallel_state
+
+    # Spawn workers
+    spawn_workers "$MAX_WORKERS"
+
+    # Coordinator loop
+    local last_group=""
+
+    while true; do
+        # Check if all tasks complete
+        if all_tasks_complete; then
+            log_success "All tasks completed!"
+            break
+        fi
+
+        # Get current parallel group
+        local current_group
+        current_group=$(get_current_group)
+
+        if [[ -z "$current_group" ]]; then
+            log_success "No more tasks to process"
+            break
+        fi
+
+        # Filter by specific group if requested
+        if [[ -n "$PARALLEL_GROUP" ]] && [[ "$current_group" != "$PARALLEL_GROUP" ]]; then
+            log "Skipping group $current_group (waiting for group $PARALLEL_GROUP)"
+            # Fast-forward: mark all tasks in other groups as completed in queue
+            yq -i "(.tasks[] | select(.parallel_group == $current_group)).status = \"completed\"" "$RALPH_DIR/parallel/queue.yaml"
+            continue
+        fi
+
+        # Log group transition
+        if [[ "$current_group" != "$last_group" ]]; then
+            echo ""
+            log "═══════════════════════════════════════════════════════════════"
+            log "  Processing Parallel Group $current_group"
+            log "═══════════════════════════════════════════════════════════════"
+            echo ""
+            last_group="$current_group"
+        fi
+
+        # Wait for group to complete
+        log_verbose "Waiting for group $current_group to complete..."
+
+        while ! group_is_complete "$current_group"; do
+            # Show progress
+            local active
+            active=$(get_active_worker_count)
+            local pending
+            pending=$(yq "[.tasks[] | select(.parallel_group == $current_group and .status == \"pending\")] | length" "$RALPH_DIR/parallel/queue.yaml" 2>/dev/null)
+            local assigned
+            assigned=$(yq "[.tasks[] | select(.parallel_group == $current_group and .status == \"assigned\")] | length" "$RALPH_DIR/parallel/queue.yaml" 2>/dev/null)
+
+            log_verbose "Group $current_group: $pending pending, $assigned in progress, $active workers active"
+
+            # Check for stuck workers (no progress for too long)
+            sleep 5
+        done
+
+        log_success "Group $current_group execution complete, running validation..."
+
+        # Run group validation
+        if ! run_group_validation "$current_group"; then
+            log_error "Group $current_group validation failed"
+            handle_group_failure "$current_group"
+
+            # Count retries
+            ((consecutive_failures++)) || true
+
+            if [[ ${consecutive_failures:-0} -ge $MAX_RETRIES ]]; then
+                log_error "Too many consecutive failures. Stopping."
+                break
+            fi
+
+            continue
+        fi
+
+        log_success "Group $current_group completed and validated"
+        consecutive_failures=0
+
+        # Mark group tasks as complete in main tasks.yaml
+        local completed_tasks
+        completed_tasks=$(yq ".tasks[] | select(.parallel_group == $current_group and .status == \"completed\") | .id" "$RALPH_DIR/parallel/queue.yaml" 2>/dev/null)
+
+        for task_id in $completed_tasks; do
+            [[ -z "$task_id" ]] && continue
+            task_id=$(echo "$task_id" | tr -d '"')
+            update_metrics "parallel-$current_group" "completed" "$task_id"
+            # Harvest skills from completed tasks
+            harvest_skill "$task_id"
+        done
+
+        # Brief pause before next group
+        sleep 2
+    done
+
+    # Shutdown workers
+    shutdown_workers
+
+    log_success "Parallel execution complete"
+    return 0
+}
+
 run_loop() {
     log "Starting watchOS Ralph Loop..."
     log "Press Ctrl+C to stop"
@@ -797,8 +1800,20 @@ run_loop() {
 
         log "Selected task: $next_task_id"
 
-        # Run Claude session
-        if run_claude_session "$PROMPT_FILE" "$session_id"; then
+        # Build combined prompt with progressive disclosure (task-specific modules)
+        local combined_prompt
+        combined_prompt=$(build_combined_prompt "$next_task_id")
+        log_verbose "Combined prompt: $combined_prompt"
+
+        # NEW: Load relevant skills for this task (self-improvement system)
+        if [[ "$NO_SKILLS" != "true" ]]; then
+            load_relevant_skills "$next_task_id" "$combined_prompt"
+        fi
+
+        # Run Claude session with task-specific prompt
+        if run_claude_session "$combined_prompt" "$session_id"; then
+            # Clean up temp prompt file
+            rm -f "$combined_prompt"
             # ═══════════════════════════════════════════════════════════════
             # VALIDATION PHASE - All checks must pass before metrics update
             # ═══════════════════════════════════════════════════════════════
@@ -920,9 +1935,26 @@ run_loop() {
             update_metrics "$session_id" "completed" "$next_task_id"
             consecutive_failures=0
 
+            # ═══════════════════════════════════════════════════════════════
+            # SELF-IMPROVEMENT - Capture learnings from completed task
+            # ═══════════════════════════════════════════════════════════════
+            capture_learnings "$next_task_id" "success" "$RALPH_DIR/current-progress.log"
+
+            # ═══════════════════════════════════════════════════════════════
+            # SKILL HARVESTING - Extract reusable patterns from completed task
+            # ═══════════════════════════════════════════════════════════════
+            harvest_skill "$next_task_id"
+
         else
+            # Clean up temp prompt file
+            rm -f "$combined_prompt"
+
             log_session_end "$session_id" "FAILED" "Session failed"
             update_metrics "$session_id" "failed" "$next_task_id"
+
+            # Capture learnings even on failure
+            capture_learnings "$next_task_id" "failure" "$RALPH_DIR/current-progress.log"
+
             ((consecutive_failures++))
 
             if [[ $consecutive_failures -ge $MAX_RETRIES ]]; then
@@ -957,6 +1989,30 @@ cleanup() {
     echo ""
     log "Received interrupt signal (Ctrl+C), shutting down gracefully..."
     echo ""
+
+    # Shutdown workers if in parallel mode
+    if [[ "$PARALLEL_MODE" == "true" ]]; then
+        log "Shutting down parallel workers..."
+        # Source parallel utils if not already sourced
+        if [[ -f "$RALPH_DIR/parallel-utils.sh" ]]; then
+            source "$RALPH_DIR/parallel-utils.sh" 2>/dev/null || true
+            send_shutdown_signal 2>/dev/null || true
+
+            # Give workers time to shutdown
+            sleep 2
+
+            # Force kill any remaining
+            for pid_file in "$RALPH_DIR/parallel/workers/"*.pid; do
+                [[ -f "$pid_file" ]] || continue
+                local pid
+                pid=$(cat "$pid_file" 2>/dev/null)
+                if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+                    kill -9 "$pid" 2>/dev/null || true
+                fi
+                rm -f "$pid_file"
+            done
+        fi
+    fi
 
     # Show current progress
     if [[ -f "$METRICS_FILE" ]] && command -v jq &> /dev/null; then
@@ -1049,6 +2105,42 @@ while [[ $# -gt 0 ]]; do
             BASE_BRANCH="$2"
             shift 2
             ;;
+        --parallel)
+            PARALLEL_MODE=true
+            shift
+            ;;
+        --serial|--no-parallel)
+            PARALLEL_MODE=false
+            shift
+            ;;
+        --max-workers)
+            MAX_WORKERS="$2"
+            shift 2
+            ;;
+        --parallel-group)
+            PARALLEL_GROUP="$2"
+            shift 2
+            ;;
+        --aggregate)
+            AGGREGATE_MODE=true
+            shift
+            ;;
+        --show-learnings)
+            SHOW_LEARNINGS_MODE=true
+            shift
+            ;;
+        --generate-skills)
+            GENERATE_SKILLS_MODE=true
+            shift
+            ;;
+        --no-skills)
+            NO_SKILLS=true
+            shift
+            ;;
+        --skill-stats)
+            SKILL_STATS_MODE=true
+            shift
+            ;;
         *)
             log_error "Unknown option: $1"
             show_help
@@ -1076,8 +2168,27 @@ main() {
     # Run appropriate mode
     if [[ "$STATUS_MODE" == "true" ]]; then
         "$RALPH_DIR/state-manager.sh" list
+    elif [[ "$SHOW_LEARNINGS_MODE" == "true" ]]; then
+        show_learnings
+    elif [[ "$SKILL_STATS_MODE" == "true" ]]; then
+        show_skill_stats
+    elif [[ "$AGGREGATE_MODE" == "true" ]]; then
+        init_learnings_dir
+        aggregate_learnings
+    elif [[ "$GENERATE_SKILLS_MODE" == "true" ]]; then
+        init_learnings_dir
+        aggregate_learnings
+        log "Force generating skills from aggregated learnings..."
+        for agg in "$LEARNINGS_DIR/aggregated"/*.yaml; do
+            [[ -f "$agg" ]] || continue
+            local cat_name
+            cat_name=$(basename "$agg" .yaml)
+            generate_learned_skill "$cat_name"
+        done
     elif [[ "$INIT_MODE" == "true" ]]; then
         run_init
+    elif [[ "$PARALLEL_MODE" == "true" ]]; then
+        run_parallel_loop
     else
         run_loop
     fi

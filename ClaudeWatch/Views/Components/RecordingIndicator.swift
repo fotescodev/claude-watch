@@ -8,13 +8,16 @@ struct RecordingIndicator: View {
     /// Whether recording is currently active
     let isRecording: Bool
 
+    // Accessibility: Reduce Motion support
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
     @State private var pulseScale: CGFloat = 1.0
     @State private var pulseOpacity: Double = 1.0
 
     var body: some View {
         ZStack {
-            // Outer pulsing ring (when recording)
-            if isRecording {
+            // Outer pulsing ring (when recording, respects Reduce Motion)
+            if isRecording && !reduceMotion {
                 Circle()
                     .fill(Color.red.opacity(0.3))
                     .frame(width: 24, height: 24)
@@ -47,9 +50,15 @@ struct RecordingIndicator: View {
         }
         .accessibilityLabel(isRecording ? "Recording in progress" : "Not recording")
         .accessibilityAddTraits(isRecording ? .updatesFrequently : [])
+        .onChange(of: isRecording) { _, newValue in
+            // VoiceOver announcement for recording state change
+            let announcement = newValue ? "Recording started" : "Recording stopped"
+            AccessibilityNotification.Announcement(announcement).post()
+        }
     }
 
     private func startPulseAnimation() {
+        guard !reduceMotion else { return }
         withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
             pulseScale = 1.5
             pulseOpacity = 0.3

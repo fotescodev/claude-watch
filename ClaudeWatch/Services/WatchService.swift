@@ -5,6 +5,9 @@ import WatchKit
 import UserNotifications
 import Network
 import WidgetKit
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
 
 /// Main service for communicating with Claude Watch MCP Server
 /// Uses WebSocket for real-time updates, with REST fallback
@@ -17,12 +20,23 @@ class WatchService: ObservableObject {
     @Published var connectionStatus: ConnectionStatus = .disconnected
     @Published var lastError: String?
     @Published var isSendingPrompt = false
+    @Published var sessionProgress: SessionProgress?
+
+    /// Track when session progress was last updated (for staleness check)
+    var lastProgressUpdate: Date?
+
+    /// Clear stale session progress (no update in 60 seconds)
+    private let progressStaleThreshold: TimeInterval = 60
+
+    // MARK: - Foundation Models (On-Device AI)
+    @Published var foundationModelsStatus: FoundationModelsStatus = .checking
 
     // MARK: - Configuration
-    @AppStorage("serverURL") var serverURLString = "ws://192.168.1.165:8787"
+    @AppStorage("serverURL") var serverURLString = "wss://localhost:8787"
     @AppStorage("cloudServerURL") var cloudServerURL = "https://claude-watch.fotescodev.workers.dev"
     @AppStorage("pairingId") var pairingId: String = ""
     @AppStorage("useCloudMode") var useCloudMode = true  // Use cloud relay by default
+    @AppStorage("permissionMode") private var storedMode: String = PermissionMode.normal.rawValue
 
     /// Whether the watch is paired with a Claude Code instance
     var isPaired: Bool {
@@ -66,6 +80,11 @@ class WatchService: ObservableObject {
         config.timeoutIntervalForRequest = 30
         urlSession = URLSession(configuration: config)
 
+        // Restore persisted mode
+        if let mode = PermissionMode(rawValue: storedMode) {
+            state.mode = mode
+        }
+
         // Start network monitoring
         startNetworkMonitoring()
 
@@ -73,6 +92,57 @@ class WatchService: ObservableObject {
         if isDemoMode {
             loadDemoData()
         }
+
+        // Check Foundation Models availability
+        checkFoundationModelsAvailability()
+    }
+
+    // MARK: - Foundation Models Availability
+
+    /// Check if Foundation Models (on-device AI) is available
+    func checkFoundationModelsAvailability() {
+        #if canImport(FoundationModels)
+        let model = SystemLanguageModel.default
+        switch model.availability {
+        case .available:
+            foundationModelsStatus = .available
+        case .unavailable(.deviceNotEligible):
+            foundationModelsStatus = .unavailable(.deviceNotSupported)
+        case .unavailable(.appleIntelligenceNotEnabled):
+            foundationModelsStatus = .unavailable(.appleIntelligenceDisabled)
+        case .unavailable(.modelNotReady):
+            foundationModelsStatus = .downloading
+            // Start observing for when the model becomes ready
+            observeFoundationModelsReadiness()
+        case .unavailable:
+            foundationModelsStatus = .unavailable(.unknown)
+        }
+        #else
+        // FoundationModels framework not available on this platform (e.g., watchOS)
+        foundationModelsStatus = .unavailable(.platformNotSupported)
+        #endif
+    }
+
+    /// Observe for Foundation Models readiness changes
+    private func observeFoundationModelsReadiness() {
+        #if canImport(FoundationModels)
+        // Periodically check if the model becomes ready
+        Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self = self else { return }
+
+                let model = SystemLanguageModel.default
+                if case .available = model.availability {
+                    await MainActor.run {
+                        self.foundationModelsStatus = .available
+                    }
+                    return
+                }
+
+                try? await Task.sleep(nanoseconds: 5_000_000_000) // Check every 5 seconds
+            }
+        }
+        #endif
     }
 
     nonisolated deinit {
@@ -85,6 +155,9 @@ class WatchService: ObservableObject {
     /// Handles app transition to active state.
     /// Resets reconnection backoff and initiates connection (polling in cloud mode, WebSocket otherwise).
     func handleAppDidBecomeActive() {
+        // Don't try to connect in demo mode
+        guard !isDemoMode else { return }
+
         // Reset backoff when coming to foreground
         reconnectAttempt = 0
 
@@ -111,11 +184,16 @@ class WatchService: ObservableObject {
         }
     }
 
-    /// Handles app transition to inactive state.
-    /// Currently a no-op, allowing the system to manage connection lifecycle.
+    /// Called when app is about to become inactive.
+    ///
+    /// Intentionally empty - watchOS handles connection lifecycle automatically.
+    /// Disconnecting here would cause unnecessary reconnection cycles when the
+    /// user briefly switches apps or receives a notification.
+    ///
+    /// The WebSocket connection is maintained by the system and will naturally
+    /// close when the app enters background (handled by `handleAppDidEnterBackground`).
     func handleAppWillResignActive() {
-        // Don't disconnect - let the system handle it
-        // But we could pause aggressive reconnection if needed
+        // No action needed - watchOS manages background state transitions
     }
 
     /// Handles app entering background state.
@@ -314,10 +392,18 @@ class WatchService: ObservableObject {
     private func handleActionRequested(_ data: [String: Any]) {
         guard let action = PendingAction(from: data) else { return }
 
-        // Add to pending actions
-        if !state.pendingActions.contains(where: { $0.id == action.id }) {
-            state.pendingActions.append(action)
+        // Avoid duplicates
+        guard !state.pendingActions.contains(where: { $0.id == action.id }) else { return }
+
+        // AUTO-ACCEPT MODE: Automatically approve instead of queueing
+        if state.mode == .autoAccept {
+            playHaptic(.success)
+            approveAction(action.id)
+            return
         }
+
+        // Add to pending actions
+        state.pendingActions.append(action)
         state.status = .waiting
 
         // Play haptic
@@ -420,6 +506,12 @@ class WatchService: ObservableObject {
         pathMonitor?.start(queue: DispatchQueue(label: "com.claudewatch.network-monitor"))
     }
 
+    /// Cancels network path monitoring.
+    ///
+    /// Network path monitoring runs for the app's lifetime. Explicit cleanup is
+    /// not required because NWPathMonitor is lightweight and automatically releases
+    /// when WatchService is deallocated. This method exists for completeness but
+    /// is not called during normal operation.
     private func stopNetworkMonitoring() {
         pathMonitor?.cancel()
         pathMonitor = nil
@@ -569,6 +661,9 @@ class WatchService: ObservableObject {
             state.status = .running
         }
 
+        // Clear the notification for this action
+        clearDeliveredNotification(for: actionId)
+
         playHaptic(.success)
     }
 
@@ -587,26 +682,45 @@ class WatchService: ObservableObject {
             state.status = .running
         }
 
+        // Clear the notification for this action
+        clearDeliveredNotification(for: actionId)
+
         playHaptic(.failure)
     }
 
     /// Approves all pending actions at once.
     /// Clears all pending actions locally and notifies server to proceed with all requests.
     func approveAll() {
-        send(["type": "approve_all"], priority: .high)
+        if useCloudMode && isPaired {
+            // Cloud mode: approve each pending action via cloud API
+            let actionsToApprove = state.pendingActions
+            Task {
+                for action in actionsToApprove {
+                    do {
+                        try await respondToCloudRequest(action.id, approved: true)
+                    } catch {
+                        print("Failed to approve \(action.id): \(error)")
+                    }
+                }
+            }
+        } else {
+            // WebSocket mode
+            send(["type": "approve_all"], priority: .high)
+        }
 
         // Optimistic update
         state.pendingActions.removeAll()
         state.status = .running
 
-        playHaptic(.success)
-    }
+        // Clear ALL delivered notifications
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
 
     /// Legacy method for toggling YOLO mode.
     /// Now delegates to `cycleMode()` to cycle through all permission modes.
     func toggleYolo() {
         // Legacy support - now cycles through modes
         cycleMode()
+        playHaptic(.success)
     }
 
     /// Cycles through permission modes in sequence (normal → auto-accept → plan).
@@ -620,13 +734,17 @@ class WatchService: ObservableObject {
     /// Automatically approves pending actions when entering auto-accept mode.
     /// - Parameter mode: The permission mode to activate (normal, autoAccept, or plan)
     func setMode(_ mode: PermissionMode) {
-        send([
-            "type": "set_mode",
-            "mode": mode.rawValue
-        ])
-
-        // Optimistic update
+        // Persist mode locally
+        storedMode = mode.rawValue
         state.mode = mode
+
+        // Only send to WebSocket if not in cloud mode (cloud mode has no WebSocket)
+        if !useCloudMode {
+            send([
+                "type": "set_mode",
+                "mode": mode.rawValue
+            ])
+        }
 
         // Haptic feedback based on mode
         switch mode {
@@ -649,13 +767,32 @@ class WatchService: ObservableObject {
     func sendPrompt(_ text: String) {
         isSendingPrompt = true
 
-        send([
-            "type": "prompt",
-            "text": text
-        ])
+        Task { @MainActor in
+            defer { isSendingPrompt = false }
 
-        isSendingPrompt = false
-        playHaptic(.success)
+            let message: [String: Any] = [
+                "type": "prompt",
+                "text": text
+            ]
+
+            // Wait for send to complete using async wrapper
+            await withCheckedContinuation { continuation in
+                guard connectionStatus.isConnected else {
+                    queueMessage(message, priority: .normal)
+                    continuation.resume()
+                    return
+                }
+
+                sendImmediate(message) { [weak self] error in
+                    if let error = error {
+                        self?.handleSendError(message, error: error, priority: .normal)
+                    }
+                    continuation.resume()
+                }
+            }
+
+            playHaptic(.success)
+        }
     }
 
     // MARK: - Cloud Mode (Production)
@@ -666,6 +803,78 @@ class WatchService: ObservableObject {
     /// - Throws: `CloudError.invalidCode` if the code is invalid or expired,
     ///           `CloudError.invalidResponse` if the server response is malformed,
     ///           `CloudError.serverError` if the server returns an error status code
+    /// Initiate pairing - watch requests a code to display
+    /// Returns the code to display and a watchId for polling
+    func initiatePairing() async throws -> (code: String, watchId: String) {
+        let url = URL(string: "\(cloudServerURL)/pair/initiate")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Get device token for push notifications
+        let deviceToken = await getDeviceToken()
+
+        let body: [String: Any] = [
+            "deviceToken": deviceToken ?? "simulator-token"
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await urlSession.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw CloudError.serverError((response as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let code = json["code"] as? String,
+              let watchId = json["watchId"] as? String else {
+            throw CloudError.invalidResponse
+        }
+
+        return (code: code, watchId: watchId)
+    }
+
+    /// Check pairing status - watch polls until CLI completes pairing
+    func checkPairingStatus(watchId: String) async throws -> (paired: Bool, pairingId: String?) {
+        let url = URL(string: "\(cloudServerURL)/pair/status/\(watchId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await urlSession.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw CloudError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 404 {
+            throw CloudError.timeout
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            throw CloudError.serverError(httpResponse.statusCode)
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let paired = json["paired"] as? Bool else {
+            throw CloudError.invalidResponse
+        }
+
+        let pairingId = json["pairingId"] as? String
+        return (paired: paired, pairingId: pairingId)
+    }
+
+    /// Complete pairing after CLI has entered the code
+    func finishPairing(pairingId: String) {
+        self.pairingId = pairingId
+        connectionStatus = .connected
+        playHaptic(.success)
+        startPolling()
+    }
+
+    /// DEPRECATED: Old pairing flow where watch entered code from CLI.
+    /// New flow: Watch shows code → CLI enters code → use initiatePairing() + checkPairingStatus() instead.
+    @available(*, deprecated, message: "Use initiatePairing() + checkPairingStatus() instead. Watch now DISPLAYS code, CLI enters it.")
     func completePairing(code: String) async throws {
         let url = URL(string: "\(cloudServerURL)/pair/complete")!
         var request = URLRequest(url: url)
@@ -739,7 +948,32 @@ class WatchService: ObservableObject {
             state.status = .running
         }
 
+        // Clear delivered notifications for this request
+        // APNs notifications may not use requestId as identifier, so we query and remove matching ones
+        clearDeliveredNotification(for: requestId)
+
         playHaptic(approved ? .success : .failure)
+    }
+
+    /// Clear delivered notification for a specific request ID
+    private func clearDeliveredNotification(for requestId: String) {
+        let center = UNUserNotificationCenter.current()
+
+        // Get all delivered notifications and remove ones matching this request
+        center.getDeliveredNotifications { notifications in
+            let idsToRemove = notifications.compactMap { notification -> String? in
+                let userInfo = notification.request.content.userInfo
+                let notificationRequestId = userInfo["requestId"] as? String ?? userInfo["action_id"] as? String
+                if notificationRequestId == requestId {
+                    return notification.request.identifier
+                }
+                return nil
+            }
+
+            if !idsToRemove.isEmpty {
+                center.removeDeliveredNotifications(withIdentifiers: idsToRemove)
+            }
+        }
     }
 
     /// Get device token for APNs (set during notification registration)
@@ -812,6 +1046,7 @@ class WatchService: ObservableObject {
         // Convert to pending actions
         var newActions: [PendingAction] = []
         for req in requests {
+            // Request data is returned directly from /requests/:pairingId endpoint
             guard let id = req["id"] as? String,
                   let type = req["type"] as? String,
                   let title = req["title"] as? String else {
@@ -835,16 +1070,40 @@ class WatchService: ObservableObject {
         let newIds = Set(newActions.map { $0.id })
         let addedIds = newIds.subtracting(existingIds)
 
-        // Update state
-        state.pendingActions = newActions
+        // Update state on main thread for SwiftUI
+        await MainActor.run {
+            // Merge: keep notification-added actions that aren't in cloud response
+            // This prevents race conditions where notification arrives before cloud updates
+            let cloudIds = Set(newActions.map { $0.id })
+            let localOnly = state.pendingActions.filter { !cloudIds.contains($0.id) }
 
-        if !state.pendingActions.isEmpty {
-            state.status = .waiting
-        }
+            // Combine cloud actions with local-only actions
+            state.pendingActions = newActions + localOnly
 
-        // Play haptic for new actions
-        if !addedIds.isEmpty {
-            playHaptic(.notification)
+            // AUTO-ACCEPT MODE: Automatically approve all pending actions
+            if state.mode == .autoAccept && !state.pendingActions.isEmpty {
+                playHaptic(.success)
+                approveAll()
+                return  // approveAll clears pendingActions and sets status
+            }
+
+            if !state.pendingActions.isEmpty {
+                state.status = .waiting
+            } else {
+                state.status = .idle
+            }
+
+            // Play haptic for new actions
+            if !addedIds.isEmpty {
+                playHaptic(.notification)
+            }
+
+            // Clear stale session progress (no update in 60 seconds)
+            if let lastUpdate = lastProgressUpdate,
+               Date().timeIntervalSince(lastUpdate) > progressStaleThreshold {
+                sessionProgress = nil
+                lastProgressUpdate = nil
+            }
         }
     }
 
@@ -854,18 +1113,21 @@ class WatchService: ObservableObject {
         case invalidCode
         case invalidResponse
         case serverError(Int)
+        case networkUnavailable
         case timeout
 
         var errorDescription: String? {
             switch self {
             case .invalidCode:
-                return "Invalid or expired pairing code"
+                return "Invalid or expired code. Try again."
             case .invalidResponse:
-                return "Invalid response from server"
+                return "Unexpected server response."
             case .serverError(let code):
-                return "Server error: \(code)"
+                return "Server error (\(code)). Try again."
+            case .networkUnavailable:
+                return "No network connection."
             case .timeout:
-                return "Request timed out"
+                return "Connection timed out."
             }
         }
     }
@@ -948,7 +1210,7 @@ class WatchService: ObservableObject {
         state.progress = 0.45
         state.status = .waiting
         state.model = "opus"
-        state.mode = .normal
+        // Preserve persisted mode (don't overwrite with .normal)
 
         // Add some pending actions
         state.pendingActions = [
@@ -999,6 +1261,81 @@ struct WatchState {
     // Convenience for backward compatibility
     var yoloMode: Bool {
         mode == .autoAccept
+    }
+}
+
+/// Session progress from Claude Code's TodoWrite hook
+struct SessionProgress {
+    var currentTask: String?
+    var currentActivity: String?  // Active form for display (e.g., "Running tests")
+    var progress: Double  // 0.0 to 1.0
+    var completedCount: Int
+    var totalCount: Int
+    var elapsedSeconds: Int  // Time since session started
+    var tasks: [TodoItem]  // Full task list with statuses
+
+    init(
+        currentTask: String? = nil,
+        currentActivity: String? = nil,
+        progress: Double = 0,
+        completedCount: Int = 0,
+        totalCount: Int = 0,
+        elapsedSeconds: Int = 0,
+        tasks: [TodoItem] = []
+    ) {
+        self.currentTask = currentTask
+        self.currentActivity = currentActivity
+        self.progress = progress
+        self.completedCount = completedCount
+        self.totalCount = totalCount
+        self.elapsedSeconds = elapsedSeconds
+        self.tasks = tasks
+    }
+
+    /// Format elapsed time as "1m 27s" or "45s"
+    var formattedElapsedTime: String {
+        let minutes = elapsedSeconds / 60
+        let seconds = elapsedSeconds % 60
+        if minutes > 0 {
+            return "\(minutes)m \(seconds)s"
+        }
+        return "\(seconds)s"
+    }
+}
+
+/// A single todo item from Claude Code's task list
+struct TodoItem: Identifiable {
+    let id = UUID()
+    let content: String
+    let status: TodoStatus
+    let activeForm: String?
+
+    enum TodoStatus: String {
+        case pending
+        case inProgress = "in_progress"
+        case completed
+
+        var icon: String {
+            switch self {
+            case .pending: return "○"
+            case .inProgress: return "●"
+            case .completed: return "◉"
+            }
+        }
+
+        var color: Color {
+            switch self {
+            case .pending: return Color.gray
+            case .inProgress: return Color.orange
+            case .completed: return Color.green
+            }
+        }
+    }
+
+    init(content: String, status: String, activeForm: String? = nil) {
+        self.content = content
+        self.status = TodoStatus(rawValue: status) ?? .pending
+        self.activeForm = activeForm
     }
 }
 
@@ -1228,6 +1565,81 @@ struct PendingAction: Identifiable {
         case "file_delete": return "red"
         case "bash": return "orange"
         default: return "purple"
+        }
+    }
+}
+
+// MARK: - Foundation Models Status
+
+/// Status of Foundation Models (on-device AI) availability
+enum FoundationModelsStatus: Equatable {
+    case checking
+    case available
+    case downloading
+    case unavailable(FoundationModelsUnavailabilityReason)
+
+    var displayName: String {
+        switch self {
+        case .checking:
+            return "Checking..."
+        case .available:
+            return "Ready"
+        case .downloading:
+            return "Downloading..."
+        case .unavailable(let reason):
+            return reason.displayName
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .checking:
+            return "arrow.triangle.2.circlepath"
+        case .available:
+            return "brain"
+        case .downloading:
+            return "arrow.down.circle"
+        case .unavailable:
+            return "brain.head.profile.slash"
+        }
+    }
+
+    var isAvailable: Bool {
+        if case .available = self { return true }
+        return false
+    }
+}
+
+/// Reasons why Foundation Models may be unavailable
+enum FoundationModelsUnavailabilityReason: Equatable {
+    case deviceNotSupported
+    case appleIntelligenceDisabled
+    case platformNotSupported
+    case unknown
+
+    var displayName: String {
+        switch self {
+        case .deviceNotSupported:
+            return "Device not supported"
+        case .appleIntelligenceDisabled:
+            return "Enable Apple Intelligence"
+        case .platformNotSupported:
+            return "Not available on watchOS"
+        case .unknown:
+            return "Unavailable"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .deviceNotSupported:
+            return "This device doesn't support Apple Intelligence. Requires iPhone 15 Pro or later, or M1 Mac."
+        case .appleIntelligenceDisabled:
+            return "Turn on Apple Intelligence in Settings to use on-device AI features."
+        case .platformNotSupported:
+            return "Foundation Models are not available on watchOS. AI features work on iPhone, iPad, and Mac."
+        case .unknown:
+            return "On-device AI is currently unavailable."
         }
     }
 }

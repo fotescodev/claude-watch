@@ -1,0 +1,26 @@
+{
+  "name": "ralphie-monitor",
+  "version": "0.1.0",
+  "description": "Read-only terminal monitor for Ralph execution",
+  "type": "module",
+  "main": "src/index.tsx",
+  "bin": {
+    "ralphie-monitor": "./bin/ralphie-monitor"
+  },
+  "scripts": {
+    "start": "tsx src/index.tsx",
+    "dev": "tsx watch src/index.tsx",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ink": "^5.0.1",
+    "react": "^18.3.1",
+    "yaml": "^2.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.3.1",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}
