@@ -659,7 +659,22 @@ class WatchService: ObservableObject {
     }
 
     func approveAll() {
-        send(["type": "approve_all"], priority: .high)
+        if useCloudMode && isPaired {
+            // Cloud mode: approve each pending action via cloud API
+            let actionsToApprove = state.pendingActions
+            Task {
+                for action in actionsToApprove {
+                    do {
+                        try await respondToCloudRequest(action.id, approved: true)
+                    } catch {
+                        print("Failed to approve \(action.id): \(error)")
+                    }
+                }
+            }
+        } else {
+            // WebSocket mode
+            send(["type": "approve_all"], priority: .high)
+        }
 
         // Optimistic update
         state.pendingActions.removeAll()
