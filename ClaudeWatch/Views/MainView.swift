@@ -249,29 +249,66 @@ struct StatusHeader: View {
         .glassEffectCompat(RoundedRectangle(cornerRadius: 16))
     }
 
-    /// Session progress view showing current task from TodoWrite
+    /// Session progress view showing rich state from TodoWrite
     @ViewBuilder
     private func sessionProgressView(_ progress: SessionProgress) -> some View {
-        VStack(spacing: 6) {
-            // Current task label
-            Text("Working on:")
-                .font(.claudeCaption)
-                .foregroundColor(Claude.textSecondary)
+        VStack(spacing: 8) {
+            // Activity header with pulsing dot
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Claude.orange)
+                    .frame(width: 8, height: 8)
+                    .opacity(reduceMotion ? 1.0 : 0.5 + 0.5 * Double(pulsePhase))
 
-            // Current task name
-            if let currentTask = progress.currentTask {
-                Text(currentTask)
-                    .font(.claudeHeadline)
-                    .foregroundColor(Claude.textPrimary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-            } else {
-                Text("Processing...")
-                    .font(.claudeHeadline)
-                    .foregroundColor(Claude.textPrimary)
+                // Current activity or task name
+                if let activity = progress.currentActivity ?? progress.currentTask {
+                    Text(activity)
+                        .font(.claudeHeadline)
+                        .foregroundColor(Claude.textPrimary)
+                        .lineLimit(2)
+                } else {
+                    Text("Working...")
+                        .font(.claudeHeadline)
+                        .foregroundColor(Claude.textPrimary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Elapsed time
+            if progress.elapsedSeconds > 0 {
+                Text(progress.formattedElapsedTime)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(Claude.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            // Progress bar with actual percentage
+            // Todo list (show up to 3 items to save space on watch)
+            if !progress.tasks.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(progress.tasks.prefix(3)) { task in
+                        HStack(spacing: 6) {
+                            Text(task.status.icon)
+                                .font(.system(size: 10))
+                                .foregroundColor(task.status.color)
+
+                            Text(task.content)
+                                .font(.system(size: 11))
+                                .foregroundColor(task.status == .completed ? Claude.textSecondary : Claude.textPrimary)
+                                .lineLimit(1)
+                        }
+                    }
+
+                    // Show "... and X more" if there are more tasks
+                    if progress.tasks.count > 3 {
+                        Text("... and \(progress.tasks.count - 3) more")
+                            .font(.system(size: 10, weight: .regular))
+                            .foregroundColor(Claude.textSecondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            // Progress bar with stats
             VStack(spacing: 4) {
                 ProgressView(value: progress.progress)
                     .tint(Claude.orange)
@@ -283,7 +320,7 @@ struct StatusHeader: View {
 
                     Spacer()
 
-                    Text("\(progress.completedCount)/\(progress.totalCount) tasks")
+                    Text("\(progress.completedCount)/\(progress.totalCount)")
                         .font(.system(size: 10, weight: .regular))
                         .foregroundColor(Claude.textSecondary)
                 }

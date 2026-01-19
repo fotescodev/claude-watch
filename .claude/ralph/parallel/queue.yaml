@@ -1,124 +1,54 @@
 tasks:
-  # ═══════════════════════════════════════════════════════════════════════════
-  # AUTOMATED E2E TESTING (Simulator)
-  # No manual setup required - fully automated
-  # ═══════════════════════════════════════════════════════════════════════════
-  - id: "E2E1"
-    title: "Automated simulator e2e test: notification → UI update → approve"
-    description: |
-      FULLY AUTOMATED E2E TEST - No manual setup required.
-
-      This test verifies the complete notification flow in the simulator:
-      1. Build the app
-      2. Boot simulator if needed
-      3. Install app
-      4. Launch app
-      5. Send test push notification
-      6. Verify app processes notification (check logs)
-
-      EXECUTION STEPS (Ralph should run these):
-      ```bash
-      # 1. Get simulator name
-      SIMULATOR="Apple Watch Series 11 (46mm)"
-
-      # 2. Boot simulator if not running
-      xcrun simctl boot "$SIMULATOR" 2>/dev/null || true
-
-      # 3. Build app
-      xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
-        -destination "platform=watchOS Simulator,name=$SIMULATOR" build
-
-      # 4. Install app
-      xcrun simctl install "$SIMULATOR" \
-        ~/Library/Developer/Xcode/DerivedData/ClaudeWatch-*/Build/Products/Debug-watchsimulator/ClaudeWatch.app
-
-      # 5. Launch app
-      xcrun simctl launch "$SIMULATOR" com.edgeoftrust.claudewatch
-
-      # 6. Wait for app to initialize
-      sleep 2
-
-      # 7. Send test notification
-      cat > /tmp/e2e-test-notification.json << 'EOF'
-      {
-        "aps": {
-          "alert": {"title": "E2E Test", "body": "Automated test notification"},
-          "sound": "default",
-          "category": "CLAUDE_ACTION"
-        },
-        "requestId": "e2e-test-$(date +%s)",
-        "type": "bash",
-        "title": "E2E Test Action",
-        "description": "echo 'Hello from automated test'"
-      }
-      EOF
-      xcrun simctl push "$SIMULATOR" com.edgeoftrust.claudewatch /tmp/e2e-test-notification.json
-
-      # 8. Verify notification was received (check simulator logs)
-      sleep 1
-      xcrun simctl spawn "$SIMULATOR" log show --last 10s --predicate 'subsystem == "com.edgeoftrust.claudewatch"' 2>/dev/null || echo "Notification sent successfully"
-      ```
-
-      SUCCESS CRITERIA:
-      - Build succeeds
-      - App installs and launches
-      - Notification is delivered to simulator
-      - No crashes in app logs
-    priority: high
-    parallel_group: 1
-    completed: false
-    verification: |
-      SIMULATOR="Apple Watch Series 11 (46mm)"
-      xcrun simctl list devices booted | grep -q "Watch" && \
-      xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
-        -destination "platform=watchOS Simulator,name=$SIMULATOR" build 2>&1 | grep -q "BUILD SUCCEEDED"
-    acceptance_criteria:
-      - "Build succeeds"
-      - "App installs on simulator"
-      - "App launches without crash"
-      - "Notification delivered to simulator"
-    files:
-      - "ClaudeWatch/"
-    tags:
-      - e2e
-      - automated
-      - simulator
-    commit_template: "test(e2e): Automated simulator notification flow"
-    status: pending
-    assigned_worker: null
-    started_at: null
-  # ═══════════════════════════════════════════════════════════════════════════
-  # FEATURE: Real Task Progress Tracking
-  # ═══════════════════════════════════════════════════════════════════════════
-  - id: "FE1a"
-    title: "Add hook to capture TodoWrite events from Claude Code"
-    description: |
-      Create PostToolUse hook that intercepts TodoWrite tool calls.
-      Parse task list, calculate progress, send to /session-progress endpoint.
-      Reference: .claude/hooks/watch-approval-cloud.py
-    priority: medium
-    parallel_group: 1
-    completed: false
-    tags:
-      - enhancement
-      - hooks
-      - progress-tracking
-    commit_template: "feat(hooks): Add progress tracker for TodoWrite events"
-    status: pending
-    assigned_worker: null
-    started_at: null
-
   - id: "FE1b"
     title: "Add /session-progress endpoint to Cloudflare worker"
     description: |
-      Add POST /session-progress to receive progress from hook.
-      Store in KV, send silent push to watch.
-      Add GET endpoint for polling fallback.
+      Extend the Cloudflare worker to receive session progress and push to watch.
+
+      IMPLEMENTATION:
+      1. Add POST /session-progress endpoint to MCPServer/worker/src/index.ts
+      2. Validate request has pairingId and progress data
+      3. Store latest progress in KV:
+         - Key: `progress:${pairingId}`
+         - Value: JSON with tasks, currentTask, progress, timestamp
+      4. Send silent push notification to watch with progress update:
+         ```json
+         {
+           "aps": {
+             "content-available": 1
+           },
+           "type": "progress",
+           "currentTask": "Task name",
+           "progress": 0.33,
+           "completedCount": 1,
+           "totalCount": 3
+         }
+         ```
+      5. Add GET /session-progress/:pairingId for watch to poll (fallback)
+
+      REFERENCE FILES:
+      - MCPServer/worker/src/index.ts (existing endpoints)
+      - Look at /request endpoint for APNs push pattern
+
+      TEST:
+      ```bash
+      curl -X POST https://claude-watch.example.workers.dev/session-progress \
+        -H "Content-Type: application/json" \
+        -d '{"pairingId": "test-123", "currentTask": "Building", "progress": 0.5}'
+      ```
     priority: medium
     parallel_group: 2
     completed: false
     depends_on:
       - "FE1a"
+    verification: |
+      grep -q "session-progress" MCPServer/worker/src/index.ts
+    acceptance_criteria:
+      - "POST /session-progress endpoint exists"
+      - "Progress stored in KV"
+      - "Silent push sent to watch"
+      - "GET endpoint for polling fallback"
+    files:
+      - "MCPServer/worker/src/index.ts"
     tags:
       - enhancement
       - worker
@@ -127,18 +57,90 @@ tasks:
     status: pending
     assigned_worker: null
     started_at: null
-
   - id: "FE1c"
     title: "Display task progress in watch MainView"
     description: |
-      Add SessionProgress struct to WatchService.
-      Handle progress notification type.
-      Update StatusHeader to show current task and progress bar.
+      Update MainView to show real-time task progress from Claude Code.
+
+      IMPLEMENTATION:
+      1. Add progress state to WatchService:
+         ```swift
+         struct SessionProgress {
+           var currentTask: String?
+           var progress: Double  // 0.0 to 1.0
+           var completedCount: Int
+           var totalCount: Int
+         }
+         var sessionProgress: SessionProgress?
+         ```
+
+      2. Handle "progress" notification type in ClaudeWatchApp.swift:
+         - Parse progress payload from notification
+         - Update WatchService.shared.sessionProgress
+
+      3. Update StatusHeader in MainView.swift:
+         - When sessionProgress != nil:
+           - Show "Working on: [currentTask]"
+           - Show progress bar with actual percentage
+           - Show "2/6 tasks" count
+         - When sessionProgress == nil:
+           - Show current idle/waiting state (existing behavior)
+
+      4. Add progress bar view:
+         ```swift
+         ProgressView(value: progress.progress)
+           .progressViewStyle(.linear)
+         ```
+
+      UI MOCKUP:
+      ```
+      ┌─────────────────────┐
+      │ Working on:         │
+      │ "Running tests"     │
+      │ ████████░░░░ 66%    │
+      │ 4/6 tasks           │
+      └─────────────────────┘
+      ```
+
+      REFERENCE:
+      - ClaudeWatch/Views/MainView.swift (StatusHeader)
+      - ClaudeWatch/Services/WatchService.swift (state management)
+
+      TEST:
+      Send test notification:
+      ```bash
+      xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch /tmp/progress-test.json
+      ```
+      With payload:
+      ```json
+      {
+        "aps": {"content-available": 1},
+        "type": "progress",
+        "currentTask": "Running tests",
+        "progress": 0.66,
+        "completedCount": 4,
+        "totalCount": 6
+      }
+      ```
     priority: medium
     parallel_group: 3
     completed: false
     depends_on:
       - "FE1b"
+    verification: |
+      grep -q "SessionProgress" ClaudeWatch/Services/WatchService.swift && \
+      grep -q "currentTask" ClaudeWatch/Views/MainView.swift
+    acceptance_criteria:
+      - "SessionProgress struct added to WatchService"
+      - "Progress notification handler in ClaudeWatchApp"
+      - "MainView shows current task name"
+      - "Progress bar displays actual percentage"
+      - "Task count shown (X/Y tasks)"
+      - "Falls back to idle state when no progress"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Services/WatchService.swift"
+      - "ClaudeWatch/App/ClaudeWatchApp.swift"
     tags:
       - enhancement
       - ui
@@ -147,4 +149,4 @@ tasks:
     status: pending
     assigned_worker: null
     started_at: null
-current_group: 1
+current_group: 2

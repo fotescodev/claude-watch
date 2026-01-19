@@ -12,6 +12,11 @@ When Claude Code updates its todo list, this hook:
 Configuration:
 - Set CLAUDE_WATCH_PAIRING_ID environment variable, OR
 - Create ~/.claude-watch-pairing file with your pairing ID
+
+SESSION ISOLATION:
+- Only runs when CLAUDE_WATCH_SESSION_ACTIVE=1 is set
+- This env var is set by `npx cc-watch` when starting a watch-enabled session
+- Other Claude Code sessions will not send progress updates to the watch
 """
 import json
 import os
@@ -109,45 +114,51 @@ def reset_session_if_needed(tasks: list):
         save_session_state(time.time())
 
 
-def parse_todos(tool_input: dict) -> tuple[list[dict], str | None, float]:
+def parse_todos(tool_input: dict) -> tuple[list[dict], str | None, str | None, float]:
     """
     Parse TodoWrite input and extract progress info.
 
     Returns:
-        (tasks, current_task, progress)
+        (tasks, current_task, current_activity, progress)
         - tasks: List of {content, status} dicts
         - current_task: Name of in_progress task (or None)
+        - current_activity: Active form of in_progress task for display (or None)
         - progress: Float 0.0-1.0 for completion percentage
     """
     todos = tool_input.get("todos", [])
     if not todos:
-        return [], None, 0.0
+        return [], None, None, 0.0
 
     tasks = []
     current_task = None
+    current_activity = None
     completed_count = 0
 
     for todo in todos:
         content = todo.get("content", "")
         status = todo.get("status", "pending")
+        active_form = todo.get("activeForm", "")
 
         tasks.append({
             "content": content,
-            "status": status
+            "status": status,
+            "activeForm": active_form
         })
 
         if status == "completed":
             completed_count += 1
         elif status == "in_progress":
             current_task = content
+            # Use activeForm for activity display (e.g., "Running tests" instead of "Run tests")
+            current_activity = active_form if active_form else content
 
     total = len(tasks)
     progress = completed_count / total if total > 0 else 0.0
 
-    return tasks, current_task, progress
+    return tasks, current_task, current_activity, progress
 
 
-def send_progress(pairing_id: str, tasks: list, current_task: str | None, progress: float, elapsed_seconds: int):
+def send_progress(pairing_id: str, tasks: list, current_task: str | None, current_activity: str | None, progress: float, elapsed_seconds: int):
     """Send progress update to Cloudflare worker."""
     completed_count = sum(1 for t in tasks if t["status"] == "completed")
     total_count = len(tasks)
@@ -156,6 +167,7 @@ def send_progress(pairing_id: str, tasks: list, current_task: str | None, progre
         "pairingId": pairing_id,
         "tasks": tasks,
         "currentTask": current_task,
+        "currentActivity": current_activity,  # Active form for display (e.g., "Running tests")
         "progress": progress,
         "completedCount": completed_count,
         "totalCount": total_count,
@@ -182,6 +194,11 @@ def send_progress(pairing_id: str, tasks: list, current_task: str | None, progre
 
 
 def main():
+    # Session isolation: Only run if this session was started with cc-watch
+    # This prevents other Claude Code sessions from sending progress to the watch
+    if not os.environ.get("CLAUDE_WATCH_SESSION_ACTIVE"):
+        sys.exit(0)
+
     try:
         input_data = json.load(sys.stdin)
     except json.JSONDecodeError:
@@ -202,14 +219,21 @@ def main():
         sys.exit(0)
 
     # Parse todos and calculate progress
-    tasks, current_task, progress = parse_todos(tool_input)
+    tasks, current_task, current_activity, progress = parse_todos(tool_input)
 
     if not tasks:
         # No tasks to report
         sys.exit(0)
 
+    # Check for new session (all pending = fresh start)
+    reset_session_if_needed(tasks)
+
+    # Get elapsed time
+    session_state = get_session_state()
+    elapsed_seconds = session_state.get("elapsedSeconds", 0)
+
     # Send progress to cloud
-    send_progress(pairing_id, tasks, current_task, progress)
+    send_progress(pairing_id, tasks, current_task, current_activity, progress, elapsed_seconds)
 
     # Exit cleanly - PostToolUse hooks don't need to output anything
     sys.exit(0)

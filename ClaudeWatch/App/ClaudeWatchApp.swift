@@ -92,29 +92,50 @@ class AppDelegate: NSObject, WKApplicationDelegate {
 
         if notificationType == "progress" {
             // Handle progress update
-            let currentTask = userInfo["currentTask"] as? String
-            let progress = userInfo["progress"] as? Double ?? 0
-            let completedCount = userInfo["completedCount"] as? Int ?? 0
-            let totalCount = userInfo["totalCount"] as? Int ?? 0
-
-            Task { @MainActor in
-                let service = WatchService.shared
-
-                if totalCount > 0 {
-                    service.sessionProgress = SessionProgress(
-                        currentTask: currentTask,
-                        progress: progress,
-                        completedCount: completedCount,
-                        totalCount: totalCount
-                    )
-                } else {
-                    service.sessionProgress = nil
-                }
-            }
-
+            handleProgressNotificationBackground(userInfo: userInfo)
             completionHandler(.newData)
         } else {
             completionHandler(.noData)
+        }
+    }
+
+    /// Parse progress notification and update WatchService (background)
+    private func handleProgressNotificationBackground(userInfo: [AnyHashable: Any]) {
+        let currentTask = userInfo["currentTask"] as? String
+        let currentActivity = userInfo["currentActivity"] as? String
+        let progress = userInfo["progress"] as? Double ?? 0
+        let completedCount = userInfo["completedCount"] as? Int ?? 0
+        let totalCount = userInfo["totalCount"] as? Int ?? 0
+        let elapsedSeconds = userInfo["elapsedSeconds"] as? Int ?? 0
+
+        // Parse tasks array if present
+        let tasksArray = userInfo["tasks"] as? [[String: Any]] ?? []
+        let tasks = tasksArray.map { taskDict -> TodoItem in
+            TodoItem(
+                content: taskDict["content"] as? String ?? "",
+                status: taskDict["status"] as? String ?? "pending",
+                activeForm: taskDict["activeForm"] as? String
+            )
+        }
+
+        Task { @MainActor in
+            let service = WatchService.shared
+
+            if totalCount > 0 {
+                service.sessionProgress = SessionProgress(
+                    currentTask: currentTask,
+                    currentActivity: currentActivity,
+                    progress: progress,
+                    completedCount: completedCount,
+                    totalCount: totalCount,
+                    elapsedSeconds: elapsedSeconds,
+                    tasks: tasks
+                )
+                service.lastProgressUpdate = Date()
+            } else {
+                service.sessionProgress = nil
+                service.lastProgressUpdate = nil
+            }
         }
     }
 
@@ -164,28 +185,10 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         }
     }
 
-    /// Handle progress notification from Claude Code's TodoWrite hook
+    /// Handle progress notification from Claude Code's TodoWrite hook (foreground)
     private func handleProgressNotification(userInfo: [AnyHashable: Any]) {
-        let currentTask = userInfo["currentTask"] as? String
-        let progress = userInfo["progress"] as? Double ?? 0
-        let completedCount = userInfo["completedCount"] as? Int ?? 0
-        let totalCount = userInfo["totalCount"] as? Int ?? 0
-
-        Task { @MainActor in
-            let service = WatchService.shared
-
-            if totalCount > 0 {
-                service.sessionProgress = SessionProgress(
-                    currentTask: currentTask,
-                    progress: progress,
-                    completedCount: completedCount,
-                    totalCount: totalCount
-                )
-            } else {
-                // Clear progress if no tasks
-                service.sessionProgress = nil
-            }
-        }
+        // Use the same parsing logic as background handler
+        handleProgressNotificationBackground(userInfo: userInfo)
     }
 
     /// Parse notification payload and add to WatchService pending actions
@@ -214,9 +217,20 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             let service = WatchService.shared
             // Avoid duplicates
             if !service.state.pendingActions.contains(where: { $0.id == requestId }) {
-                service.state.pendingActions.append(action)
-                service.state.status = .waiting
-                service.playHaptic(.notification)
+                // AUTO-ACCEPT MODE: Automatically approve instead of queueing
+                if service.state.mode == .autoAccept {
+                    service.playHaptic(.success)
+                    // Respond to cloud with approval
+                    if service.useCloudMode && service.isPaired {
+                        try? await service.respondToCloudRequest(requestId, approved: true)
+                    } else {
+                        service.approveAction(requestId)
+                    }
+                } else {
+                    service.state.pendingActions.append(action)
+                    service.state.status = .waiting
+                    service.playHaptic(.notification)
+                }
             }
         }
     }
@@ -236,6 +250,14 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             switch response.actionIdentifier {
             case "APPROVE_ACTION":
                 if let requestId = requestId {
+                    // Always remove from local state first (optimistic update)
+                    service.state.pendingActions.removeAll { $0.id == requestId }
+                    if service.state.pendingActions.isEmpty {
+                        service.state.status = .running
+                    }
+                    service.playHaptic(.success)
+
+                    // Then try to notify server
                     if service.useCloudMode && service.isPaired {
                         try? await service.respondToCloudRequest(requestId, approved: true)
                     } else {

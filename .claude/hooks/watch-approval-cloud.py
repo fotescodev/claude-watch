@@ -59,6 +59,50 @@ BUNDLE_ID = "com.edgeoftrust.claudewatch"
 TOOLS_REQUIRING_APPROVAL = {"Bash", "Edit", "Write", "MultiEdit", "NotebookEdit"}
 
 
+def should_send_notification() -> bool:
+    """
+    Check if enough time has passed to send another notification.
+    Returns True if we should send, False if debounced.
+    Also updates the timestamp if returning True.
+    """
+    try:
+        if os.path.exists(LAST_NOTIFICATION_FILE):
+            with open(LAST_NOTIFICATION_FILE, 'r') as f:
+                last_time = float(f.read().strip())
+                if time.time() - last_time < NOTIFICATION_DEBOUNCE_SECONDS:
+                    return False  # Debounced - don't send
+    except (IOError, ValueError):
+        pass  # File doesn't exist or invalid - send notification
+
+    # Update timestamp
+    try:
+        with open(LAST_NOTIFICATION_FILE, 'w') as f:
+            f.write(str(time.time()))
+    except IOError:
+        pass  # Non-critical if we can't write
+
+    return True
+
+
+def get_pending_count() -> int:
+    """Get count of pending requests from cloud server."""
+    pairing_id = get_pairing_id()
+    if not pairing_id:
+        return 0
+
+    try:
+        req = urllib.request.Request(
+            f"{CLOUD_SERVER}/requests/{pairing_id}",
+            method="GET"
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            result = json.loads(resp.read())
+            requests = result.get("requests", [])
+            return len(requests)
+    except Exception:
+        return 0
+
+
 def get_pairing_id() -> str | None:
     """
     Load pairing ID from (in order of priority):
@@ -133,9 +177,13 @@ def main():
 
         debug_log("REQUEST", f"Request created: {request_id[:8]}", f"id={request_id}")
 
-        # Step 2: Send simulated push notification to simulator
-        debug_log("APNS", "Sending push notification", f"id={request_id[:8]}")
-        send_simulator_notification(request_id, request_data)
+        # Step 2: Send simulated push notification to simulator (with debouncing)
+        if should_send_notification():
+            pending_count = get_pending_count()
+            debug_log("APNS", f"Sending notification ({pending_count} pending)", f"id={request_id[:8]}")
+            send_simulator_notification(request_id, request_data, pending_count)
+        else:
+            debug_log("APNS", "Notification debounced (recent notification sent)", f"id={request_id[:8]}")
 
         # Step 3: Poll for approval (blocking)
         debug_log("BLOCK", "Waiting for watch response...", f"id={request_id[:8]}")
@@ -229,26 +277,36 @@ def create_request(request_data: dict) -> str:
         return result.get("requestId")
 
 
-def send_simulator_notification(request_id: str, request_data: dict):
+def send_simulator_notification(request_id: str, request_data: dict, pending_count: int = 1):
     """Send a simulated push notification to the watch simulator."""
     import tempfile
+
+    # Show count in title if multiple pending
+    if pending_count > 1:
+        title = f"Claude: {pending_count} actions pending"
+        body = f"Latest: {request_data['title']}"
+    else:
+        title = f"Claude: {request_data['type'].replace('_', ' ')}"
+        body = request_data["title"]
 
     payload = {
         "aps": {
             "alert": {
-                "title": f"Claude: {request_data['type'].replace('_', ' ')}",
-                "body": request_data["title"],
-                "subtitle": request_data.get("description", "")[:50]
+                "title": title,
+                "body": body,
+                "subtitle": request_data.get("description", "")[:50] if pending_count == 1 else ""
             },
             "sound": "default",
-            "category": "CLAUDE_ACTION"
+            "category": "CLAUDE_ACTION",
+            "badge": pending_count  # Show badge count on app icon
         },
         "requestId": request_id,
         "type": request_data["type"],
         "title": request_data["title"],
         "description": request_data.get("description"),
         "filePath": request_data.get("filePath"),
-        "command": request_data.get("command")
+        "command": request_data.get("command"),
+        "pendingCount": pending_count
     }
 
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:

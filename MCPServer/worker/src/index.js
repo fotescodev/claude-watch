@@ -691,16 +691,28 @@ export default {
           expirationTtl: 600
         });
 
-        // Send push notification
+        // Get pending count for badge
+        const pendingCount = pendingList.length;
+
+        // Send push notification with badge count
+        // If multiple pending, show count instead of individual action
+        const alertTitle = pendingCount > 1
+          ? `Claude: ${pendingCount} actions pending`
+          : `Claude: ${type.replace('_', ' ')}`;
+        const alertBody = pendingCount > 1
+          ? `Latest: ${title}`
+          : title;
+
         const apnsPayload = {
           aps: {
             alert: {
-              title: `Claude: ${type.replace('_', ' ')}`,
-              body: title,
-              subtitle: description || undefined
+              title: alertTitle,
+              body: alertBody,
+              subtitle: pendingCount === 1 ? (description || undefined) : undefined
             },
             sound: 'default',
             category: 'CLAUDE_ACTION',
+            badge: pendingCount,
             'mutable-content': 1
           },
           requestId,
@@ -708,7 +720,8 @@ export default {
           title,
           description,
           filePath,
-          command
+          command,
+          pendingCount
         };
 
         const apnsResult = await sendAPNs(env, pairing.deviceToken, apnsPayload);
@@ -811,7 +824,7 @@ export default {
 
       // POST /session-progress - Receive session progress from Claude Code hook
       if (path === '/session-progress' && request.method === 'POST') {
-        const { pairingId, tasks, currentTask, progress, completedCount, totalCount } = await request.json();
+        const { pairingId, tasks, currentTask, currentActivity, progress, completedCount, totalCount, elapsedSeconds } = await request.json();
 
         if (!pairingId) {
           return jsonResponse({ error: 'Missing pairingId' }, 400);
@@ -829,9 +842,11 @@ export default {
         await env.PAIRINGS.put(`progress:${pairingId}`, JSON.stringify({
           tasks: tasks || [],
           currentTask: currentTask || null,
+          currentActivity: currentActivity || null,
           progress: progress || 0,
           completedCount: completedCount || 0,
           totalCount: totalCount || 0,
+          elapsedSeconds: elapsedSeconds || 0,
           updatedAt: Date.now()
         }), { expirationTtl: 3600 });
 
@@ -843,10 +858,13 @@ export default {
               'content-available': 1
             },
             type: 'progress',
+            tasks: tasks || [],
             currentTask: currentTask || null,
+            currentActivity: currentActivity || null,
             progress: progress || 0,
             completedCount: completedCount || 0,
-            totalCount: totalCount || 0
+            totalCount: totalCount || 0,
+            elapsedSeconds: elapsedSeconds || 0
           };
           apnsResult = await sendAPNs(env, pairing.deviceToken, apnsPayload);
         }
@@ -872,9 +890,11 @@ export default {
         if (!progressData) {
           return jsonResponse({
             currentTask: null,
+            currentActivity: null,
             progress: 0,
             completedCount: 0,
             totalCount: 0,
+            elapsedSeconds: 0,
             tasks: []
           });
         }

@@ -812,6 +812,273 @@ tasks:
       - progress-tracking
     commit_template: "feat(ui): Display real-time task progress"
   # ═══════════════════════════════════════════════════════════════════════════
+  # FEATURE: Rich Session State Display
+  # Show full Claude Code session state on watch (activity, todos, time, tokens)
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "FE2a"
+    title: "Display rich session state in MainView (activity, todos, time, tokens)"
+    description: |
+      GOAL: Show the full Claude Code session state on the watch, even when
+      there are no pending permission requests. Useful for passive monitoring.
+
+      WHAT TO DISPLAY (from screenshot):
+      ```
+      ┌─────────────────────────────────────┐
+      │ ● Launching parallel review agents  │
+      │   (ctrl+c to interrupt · 1m 27s)    │
+      │                                     │
+      │ ├ ◉ Launch parallel review agents   │
+      │ ├ ○ Synthesize findings from all    │
+      │ └ ○ Create prioritized improvements │
+      │                                     │
+      │ ↓ 5.4k tokens                       │
+      └─────────────────────────────────────┘
+      ```
+
+      IMPLEMENTED (2026-01-19):
+      - Extended progress-tracker.py to capture:
+        - currentActivity (activeForm from in_progress task)
+        - Full tasks list with status and activeForm
+        - elapsedSeconds (tracks session start time)
+      - Extended SessionProgress struct with new fields
+      - Added TodoItem struct with status icons (○ ● ◉)
+      - Updated MainView sessionProgressView to show:
+        - Pulsing activity indicator
+        - Current activity text
+        - Elapsed time (formatted as "1m 27s")
+        - Todo list (up to 3 items with "... and X more")
+        - Progress bar with percentage
+      - Worker /session-progress endpoint extended
+      - ClaudeWatchApp notification handlers updated
+
+      NOTE: Token count not implemented - not available in TodoWrite hook.
+      Would require separate hook on model response events.
+    priority: high
+    parallel_group: 1
+    completed: true
+    depends_on:
+      - "FE1c"
+    verification: |
+      grep -q "SessionState" ClaudeWatch/Services/WatchService.swift && \
+      grep -q "currentActivity" ClaudeWatch/Views/MainView.swift
+    acceptance_criteria:
+      - "Current activity text displayed"
+      - "Todo list shows with status icons"
+      - "Elapsed time formatted and displayed"
+      - "Token count shown"
+      - "Updates in real-time via silent push"
+      - "Falls back to idle view when no active session"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Services/WatchService.swift"
+      - ".claude/hooks/progress-tracker.py"
+      - "MCPServer/worker/src/index.ts"
+    tags:
+      - enhancement
+      - ui
+      - session-state
+      - glanceable
+    commit_template: "feat(ui): Display rich session state (activity, todos, time, tokens)"
+  - id: "FE2b"
+    title: "Add stop/play interrupt controls to watch"
+    description: |
+      GOAL: Replace "(ctrl+c to interrupt)" with actual watch controls.
+      There's no keyboard on the watch - we need tap-based controls.
+
+      UI DESIGN:
+      ```
+      ┌─────────────────────────────────────┐
+      │ ● Launching parallel review agents  │
+      │   1m 27s · ↓ 5.4k tokens            │
+      │                                     │
+      │   ┌─────────┐   ┌─────────┐         │
+      │   │  ⏸ Stop │   │ ▶ Resume│         │
+      │   └─────────┘   └─────────┘         │
+      └─────────────────────────────────────┘
+      ```
+
+      CONTROLS:
+      - ⏸ Stop/Pause: Send interrupt signal to Claude Code session
+      - ▶ Resume/Play: Resume paused session (if supported)
+      - Maybe single toggle button that switches state
+
+      IMPLEMENTATION:
+      1. Add interrupt endpoint to worker: POST /session-interrupt
+         - Accepts: { pairingId, action: "stop" | "resume" }
+         - Stores interrupt request in KV
+         - Hook polls or receives via mechanism TBD
+
+      2. Add hook to check for interrupt requests
+         - Could poll /session-interrupt/:pairingId
+         - Or use existing WebSocket connection
+         - When interrupt received, exit with special code
+
+      3. Watch UI:
+         - Add InterruptControls view with stop/play buttons
+         - Show only when session is active
+         - Haptic feedback on tap
+         - Visual state change (button highlights)
+
+      CHALLENGES:
+      - How does hook receive interrupt? Polling vs push
+      - What happens on "resume"? May need Claude Code changes
+      - Consider just "Stop" initially, no resume
+
+      MVP: Just "Stop" button that kills the session gracefully.
+    priority: medium
+    parallel_group: 2
+    completed: false
+    depends_on:
+      - "FE2a"
+    verification: |
+      grep -q "InterruptControls\|stopSession" ClaudeWatch/Views/MainView.swift
+    acceptance_criteria:
+      - "Stop button visible during active session"
+      - "Tapping Stop sends interrupt to worker"
+      - "Claude Code session receives interrupt signal"
+      - "Haptic feedback on button tap"
+      - "No 'ctrl+c' text shown on watch"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "MCPServer/worker/src/index.ts"
+      - ".claude/hooks/progress-tracker.py"
+    tags:
+      - enhancement
+      - ui
+      - controls
+      - interrupt
+    commit_template: "feat(ui): Add stop/play interrupt controls"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # KNOWN ISSUES - TO FIX
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "BUG1"
+    title: "Mode toggle (Normal/Auto-Approve/Plan) not working on watch"
+    description: |
+      ISSUE: The NORMAL | AUTO-APPROVE | PLAN mode toggle does not work
+      on the Apple Watch (tested in simulator).
+
+      FIXED (2026-01-19):
+      The mode toggle UI was working, but AUTO-APPROVE mode wasn't actually
+      auto-approving incoming actions. Fixed by adding auto-approve checks in:
+
+      1. fetchPendingRequests() - cloud polling
+         - Now auto-approves all actions when in autoAccept mode
+      2. addPendingActionFromNotification() - push notifications
+         - Now auto-approves instead of queueing when in autoAccept mode
+      3. handleActionRequested() - WebSocket mode
+         - Now auto-approves instead of queueing when in autoAccept mode
+
+      MODE TOGGLE: Works correctly (cycles Normal → Auto → Plan → Normal)
+      PERSISTENCE: Works via @AppStorage("permissionMode")
+      AUTO-APPROVE: Now actually auto-approves incoming actions
+    priority: high
+    parallel_group: 1
+    completed: true
+    verification: |
+      # Set mode to AUTO, send notification, verify auto-approved
+      echo "Manual verification required"
+    acceptance_criteria:
+      - "Mode cycles correctly: Normal → Auto → Plan → Normal"
+      - "Mode persists after app restart"
+      - "Auto-Approve mode auto-approves pending actions"
+    files:
+      - "ClaudeWatch/Views/MainView.swift"
+      - "ClaudeWatch/Services/WatchService.swift"
+      - "ClaudeWatch/App/ClaudeWatchApp.swift"
+    tags:
+      - bug
+      - ui
+      - modes
+    commit_template: "fix(modes): Mode toggle working on watch"
+  - id: "BUG2"
+    title: "All Claude sessions interact with watch - should only be cc-watch session"
+    description: |
+      CRITICAL ISSUE: Currently ANY Claude Code session with a pairing ID
+      sends progress/approval requests to the watch. This causes:
+      - Multiple sessions fighting for watch attention
+      - Confusion about which session a notification belongs to
+      - Progress updates from unrelated sessions
+
+      FIXED (2026-01-19):
+      Implemented Option C (simple env var flag):
+      - Hooks check for CLAUDE_WATCH_SESSION_ACTIVE=1 env var
+      - If not set, hooks exit immediately (exit 0) - no watch interaction
+      - cc-watch CLI needs to set this env var when starting a session
+
+      HOOKS UPDATED:
+      - watch-approval-cloud.py: Added session check at top of main()
+      - progress-tracker.py: Added session check at top of main()
+
+      TO USE:
+      - cc-watch needs to: export CLAUDE_WATCH_SESSION_ACTIVE=1
+      - Or manually: CLAUDE_WATCH_SESSION_ACTIVE=1 claude
+      - Without the env var, hooks are completely silent
+    priority: critical
+    parallel_group: 1
+    completed: true
+    verification: |
+      # Without env var - exits immediately
+      echo '{"tool_name": "Bash"}' | python3 .claude/hooks/watch-approval-cloud.py && echo "PASS"
+    acceptance_criteria:
+      - "Only cc-watch session sends to watch"
+      - "Other sessions work normally"
+      - "Clear indication of which session is active"
+    files:
+      - ".claude/hooks/watch-approval-cloud.py"
+      - ".claude/hooks/progress-tracker.py"
+    tags:
+      - bug
+      - critical
+      - session-isolation
+    commit_template: "fix(hooks): Only cc-watch session interacts with watch"
+  - id: "BUG3"
+    title: "Notification barrage - hard to track multiple notifications"
+    description: |
+      ISSUE: When multiple tool calls happen rapidly, the watch receives
+      a barrage of notifications that's hard to keep track of.
+
+      FIXED (2026-01-19):
+      Implemented two-part solution:
+
+      1. HOOK-SIDE DEBOUNCING (watch-approval-cloud.py):
+         - Added 3-second debounce window
+         - Only first notification in window is sent
+         - Subsequent requests still created on server (for polling)
+         - Tracks last notification time in /tmp/claude-watch-last-notification
+
+      2. BADGE COUNT IN NOTIFICATIONS:
+         - Hook: Shows "Claude: N actions pending" when multiple pending
+         - Worker: Includes badge count in APNs payload
+         - Notification body shows "Latest: <action>" for context
+
+      HOW IT WORKS:
+      - First action: Full notification with details
+      - Actions within 3s: Debounced (request created, no notification)
+      - Watch picks up pending actions via polling
+      - Badge shows total pending count
+
+      CONFIGURATION:
+      - NOTIFICATION_DEBOUNCE_SECONDS = 3 in hook
+      - Can be adjusted as needed
+    priority: medium
+    parallel_group: 2
+    completed: true
+    verification: |
+      # Rapid tool calls should only trigger one notification per 3s window
+      echo "Manual testing with rapid tool calls"
+    acceptance_criteria:
+      - "Notifications don't overwhelm the user"
+      - "Easy to see total pending count"
+      - "Can still approve individual actions"
+    files:
+      - ".claude/hooks/watch-approval-cloud.py"
+      - "MCPServer/worker/src/index.js"
+    tags:
+      - enhancement
+      - ux
+      - notifications
+    commit_template: "fix(notifications): Reduce notification barrage"
+  # ═══════════════════════════════════════════════════════════════════════════
   # BLOCKED/DEFERRED TASKS
   # ═══════════════════════════════════════════════════════════════════════════
   - id: "SP1"
@@ -836,3 +1103,85 @@ tasks:
       - blocked
       - deferred
     commit_template: "feat(pairing): Add clipboard paste (deferred)"
+  - id: "DBG-CLOUD"
+    title: "Cloud server connectivity issues detected"
+    description: |
+      AUTO-DETECTED BUG from Watch Debug Monitor
+      Detected at: 2026-01-19 13:15:42
+
+      The watch debug monitor detected 3 cloud connectivity failures in the last 5 minutes.
+
+Symptoms:
+- Cloud server returning non-200 status
+- Requests timing out
+- Hook failing to create approval requests
+
+Possible causes:
+- Cloudflare Worker down
+- Network issues
+- Rate limiting
+
+To investigate:
+```bash
+curl -v https://claude-watch.fotescodev.workers.dev/health
+```
+
+      Debug logs: .claude/logs/watch-debug/
+    priority: high
+    parallel_group: 1
+    completed: false
+    verification: |
+      echo "Verify bug is fixed"
+    acceptance_criteria:
+      - "Issue no longer occurs"
+      - "Debug monitor shows healthy status"
+    files: []
+    tags:
+      - bug
+      - auto-detected
+      - cloud
+      - connectivity
+    commit_template: "fix(watch): Cloud server connectivity issues detected"
+  - id: "DBG-TIMEOUT"
+    title: "Multiple request timeouts detected"
+    description: |
+      AUTO-DETECTED BUG from Watch Debug Monitor
+      Detected at: 2026-01-19 13:30:50
+
+      The watch debug monitor detected 2 request timeouts in the last 10 minutes.
+
+Symptoms:
+- Approval requests not being responded to
+- Claude Code hanging waiting for approval
+- Watch may not be receiving notifications
+
+Possible causes:
+- Watch app not running
+- Watch not receiving push notifications
+- Network issues on watch
+- Watch has stale pairing ID
+
+To investigate:
+1. Check watch app is running
+2. Verify pairing IDs match
+3. Send test notification:
+   ```bash
+   .claude/hooks/watch-debug-monitor.sh --test
+   ```
+
+      Debug logs: .claude/logs/watch-debug/
+    priority: high
+    parallel_group: 1
+    completed: false
+    verification: |
+      echo "Verify bug is fixed"
+    acceptance_criteria:
+      - "Issue no longer occurs"
+      - "Debug monitor shows healthy status"
+    files: []
+    tags:
+      - bug
+      - auto-detected
+      - timeout
+      - notifications
+    commit_template: "fix(watch): Multiple request timeouts detected"

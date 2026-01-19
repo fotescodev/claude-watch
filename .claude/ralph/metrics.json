@@ -1,5 +1,5 @@
 {
-  "totalSessions": 30,
+  "totalSessions": 34,
   "totalTokens": {
     "input": 45230,
     "output": 23840
@@ -231,18 +231,47 @@
       "timestamp": "2026-01-18T23:02:40Z",
       "taskId": "BF1",
       "status": "completed"
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-19T00:04:11Z",
+      "taskId": "E2E1",
+      "status": "failed"
+    },
+    {
+      "id": "session-002",
+      "timestamp": "2026-01-19T00:05:09Z",
+      "taskId": "FE1",
+      "status": "failed"
+    },
+    {
+      "id": "session-003",
+      "timestamp": "2026-01-19T00:06:16Z",
+      "taskId": "FE1",
+      "status": "failed"
+    },
+    {
+      "id": "session-001",
+      "timestamp": "2026-01-19T01:59:37Z",
+      "taskId": "FE1a",
+      "status": "completed"
     }
   ],
   "successRate": 80.0,
-  "lastSession": "2026-01-18T23:02:40Z",
-  "tasksFailed": 17,
+  "lastSession": "2026-01-19T01:59:37Z",
+  "tasksFailed": 20,
   "buildFailures": 14,
-  "tasksCompleted": 1,
+  "tasksCompleted": 2,
   "harvestedSkills": [
     {
       "name": "verify-notification-fixes-live-update-cl",
       "taskId": "BF1",
       "harvestedAt": "2026-01-18T23:02:40Z"
+    },
+    {
+      "name": "add-hook-to-capture-todowrite-events-fro",
+      "taskId": "FE1a",
+      "harvestedAt": "2026-01-19T01:59:37Z"
     }
   ]
 }

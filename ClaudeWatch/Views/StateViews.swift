@@ -10,34 +10,89 @@ struct EmptyStateView: View {
     @Environment(\.colorSchemeContrast) var colorSchemeContrast
 
     var body: some View {
+        if service.isPaired {
+            // Paired state - show useful status info
+            pairedEmptyState
+        } else {
+            // Unpaired state - prompt to pair
+            unpairedEmptyState
+        }
+    }
+
+    /// When paired: show connection status and "ready for approvals" message
+    private var pairedEmptyState: some View {
+        VStack(spacing: 8) {
+            // Connection status header
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(connectionColor)
+                    .frame(width: 8, height: 8)
+
+                Text(connectionText)
+                    .font(.claudeFootnote)
+                    .foregroundColor(Claude.textSecondary)
+
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+
+            Spacer()
+
+            // Ready icon
+            Image(systemName: "checkmark.circle")
+                .font(.system(size: 32, weight: .light))
+                .foregroundColor(Claude.success)
+
+            // Main message
+            Text("Ready")
+                .font(.claudeHeadline)
+                .foregroundColor(Claude.textPrimary)
+
+            // Subtitle
+            Text("Approvals will appear here")
+                .font(.claudeCaption)
+                .foregroundColor(Claude.textSecondary)
+                .multilineTextAlignment(.center)
+
+            Spacer()
+
+            // Pairing ID for debugging (subtle)
+            Text(String(service.pairingId.prefix(8)))
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(Claude.textTertiary)
+                .padding(.bottom, 8)
+        }
+    }
+
+    /// When not paired: show pairing prompt
+    private var unpairedEmptyState: some View {
         VStack(spacing: 12) {
             Spacer()
 
             // Icon
-            Image(systemName: service.isPaired ? "tray" : "link.circle")
+            Image(systemName: "link.circle")
                 .font(.system(size: 36, weight: .light))
                 .foregroundColor(Claude.textTertiaryContrast(colorSchemeContrast))
 
             // Title
-            Text(service.isPaired ? "All Clear" : "Not Paired")
+            Text("Not Paired")
                 .font(.headline)
                 .foregroundColor(Claude.textPrimary)
 
             Spacer()
 
-            // Action buttons - using glass styles
+            // Action buttons
             VStack(spacing: 6) {
-                if !service.isPaired {
-                    Button {
-                        showingPairing = true
-                    } label: {
-                        Text("Pair with Code")
-                            .font(.caption.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.glassProminentCompat)
-                    .accessibilityLabel("Pair with Claude Code")
+                Button {
+                    showingPairing = true
+                } label: {
+                    Text("Pair with Code")
+                        .font(.caption.weight(.semibold))
+                        .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(.glassProminentCompat)
+                .accessibilityLabel("Pair with Claude Code")
 
                 Button {
                     service.loadDemoData()
@@ -54,6 +109,23 @@ struct EmptyStateView: View {
         }
         .sheet(isPresented: $showingPairing) {
             PairingView(service: service)
+        }
+    }
+
+    private var connectionColor: Color {
+        switch service.connectionStatus {
+        case .connected: return Claude.success
+        case .connecting, .reconnecting: return Claude.warning
+        case .disconnected: return Claude.danger
+        }
+    }
+
+    private var connectionText: String {
+        switch service.connectionStatus {
+        case .connected: return "Connected"
+        case .connecting: return "Connecting..."
+        case .reconnecting: return "Reconnecting..."
+        case .disconnected: return "Disconnected"
         }
     }
 }

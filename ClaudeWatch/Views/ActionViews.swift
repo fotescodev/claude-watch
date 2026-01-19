@@ -180,20 +180,20 @@ struct PrimaryActionCard: View {
                 // Reject button
                 Button {
                     Task { @MainActor in
-                        do {
-                            if service.useCloudMode && service.isPaired {
-                                try await service.respondToCloudRequest(action.id, approved: false)
-                            } else {
-                                service.rejectAction(action.id)
-                            }
-                            didReject.toggle()
-                            AccessibilityNotification.Announcement("Rejected \(action.title)").post()
-                        } catch {
-                            errorMessage = "Failed to reject"
-                            withAnimation(.easeIn(duration: 0.2)) {
-                                showError = true
-                            }
-                            didError.toggle()
+                        // Optimistic update first - remove action immediately
+                        service.state.pendingActions.removeAll { $0.id == action.id }
+                        if service.state.pendingActions.isEmpty {
+                            service.state.status = .idle
+                        }
+                        service.playHaptic(.failure)
+                        didReject.toggle()
+                        AccessibilityNotification.Announcement("Rejected \(action.title)").post()
+
+                        // Then notify server (best effort)
+                        if service.useCloudMode && service.isPaired {
+                            try? await service.respondToCloudRequest(action.id, approved: false)
+                        } else {
+                            service.rejectAction(action.id)
                         }
                     }
                 } label: {
@@ -220,20 +220,20 @@ struct PrimaryActionCard: View {
                 // Approve button
                 Button {
                     Task { @MainActor in
-                        do {
-                            if service.useCloudMode && service.isPaired {
-                                try await service.respondToCloudRequest(action.id, approved: true)
-                            } else {
-                                service.approveAction(action.id)
-                            }
-                            didApprove.toggle()
-                            AccessibilityNotification.Announcement("Approved \(action.title)").post()
-                        } catch {
-                            errorMessage = "Failed to approve"
-                            withAnimation(.easeIn(duration: 0.2)) {
-                                showError = true
-                            }
-                            didError.toggle()
+                        // Optimistic update first - remove action immediately
+                        service.state.pendingActions.removeAll { $0.id == action.id }
+                        if service.state.pendingActions.isEmpty {
+                            service.state.status = .running
+                        }
+                        service.playHaptic(.success)
+                        didApprove.toggle()
+                        AccessibilityNotification.Announcement("Approved \(action.title)").post()
+
+                        // Then notify server (best effort)
+                        if service.useCloudMode && service.isPaired {
+                            try? await service.respondToCloudRequest(action.id, approved: true)
+                        } else {
+                            service.approveAction(action.id)
                         }
                     }
                 } label: {
@@ -379,40 +379,40 @@ struct CompactActionCard: View {
 
     private func reject(_ action: PendingAction) {
         Task { @MainActor in
-            do {
-                if service.useCloudMode && service.isPaired {
-                    try await service.respondToCloudRequest(action.id, approved: false)
-                } else {
-                    service.rejectAction(action.id)
-                }
-                didReject.toggle()
-                AccessibilityNotification.Announcement("Rejected \(action.title)").post()
-            } catch {
-                errorMessage = "Failed to reject"
-                withAnimation(.easeIn(duration: 0.2)) {
-                    showError = true
-                }
-                didError.toggle()
+            // Optimistic update first
+            service.state.pendingActions.removeAll { $0.id == action.id }
+            if service.state.pendingActions.isEmpty {
+                service.state.status = .idle
+            }
+            service.playHaptic(.failure)
+            didReject.toggle()
+            AccessibilityNotification.Announcement("Rejected \(action.title)").post()
+
+            // Then notify server (best effort)
+            if service.useCloudMode && service.isPaired {
+                try? await service.respondToCloudRequest(action.id, approved: false)
+            } else {
+                service.rejectAction(action.id)
             }
         }
     }
 
     private func approve(_ action: PendingAction) {
         Task { @MainActor in
-            do {
-                if service.useCloudMode && service.isPaired {
-                    try await service.respondToCloudRequest(action.id, approved: true)
-                } else {
-                    service.approveAction(action.id)
-                }
-                didApprove.toggle()
-                AccessibilityNotification.Announcement("Approved \(action.title)").post()
-            } catch {
-                errorMessage = "Failed to approve"
-                withAnimation(.easeIn(duration: 0.2)) {
-                    showError = true
-                }
-                didError.toggle()
+            // Optimistic update first
+            service.state.pendingActions.removeAll { $0.id == action.id }
+            if service.state.pendingActions.isEmpty {
+                service.state.status = .running
+            }
+            service.playHaptic(.success)
+            didApprove.toggle()
+            AccessibilityNotification.Announcement("Approved \(action.title)").post()
+
+            // Then notify server (best effort)
+            if service.useCloudMode && service.isPaired {
+                try? await service.respondToCloudRequest(action.id, approved: true)
+            } else {
+                service.approveAction(action.id)
             }
         }
     }

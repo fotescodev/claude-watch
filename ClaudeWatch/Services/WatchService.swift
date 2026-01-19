@@ -22,6 +22,12 @@ class WatchService: ObservableObject {
     @Published var isSendingPrompt = false
     @Published var sessionProgress: SessionProgress?
 
+    /// Track when session progress was last updated (for staleness check)
+    var lastProgressUpdate: Date?
+
+    /// Clear stale session progress (no update in 60 seconds)
+    private let progressStaleThreshold: TimeInterval = 60
+
     // MARK: - Foundation Models (On-Device AI)
     @Published var foundationModelsStatus: FoundationModelsStatus = .checking
 
@@ -375,10 +381,18 @@ class WatchService: ObservableObject {
     private func handleActionRequested(_ data: [String: Any]) {
         guard let action = PendingAction(from: data) else { return }
 
-        // Add to pending actions
-        if !state.pendingActions.contains(where: { $0.id == action.id }) {
-            state.pendingActions.append(action)
+        // Avoid duplicates
+        guard !state.pendingActions.contains(where: { $0.id == action.id }) else { return }
+
+        // AUTO-ACCEPT MODE: Automatically approve instead of queueing
+        if state.mode == .autoAccept {
+            playHaptic(.success)
+            approveAction(action.id)
+            return
         }
+
+        // Add to pending actions
+        state.pendingActions.append(action)
         state.status = .waiting
 
         // Play haptic
@@ -1021,6 +1035,13 @@ class WatchService: ObservableObject {
             // Combine cloud actions with local-only actions
             state.pendingActions = newActions + localOnly
 
+            // AUTO-ACCEPT MODE: Automatically approve all pending actions
+            if state.mode == .autoAccept && !state.pendingActions.isEmpty {
+                playHaptic(.success)
+                approveAll()
+                return  // approveAll clears pendingActions and sets status
+            }
+
             if !state.pendingActions.isEmpty {
                 state.status = .waiting
             } else {
@@ -1030,6 +1051,13 @@ class WatchService: ObservableObject {
             // Play haptic for new actions
             if !addedIds.isEmpty {
                 playHaptic(.notification)
+            }
+
+            // Clear stale session progress (no update in 60 seconds)
+            if let lastUpdate = lastProgressUpdate,
+               Date().timeIntervalSince(lastUpdate) > progressStaleThreshold {
+                sessionProgress = nil
+                lastProgressUpdate = nil
             }
         }
     }
@@ -1181,15 +1209,75 @@ struct WatchState {
 /// Session progress from Claude Code's TodoWrite hook
 struct SessionProgress {
     var currentTask: String?
+    var currentActivity: String?  // Active form for display (e.g., "Running tests")
     var progress: Double  // 0.0 to 1.0
     var completedCount: Int
     var totalCount: Int
+    var elapsedSeconds: Int  // Time since session started
+    var tasks: [TodoItem]  // Full task list with statuses
 
-    init(currentTask: String? = nil, progress: Double = 0, completedCount: Int = 0, totalCount: Int = 0) {
+    init(
+        currentTask: String? = nil,
+        currentActivity: String? = nil,
+        progress: Double = 0,
+        completedCount: Int = 0,
+        totalCount: Int = 0,
+        elapsedSeconds: Int = 0,
+        tasks: [TodoItem] = []
+    ) {
         self.currentTask = currentTask
+        self.currentActivity = currentActivity
         self.progress = progress
         self.completedCount = completedCount
         self.totalCount = totalCount
+        self.elapsedSeconds = elapsedSeconds
+        self.tasks = tasks
+    }
+
+    /// Format elapsed time as "1m 27s" or "45s"
+    var formattedElapsedTime: String {
+        let minutes = elapsedSeconds / 60
+        let seconds = elapsedSeconds % 60
+        if minutes > 0 {
+            return "\(minutes)m \(seconds)s"
+        }
+        return "\(seconds)s"
+    }
+}
+
+/// A single todo item from Claude Code's task list
+struct TodoItem: Identifiable {
+    let id = UUID()
+    let content: String
+    let status: TodoStatus
+    let activeForm: String?
+
+    enum TodoStatus: String {
+        case pending
+        case inProgress = "in_progress"
+        case completed
+
+        var icon: String {
+            switch self {
+            case .pending: return "○"
+            case .inProgress: return "●"
+            case .completed: return "◉"
+            }
+        }
+
+        var color: Color {
+            switch self {
+            case .pending: return Color.gray
+            case .inProgress: return Color.orange
+            case .completed: return Color.green
+            }
+        }
+    }
+
+    init(content: String, status: String, activeForm: String? = nil) {
+        self.content = content
+        self.status = TodoStatus(rawValue: status) ?? .pending
+        self.activeForm = activeForm
     }
 }
 
