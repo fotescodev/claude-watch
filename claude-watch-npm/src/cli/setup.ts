@@ -93,11 +93,18 @@ async function offerStartClaude(): Promise<void> {
 
     const projectDir = dirResponse.projectDir || process.cwd();
 
+    // Get wrapper from config (if configured)
+    const config = readPairingConfig();
+    const { command, args } = buildClaudeCommand(config?.wrapper);
+
     console.log();
     console.log(chalk.cyan(`  Starting Claude Code in ${projectDir}...`));
+    if (config?.wrapper) {
+      console.log(chalk.dim(`  Using wrapper: ${config.wrapper}`));
+    }
     console.log();
 
-    const claude = spawn("claude", [], {
+    const claude = spawn(command, args, {
       stdio: "inherit",
       shell: true,
       cwd: projectDir,
