@@ -233,15 +233,18 @@ struct StatusHeader: View {
                 }
             }
 
-            // Status indicator - subtle, secondary info
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 6, height: 6)
+            // Status indicator - only show when NOT displaying session progress
+            // (session progress already shows status in the header)
+            if service.sessionProgress == nil {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 6, height: 6)
 
-                Text(statusText)
-                    .font(.claudeFootnote)
-                    .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
+                    Text(statusText)
+                        .font(.claudeFootnote)
+                        .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
+                }
             }
         }
         .frame(maxWidth: .infinity)

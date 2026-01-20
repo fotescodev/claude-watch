@@ -26,8 +26,9 @@ class WatchService: ObservableObject {
     /// Track when session progress was last updated (for staleness check)
     var lastProgressUpdate: Date?
 
-    /// Clear stale session progress (no update in 60 seconds)
+    /// Clear stale session progress (no update in 60 seconds for in-progress, 10 seconds for complete)
     private let progressStaleThreshold: TimeInterval = 60
+    private let completeStaleThreshold: TimeInterval = 10
 
     // MARK: - Foundation Models (On-Device AI)
     @Published var foundationModelsStatus: FoundationModelsStatus = .checking
@@ -1189,11 +1190,15 @@ class WatchService: ObservableObject {
                 playHaptic(.notification)
             }
 
-            // Clear stale session progress (no update in 60 seconds)
-            if let lastUpdate = lastProgressUpdate,
-               Date().timeIntervalSince(lastUpdate) > progressStaleThreshold {
-                sessionProgress = nil
-                lastProgressUpdate = nil
+            // Clear stale session progress
+            // Use shorter timeout (10s) for completed tasks, longer (60s) for in-progress
+            if let lastUpdate = lastProgressUpdate, let progress = sessionProgress {
+                let isComplete = progress.progress >= 1.0 || (progress.totalCount > 0 && progress.completedCount == progress.totalCount)
+                let threshold = isComplete ? completeStaleThreshold : progressStaleThreshold
+                if Date().timeIntervalSince(lastUpdate) > threshold {
+                    sessionProgress = nil
+                    lastProgressUpdate = nil
+                }
             }
         }
     }
@@ -1244,11 +1249,13 @@ class WatchService: ObservableObject {
                     tasks: tasks
                 )
                 lastProgressUpdate = Date()
-            } else if sessionProgress != nil {
+            } else if let existingProgress = sessionProgress {
                 // Only clear if we had progress before (avoid clearing on initial empty response)
-                // Check staleness threshold
+                // Use shorter timeout for completed tasks
+                let isComplete = existingProgress.progress >= 1.0 || (existingProgress.totalCount > 0 && existingProgress.completedCount == existingProgress.totalCount)
+                let threshold = isComplete ? completeStaleThreshold : progressStaleThreshold
                 if let lastUpdate = lastProgressUpdate,
-                   Date().timeIntervalSince(lastUpdate) > progressStaleThreshold {
+                   Date().timeIntervalSince(lastUpdate) > threshold {
                     sessionProgress = nil
                     lastProgressUpdate = nil
                 }
