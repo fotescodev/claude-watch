@@ -22,9 +22,19 @@ class WatchService: ObservableObject {
     @Published var isSendingPrompt = false
     @Published var sessionProgress: SessionProgress?
     @Published var isAPNsTokenReady = false
+    @Published var sessionHistory: [CompletedSession] = []
+
+    /// Maximum number of sessions to keep in history
+    private let maxHistoryCount = 10
 
     /// Track when session progress was last updated (for staleness check)
     var lastProgressUpdate: Date?
+
+    /// Track when current session started (for duration calculation)
+    private var sessionStartTime: Date?
+
+    /// Track if we already archived the current session (prevent duplicates)
+    private var hasArchivedCurrentSession = false
 
     /// Clear stale session progress (60s for in-progress, 3s for complete)
     /// Complete state is a brief acknowledgment, then return to "Listening..."
@@ -73,6 +83,9 @@ class WatchService: ObservableObject {
     // MARK: - Cloud Mode Polling
     private var pollingTask: Task<Void, Never>?
     private let pollingInterval: TimeInterval = 2.0
+
+    // MARK: - Auto-clear Complete State
+    private var clearProgressTask: Task<Void, Never>?
 
     // MARK: - Activity Batching
     private var activityBatcher: ActivityBatcher?
@@ -1282,8 +1295,68 @@ class WatchService: ObservableObject {
     /// Apply batched progress update to UI
     /// Called by ActivityBatcher after 2-second window
     private func applyBatchedProgress(_ progress: SessionProgress) {
+        // Check if session is complete
+        let isComplete = progress.progress >= 1.0 ||
+            (progress.totalCount > 0 && progress.completedCount == progress.totalCount)
+
+        // If already archived and getting more complete data, ignore it
+        // This prevents cycling between views when server still has old data
+        if hasArchivedCurrentSession && isComplete {
+            return
+        }
+
+        // Track session start for duration calculation
+        if sessionStartTime == nil && progress.totalCount > 0 {
+            sessionStartTime = Date()
+            hasArchivedCurrentSession = false
+        }
+
         sessionProgress = progress
         lastProgressUpdate = Date()
+
+        if isComplete && !hasArchivedCurrentSession {
+            // Archive to history
+            let duration = sessionStartTime.map { Date().timeIntervalSince($0) } ?? TimeInterval(progress.elapsedSeconds)
+            let completedSession = CompletedSession(
+                completedAt: Date(),
+                tasks: progress.tasks,
+                duration: duration
+            )
+
+            // Insert at beginning (newest first)
+            sessionHistory.insert(completedSession, at: 0)
+
+            // Trim to max count
+            if sessionHistory.count > maxHistoryCount {
+                sessionHistory = Array(sessionHistory.prefix(maxHistoryCount))
+            }
+
+            hasArchivedCurrentSession = true
+
+            // Cancel any existing clear task
+            clearProgressTask?.cancel()
+
+            // Schedule clear after brief display
+            clearProgressTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(completeStaleThreshold * 1_000_000_000))
+                guard !Task.isCancelled else { return }
+                sessionProgress = nil
+                lastProgressUpdate = nil
+                sessionStartTime = nil
+            }
+        } else if !isComplete {
+            // Cancel clear if we get new non-complete progress
+            clearProgressTask?.cancel()
+            clearProgressTask = nil
+            hasArchivedCurrentSession = false
+        }
+    }
+
+    /// Toggle expansion state of a history session
+    func toggleSessionExpanded(_ sessionId: UUID) {
+        if let index = sessionHistory.firstIndex(where: { $0.id == sessionId }) {
+            sessionHistory[index].isExpanded.toggle()
+        }
     }
 
     // MARK: - Cloud Errors
@@ -1547,6 +1620,45 @@ struct TodoItem: Identifiable {
         self.content = content
         self.status = TodoStatus(rawValue: status) ?? .pending
         self.activeForm = activeForm
+    }
+}
+
+/// A completed session archived for history view
+struct CompletedSession: Identifiable {
+    let id = UUID()
+    let completedAt: Date
+    let tasks: [TodoItem]
+    let duration: TimeInterval
+    var isExpanded: Bool = false
+
+    /// Task count display
+    var taskCountText: String {
+        let count = tasks.count
+        return count == 1 ? "1 task" : "\(count) tasks"
+    }
+
+    /// Relative time display (e.g., "2m ago", "1h ago")
+    var relativeTimeText: String {
+        let interval = Date().timeIntervalSince(completedAt)
+        if interval < 60 {
+            return "just now"
+        } else if interval < 3600 {
+            let minutes = Int(interval / 60)
+            return "\(minutes)m ago"
+        } else {
+            let hours = Int(interval / 3600)
+            return "\(hours)h ago"
+        }
+    }
+
+    /// Duration display
+    var durationText: String {
+        let minutes = Int(duration) / 60
+        let seconds = Int(duration) % 60
+        if minutes > 0 {
+            return "\(minutes)m \(seconds)s"
+        }
+        return "\(seconds)s"
     }
 }
 

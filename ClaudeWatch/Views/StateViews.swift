@@ -19,75 +19,121 @@ struct EmptyStateView: View {
         }
     }
 
-    /// When paired: show waiting-for-activity state that matches progress view layout
+    /// When paired: show waiting-for-activity state with session history
     private var pairedEmptyState: some View {
-        VStack(spacing: 8) {
-            // Connection status header
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(connectionColor)
-                    .frame(width: 8, height: 8)
+        ScrollView {
+            VStack(spacing: 10) {
+                // Current status: Listening...
+                VStack(spacing: 6) {
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(connectionColor)
+                            .frame(width: 6, height: 6)
 
-                Text(connectionText)
-                    .font(.claudeFootnote)
-                    .foregroundColor(Claude.textSecondary)
+                        Text("Listening...")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Claude.textSecondary)
 
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
+                        Spacer()
+                    }
 
-            Spacer()
-
-            // Progress-ready layout: matches StatusHeader.sessionProgressView structure
-            VStack(spacing: 6) {
-                // Activity header with pulsing dot
-                HStack(spacing: 5) {
-                    Circle()
-                        .fill(Claude.textSecondary)
-                        .frame(width: 6, height: 6)
-
-                    Text("Listening...")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Claude.textSecondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                // Placeholder for tasks area
-                Text("Activity will appear here")
-                    .font(.system(size: 10))
-                    .foregroundColor(Claude.textTertiary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 4)
-
-                // Empty progress bar (ready to fill)
-                VStack(spacing: 2) {
-                    ProgressView(value: 0)
-                        .tint(Claude.orange)
-
-                    HStack {
-                        Text("0%")
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    if service.sessionHistory.isEmpty {
+                        Text("Activity will appear here")
+                            .font(.system(size: 10))
                             .foregroundColor(Claude.textTertiary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 4)
+                    }
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Claude.surface1)
+                )
+
+                // Session History
+                if !service.sessionHistory.isEmpty {
+                    ForEach(service.sessionHistory) { session in
+                        SessionHistoryRow(session: session) {
+                            WKInterfaceDevice.current().play(.click)
+                            service.toggleSessionExpanded(session.id)
+                        }
+                    }
+                }
+
+                // Pairing ID (subtle, at bottom)
+                Text(String(service.pairingId.prefix(8)))
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(Claude.textTertiary)
+                    .padding(.top, 4)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+        }
+        .focusable()
+    }
+
+    /// A single row in session history
+    struct SessionHistoryRow: View {
+        let session: CompletedSession
+        let onTap: () -> Void
+
+        var body: some View {
+            Button(action: onTap) {
+                VStack(alignment: .leading, spacing: 4) {
+                    // Header row
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 10))
+                            .foregroundColor(Claude.textSecondary)
+
+                        Text(session.taskCountText)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Claude.textPrimary)
 
                         Spacer()
 
-                        Text("0/0")
-                            .font(.system(size: 9, weight: .regular))
+                        Text(session.relativeTimeText)
+                            .font(.system(size: 9))
+                            .foregroundColor(Claude.textTertiary)
+
+                        Image(systemName: session.isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 8, weight: .semibold))
                             .foregroundColor(Claude.textTertiary)
                     }
+
+                    // Expanded task list
+                    if session.isExpanded {
+                        VStack(alignment: .leading, spacing: 2) {
+                            ForEach(session.tasks) { task in
+                                HStack(spacing: 4) {
+                                    Text("·")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(Claude.textTertiary)
+                                    Text(task.content)
+                                        .font(.system(size: 9))
+                                        .foregroundColor(Claude.textSecondary)
+                                        .lineLimit(1)
+                                }
+                            }
+
+                            // Duration
+                            Text("Took \(session.durationText)")
+                                .font(.system(size: 8))
+                                .foregroundColor(Claude.textTertiary)
+                                .padding(.top, 2)
+                        }
+                        .padding(.leading, 16)
+                        .padding(.top, 2)
+                    }
                 }
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Claude.surface1)
+                )
             }
-            .padding(12)
-            .glassEffectCompat(RoundedRectangle(cornerRadius: 16))
-
-            Spacer()
-
-            // Pairing ID for debugging (subtle)
-            Text(String(service.pairingId.prefix(8)))
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundColor(Claude.textTertiary)
-                .padding(.bottom, 8)
+            .buttonStyle(.plain)
         }
     }
 

@@ -30,39 +30,31 @@ struct MainView: View {
         ZStack {
             Claude.background.ignoresSafeArea()
 
-            // Wrap state views in GlassEffectContainer for morphing transitions (watchOS 26+)
-            glassEffectContainerForMorphing {
-                // Always-On Display: Show simplified view
-                if isLuminanceReduced {
+            // Content based on state - use switch on currentViewState for clean transitions
+            Group {
+                switch currentViewState {
+                case .alwaysOn:
                     AlwaysOnDisplayView(
                         connectionStatus: service.connectionStatus,
                         pendingCount: service.state.pendingActions.count,
                         status: service.state.status
                     )
-                    .glassEffectIDCompat("mainState", in: glassNamespace)
-                }
-                // Content based on state
-                else if service.useCloudMode && !service.isPaired && !service.isDemoMode {
+                case .pairing:
                     PairingView(service: service)
-                        .glassEffectIDCompat("mainState", in: glassNamespace)
-                } else if service.connectionStatus == .disconnected && !service.isDemoMode {
+                case .offline:
                     OfflineStateView()
-                        .glassEffectIDCompat("mainState", in: glassNamespace)
-                } else if case .reconnecting = service.connectionStatus {
-                    // Show reconnecting indicator over main content
+                case .reconnecting:
                     VStack {
                         ReconnectingView(status: service.connectionStatus)
                         Spacer()
                     }
-                    .glassEffectIDCompat("mainState", in: glassNamespace)
-                } else if service.state.pendingActions.isEmpty && service.state.status == .idle && service.sessionProgress == nil {
+                case .empty:
                     EmptyStateView()
-                        .glassEffectIDCompat("mainState", in: glassNamespace)
-                } else {
+                case .main:
                     mainContentView
-                        .glassEffectIDCompat("mainState", in: glassNamespace)
                 }
             }
+            .id(currentViewState)  // Force view replacement instead of animation overlap
         }
         .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8), value: currentViewState)
         .toolbar {
@@ -106,7 +98,37 @@ struct MainView: View {
                 // Only show status header when NO pending actions
                 if service.state.pendingActions.isEmpty {
                     StatusHeader(pulsePhase: pulsePhase)
-                    ModeSelector()
+
+                    // Bottom row: Pause button + Mode selector on same plane
+                    HStack(spacing: 8) {
+                        // Pause/Resume button (only when session active and not complete)
+                        if let progress = service.sessionProgress {
+                            let isComplete = progress.progress >= 1.0 ||
+                                (progress.totalCount > 0 && progress.completedCount == progress.totalCount)
+                            if !isComplete {
+                                Button {
+                                    WKInterfaceDevice.current().play(.click)
+                                    Task {
+                                        if service.isSessionInterrupted {
+                                            await service.sendInterrupt(action: .resume)
+                                        } else {
+                                            await service.sendInterrupt(action: .stop)
+                                        }
+                                    }
+                                } label: {
+                                    Image(systemName: service.isSessionInterrupted ? "play.fill" : "pause.fill")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(.white)
+                                        .frame(width: 32, height: 32)
+                                        .background(service.isSessionInterrupted ? Claude.success : Claude.danger)
+                                        .clipShape(Circle())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+
+                        ModeSelector()
+                    }
                 } else {
                     // Pending actions take priority - show them directly
                     ActionQueue()
@@ -258,43 +280,54 @@ struct StatusHeader: View {
     private func sessionProgressView(_ progress: SessionProgress) -> some View {
         let isComplete = progress.progress >= 1.0 || (progress.totalCount > 0 && progress.completedCount == progress.totalCount)
 
-        VStack(spacing: 6) {
-            // Activity header with status indicator
-            HStack(spacing: 5) {
-                Circle()
-                    .fill(isComplete ? Claude.success : Claude.orange)
-                    .frame(width: 6, height: 6)
-                    .opacity(isComplete || reduceMotion ? 1.0 : 0.5 + 0.5 * Double(pulsePhase))
+        VStack(spacing: 4) {
+            // Current task label + activity
+            VStack(alignment: .leading, spacing: 1) {
+                // Subtle "CURRENT TASK" label
+                if !isComplete {
+                    Text("CURRENT TASK")
+                        .font(.system(size: 7, weight: .medium))
+                        .foregroundColor(Claude.textTertiary)
+                        .tracking(0.5)
+                }
 
-                // Show completion state, current activity, or working status
-                if isComplete {
-                    Text("Complete")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Claude.success)
-                } else if let activity = progress.currentActivity ?? progress.currentTask {
-                    Text(activity)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Claude.textPrimary)
-                        .lineLimit(1)
-                } else {
-                    Text("Working...")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Claude.textPrimary)
+                // Activity with status indicator
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(isComplete ? Claude.success : Claude.orange)
+                        .frame(width: 5, height: 5)
+                        .opacity(isComplete || reduceMotion ? 1.0 : 0.5 + 0.5 * Double(pulsePhase))
+
+                    // Show completion state, current activity, or working status
+                    if isComplete {
+                        Text("Complete")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Claude.success)
+                    } else if let activity = progress.currentActivity ?? progress.currentTask {
+                        Text(activity)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Claude.textPrimary)
+                            .lineLimit(1)
+                    } else {
+                        Text("Working...")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Claude.textPrimary)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
             // Todo list (show up to 3 items to save space on watch)
             if !progress.tasks.isEmpty {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2) {
                     ForEach(progress.tasks.prefix(3)) { task in
-                        HStack(spacing: 5) {
+                        HStack(spacing: 4) {
                             Text(task.status.icon)
-                                .font(.system(size: 9))
+                                .font(.system(size: 8))
                                 .foregroundColor(task.status.color)
 
                             Text(task.content)
-                                .font(.system(size: 10))
+                                .font(.system(size: 9))
                                 .foregroundColor(task.status == .completed ? Claude.textSecondary : Claude.textPrimary)
                                 .lineLimit(1)
                         }
@@ -303,50 +336,23 @@ struct StatusHeader: View {
                     // Show "... and X more" if there are more tasks
                     if progress.tasks.count > 3 {
                         Text("+\(progress.tasks.count - 3) more")
-                            .font(.system(size: 9, weight: .regular))
+                            .font(.system(size: 8, weight: .regular))
                             .foregroundColor(Claude.textSecondary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            // Progress bar with stats
-            VStack(spacing: 2) {
+            // Progress bar with stats - compact
+            HStack(spacing: 6) {
                 ProgressView(value: progress.progress)
                     .tint(isComplete ? Claude.success : Claude.orange)
 
-                HStack {
-                    Text("\(Int(progress.progress * 100))%")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundColor(Claude.textSecondary)
-
-                    Spacer()
-
-                    Text("\(progress.completedCount)/\(progress.totalCount)")
-                        .font(.system(size: 9, weight: .regular))
-                        .foregroundColor(Claude.textSecondary)
-                }
+                Text("\(progress.completedCount)/\(progress.totalCount)")
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundColor(Claude.textSecondary)
             }
 
-            // Stop/Resume toggle - single icon button
-            Button {
-                WKInterfaceDevice.current().play(.click)
-                Task {
-                    if service.isSessionInterrupted {
-                        await service.sendInterrupt(action: .resume)
-                    } else {
-                        await service.sendInterrupt(action: .stop)
-                    }
-                }
-            } label: {
-                Image(systemName: service.isSessionInterrupted ? "play.fill" : "pause.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(width: 36, height: 36)
-                    .background(service.isSessionInterrupted ? Claude.success : Claude.danger)
-                    .clipShape(Circle())
-            }
-            .buttonStyle(.plain)
         }
     }
 
