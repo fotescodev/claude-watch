@@ -1185,3 +1185,290 @@ To investigate:
       - timeout
       - notifications
     commit_template: "fix(watch): Multiple request timeouts detected"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COMPETITIVE PARITY: Learnings from Happy Coder
+  # Source: .claude/analysis/happy-vs-claude-watch-comparison.md
+  # Reference repos: happy-cli-reference/, happy-server-reference/
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "COMP1"
+    title: "Add SessionStart hook for reliable session tracking"
+    description: |
+      COMPETITIVE INSIGHT: Happy uses SessionStart hook to reliably track
+      session IDs across resume, continue, fork, and compact operations.
+      Claude Watch currently uses PreToolUse (fires per-tool) and misses
+      session ID changes.
+
+      WHAT HAPPY DOES:
+      - SessionStart hook fires once per session start/resume/fork
+      - Captures session ID immediately
+      - Tracks across --continue, --resume flags
+      - Handles /compact session forks
+      - Handles double-escape forks
+
+      IMPLEMENTATION:
+      1. Create .claude/hooks/session-start.py
+         - Parse CLAUDE_SESSION_ID from environment or stdin
+         - Store in ~/.claude-watch-session
+         - POST to /session-start endpoint on worker
+
+      2. Register hook in .claude/settings.json:
+         ```json
+         "SessionStart": [{
+           "hooks": [{
+             "type": "command",
+             "command": "python3 .claude/hooks/session-start.py"
+           }]
+         }]
+         ```
+
+      3. Add /session-start endpoint to worker:
+         - Store session ID with pairing ID
+         - Enable session history features
+
+      4. Update watch UI to show session ID (optional)
+
+      REFERENCE FILES:
+      - happy-cli-reference/src/claude/session.ts (Session class)
+      - happy-cli-reference/src/claude/utils/generateHookSettings.ts
+
+      VALUE:
+      - Enables "resume session" feature
+      - Enables session message history
+      - More reliable session tracking
+    priority: medium
+    parallel_group: 1
+    completed: false
+    verification: |
+      [ -f .claude/hooks/session-start.py ] && \
+      grep -q "SessionStart" .claude/settings.json
+    acceptance_criteria:
+      - "SessionStart hook fires on session start"
+      - "Session ID tracked across resume/fork"
+      - "Worker stores session metadata"
+      - "Watch can display session info"
+    files:
+      - ".claude/hooks/session-start.py"
+      - ".claude/settings.json"
+      - "MCPServer/worker/src/index.ts"
+    tags:
+      - competitive-parity
+      - happy-learning
+      - session-tracking
+    commit_template: "feat(hooks): Add SessionStart hook for session tracking"
+  - id: "COMP2"
+    title: "Add thinking state indicator to watch UI"
+    description: |
+      COMPETITIVE INSIGHT: Happy shows "Claude is thinking..." by intercepting
+      fetch() calls. Claude Watch has no thinking indicator - user doesn't
+      know if Claude is processing or idle.
+
+      WHAT HAPPY DOES:
+      - Wraps global.fetch() in launcher script
+      - Emits fetch-start/fetch-end events via fd3 pipe
+      - Mobile app shows pulsing "thinking" indicator
+      - Real-time feedback during API calls
+
+      IMPLEMENTATION OPTIONS:
+
+      Option A: PostToolUse timing (simpler)
+      - Track time between PostToolUse events
+      - If >3 seconds since last tool, assume "thinking"
+      - Less accurate but no Claude Code changes needed
+
+      Option B: API proxy (Happy's approach)
+      - Requires wrapping Claude's node process
+      - More complex setup
+      - Most accurate
+
+      Option C: cc-watch CLI enhancement
+      - cc-watch wraps claude and intercepts output
+      - Detects "Thinking..." in terminal output
+      - Forwards to worker
+
+      RECOMMENDED: Start with Option A (timing heuristic)
+
+      WATCH UI CHANGES:
+      1. Add ThinkingState to WatchService:
+         ```swift
+         @Published var isThinking: Bool = false
+         ```
+
+      2. Update MainView to show pulsing indicator:
+         ```swift
+         if service.isThinking {
+           PulsingDot()
+           Text("Claude is thinking...")
+         }
+         ```
+
+      3. Set isThinking = true when no activity for 3+ seconds
+         during active session
+
+      REFERENCE FILES:
+      - happy-cli-reference/scripts/claude_local_launcher.cjs (fetch interception)
+      - happy-reference/sources/components/tools/ThinkingIndicator.tsx
+    priority: low
+    parallel_group: 2
+    completed: false
+    depends_on:
+      - "COMP1"
+    verification: |
+      grep -q "isThinking\|ThinkingState" ClaudeWatch/Services/WatchService.swift
+    acceptance_criteria:
+      - "Watch shows 'thinking' indicator"
+      - "Indicator appears during API calls"
+      - "Indicator clears when tool executes"
+      - "Pulsing animation for visual feedback"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - competitive-parity
+      - happy-learning
+      - ux
+    commit_template: "feat(ui): Add thinking state indicator"
+  - id: "COMP3"
+    title: "Implement E2E encryption (zero-knowledge server)"
+    description: |
+      COMPETITIVE INSIGHT: Happy uses TweetNaCl for end-to-end encryption.
+      Their server CANNOT read user code or session data. Claude Watch
+      currently uses HTTPS only - server sees all request data in plaintext.
+
+      WHAT HAPPY DOES:
+      - Client generates keypair from QR code secret
+      - Per-session encryption keys derived
+      - All messages encrypted before transmission
+      - Server stores only encrypted blobs
+      - Decryption happens on device only
+
+      WHY IT MATTERS:
+      - Enterprise customers require E2E for code security
+      - Zero-knowledge = can't be compelled to reveal data
+      - Audit-friendly security model
+      - Competitive differentiator
+
+      IMPLEMENTATION PHASES:
+
+      Phase 1: Add encryption to CLI (cc-watch)
+      - Add tweetnacl-js dependency
+      - Generate keypair during pairing
+      - Store private key locally
+      - Send public key to server
+
+      Phase 2: Add encryption to worker
+      - Store only encrypted request payloads
+      - Forward encrypted blobs to watch
+      - Never decrypt on server
+
+      Phase 3: Add decryption to watch
+      - Add TweetNaCl-swift or CryptoKit equivalent
+      - Decrypt requests on device
+      - Encrypt responses before sending
+
+      REFERENCE FILES:
+      - happy-server-reference/sources/modules/encrypt.ts
+      - happy-reference/sources/sync/encryption/encryption.ts
+      - happy-cli-reference/src/utils/hmac_sha512.ts
+
+      COMPLEXITY: High - touches all components
+      TIMELINE: Multi-phase implementation
+    priority: medium
+    parallel_group: 3
+    completed: false
+    verification: |
+      grep -q "NaCl\|encrypt\|decrypt" MCPServer/worker/src/index.ts
+    acceptance_criteria:
+      - "Requests encrypted client-side"
+      - "Server stores only ciphertext"
+      - "Watch decrypts locally"
+      - "No plaintext in server logs/storage"
+    files:
+      - "MCPServer/worker/src/index.ts"
+      - "ClaudeWatch/Services/EncryptionService.swift"
+    tags:
+      - competitive-parity
+      - happy-learning
+      - security
+      - encryption
+      - multi-phase
+    commit_template: "feat(security): Add E2E encryption (phase N)"
+  - id: "COMP4"
+    title: "Add activity batching (2-second flush)"
+    description: |
+      COMPETITIVE INSIGHT: Happy batches high-frequency updates and flushes
+      every 2 seconds. This prevents state thrashing and reduces network
+      traffic. Claude Watch updates on every event.
+
+      WHAT HAPPY DOES:
+      ```typescript
+      private activityAccumulator: ActivityUpdateAccumulator;
+
+      handleEphemeralUpdate(update) {
+          this.activityAccumulator.add(update);
+          // Flushed every 2 seconds
+      }
+
+      private flushActivityUpdates(updates) {
+          storage.getState().applyActivityUpdates(updates);
+      }
+      ```
+
+      BENEFITS:
+      - Reduced network calls
+      - Smoother UI updates
+      - Lower battery drain
+      - Better performance on watch
+
+      IMPLEMENTATION:
+
+      1. Add ActivityBatcher to WatchService:
+         ```swift
+         class ActivityBatcher {
+           private var pendingUpdates: [ProgressUpdate] = []
+           private var flushTimer: Timer?
+
+           func add(_ update: ProgressUpdate) {
+             pendingUpdates.append(update)
+             scheduleFlush()
+           }
+
+           private func scheduleFlush() {
+             flushTimer?.invalidate()
+             flushTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) {
+               self.flush()
+             }
+           }
+
+           private func flush() {
+             let updates = pendingUpdates
+             pendingUpdates = []
+             // Apply all updates at once
+             applyUpdates(updates)
+           }
+         }
+         ```
+
+      2. Route progress updates through batcher
+      3. Only update UI once per 2-second window
+
+      REFERENCE FILES:
+      - happy-reference/sources/sync/sync.ts (ActivityUpdateAccumulator)
+
+      COMPLEXITY: Low-medium
+    priority: low
+    parallel_group: 2
+    completed: false
+    verification: |
+      grep -q "ActivityBatcher\|flushInterval" ClaudeWatch/Services/WatchService.swift
+    acceptance_criteria:
+      - "Updates batched over 2-second window"
+      - "UI updates smoothly (no flickering)"
+      - "Reduced network calls"
+      - "Battery usage improved"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+    tags:
+      - competitive-parity
+      - happy-learning
+      - performance
+    commit_template: "perf(service): Add activity batching for smoother updates"

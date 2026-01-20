@@ -108,3 +108,8 @@ node_modules/
 .security-key
 logs/security/
 .specstory/
+
+# Reference codebases (cloned for analysis, do not commit)
+happy-reference/
+happy-cli-reference/
+happy-server-reference/
