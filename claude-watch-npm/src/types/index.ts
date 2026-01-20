@@ -91,6 +91,12 @@ export interface PairingConfig {
   cloudUrl: string;
   createdAt: string;
   watchId?: string;
+  // E2E Encryption keys (COMP3)
+  encryption?: {
+    publicKey: string; // Our public key (base64)
+    secretKey: string; // Our secret key (base64) - stored securely
+    watchPublicKey?: string; // Watch's public key (base64) - received during pairing
+  };
 }
 
 export interface MCPServerConfig {
