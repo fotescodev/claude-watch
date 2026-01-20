@@ -18,10 +18,12 @@ Progress: ████████░░ 80% (Pre-submission)
 
 | Task ID | Title | Status | Notes |
 |---------|-------|--------|-------|
+| COMP4 | Activity batching (2s flush) | READY | Quick win, watch-side only |
+| COMP1 | SessionStart hook | READY | Foundation for session tracking |
+| COMP3 | E2E encryption | READY | Multi-phase, big differentiator |
 | - | Entitlements configuration | NOT STARTED | Critical for TestFlight |
 | - | Privacy manifest creation | NOT STARTED | Required by App Store |
 | FE2b | Stop/Play interrupt controls | DEFERRED | Nice-to-have, not blocking |
-| DBG-CLOUD | Cloud connectivity issues | MONITORING | 2 alerts logged, not critical |
 
 ---
 
@@ -89,11 +91,31 @@ cat ~/.claude-watch-pairing
 
 *Write any context the next session needs to know:*
 
+### Competitive Analysis Complete (2026-01-20)
+- Analyzed Happy Coder (competitor): https://github.com/slopus/happy
+- Cloned reference repos to `happy-*-reference/` (git-ignored)
+- Created comparison: `.claude/analysis/happy-vs-claude-watch-comparison.md`
+- Added 4 Ralph tasks: COMP1-COMP4 in `tasks.yaml`
+- Created implementation spec: `.claude/plans/competitive-parity-implementation.md`
+- Created context file: `.claude/plans/competitive-parity-CONTEXT.md`
+
+### What Happy Does Better (learn from)
+- E2E encryption (zero-knowledge server) - COMP3
+- SessionStart hook (reliable session tracking) - COMP1
+- Activity batching (2s flush) - COMP4
+- Thinking state indicator - COMP2 (deferred)
+
+### Ready to Implement
+Run tasks in order: COMP4 → COMP1 → COMP3
+- COMP4 is watch-side only, quick win
+- COMP1 is foundation for session features
+- COMP3 is multi-phase, highest value
+
+### Previous Context
 - Project is mature (~90% complete), focus on shipping not features
 - All core features working, physical device tested
 - Main gap is App Store submission requirements
 - Use `/progress` to check current state
-- Use `/discuss-phase 5` before starting TestFlight work
 
 ---
 
@@ -101,10 +123,11 @@ cat ~/.claude-watch-pairing
 
 | Date | Duration | Focus | Outcome |
 |------|----------|-------|---------|
+| 2026-01-20 | ~1hr | Happy Coder competitive analysis | Cloned repos, created comparison, added COMP1-4 tasks, implementation spec ready |
 | 2026-01-19 | ~30min | GSD framework review | Created migration report, decided partial adoption |
 | 2026-01-18 | ~2hr | Physical device testing | Dog walk test passed |
 | 2026-01-18 | ~1hr | Rich session state | Activity, todos, elapsed time display |
 
 ---
 
-*Last updated: 2026-01-19 by Claude*
+*Last updated: 2026-01-20 by Claude*
