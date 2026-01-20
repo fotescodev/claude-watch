@@ -307,15 +307,26 @@ struct StatusHeader: View {
                     .tint(Claude.orange)
 
                 HStack {
-                    Text("\(Int(progress.progress * 100))%")
+                    Text("\(progress.percentInt)%")
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .foregroundColor(Claude.textSecondary)
 
                     Spacer()
 
-                    Text("\(progress.completedCount)/\(progress.totalCount)")
-                        .font(.system(size: 9, weight: .regular))
+                    // ETA display (Jordan's need)
+                    if progress.estimatedRemainingSeconds != nil {
+                        HStack(spacing: 3) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 8))
+                            Text(progress.formattedETA)
+                                .font(.system(size: 9, weight: .regular))
+                        }
                         .foregroundColor(Claude.textSecondary)
+                    } else {
+                        Text(progress.progressString)
+                            .font(.system(size: 9, weight: .regular))
+                            .foregroundColor(Claude.textSecondary)
+                    }
                 }
             }
 

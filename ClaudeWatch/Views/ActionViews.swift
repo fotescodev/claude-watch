@@ -54,6 +54,9 @@ struct ActionQueue: View {
     // Confirmation dialog state
     @State private var showApproveAllConfirmation = false
 
+    // Selective queue navigation
+    @State private var showingSelectiveQueue = false
+
     var body: some View {
         VStack(spacing: 6) {
             // Primary action card only
@@ -61,35 +64,57 @@ struct ActionQueue: View {
                 PrimaryActionCard(action: action, totalCount: service.state.pendingActions.count)
             }
 
-            // Approve All button - only if more than 1 action
+            // Multiple action controls - only if more than 1 action
             if service.state.pendingActions.count > 1 {
-                Button {
-                    showApproveAllConfirmation = true
-                } label: {
-                    Text("Approve All (\(service.state.pendingActions.count))")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(Claude.success)
-                        .clipShape(Capsule())
-                        .scaleEffect(approveAllPressed && !reduceMotion ? 0.95 : 1.0)
-                        .animation(.bouncySpringIfAllowed(reduceMotion: reduceMotion), value: approveAllPressed)
+                HStack(spacing: 6) {
+                    // Review Queue button - for selective approve/reject
+                    Button {
+                        showingSelectiveQueue = true
+                    } label: {
+                        Text("Review")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Claude.info)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Review all \(service.state.pendingActions.count) pending actions")
+
+                    // Approve All button
+                    Button {
+                        showApproveAllConfirmation = true
+                    } label: {
+                        Text("All ✓")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Claude.success)
+                            .clipShape(Capsule())
+                            .scaleEffect(approveAllPressed && !reduceMotion ? 0.95 : 1.0)
+                            .animation(.bouncySpringIfAllowed(reduceMotion: reduceMotion), value: approveAllPressed)
+                    }
+                    .buttonStyle(.plain)
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { _ in approveAllPressed = true }
+                            .onEnded { _ in approveAllPressed = false }
+                    )
+                    .accessibilityLabel("Approve all \(service.state.pendingActions.count) pending actions")
+                    .sensoryFeedback(.success, trigger: didApproveAll)
                 }
-                .buttonStyle(.plain)
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { _ in approveAllPressed = true }
-                        .onEnded { _ in approveAllPressed = false }
-                )
-                .accessibilityLabel("Approve all \(service.state.pendingActions.count) pending actions")
-                .sensoryFeedback(.success, trigger: didApproveAll)
                 .confirmationDialog(
                     "Approve All?",
                     isPresented: $showApproveAllConfirmation,
                     titleVisibility: .visible
                 ) {
                     Button("Approve \(service.state.pendingActions.count) Actions", role: .destructive) {
+                        // Record all to history first
+                        for action in service.state.pendingActions {
+                            HistoryManager.shared.record(action, outcome: .approved)
+                        }
                         service.approveAll()
                         didApproveAll.toggle()
                         AccessibilityNotification.Announcement("Approved all \(service.state.pendingActions.count) actions").post()
@@ -98,6 +123,11 @@ struct ActionQueue: View {
                 } message: {
                     Text("This will approve all pending actions at once.")
                 }
+            }
+        }
+        .sheet(isPresented: $showingSelectiveQueue) {
+            NavigationStack {
+                SelectiveQueueView()
             }
         }
     }
@@ -129,10 +159,19 @@ struct PrimaryActionCard: View {
     @State private var errorMessage = ""
     @State private var didError = false
 
+    // Detail view state (long-press to access)
+    @State private var showingDetail = false
+
     var body: some View {
         VStack(spacing: 8) {
             // Error banner
             ErrorBanner(message: errorMessage, isVisible: $showError)
+
+            // Danger indicator for destructive actions
+            if action.isDangerous {
+                DangerIndicator()
+            }
+
             // Action info - compact
             HStack(spacing: 8) {
                 // Type icon - smaller
@@ -179,7 +218,10 @@ struct PrimaryActionCard: View {
                 // Reject button
                 Button {
                     Task { @MainActor in
-                        // Optimistic update first - remove action immediately
+                        // Record to history first
+                        HistoryManager.shared.record(action, outcome: .rejected)
+
+                        // Optimistic update - remove action immediately
                         service.state.pendingActions.removeAll { $0.id == action.id }
                         if service.state.pendingActions.isEmpty {
                             service.state.status = .idle
@@ -219,7 +261,10 @@ struct PrimaryActionCard: View {
                 // Approve button
                 Button {
                     Task { @MainActor in
-                        // Optimistic update first - remove action immediately
+                        // Record to history first
+                        HistoryManager.shared.record(action, outcome: .approved)
+
+                        // Optimistic update - remove action immediately
                         service.state.pendingActions.removeAll { $0.id == action.id }
                         if service.state.pendingActions.isEmpty {
                             service.state.status = .running
@@ -258,8 +303,36 @@ struct PrimaryActionCard: View {
             }
         }
         .padding(10)
+        .background(
+            Group {
+                if action.isDangerous {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Claude.dangerBackground)
+                } else {
+                    Color.clear
+                }
+            }
+        )
         .glassEffectInteractive(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            Group {
+                if action.isDangerous {
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Claude.danger, lineWidth: 2)
+                }
+            }
+        )
         .sensoryFeedback(.error, trigger: didError)
+        .onLongPressGesture {
+            WKInterfaceDevice.current().play(.click)
+            showingDetail = true
+        }
+        .sheet(isPresented: $showingDetail) {
+            NavigationStack {
+                ActionDetailView(action: action)
+            }
+        }
+        .accessibilityHint("Long press for more details")
     }
 
     private var typeColor: Color {
@@ -517,6 +590,33 @@ struct CompactStatusHeader: View {
         command: nil,
         timestamp: Date()
     ))
+    .padding()
+}
+
+#Preview("Dangerous Action Card") {
+    VStack(spacing: 16) {
+        // File delete - always dangerous
+        PrimaryActionCard(action: PendingAction(
+            id: "2",
+            type: "file_delete",
+            title: "Delete old-utils.ts",
+            description: "Removing deprecated file",
+            filePath: "/path/to/old-utils.ts",
+            command: nil,
+            timestamp: Date()
+        ))
+
+        // Bash with dangerous command
+        PrimaryActionCard(action: PendingAction(
+            id: "3",
+            type: "bash",
+            title: "Run cleanup",
+            description: "Delete unused files",
+            filePath: nil,
+            command: "rm -rf ./tmp/*",
+            timestamp: Date()
+        ))
+    }
     .padding()
 }
 
