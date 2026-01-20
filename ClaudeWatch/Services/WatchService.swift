@@ -1453,6 +1453,40 @@ struct SessionProgress {
         }
         return "\(seconds)s"
     }
+
+    /// Progress as percentage integer (0-100)
+    var percentInt: Int {
+        Int(progress * 100)
+    }
+
+    /// Estimated remaining seconds based on current rate
+    /// Returns nil if we can't calculate (no progress yet or already complete)
+    var estimatedRemainingSeconds: Int? {
+        guard completedCount > 0, totalCount > completedCount, elapsedSeconds > 0 else {
+            return nil
+        }
+        let rate = Double(elapsedSeconds) / Double(completedCount)
+        return Int(rate * Double(totalCount - completedCount))
+    }
+
+    /// Formatted ETA string for display
+    /// Returns "~Xm" for minutes, "<1m" for under a minute, "—" if unknown
+    var formattedETA: String {
+        guard let remaining = estimatedRemainingSeconds else { return "—" }
+        if remaining < 60 { return "<1m" }
+        let minutes = remaining / 60
+        if minutes >= 60 {
+            let hours = minutes / 60
+            let mins = minutes % 60
+            return "~\(hours)h \(mins)m"
+        }
+        return "~\(minutes)m left"
+    }
+
+    /// Short progress string like "3/10"
+    var progressString: String {
+        "\(completedCount)/\(totalCount)"
+    }
 }
 
 /// A single todo item from Claude Code's task list
