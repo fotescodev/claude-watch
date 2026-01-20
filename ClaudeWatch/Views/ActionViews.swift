@@ -188,7 +188,10 @@ struct PrimaryActionCard: View {
                 // Reject button
                 Button {
                     Task { @MainActor in
-                        // Optimistic update first - remove action immediately
+                        // Record to history first
+                        HistoryManager.shared.record(action, outcome: .rejected)
+
+                        // Optimistic update - remove action immediately
                         service.state.pendingActions.removeAll { $0.id == action.id }
                         if service.state.pendingActions.isEmpty {
                             service.state.status = .idle
@@ -228,7 +231,10 @@ struct PrimaryActionCard: View {
                 // Approve button
                 Button {
                     Task { @MainActor in
-                        // Optimistic update first - remove action immediately
+                        // Record to history first
+                        HistoryManager.shared.record(action, outcome: .approved)
+
+                        // Optimistic update - remove action immediately
                         service.state.pendingActions.removeAll { $0.id == action.id }
                         if service.state.pendingActions.isEmpty {
                             service.state.status = .running

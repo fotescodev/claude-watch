@@ -128,6 +128,7 @@ struct SettingsSheet: View {
     @State private var serverURL: String = ""
     @State private var showingPairing = false
     @State private var showingPrivacy = false
+    @State private var showingHistory = false
     @State private var selectedPage = 0
 
     var body: some View {
@@ -154,6 +155,11 @@ struct SettingsSheet: View {
         }
         .sheet(isPresented: $showingPrivacy) {
             PrivacyInfoView()
+        }
+        .sheet(isPresented: $showingHistory) {
+            NavigationStack {
+                HistoryView()
+            }
         }
     }
 
@@ -292,6 +298,19 @@ struct SettingsSheet: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            // History - always available
+            Button {
+                showingHistory = true
+            } label: {
+                SettingsActionRow(
+                    icon: "clock.arrow.circlepath",
+                    title: "History",
+                    color: Claude.info
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("View action history")
 
             Spacer()
 
