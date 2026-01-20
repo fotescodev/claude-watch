@@ -29,11 +29,18 @@ Progress: ████████░░ 80% (Pre-submission)
 
 ## Decisions Made
 
-### This Session (2026-01-19)
-- [ ] Decided to partially adopt GSD framework practices
-- [ ] Keep existing Ralph + tasks.yaml workflow
-- [ ] Add SESSION_STATE.md, /progress, /discuss-phase commands
-- [ ] Target 4-week sprint to App Store submission
+### This Session (2026-01-20)
+- [x] Implement all three competitive parity tasks: COMP4 → COMP1 → COMP3
+- [x] COMP4: 2-second flush interval for activity batching
+- [x] COMP1: Store session ID in `~/.claude-watch-session` (matches pairing pattern)
+- [x] COMP3: Use CryptoKit (native Apple) for watch-side encryption
+- [x] COMP3: Phased rollout (CLI → Worker → Watch)
+
+### Previous Session (2026-01-19)
+- [x] Decided to partially adopt GSD framework practices
+- [x] Keep existing Ralph + tasks.yaml workflow
+- [x] Add SESSION_STATE.md, /progress, /discuss-phase commands
+- [x] Target 4-week sprint to App Store submission
 
 ### Previous Sessions
 - [x] APNs credentials configured in Cloudflare Worker

@@ -74,6 +74,9 @@ class WatchService: ObservableObject {
     private var pollingTask: Task<Void, Never>?
     private let pollingInterval: TimeInterval = 2.0
 
+    // MARK: - Activity Batching
+    private var activityBatcher: ActivityBatcher?
+
     // MARK: - Demo Mode
     @AppStorage("demoMode") var isDemoMode = false  // Connect to real server by default
 
@@ -103,6 +106,11 @@ class WatchService: ObservableObject {
 
         // Check Foundation Models availability
         checkFoundationModelsAvailability()
+
+        // Initialize activity batcher for smoother progress updates
+        activityBatcher = ActivityBatcher { [weak self] progress in
+            self?.applyBatchedProgress(progress)
+        }
     }
 
     // MARK: - Foundation Models Availability
@@ -207,6 +215,9 @@ class WatchService: ObservableObject {
     /// Handles app entering background state.
     /// Stops polling in cloud mode to conserve battery, or sends final state request in WebSocket mode.
     func handleAppDidEnterBackground() {
+        // Flush any pending batched updates before backgrounding
+        activityBatcher?.flushNow()
+
         // Stop polling in background to save battery
         if useCloudMode {
             stopPolling()
@@ -1238,30 +1249,41 @@ class WatchService: ObservableObject {
             )
         }
 
+        // Batch the progress update (flushes every 2 seconds for smoother UI)
+        let newProgress = SessionProgress(
+            currentTask: currentTask,
+            currentActivity: currentActivity,
+            progress: progress,
+            completedCount: completedCount,
+            totalCount: totalCount,
+            elapsedSeconds: elapsedSeconds,
+            tasks: tasks
+        )
+
         await MainActor.run {
             if totalCount > 0 {
-                sessionProgress = SessionProgress(
-                    currentTask: currentTask,
-                    currentActivity: currentActivity,
-                    progress: progress,
-                    completedCount: completedCount,
-                    totalCount: totalCount,
-                    elapsedSeconds: elapsedSeconds,
-                    tasks: tasks
-                )
-                lastProgressUpdate = Date()
-            } else if let existingProgress = sessionProgress {
+                // Route through batcher for smoother updates
+                activityBatcher?.add(newProgress)
+            } else if sessionProgress != nil {
                 // Only clear if we had progress before (avoid clearing on initial empty response)
-                // Use shorter timeout for completed tasks
-                let isComplete = existingProgress.progress >= 1.0 || (existingProgress.totalCount > 0 && existingProgress.completedCount == existingProgress.totalCount)
-                let threshold = isComplete ? completeStaleThreshold : progressStaleThreshold
-                if let lastUpdate = lastProgressUpdate,
-                   Date().timeIntervalSince(lastUpdate) > threshold {
-                    sessionProgress = nil
-                    lastProgressUpdate = nil
+                // Check staleness threshold
+                if let lastUpdate = lastProgressUpdate {
+                    let isComplete = sessionProgress?.isComplete ?? false
+                    let threshold = isComplete ? completeStaleThreshold : progressStaleThreshold
+                    if Date().timeIntervalSince(lastUpdate) > threshold {
+                        sessionProgress = nil
+                        lastProgressUpdate = nil
+                    }
                 }
             }
         }
+    }
+
+    /// Apply batched progress update to UI
+    /// Called by ActivityBatcher after 2-second window
+    private func applyBatchedProgress(_ progress: SessionProgress) {
+        sessionProgress = progress
+        lastProgressUpdate = Date()
     }
 
     // MARK: - Cloud Errors
@@ -1667,6 +1689,69 @@ struct ReconnectionConfig {
         let baseDelay = min(initialDelay * pow(multiplier, Double(attempt)), maxDelay)
         let jitter = baseDelay * jitterFactor * Double.random(in: -1...1)
         return max(0.1, baseDelay + jitter) // Ensure positive delay
+    }
+}
+
+// MARK: - Activity Batching (Happy Pattern)
+/// Batches high-frequency updates and flushes every 2 seconds
+/// Prevents UI thrashing and reduces network calls
+/// Reference: happy-reference/sources/sync/sync.ts (ActivityUpdateAccumulator)
+@MainActor
+class ActivityBatcher {
+    private var pendingProgress: SessionProgress?
+    private var flushTimer: Timer?
+    private let flushInterval: TimeInterval = 2.0
+    private let onFlush: (SessionProgress) -> Void
+
+    init(onFlush: @escaping (SessionProgress) -> Void) {
+        self.onFlush = onFlush
+    }
+
+    /// Add a progress update to the batch
+    func add(_ progress: SessionProgress) {
+        // Keep the latest progress (overwrites previous)
+        pendingProgress = progress
+        scheduleFlush()
+    }
+
+    /// Schedule a flush if not already scheduled
+    private func scheduleFlush() {
+        guard flushTimer == nil else { return }
+
+        flushTimer = Timer.scheduledTimer(withTimeInterval: flushInterval, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                self?.flush()
+            }
+        }
+    }
+
+    /// Flush pending updates
+    private func flush() {
+        flushTimer?.invalidate()
+        flushTimer = nil
+
+        if let progress = pendingProgress {
+            pendingProgress = nil
+            onFlush(progress)
+        }
+    }
+
+    /// Force immediate flush (for app lifecycle events)
+    func flushNow() {
+        flushTimer?.invalidate()
+        flushTimer = nil
+
+        if let progress = pendingProgress {
+            pendingProgress = nil
+            onFlush(progress)
+        }
+    }
+
+    /// Cancel pending flush (for cleanup)
+    func cancel() {
+        flushTimer?.invalidate()
+        flushTimer = nil
+        pendingProgress = nil
     }
 }
 
