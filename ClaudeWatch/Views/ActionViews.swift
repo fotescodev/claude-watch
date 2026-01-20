@@ -54,6 +54,9 @@ struct ActionQueue: View {
     // Confirmation dialog state
     @State private var showApproveAllConfirmation = false
 
+    // Selective queue navigation
+    @State private var showingSelectiveQueue = false
+
     var body: some View {
         VStack(spacing: 6) {
             // Primary action card only
@@ -61,35 +64,57 @@ struct ActionQueue: View {
                 PrimaryActionCard(action: action, totalCount: service.state.pendingActions.count)
             }
 
-            // Approve All button - only if more than 1 action
+            // Multiple action controls - only if more than 1 action
             if service.state.pendingActions.count > 1 {
-                Button {
-                    showApproveAllConfirmation = true
-                } label: {
-                    Text("Approve All (\(service.state.pendingActions.count))")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(Claude.success)
-                        .clipShape(Capsule())
-                        .scaleEffect(approveAllPressed && !reduceMotion ? 0.95 : 1.0)
-                        .animation(.bouncySpringIfAllowed(reduceMotion: reduceMotion), value: approveAllPressed)
+                HStack(spacing: 6) {
+                    // Review Queue button - for selective approve/reject
+                    Button {
+                        showingSelectiveQueue = true
+                    } label: {
+                        Text("Review")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Claude.info)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Review all \(service.state.pendingActions.count) pending actions")
+
+                    // Approve All button
+                    Button {
+                        showApproveAllConfirmation = true
+                    } label: {
+                        Text("All ✓")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Claude.success)
+                            .clipShape(Capsule())
+                            .scaleEffect(approveAllPressed && !reduceMotion ? 0.95 : 1.0)
+                            .animation(.bouncySpringIfAllowed(reduceMotion: reduceMotion), value: approveAllPressed)
+                    }
+                    .buttonStyle(.plain)
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { _ in approveAllPressed = true }
+                            .onEnded { _ in approveAllPressed = false }
+                    )
+                    .accessibilityLabel("Approve all \(service.state.pendingActions.count) pending actions")
+                    .sensoryFeedback(.success, trigger: didApproveAll)
                 }
-                .buttonStyle(.plain)
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { _ in approveAllPressed = true }
-                        .onEnded { _ in approveAllPressed = false }
-                )
-                .accessibilityLabel("Approve all \(service.state.pendingActions.count) pending actions")
-                .sensoryFeedback(.success, trigger: didApproveAll)
                 .confirmationDialog(
                     "Approve All?",
                     isPresented: $showApproveAllConfirmation,
                     titleVisibility: .visible
                 ) {
                     Button("Approve \(service.state.pendingActions.count) Actions", role: .destructive) {
+                        // Record all to history first
+                        for action in service.state.pendingActions {
+                            HistoryManager.shared.record(action, outcome: .approved)
+                        }
                         service.approveAll()
                         didApproveAll.toggle()
                         AccessibilityNotification.Announcement("Approved all \(service.state.pendingActions.count) actions").post()
@@ -98,6 +123,11 @@ struct ActionQueue: View {
                 } message: {
                     Text("This will approve all pending actions at once.")
                 }
+            }
+        }
+        .sheet(isPresented: $showingSelectiveQueue) {
+            NavigationStack {
+                SelectiveQueueView()
             }
         }
     }
