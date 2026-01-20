@@ -1129,6 +1129,212 @@ export default {
         });
       }
 
+      // =======================================================================
+      // E2E ENCRYPTION KEY EXCHANGE (COMP3B)
+      // =======================================================================
+
+      // POST /keys/:pairingId - Exchange public keys for E2E encryption
+      // Called by CLI after pairing to register its public key
+      // Called by Watch after pairing to register its public key and get CLI's key
+      if (path.startsWith('/keys/') && request.method === 'POST') {
+        const pairingId = path.split('/')[2];
+        const { publicKey, source } = await request.json();
+
+        if (!pairingId || !publicKey) {
+          return jsonResponse({ error: 'Missing pairingId or publicKey' }, 400);
+        }
+
+        if (!source || !['cli', 'watch'].includes(source)) {
+          return jsonResponse({ error: 'Invalid source. Must be "cli" or "watch"' }, 400);
+        }
+
+        // Verify pairing exists
+        const pairingData = await env.PAIRINGS.get(`pairing:${pairingId}`);
+        if (!pairingData) {
+          return jsonResponse({ error: 'Invalid pairing' }, 404);
+        }
+
+        const pairing = JSON.parse(pairingData);
+
+        // Store the public key based on source
+        if (source === 'cli') {
+          pairing.cliPublicKey = publicKey;
+        } else {
+          pairing.watchPublicKey = publicKey;
+        }
+
+        await env.PAIRINGS.put(`pairing:${pairingId}`, JSON.stringify(pairing));
+
+        // Return the peer's public key if available
+        const peerKey = source === 'cli' ? pairing.watchPublicKey : pairing.cliPublicKey;
+
+        return jsonResponse({
+          success: true,
+          peerPublicKey: peerKey || null,
+          encryptionReady: !!(pairing.cliPublicKey && pairing.watchPublicKey)
+        });
+      }
+
+      // GET /keys/:pairingId - Get peer's public key
+      if (path.startsWith('/keys/') && request.method === 'GET') {
+        const pairingId = path.split('/')[2];
+        const source = url.searchParams.get('source');
+
+        if (!pairingId || !source) {
+          return jsonResponse({ error: 'Missing pairingId or source query param' }, 400);
+        }
+
+        // Verify pairing exists
+        const pairingData = await env.PAIRINGS.get(`pairing:${pairingId}`);
+        if (!pairingData) {
+          return jsonResponse({ error: 'Invalid pairing' }, 404);
+        }
+
+        const pairing = JSON.parse(pairingData);
+
+        // Return the peer's public key
+        const peerKey = source === 'cli' ? pairing.watchPublicKey : pairing.cliPublicKey;
+
+        return jsonResponse({
+          peerPublicKey: peerKey || null,
+          encryptionReady: !!(pairing.cliPublicKey && pairing.watchPublicKey)
+        });
+      }
+
+      // POST /request/encrypted - Submit encrypted approval request from CLI
+      // Worker stores the encrypted payload without decryption (zero-knowledge)
+      if (path === '/request/encrypted' && request.method === 'POST') {
+        const { pairingId, encryptedPayload, metadata } = await request.json();
+
+        if (!pairingId || !encryptedPayload) {
+          return jsonResponse({ error: 'Missing required fields' }, 400);
+        }
+
+        // Check if session was ended from watch
+        const sessionEnded = await env.PAIRINGS.get(`session-ended:${pairingId}`);
+        if (sessionEnded) {
+          return jsonResponse({ error: 'Session ended', sessionEnded: true }, 400);
+        }
+
+        // Get pairing to find device token
+        const pairingData = await env.PAIRINGS.get(`pairing:${pairingId}`);
+        if (!pairingData) {
+          return jsonResponse({ error: 'Invalid pairing' }, 404);
+        }
+
+        const pairing = JSON.parse(pairingData);
+        if (pairing.status !== 'active') {
+          return jsonResponse({ error: 'Pairing not active' }, 400);
+        }
+
+        // Create request with encrypted payload
+        const requestId = generateRequestId();
+        const encryptedRequest = {
+          id: requestId,
+          pairingId,
+          encrypted: true,
+          encryptedPayload, // { nonce: string, ciphertext: string }
+          // Metadata is unencrypted for display/badge purposes
+          type: metadata?.type || 'encrypted',
+          title: metadata?.title || 'Encrypted request',
+          status: 'pending',
+          createdAt: Date.now()
+        };
+
+        // Store request (expires in 10 minutes)
+        await env.REQUESTS.put(`request:${requestId}`, JSON.stringify(encryptedRequest), {
+          expirationTtl: 600
+        });
+
+        // Index by pairingId for polling
+        const pendingKey = `pending:${pairingId}`;
+        const existingPending = await env.REQUESTS.get(pendingKey);
+        const pendingList = existingPending ? JSON.parse(existingPending) : [];
+        pendingList.push(requestId);
+        await env.REQUESTS.put(pendingKey, JSON.stringify(pendingList), {
+          expirationTtl: 600
+        });
+
+        const pendingCount = pendingList.length;
+
+        // Send push notification with metadata (for display)
+        // The actual request details are encrypted and only watch can read them
+        const alertTitle = pendingCount > 1
+          ? `Claude: ${pendingCount} actions pending`
+          : `Claude: ${metadata?.type?.replace('_', ' ') || 'action'}`;
+        const alertBody = pendingCount > 1
+          ? `Latest: ${metadata?.title || 'Encrypted request'}`
+          : (metadata?.title || 'Encrypted request');
+
+        const apnsPayload = {
+          aps: {
+            alert: {
+              title: alertTitle,
+              body: alertBody
+            },
+            sound: 'default',
+            category: 'CLAUDE_ACTION',
+            badge: pendingCount,
+            'mutable-content': 1
+          },
+          requestId,
+          encrypted: true,
+          encryptedPayload,
+          pendingCount
+        };
+
+        const apnsResult = await sendAPNs(env, pairing.deviceToken, apnsPayload);
+
+        return jsonResponse({
+          requestId,
+          apnsSent: apnsResult.success,
+          encrypted: true
+        });
+      }
+
+      // POST /respond/encrypted/:id - Submit encrypted response from Watch
+      if (path.startsWith('/respond/encrypted/') && request.method === 'POST') {
+        const requestId = path.split('/')[3];
+        const { approved, pairingId, encryptedResponse } = await request.json();
+
+        if (typeof approved !== 'boolean') {
+          return jsonResponse({ error: 'Missing approved field' }, 400);
+        }
+
+        if (!pairingId) {
+          return jsonResponse({ error: 'Missing pairingId' }, 400);
+        }
+
+        const requestData = await env.REQUESTS.get(`request:${requestId}`);
+        if (!requestData) {
+          return jsonResponse({ error: 'Request not found or expired' }, 404);
+        }
+
+        const approvalRequest = JSON.parse(requestData);
+
+        if (approvalRequest.pairingId !== pairingId) {
+          return jsonResponse({ error: 'Unauthorized' }, 403);
+        }
+
+        // Update request with response
+        approvalRequest.status = approved ? 'approved' : 'rejected';
+        approvalRequest.response = approved;
+        approvalRequest.respondedAt = Date.now();
+        if (encryptedResponse) {
+          approvalRequest.encryptedResponse = encryptedResponse;
+        }
+
+        await env.REQUESTS.put(`request:${requestId}`, JSON.stringify(approvalRequest), {
+          expirationTtl: 60
+        });
+
+        return jsonResponse({
+          success: true,
+          status: approvalRequest.status,
+          encrypted: !!encryptedResponse
+        });
+      }
+
       // Health check
       if (path === '/health') {
         return jsonResponse({ status: 'ok', timestamp: Date.now() });
