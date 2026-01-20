@@ -1727,6 +1727,24 @@ struct PendingAction: Identifiable {
         default: return "purple"
         }
     }
+
+    /// Determines if this action is dangerous and requires extra caution
+    /// Triggers red border treatment and button order swap
+    var isDangerous: Bool {
+        // File deletions are always dangerous
+        if type == "file_delete" { return true }
+
+        // Bash commands with dangerous keywords
+        if type == "bash", let cmd = command?.lowercased() {
+            let dangerKeywords = [
+                "delete", "drop", "truncate", "rm -rf", "rm -r",
+                "remove", "destroy", "purge", "wipe", "format"
+            ]
+            return dangerKeywords.contains { cmd.contains($0) }
+        }
+
+        return false
+    }
 }
 
 // MARK: - Foundation Models Status

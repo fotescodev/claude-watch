@@ -17,10 +17,29 @@ public enum Claude {
     static let success = Color(red: 0.204, green: 0.780, blue: 0.349)   // #34C759
     /// Danger/error state (Apple red)
     static let danger = Color(red: 1.0, green: 0.231, blue: 0.188)      // #FF3B30
+    /// Danger background (15% opacity red for danger cards)
+    static let dangerBackground = Color(red: 1.0, green: 0.231, blue: 0.188).opacity(0.15)
     /// Warning state (matches orange)
     static let warning = Color(red: 1.0, green: 0.584, blue: 0.0)       // #FF9500
     /// Info/neutral action (Apple blue)
     static let info = Color(red: 0.0, green: 0.478, blue: 1.0)          // #007AFF
+
+    // MARK: - Anthropic Brand Colors (for reference)
+    /// Anthropic brand dark (used for specific brand elements)
+    static let brandDark = Color(red: 0.078, green: 0.078, blue: 0.075)   // #141413
+    /// Anthropic brand light (used for specific brand elements)
+    static let brandLight = Color(red: 0.980, green: 0.976, blue: 0.961)  // #faf9f5
+
+    // MARK: - Mode Colors
+    /// Colors for different operational modes
+    enum ModeColors {
+        /// Normal mode - blue (info)
+        static let normal = Claude.info
+        /// Auto-accept mode - red (danger indicator)
+        static let autoAccept = Claude.danger
+        /// Plan mode - purple
+        static let plan = Color(red: 0.608, green: 0.541, blue: 0.769)    // #9b8ac4
+    }
 
     // MARK: - Surface Colors
     /// Primary background (pure black for OLED)

@@ -133,6 +133,12 @@ struct PrimaryActionCard: View {
         VStack(spacing: 8) {
             // Error banner
             ErrorBanner(message: errorMessage, isVisible: $showError)
+
+            // Danger indicator for destructive actions
+            if action.isDangerous {
+                DangerIndicator()
+            }
+
             // Action info - compact
             HStack(spacing: 8) {
                 // Type icon - smaller
@@ -258,7 +264,25 @@ struct PrimaryActionCard: View {
             }
         }
         .padding(10)
+        .background(
+            Group {
+                if action.isDangerous {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Claude.dangerBackground)
+                } else {
+                    Color.clear
+                }
+            }
+        )
         .glassEffectInteractive(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            Group {
+                if action.isDangerous {
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Claude.danger, lineWidth: 2)
+                }
+            }
+        )
         .sensoryFeedback(.error, trigger: didError)
     }
 
@@ -517,6 +541,33 @@ struct CompactStatusHeader: View {
         command: nil,
         timestamp: Date()
     ))
+    .padding()
+}
+
+#Preview("Dangerous Action Card") {
+    VStack(spacing: 16) {
+        // File delete - always dangerous
+        PrimaryActionCard(action: PendingAction(
+            id: "2",
+            type: "file_delete",
+            title: "Delete old-utils.ts",
+            description: "Removing deprecated file",
+            filePath: "/path/to/old-utils.ts",
+            command: nil,
+            timestamp: Date()
+        ))
+
+        // Bash with dangerous command
+        PrimaryActionCard(action: PendingAction(
+            id: "3",
+            type: "bash",
+            title: "Run cleanup",
+            description: "Delete unused files",
+            filePath: nil,
+            command: "rm -rf ./tmp/*",
+            timestamp: Date()
+        ))
+    }
     .padding()
 }
 
