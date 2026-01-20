@@ -129,6 +129,9 @@ struct PrimaryActionCard: View {
     @State private var errorMessage = ""
     @State private var didError = false
 
+    // Detail view state (long-press to access)
+    @State private var showingDetail = false
+
     var body: some View {
         VStack(spacing: 8) {
             // Error banner
@@ -284,6 +287,16 @@ struct PrimaryActionCard: View {
             }
         )
         .sensoryFeedback(.error, trigger: didError)
+        .onLongPressGesture {
+            WKInterfaceDevice.current().play(.click)
+            showingDetail = true
+        }
+        .sheet(isPresented: $showingDetail) {
+            NavigationStack {
+                ActionDetailView(action: action)
+            }
+        }
+        .accessibilityHint("Long press for more details")
     }
 
     private var typeColor: Color {
