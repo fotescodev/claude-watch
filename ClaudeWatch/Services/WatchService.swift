@@ -26,9 +26,10 @@ class WatchService: ObservableObject {
     /// Track when session progress was last updated (for staleness check)
     var lastProgressUpdate: Date?
 
-    /// Clear stale session progress (no update in 60 seconds for in-progress, 10 seconds for complete)
+    /// Clear stale session progress (60s for in-progress, 3s for complete)
+    /// Complete state is a brief acknowledgment, then return to "Listening..."
     private let progressStaleThreshold: TimeInterval = 60
-    private let completeStaleThreshold: TimeInterval = 10
+    private let completeStaleThreshold: TimeInterval = 3
 
     // MARK: - Foundation Models (On-Device AI)
     @Published var foundationModelsStatus: FoundationModelsStatus = .checking
@@ -1432,6 +1433,7 @@ struct SessionProgress {
     var totalCount: Int
     var elapsedSeconds: Int  // Time since session started
     var tasks: [TodoItem]  // Full task list with statuses
+    var outcome: String?  // Summary of what was accomplished (shown on completion)
 
     init(
         currentTask: String? = nil,
@@ -1440,7 +1442,8 @@ struct SessionProgress {
         completedCount: Int = 0,
         totalCount: Int = 0,
         elapsedSeconds: Int = 0,
-        tasks: [TodoItem] = []
+        tasks: [TodoItem] = [],
+        outcome: String? = nil
     ) {
         self.currentTask = currentTask
         self.currentActivity = currentActivity
@@ -1449,6 +1452,25 @@ struct SessionProgress {
         self.totalCount = totalCount
         self.elapsedSeconds = elapsedSeconds
         self.tasks = tasks
+        self.outcome = outcome
+    }
+
+    /// Check if progress is complete
+    var isComplete: Bool {
+        progress >= 1.0 || (totalCount > 0 && completedCount == totalCount)
+    }
+
+    /// Generate outcome summary from completed tasks if no explicit outcome provided
+    var displayOutcome: String {
+        if let outcome = outcome, !outcome.isEmpty {
+            return outcome
+        }
+        // Generate from completed tasks
+        let completed = tasks.filter { $0.status == .completed }
+        if completed.isEmpty {
+            return "Tasks completed"
+        }
+        return completed.map { $0.content }.joined(separator: ", ")
     }
 
     /// Format elapsed time as "1m 27s" or "45s"
