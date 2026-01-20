@@ -1066,6 +1066,69 @@ export default {
         });
       }
 
+      // POST /session-start - SessionStart hook fires when Claude Code session starts/resumes/forks
+      // Reference: happy-cli-reference/src/claude/session.ts
+      if (path === '/session-start' && request.method === 'POST') {
+        const { pairingId, sessionId, timestamp, event } = await request.json();
+
+        if (!pairingId || !sessionId) {
+          return jsonResponse({ error: 'Missing pairingId or sessionId' }, 400);
+        }
+
+        // Store session metadata in KV (expires in 24 hours)
+        const sessionKey = `session:${pairingId}`;
+        const sessionData = {
+          sessionId,
+          startedAt: timestamp || new Date().toISOString(),
+          lastEvent: event || 'start',
+          updatedAt: new Date().toISOString()
+        };
+
+        await env.PAIRINGS.put(sessionKey, JSON.stringify(sessionData), {
+          expirationTtl: 86400 // 24 hours
+        });
+
+        // Also update the pairing record with current session
+        const pairingData = await env.PAIRINGS.get(`pairing:${pairingId}`);
+        if (pairingData) {
+          const pairing = JSON.parse(pairingData);
+          pairing.currentSessionId = sessionId;
+          pairing.lastSessionStart = timestamp || new Date().toISOString();
+          await env.PAIRINGS.put(`pairing:${pairingId}`, JSON.stringify(pairing));
+        }
+
+        return jsonResponse({
+          success: true,
+          sessionId,
+          message: 'Session start recorded'
+        });
+      }
+
+      // GET /session/:pairingId - Get current session info (for watch to query)
+      if (path.startsWith('/session/') && !path.includes('session-') && request.method === 'GET') {
+        const pairingId = path.split('/')[2];
+
+        if (!pairingId) {
+          return jsonResponse({ error: 'Missing pairingId' }, 400);
+        }
+
+        const sessionKey = `session:${pairingId}`;
+        const sessionData = await env.PAIRINGS.get(sessionKey);
+
+        if (!sessionData) {
+          return jsonResponse({
+            hasSession: false,
+            sessionId: null
+          });
+        }
+
+        const session = JSON.parse(sessionData);
+        return jsonResponse({
+          hasSession: true,
+          ...session
+        });
+      }
+
       // Health check
       if (path === '/health') {
         return jsonResponse({ status: 'ok', timestamp: Date.now() });
