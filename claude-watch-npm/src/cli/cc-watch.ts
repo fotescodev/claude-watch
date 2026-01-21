@@ -9,6 +9,7 @@ import {
   createPairingConfig,
 } from "../config/pairing-store.js";
 import { CloudClient } from "../cloud/client.js";
+import { StdinProxy } from "./stdin-proxy.js";
 import type { SessionState, WatchMessage } from "../types/index.js";
 
 // YOLO mode flags for autonomous execution (from ralph.sh pattern)
@@ -325,7 +326,7 @@ async function startProgressMonitor(
       // Clear screen and redraw
       console.clear();
       showHeader();
-      console.log(chalk.dim(`  Pairing: ${pairingId.slice(0, 8)}...`));
+      console.log(chalk.dim(`  Pairing: ${pairingId}`));
       console.log();
       console.log(formatSessionState(message.state));
       console.log();
@@ -467,7 +468,7 @@ export async function runCcWatch(): Promise<void> {
 
   if (paired && config) {
     // Already paired - use existing config
-    console.log(chalk.dim(`  Already paired: ${config.pairingId.slice(0, 8)}...`));
+    console.log(chalk.dim(`  Already paired: ${config.pairingId}`));
     console.log();
 
     pairingId = config.pairingId;
@@ -526,8 +527,30 @@ export async function runCcWatch(): Promise<void> {
     console.log(chalk.green("  Pairing saved!"));
   }
 
-  // Start progress monitoring
+  // Prompt for task and run Claude with full watch support
   if (pairingId) {
-    await startProgressMonitor(pairingId, cloudUrl);
+    console.log();
+    console.log(chalk.green("  Ready! Watch connected."));
+    console.log();
+
+    const response = await prompts({
+      type: "text",
+      name: "task",
+      message: "What would you like Claude to do?",
+    });
+
+    if (!response.task || !response.task.trim()) {
+      console.log(chalk.dim("  No task provided. Exiting."));
+      return;
+    }
+
+    console.log();
+    console.log(chalk.dim("  Starting Claude with watch support..."));
+    console.log(chalk.dim("  Tool approvals + questions will appear on your watch."));
+    console.log();
+
+    const proxy = new StdinProxy(pairingId, cloudUrl);
+    const exitCode = await proxy.start([response.task.trim()]);
+    process.exit(exitCode);
   }
 }
