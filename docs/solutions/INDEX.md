@@ -12,6 +12,7 @@ Quick reference for previously solved problems. **Check here before debugging.**
 ### Integration Issues
 | Problem | File | Severity |
 |---------|------|----------|
+| E2E tests failing - missing cloud endpoints & wrong API references | [missing-cloud-endpoints-e2e-failure.md](integration-issues/missing-cloud-endpoints-e2e-failure.md) | High |
 | Silent push notifications not updating watch UI | [watchos-silent-push-ui-update.md](integration-issues/watchos-silent-push-ui-update.md) | High |
 | Multi-session progress conflicts & stale UI state | [multi-session-progress-conflicts.md](integration-issues/multi-session-progress-conflicts.md) | Medium |
 
@@ -31,12 +32,16 @@ _None documented yet_
 - [Multi-session conflicts](integration-issues/multi-session-progress-conflicts.md) - Session isolation, stale progress, empty states
 
 ### MCPServer (Cloudflare Worker)
-_None documented yet_
+- [Missing cloud endpoints](integration-issues/missing-cloud-endpoints-e2e-failure.md) - Session control endpoints not implemented
+- [DATA_FLOW.md](/.claude/DATA_FLOW.md) - Complete API endpoint reference
 
 ## By Symptom
 
 | Symptom | Solution |
 |---------|----------|
+| E2E test returns 404 | [missing-cloud-endpoints-e2e-failure.md](integration-issues/missing-cloud-endpoints-e2e-failure.md) |
+| `/request` endpoint not found | [missing-cloud-endpoints-e2e-failure.md](integration-issues/missing-cloud-endpoints-e2e-failure.md) - Use `/approval` instead |
+| Session control endpoints missing | [missing-cloud-endpoints-e2e-failure.md](integration-issues/missing-cloud-endpoints-e2e-failure.md) |
 | "All Clear" shows when it shouldn't | [watchos-silent-push-ui-update.md](integration-issues/watchos-silent-push-ui-update.md) |
 | UI not updating after notification | [watchos-silent-push-ui-update.md](integration-issues/watchos-silent-push-ui-update.md) |
 | `@Published` state change not reflected in view | [watchos-silent-push-ui-update.md](integration-issues/watchos-silent-push-ui-update.md) |
@@ -62,6 +67,12 @@ _None documented yet_
 
 ### SwiftUI State
 - **New `@Published` property not showing?** → Check ALL view conditions that might hide it (empty states, loading states)
+
+### Cloud API / E2E Testing
+- **E2E test returns 404?** → Check endpoint names match [DATA_FLOW.md](/.claude/DATA_FLOW.md)
+- **Using `/request` endpoint?** → Wrong! Use `/approval` instead
+- **Session control not working?** → Endpoints added 2026-01-21, redeploy cloud worker
+- **Approval flow hangs?** → Hook polls `GET /approval/:pairingId/:requestId`, verify it exists
 
 ---
 
