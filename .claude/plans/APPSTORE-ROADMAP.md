@@ -295,6 +295,61 @@ Requires Claude Code running on your Mac with the MCP server.
 
 ---
 
+## Phase 8: V2 Redesign (Post-Launch)
+*"Full Claude Code Companion"*
+
+### 8.1 Overview
+
+Transform Claude Watch from a simple approval remote into a comprehensive Claude Code companion with support for questions, todos, sub-agents, session resume, and context management.
+
+**Source:** `/v2/` documentation suite
+
+### 8.2 New Flows
+
+| Flow | Name | Priority | Description |
+|------|------|----------|-------------|
+| F15 | Session Resume | P0 | Resume previous sessions from watch |
+| F16 | Context Warning | P1 | Proactive alerts at 75/85/95% |
+| F17 | Quick Undo | P2 | Rewind to latest checkpoint |
+| F18 | Question Response | P0 | Answer AskUserQuestion from wrist |
+| F19 | Sub-Agent Monitor | P2 | Nested Task tool display |
+| F20 | Todo Progress | P2 | Read-only TodoWrite view |
+| F21 | Background Alert | P1 | Ctrl+B notification |
+
+### 8.3 Key Features
+
+- **Question Response (F18):** Answer Claude's questions with tap or voice
+- **Session Resume (F15):** One-tap continue from watch
+- **Context Warning (F16):** Proactive "/compact" suggestions
+- **Todo Progress (F20):** Read-only task checklist
+- **Sub-Agent Monitoring (F19):** Nested agent display
+- **Quick Undo (F17):** Simplified rewind
+- **Anthropic Brand Refresh:** Official colors + SF Symbols
+
+### 8.4 Implementation Phases
+
+| Sub-Phase | Focus | Estimate |
+|-----------|-------|----------|
+| 8A | Event Infrastructure | 1 week |
+| 8B | Question Response (P0) | 1 week |
+| 8C | Session Resume (P0) | 1 week |
+| 8D | Context & Undo (P1) | 1 week |
+| 8E | Todo & Sub-Agents (P2) | 1 week |
+| 8F | Brand Refresh (P1) | 1 week |
+| 8G | Quick Commands | 0.5 week |
+
+### 8.5 Deliverables
+
+- [ ] All 7 new flows functional
+- [ ] 11 new event types handled
+- [ ] Anthropic brand colors applied
+- [ ] SF Symbols replace all emojis
+- [ ] 3 new quick commands (Resume, Compact, Undo)
+
+**See:** `.claude/plans/phase8-CONTEXT.md` for full implementation details.
+
+---
+
 ## Timeline Summary
 
 ```
@@ -305,9 +360,10 @@ Week 6-7:   Testing (unit tests, UI tests, devices)
 Week 7-9:   Beta (TestFlight, feedback, bug fixes)
 Week 9-10:  Submission (App Store Connect, review)
 Week 10+:   Launch & monetization
+Week 12-18: V2 Redesign (Phase 8)
 ```
 
-**Total estimated time: 8-10 weeks**
+**Total estimated time: 8-10 weeks to launch, +6 weeks for V2**
 
 ---
 

@@ -10,7 +10,7 @@
 
 **Phase 6: App Store Submission**
 
-Progress: ██░░░░░░░░ 20% (Planning complete, ready to execute)
+Progress: ████░░░░░░ 40% (Privacy + launch posts done, TestFlight next)
 
 ---
 
@@ -19,12 +19,12 @@ Progress: ██░░░░░░░░ 20% (Planning complete, ready to execut
 | Task ID | Title | Status | Notes |
 |---------|-------|--------|-------|
 | P5 | Phase 5: TestFlight | DONE ✅ | Privacy policy, entitlements, E2E encryption complete |
-| P6.1 | Push privacy policy to GitHub Pages | NOT STARTED | `docs/privacy.md` created, needs push + Pages enable |
+| P6.1 | Push privacy policy to GitHub Pages | DONE ✅ | Pushed, needs Pages enabled in GitHub settings |
 | P6.2 | Record demo video for Apple review | NOT STARTED | Script in phase5-CONTEXT.md |
 | P6.3 | Complete TestFlight submission | NOT STARTED | Archive + upload + internal testing |
-| P6.4 | Capture 5 screenshots | NOT STARTED | Series 10 46mm (416x496px) |
+| P6.4 | Capture 5 screenshots | NOT STARTED | Guide in screenshot-guide.md |
 | P6.5 | Create App Store Connect listing | NOT STARTED | Description + keywords + metadata |
-| P6.6 | Prepare launch posts | NOT STARTED | HN, Reddit, Twitter, LinkedIn drafts |
+| P6.6 | Prepare launch posts | DONE ✅ | HN, Reddit, Twitter, LinkedIn in launch-posts.md |
 | P6.7 | Submit for App Store review | NOT STARTED | After TestFlight validation |
 | COMP4 | Activity batching | DEFERRED | Out of scope for launch |
 | FE2b | Stop/Play interrupt controls | DEFERRED | Nice-to-have, not blocking |
@@ -54,6 +54,15 @@ Progress: ██░░░░░░░░ 20% (Planning complete, ready to execut
 - [x] Promo text: "Approve Claude Code changes from your wrist. No phone needed."
 - [x] Launch: Coordinated across HN, Reddit, Twitter, LinkedIn, ProductHunt
 - [x] Created `phase6-CONTEXT.md` with full App Store description
+
+**Phase 8 (V2 Redesign) Planned:**
+- [x] Analyzed V2 documentation suite (`/v2/`)
+- [x] Created `phase8-CONTEXT.md` with full implementation plan
+- [x] Added Phase 8 to APPSTORE-ROADMAP.md
+- 7 new flows: F15-F21 (Session Resume, Context Warning, Quick Undo, Question Response, Sub-Agent Monitor, Todo Progress, Background Alert)
+- 11 new event types
+- Anthropic brand refresh + SF Symbols
+- 3 new quick commands (Resume, Compact, Undo)
 
 ### Previous Session (2026-01-20)
 - [x] Implement all three competitive parity tasks: COMP4 → COMP1 → COMP3
@@ -136,6 +145,16 @@ cat ~/.claude-watch-pairing
 ## Handoff Notes
 
 *Write any context the next session needs to know:*
+
+### Phase 8 V2 Redesign Planned (2026-01-21)
+- Full V2 specification analyzed from `/v2/` directory
+- Created `phase8-CONTEXT.md` with complete implementation plan
+- **7 new flows:** F15-F21 (questions, todos, sub-agents, resume, context, undo, background)
+- **11 new event types** to implement in WatchService
+- **Anthropic brand refresh:** Official colors + SF Symbols (no emojis)
+- **3 new quick commands:** Resume, Compact, Undo
+- Implementation order: Events → Questions (P0) → Resume (P0) → Context/Undo (P1) → Todos/SubAgents (P2) → Brand refresh
+- V2 is POST-LAUNCH work (~6 weeks after App Store submission)
 
 ### E2E Encryption Complete (2026-01-21)
 - **COMP3A**: CLI encryption module using TweetNaCl (x25519 + XSalsa20-Poly1305)
