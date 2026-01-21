@@ -8,9 +8,9 @@
 
 ## Current Phase
 
-**Phase 5: TestFlight Beta Distribution**
+**Phase 6: App Store Submission**
 
-Progress: ████████░░ 80% (Pre-submission)
+Progress: ██░░░░░░░░ 20% (Planning complete, ready to execute)
 
 ---
 
@@ -18,18 +18,44 @@ Progress: ████████░░ 80% (Pre-submission)
 
 | Task ID | Title | Status | Notes |
 |---------|-------|--------|-------|
-| COMP4 | Activity batching (2s flush) | READY | Quick win, watch-side only |
-| COMP1 | SessionStart hook | READY | Foundation for session tracking |
-| COMP3 | E2E encryption | READY | Multi-phase, big differentiator |
-| - | Entitlements configuration | NOT STARTED | Critical for TestFlight |
-| - | Privacy manifest creation | NOT STARTED | Required by App Store |
+| P5 | Phase 5: TestFlight | DONE ✅ | Privacy policy, entitlements, E2E encryption complete |
+| P6.1 | Push privacy policy to GitHub Pages | NOT STARTED | `docs/privacy.md` created, needs push + Pages enable |
+| P6.2 | Record demo video for Apple review | NOT STARTED | Script in phase5-CONTEXT.md |
+| P6.3 | Complete TestFlight submission | NOT STARTED | Archive + upload + internal testing |
+| P6.4 | Capture 5 screenshots | NOT STARTED | Series 10 46mm (416x496px) |
+| P6.5 | Create App Store Connect listing | NOT STARTED | Description + keywords + metadata |
+| P6.6 | Prepare launch posts | NOT STARTED | HN, Reddit, Twitter, LinkedIn drafts |
+| P6.7 | Submit for App Store review | NOT STARTED | After TestFlight validation |
+| COMP4 | Activity batching | DEFERRED | Out of scope for launch |
 | FE2b | Stop/Play interrupt controls | DEFERRED | Nice-to-have, not blocking |
 
 ---
 
 ## Decisions Made
 
-### This Session (2026-01-20)
+### This Session (2026-01-21)
+
+**Phase 5 Complete:**
+- [x] Entitlements: Separate files for Debug (development) and Release (production)
+- [x] Privacy policy created: `docs/privacy.md`
+- [x] GitHub Pages setup files: `docs/_config.yml`, `docs/index.md`
+- [x] Privacy contact: GitHub Issues
+- [x] App name: "CC Watch"
+- [x] Category: Developer Tools
+- [x] Age rating: 9+
+- [x] Review strategy: Record video demo
+- [x] E2E encryption complete (CLI + Worker + Watch)
+
+**Phase 6 Decisions:**
+- [x] Description style: Consumer-friendly
+- [x] Keywords: `claude,ai,code,developer,approve,watch,programming,assistant`
+- [x] Support URL: GitHub repo issues
+- [x] Screenshots: All 5 scenarios, Series 10 46mm (416x496px)
+- [x] Promo text: "Approve Claude Code changes from your wrist. No phone needed."
+- [x] Launch: Coordinated across HN, Reddit, Twitter, LinkedIn, ProductHunt
+- [x] Created `phase6-CONTEXT.md` with full App Store description
+
+### Previous Session (2026-01-20)
 - [x] Implement all three competitive parity tasks: COMP4 → COMP1 → COMP3
 - [x] COMP4: 2-second flush interval for activity batching
 - [x] COMP1: Store session ID in `~/.claude-watch-session` (matches pairing pattern)
@@ -67,9 +93,10 @@ Progress: ████████░░ 80% (Pre-submission)
 - `ClaudeWatch/Services/WatchService.swift` - Auto-approve mode fix
 
 ### Build Status
-- **Simulator**: Builds successfully
+- **Simulator**: Builds successfully (Apple Watch Series 11)
 - **Physical Device**: Tested and working
-- **Archive**: Not yet tested
+- **Release Build**: Builds successfully (generic/watchOS)
+- **Archive**: Ready for TestFlight
 
 ### Environment
 ```bash
@@ -87,16 +114,54 @@ cat ~/.claude-watch-pairing
 
 ## Next Session Priority
 
-1. **CRITICAL**: Configure Release entitlements (`aps-environment: production`)
-2. **CRITICAL**: Create `PrivacyInfo.xcprivacy` manifest
-3. **HIGH**: Test archive build with `xcodebuild archive`
-4. **HIGH**: Add accessibility labels to all interactive elements
+### TestFlight (Complete First)
+1. **HIGH**: Push `docs/` to repo + enable GitHub Pages
+2. **HIGH**: Record demo video (script in phase5-CONTEXT.md)
+3. **HIGH**: Build signed archive in Xcode
+4. **HIGH**: Upload to App Store Connect + TestFlight
+5. **HIGH**: Validate on physical watch via TestFlight
+
+### App Store Submission
+6. **HIGH**: Capture 5 screenshots (Series 10 46mm, 416x496px)
+7. **HIGH**: Create App Store Connect listing
+   - App name: "CC Watch"
+   - Category: Developer Tools
+   - Age rating: 9+
+   - Description: Consumer-friendly (in phase6-CONTEXT.md)
+8. **MEDIUM**: Draft launch posts for HN, Reddit, Twitter, LinkedIn
+9. **MEDIUM**: Submit for App Store review
 
 ---
 
 ## Handoff Notes
 
 *Write any context the next session needs to know:*
+
+### E2E Encryption Complete (2026-01-21)
+- **COMP3A**: CLI encryption module using TweetNaCl (x25519 + XSalsa20-Poly1305)
+- **COMP3B**: Worker key exchange - stores/forwards public keys during pairing
+- **COMP3C**: Watch decryption using CryptoKit (Curve25519 + ChaChaPoly)
+- Keys exchanged during pairing flow:
+  - Watch sends `publicKey` in `/pair/initiate`
+  - CLI sends `publicKey` in `/pair/complete`
+  - Watch receives `cliPublicKey` from `/pair/status`
+- Both Debug (simulator) and Release (device) builds successful
+
+### Phase 5 Implementation Complete (2026-01-21)
+- ✅ Release entitlements with `aps-environment: production`
+- ✅ PrivacyInfo.xcprivacy manifest
+- ✅ COMP1 - SessionStart hook
+- ✅ COMP3 - Full E2E encryption stack
+- ✅ Archive/Release build tested
+- 🔲 Privacy policy needs to be created and deployed
+- 🔲 TestFlight submission pending
+
+### Phase 5 Planning Complete (2026-01-21)
+- E2E test passed - watch approval flow fully functional
+- Created `.claude/plans/phase5-CONTEXT.md` with all decisions
+- Key decisions: Separate entitlements, internal beta (5-10), GitHub Pages privacy policy
+- Decided to include COMP1 + COMP3 before TestFlight (not COMP2/COMP4)
+- Implementation order: Entitlements → Privacy manifest → COMP1 → COMP3 → Archive test
 
 ### Competitive Analysis Complete (2026-01-20)
 - Analyzed Happy Coder (competitor): https://github.com/slopus/happy
@@ -130,6 +195,8 @@ Run tasks in order: COMP4 → COMP1 → COMP3
 
 | Date | Duration | Focus | Outcome |
 |------|----------|-------|---------|
+| 2026-01-21 | ~30min | COMP3 E2E encryption | Full implementation: CLI + Worker + Watch encryption stack |
+| 2026-01-21 | - | Phase 5 planning | E2E test passed, created phase5-CONTEXT.md with decisions |
 | 2026-01-20 | ~1hr | Happy Coder competitive analysis | Cloned repos, created comparison, added COMP1-4 tasks, implementation spec ready |
 | 2026-01-19 | ~30min | GSD framework review | Created migration report, decided partial adoption |
 | 2026-01-18 | ~2hr | Physical device testing | Dog walk test passed |
@@ -137,4 +204,4 @@ Run tasks in order: COMP4 → COMP1 → COMP3
 
 ---
 
-*Last updated: 2026-01-20 by Claude*
+*Last updated: 2026-01-21 by Claude*
