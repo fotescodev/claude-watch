@@ -215,9 +215,68 @@ rm -f /tmp/e2e-test-request-id /tmp/e2e-test-pairing-id
 
 ---
 
-### 5. Question Flow Test
+### 5. Interactive Question E2E Test (Recommended)
 
-Tests the AskUserQuestion integration with watch.
+**Full round-trip test**: question → watch display → user selects option → answer returns to terminal.
+
+```bash
+python3 /Users/dfotesco/claude-watch/claude-watch/.claude/hooks/test-question-e2e.py
+```
+
+**What It Does:**
+1. Creates a test question with 3 options (A, B, C)
+2. Sends it to your paired watch
+3. Waits for you to select an option on the watch
+4. Verifies the answer comes back correctly
+
+**Options:**
+- `--timeout 60` - How long to wait for watch response (default: 60s)
+
+**Expected Output:**
+```
+============================================================
+  Claude Watch Question Flow E2E Test
+============================================================
+
+[Step 1] Checking pairing configuration...
+  ✓ Pairing ID: abc12345...
+
+[Step 2] Creating test question...
+  ✓ Question created: q_xyz789
+
+[Step 3] Question sent to watch!
+    On your Apple Watch, you should see:
+    ┌─────────────────────────────────┐
+    │  E2E Test                       │
+    │  Which option do you want...    │
+    │  ○ Option A                     │
+    │  ○ Option B                     │
+    │  ○ Option C                     │
+    └─────────────────────────────────┘
+
+[Step 4] Waiting for watch response (timeout: 60s)...
+  ⏳ Polling.......
+  ✓ Answer received!
+
+    Selected option(s):
+      → Option B
+
+============================================================
+  E2E TEST PASSED
+============================================================
+  ✓ Question created successfully
+  ✓ Watch received and displayed question
+  ✓ User selected: Option B
+  ✓ Answer received back at terminal
+
+  The full question→watch→terminal flow is working!
+```
+
+---
+
+### 6. Basic Question Flow Test (API Only)
+
+Quick API-level test without waiting for watch interaction.
 
 ```bash
 PAIRING_ID=$(cat ~/.claude-watch-pairing)
@@ -249,7 +308,7 @@ fi
 
 ---
 
-### 6. Simulator Testing
+### 7. Simulator Testing
 
 For testing on watchOS simulator without a physical watch.
 
@@ -298,7 +357,7 @@ xcrun simctl spawn "$DEVICE_ID" defaults write com.edgeoftrust.claudewatch useCl
 
 ---
 
-### 7. Direct Hook Test
+### 8. Direct Hook Test
 
 Test the PreToolUse hook directly:
 
@@ -344,5 +403,6 @@ echo "Test state cleaned up"
 | Before TestFlight/App Store | Full suite (all tests) |
 | After modifying hook files | Hook validation + unit tests |
 | After npm package changes | stdin-proxy tests |
-| Verifying watch integration | Live E2E flow |
+| Verifying watch integration | Interactive Question E2E (`test-question-e2e.py`) |
+| Testing question/answer flow | Interactive Question E2E (`test-question-e2e.py`) |
 | Part of `/ship-check` | Hook validation |

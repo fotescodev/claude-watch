@@ -23,6 +23,7 @@ class WatchService: ObservableObject {
     @Published var sessionProgress: SessionProgress?
     @Published var isAPNsTokenReady = false
     @Published var sessionHistory: [CompletedSession] = []
+    @Published var pendingQuestion: ClaudeQuestion?
 
     /// Maximum number of sessions to keep in history
     private let maxHistoryCount = 10
@@ -838,6 +839,7 @@ class WatchService: ObservableObject {
     ///           `CloudError.serverError` if the server returns an error status code
     /// Initiate pairing - watch requests a code to display
     /// Returns the code to display and a watchId for polling
+    /// Also generates encryption keypair and sends public key for E2E encryption (COMP3C)
     func initiatePairing() async throws -> (code: String, watchId: String) {
         let url = URL(string: "\(cloudServerURL)/pair/initiate")!
         var request = URLRequest(url: url)
@@ -847,9 +849,21 @@ class WatchService: ObservableObject {
         // Get device token for push notifications
         let deviceToken = await getDeviceToken()
 
-        let body: [String: Any] = [
+        // Generate encryption keypair if not already present (COMP3C: E2E encryption)
+        let encryptionService = EncryptionService.shared
+        if !encryptionService.hasKeyPair {
+            encryptionService.generateKeyPair()
+        }
+
+        var body: [String: Any] = [
             "deviceToken": deviceToken ?? "simulator-token"
         ]
+
+        // Include watch's public key for E2E encryption key exchange
+        if let publicKey = encryptionService.publicKey {
+            body["publicKey"] = publicKey
+        }
+
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await urlSession.data(for: request)
@@ -869,7 +883,8 @@ class WatchService: ObservableObject {
     }
 
     /// Check pairing status - watch polls until CLI completes pairing
-    func checkPairingStatus(watchId: String) async throws -> (paired: Bool, pairingId: String?) {
+    /// Returns paired status, pairingId, and CLI's public key for E2E encryption (COMP3C)
+    func checkPairingStatus(watchId: String) async throws -> (paired: Bool, pairingId: String?, cliPublicKey: String?) {
         let url = URL(string: "\(cloudServerURL)/pair/status/\(watchId)")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
@@ -894,7 +909,19 @@ class WatchService: ObservableObject {
         }
 
         let pairingId = json["pairingId"] as? String
-        return (paired: paired, pairingId: pairingId)
+        let cliPublicKey = json["cliPublicKey"] as? String  // E2E encryption key exchange
+
+        // Store CLI's public key for E2E encryption (COMP3C)
+        if paired, let cliPublicKey = cliPublicKey {
+            do {
+                try EncryptionService.shared.setPeerPublicKey(cliPublicKey)
+                print("E2E encryption enabled with CLI")
+            } catch {
+                print("Failed to set CLI public key: \(error)")
+            }
+        }
+
+        return (paired: paired, pairingId: pairingId, cliPublicKey: cliPublicKey)
     }
 
     /// Complete pairing after CLI has entered the code
@@ -952,12 +979,12 @@ class WatchService: ObservableObject {
     }
 
     /// Respond to an approval request via cloud API.
-    /// Sends the user's approval or rejection decision to the cloud server for the specified request.
+    /// Uses new /approval/:requestId endpoint that updates queue status.
     /// - Parameter requestId: The unique identifier of the pending request
     /// - Parameter approved: Whether to approve (true) or reject (false) the request
     /// - Throws: `CloudError.serverError` if the server returns an error status code or the response is invalid
     func respondToCloudRequest(_ requestId: String, approved: Bool) async throws {
-        let url = URL(string: "\(cloudServerURL)/respond/\(requestId)")!
+        let url = URL(string: "\(cloudServerURL)/approval/\(requestId)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -982,7 +1009,6 @@ class WatchService: ObservableObject {
         }
 
         // Clear delivered notifications for this request
-        // APNs notifications may not use requestId as identifier, so we query and remove matching ones
         clearDeliveredNotification(for: requestId)
 
         playHaptic(approved ? .success : .failure)
@@ -1114,20 +1140,28 @@ class WatchService: ObservableObject {
     /// Creates a background task that periodically fetches new requests every 2 seconds.
     /// Only active when in cloud mode with an active pairing. Safe to call multiple times.
     func startPolling() {
-        guard useCloudMode && isPaired else { return }
-        guard pollingTask == nil else { return }
+        guard useCloudMode && isPaired else {
+            print("[Polling] Cannot start: useCloudMode=\(useCloudMode), isPaired=\(isPaired)")
+            return
+        }
+        guard pollingTask == nil else {
+            print("[Polling] Already running")
+            return
+        }
 
+        print("[Polling] Starting poll loop for pairingId: \(pairingId)")
         connectionStatus = .connected
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self = self else { return }
 
                 do {
-                    // Fetch both pending requests AND session progress
+                    // Fetch pending requests, questions, AND session progress
                     try await self.fetchPendingRequests()
+                    try await self.fetchPendingQuestions()
                     try await self.fetchSessionProgress()
                 } catch {
-                    print("Polling error: \(error)")
+                    print("[Polling] Error: \(error)")
                 }
 
                 try? await Task.sleep(nanoseconds: UInt64(self.pollingInterval * 1_000_000_000))
@@ -1142,9 +1176,10 @@ class WatchService: ObservableObject {
         pollingTask = nil
     }
 
-    /// Fetch pending requests from cloud server
+    /// Fetch pending approval requests from cloud queue
+    /// Uses new /approval-queue endpoint that doesn't clear on read
     private func fetchPendingRequests() async throws {
-        let url = URL(string: "\(cloudServerURL)/requests/\(pairingId)")!
+        let url = URL(string: "\(cloudServerURL)/approval-queue/\(pairingId)")!
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
@@ -1163,7 +1198,6 @@ class WatchService: ObservableObject {
         // Convert to pending actions
         var newActions: [PendingAction] = []
         for req in requests {
-            // Request data is returned directly from /requests/:pairingId endpoint
             guard let id = req["id"] as? String,
                   let type = req["type"] as? String,
                   let title = req["title"] as? String else {
@@ -1241,19 +1275,20 @@ class WatchService: ObservableObject {
             return
         }
 
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let progressData = json["progress"] as? [String: Any] else {
             return
         }
 
-        let currentTask = json["currentTask"] as? String
-        let currentActivity = json["currentActivity"] as? String
-        let progress = json["progress"] as? Double ?? 0
-        let completedCount = json["completedCount"] as? Int ?? 0
-        let totalCount = json["totalCount"] as? Int ?? 0
-        let elapsedSeconds = json["elapsedSeconds"] as? Int ?? 0
+        let currentTask = progressData["currentTask"] as? String
+        let currentActivity = progressData["currentActivity"] as? String
+        let progress = progressData["progress"] as? Double ?? 0
+        let completedCount = progressData["completedCount"] as? Int ?? 0
+        let totalCount = progressData["totalCount"] as? Int ?? 0
+        let elapsedSeconds = progressData["elapsedSeconds"] as? Int ?? 0
 
         // Parse tasks array
-        let tasksArray = json["tasks"] as? [[String: Any]] ?? []
+        let tasksArray = progressData["tasks"] as? [[String: Any]] ?? []
         let tasks = tasksArray.map { taskDict -> TodoItem in
             TodoItem(
                 content: taskDict["content"] as? String ?? "",
@@ -1357,6 +1392,116 @@ class WatchService: ObservableObject {
         if let index = sessionHistory.firstIndex(where: { $0.id == sessionId }) {
             sessionHistory[index].isExpanded.toggle()
         }
+    }
+
+    // MARK: - Question Handling
+
+    /// Fetch pending questions from cloud server
+    private func fetchPendingQuestions() async throws {
+        let url = URL(string: "\(cloudServerURL)/questions/\(pairingId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await urlSession.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            print("[Questions] HTTP error: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
+            return
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let questions = json["questions"] as? [[String: Any]] else {
+            print("[Questions] Failed to parse JSON")
+            return
+        }
+
+        print("[Questions] Found \(questions.count) questions")
+
+        // Get the first pending question (handle one at a time)
+        guard let firstQuestion = questions.first,
+              let payload = firstQuestion["payload"] as? [String: Any] else {
+            // No pending questions - clear any displayed question
+            await MainActor.run {
+                if pendingQuestion != nil {
+                    print("[Questions] Clearing displayed question")
+                    pendingQuestion = nil
+                }
+            }
+            return
+        }
+
+        print("[Questions] Processing question: \(payload["id"] ?? "unknown")")
+
+        // Parse question from payload
+        let question = ClaudeQuestion.from(payload)
+
+        if question == nil {
+            print("[Questions] Failed to parse question from payload: \(payload)")
+        }
+
+        await MainActor.run {
+            // Only update if it's a new question
+            if pendingQuestion?.id != question?.id {
+                pendingQuestion = question
+                if question != nil {
+                    print("[Questions] Displaying new question: \(question!.id)")
+                    playHaptic(.notification)
+                }
+            }
+        }
+    }
+
+    /// Answer a pending question
+    /// - Parameters:
+    ///   - questionId: The question ID
+    ///   - selectedIndices: Array of selected option indices
+    func answerQuestion(_ questionId: String, selectedIndices: [Int]) async throws {
+        let url = URL(string: "\(cloudServerURL)/question/\(questionId)/answer")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "selectedIndices": selectedIndices
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (_, response) = try await urlSession.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw CloudError.serverError((response as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+
+        // Clear pending question
+        pendingQuestion = nil
+        playHaptic(.success)
+    }
+
+    /// Skip a question (defer to terminal input)
+    /// - Parameter questionId: The question ID
+    func skipQuestion(_ questionId: String) async throws {
+        let url = URL(string: "\(cloudServerURL)/question/\(questionId)/answer")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "skipped": true
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (_, response) = try await urlSession.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw CloudError.serverError((response as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+
+        // Clear pending question
+        pendingQuestion = nil
+        playHaptic(.click)
     }
 
     // MARK: - Cloud Errors
