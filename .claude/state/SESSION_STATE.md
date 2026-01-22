@@ -10,7 +10,7 @@
 
 **Phase 10: Question Response from Watch (COMP5)**
 
-Progress: ██░░░░░░░░ 20% (Research complete, need architecture pivot)
+Progress: ██████████ 100% ✅ COMPLETE
 
 ---
 
@@ -146,34 +146,43 @@ cat ~/.claude-watch-pairing
 
 *Write any context the next session needs to know:*
 
-### Phase 10 Research Complete (2026-01-22) ⚠️ CRITICAL
+### Phase 10 COMPLETE! (2026-01-22) 🎉
 
-**Problem**: We tried to implement answering Claude's AskUserQuestion from the watch but our approach was fundamentally flawed.
+**Full Ink-based Terminal UI + Watch Question Flow COMPLETE!**
 
-**What We Tried (Failed)**:
-1. PreToolUse hook intercepts AskUserQuestion
-2. Hook sends question to cloud, waits for watch answer
-3. Hook writes answer to a file
-4. StdinProxy tries to inject answer into Claude's terminal stdin
-5. ❌ FAILS - timing issues, terminal UI already rendered, can't inject reliably
+Implemented the Happy Coder approach with a professional terminal UI:
 
-**What Happy Coder Does (Works)**:
-1. Uses `--output-format stream-json --input-format stream-json` (CLI flags, NOT direct API)
-2. Uses `--permission-prompt-tool stdio`
-3. Claude sends `control_request` JSON via stdout when needing permission/answers
-4. CLI responds with `control_response` JSON via stdin
-5. ✅ WORKS - clean JSON protocol, no terminal UI to fight
-6. ✅ NO API COSTS - still uses Claude CLI, just with JSON output mode
+1. ✅ **Ink dependencies**: ink, react, ink-spinner installed
+2. ✅ **TerminalUI.tsx**: Full Ink-based terminal with:
+   - Header with watch connection status
+   - Message area for Claude's streaming output
+   - Token count and elapsed time
+   - Pending question overlay
+   - Status bar with keyboard shortcuts
+3. ✅ **App.tsx**: Integration layer connecting:
+   - StreamingClaudeRunner (spawns Claude in JSON mode)
+   - TerminalUI (renders messages)
+   - Watch polling (questions via cloud)
+4. ✅ **Question flow**:
+   - Claude sends `control_request` for AskUserQuestion
+   - cc-watch posts question to cloud `/question` endpoint
+   - Watch receives and displays options
+   - User selects on watch → answer returns to Claude
+5. ✅ **Terminal fallback**:
+   - 30-second countdown while waiting for watch
+   - On timeout, question shows in terminal
+   - User can answer with arrow keys + Enter
 
-**Key Insight**: You can't inject answers into Claude's interactive terminal UI. You need to use SDK/streaming mode where Claude sends JSON requests and receives JSON responses.
+**Command**: `npx cc-watch` (now uses Ink UI)
 
-**Next Steps for Phase 10**:
-1. Read `.claude/plans/phase10-RESEARCH.md` for full analysis
-2. Pivot to SDK approach: `--output-format stream-json`
-3. Implement `control_request`/`control_response` handling
-4. Study Happy Coder's `cli/src/claude/sdk/query.ts` for implementation
+**Key Files Created**:
+- `claude-watch-npm/src/ui/MessageBuffer.ts` - Message accumulation
+- `claude-watch-npm/src/ui/TerminalUI.tsx` - Ink React component
+- `claude-watch-npm/src/ui/App.tsx` - Main app with runner integration
 
-**Reference Code**: `/tmp/happy-research/happy-main/cli/src/claude/` (extracted from happy-main.zip)
+**Architecture Pivot**:
+- FROM: Stdin injection into Claude's interactive TUI (broken)
+- TO: Streaming JSON mode with custom Ink UI (working)
 
 ### Phase 8 V2 Redesign Planned (2026-01-21)
 - Full V2 specification analyzed from `/v2/` directory
@@ -243,6 +252,8 @@ Run tasks in order: COMP4 → COMP1 → COMP3
 
 | Date | Duration | Focus | Outcome |
 |------|----------|-------|---------|
+| 2026-01-22 | ~3hr | Phase 10 Ink UI + Question Flow | ✅ Full Ink-based terminal UI with watch question routing, terminal fallback |
+| 2026-01-22 | ~2hr | Phase 10 COMP5 COMPLETE | ✅ Full question/answer flow working! Streaming JSON mode + multi-choice questions on watch |
 | 2026-01-22 | ~2hr | Phase 10 COMP5 Question Response | Failed stdin injection approach; researched Happy Coder; discovered need for streaming JSON mode |
 | 2026-01-21 | ~30min | COMP3 E2E encryption | Full implementation: CLI + Worker + Watch encryption stack |
 | 2026-01-21 | - | Phase 5 planning | E2E test passed, created phase5-CONTEXT.md with decisions |

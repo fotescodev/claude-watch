@@ -927,7 +927,7 @@ tasks:
       MVP: Just "Stop" button that kills the session gracefully.
     priority: medium
     parallel_group: 2
-    completed: false
+    completed: true
     depends_on:
       - "FE2a"
     verification: |
@@ -1129,7 +1129,7 @@ curl -v https://claude-watch.fotescodev.workers.dev/health
       Debug logs: .claude/logs/watch-debug/
     priority: high
     parallel_group: 1
-    completed: false
+    completed: true
     verification: |
       echo "Verify bug is fixed"
     acceptance_criteria:
@@ -1172,7 +1172,7 @@ To investigate:
       Debug logs: .claude/logs/watch-debug/
     priority: high
     parallel_group: 1
-    completed: false
+    completed: true
     verification: |
       echo "Verify bug is fixed"
     acceptance_criteria:
@@ -1185,6 +1185,243 @@ To investigate:
       - timeout
       - notifications
     commit_template: "fix(watch): Multiple request timeouts detected"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 10: Streaming Terminal UI + Watch Questions
+  # Architecture: Streaming JSON mode with Ink-based terminal UI
+  # Context: .claude/plans/phase10-CONTEXT.md
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "P10-1"
+    title: "Add Ink dependencies and configure TypeScript/React"
+    description: |
+      Install Ink (React for CLI) and related dependencies to build
+      a professional terminal UI for cc-watch.
+
+      STEPS:
+      1. cd claude-watch-npm
+      2. npm install ink react ink-spinner chalk
+      3. npm install -D @types/react
+      4. Update tsconfig.json for JSX support:
+         - "jsx": "react-jsx"
+         - "jsxImportSource": "react"
+      5. Test basic Ink render
+
+      VERIFICATION:
+      ```bash
+      cd claude-watch-npm && npm run build
+      ```
+    priority: critical
+    parallel_group: 1
+    completed: true
+    verification: |
+      grep -q '"ink"' claude-watch-npm/package.json
+    acceptance_criteria:
+      - "ink, react dependencies installed"
+      - "TypeScript compiles with JSX"
+      - "Basic Ink component renders"
+    files:
+      - "claude-watch-npm/package.json"
+      - "claude-watch-npm/tsconfig.json"
+    tags:
+      - phase-10
+      - dependencies
+    commit_template: "feat(cli): Add Ink dependencies for terminal UI"
+  - id: "P10-2"
+    title: "Create Ink-based TerminalUI component"
+    description: |
+      Build the main terminal UI component using Ink/React.
+      Reference: Happy's RemoteModeDisplay.tsx
+
+      FEATURES:
+      - Header with status (connected/disconnected)
+      - Message area for Claude's text output
+      - Status bar with token count, elapsed time
+      - Question overlay when waiting for answer
+
+      FILE: claude-watch-npm/src/ui/TerminalUI.tsx
+
+      KEY COMPONENTS:
+      - App: Main container
+      - Header: Status bar
+      - MessageArea: Scrolling text output
+      - StatusBar: Tokens, time, pending questions
+    priority: critical
+    parallel_group: 2
+    completed: true
+    depends_on:
+      - "P10-1"
+    verification: |
+      [ -f claude-watch-npm/src/ui/TerminalUI.tsx ]
+    acceptance_criteria:
+      - "TerminalUI.tsx exists"
+      - "Renders without errors"
+      - "Shows header, message area, status bar"
+    files:
+      - "claude-watch-npm/src/ui/TerminalUI.tsx"
+    tags:
+      - phase-10
+      - ui
+    commit_template: "feat(cli): Create Ink-based TerminalUI component"
+  - id: "P10-3"
+    title: "Integrate StreamingClaudeRunner with Ink UI"
+    description: |
+      Connect the existing StreamingClaudeRunner to the new Ink UI.
+
+      CHANGES TO streaming-claude.ts:
+      1. Export message events for UI consumption
+      2. Add callback for UI updates
+      3. Format messages for display
+
+      CHANGES TO cc-watch.ts:
+      1. Use Ink render() instead of console.log
+      2. Pass runner events to UI component
+      3. Handle cleanup on exit
+
+      REFERENCE: Happy's claudeRemote.ts + RemoteModeDisplay.tsx
+    priority: critical
+    parallel_group: 3
+    completed: true
+    depends_on:
+      - "P10-2"
+    verification: |
+      grep -q "render\|ink" claude-watch-npm/src/cli/cc-watch.ts
+    acceptance_criteria:
+      - "cc-watch uses Ink render"
+      - "Claude output appears in terminal"
+      - "UI updates as messages arrive"
+    files:
+      - "claude-watch-npm/src/cli/streaming-claude.ts"
+      - "claude-watch-npm/src/cli/cc-watch.ts"
+    tags:
+      - phase-10
+      - integration
+    commit_template: "feat(cli): Integrate StreamingClaudeRunner with Ink UI"
+  - id: "P10-4"
+    title: "Implement AskUserQuestion watch routing"
+    description: |
+      Route AskUserQuestion control_requests to the watch via cloud.
+
+      FLOW:
+      1. Claude sends control_request with tool_name="AskUserQuestion"
+      2. Parse questions array from request.input
+      3. POST to cloud /question endpoint
+      4. Start 30-second timer
+      5. Poll GET /question/:id for answer
+      6. On answer: send control_response with selected indices
+
+      ALREADY IMPLEMENTED (verify):
+      - sendQuestionToWatch() in streaming-claude.ts
+      - pollQuestionResponse() in streaming-claude.ts
+      - Cloud /question endpoints
+
+      NEEDS:
+      - Verify cloud accepts client-provided ID
+      - Add timeout handling
+      - Integrate with Ink UI (show "Waiting for watch...")
+    priority: critical
+    parallel_group: 4
+    completed: true
+    depends_on:
+      - "P10-3"
+    verification: |
+      grep -q "AskUserQuestion" claude-watch-npm/src/cli/streaming-claude.ts
+    acceptance_criteria:
+      - "Questions sent to cloud"
+      - "Polling for answer works"
+      - "Answer sent back to Claude"
+      - "UI shows waiting state"
+    files:
+      - "claude-watch-npm/src/cli/streaming-claude.ts"
+      - "MCPServer/worker/src/index.ts"
+    tags:
+      - phase-10
+      - questions
+    commit_template: "feat(cli): Route AskUserQuestion to watch"
+  - id: "P10-5"
+    title: "Add terminal fallback for question timeout"
+    description: |
+      When watch doesn't answer within 30 seconds, allow terminal input.
+
+      IMPLEMENTATION:
+      1. Use Promise.race with timeout
+      2. On timeout, show question in terminal via Ink
+      3. Accept keyboard input for answer
+      4. Send answer to Claude
+
+      REFERENCE: Happy's QuestionPrompt component
+
+      TERMINAL UI:
+      ```
+      ┌─────────────────────────────────────┐
+      │ Watch timeout - answer here:        │
+      │                                     │
+      │ Which approach?                     │
+      │ > 1. Approach A (Recommended)       │
+      │   2. Approach B                     │
+      │   3. Other                          │
+      │                                     │
+      │ ↑↓ to select, Enter to confirm      │
+      └─────────────────────────────────────┘
+      ```
+    priority: high
+    parallel_group: 5
+    completed: true
+    depends_on:
+      - "P10-4"
+    verification: |
+      grep -q "timeout\|fallback" claude-watch-npm/src/cli/streaming-claude.ts
+    acceptance_criteria:
+      - "30-second timeout implemented"
+      - "Terminal prompt appears on timeout"
+      - "Keyboard selection works"
+      - "Answer sent to Claude"
+    files:
+      - "claude-watch-npm/src/cli/streaming-claude.ts"
+      - "claude-watch-npm/src/ui/QuestionPrompt.tsx"
+    tags:
+      - phase-10
+      - fallback
+    commit_template: "feat(cli): Add terminal fallback for question timeout"
+  - id: "P10-6"
+    title: "E2E test: question flow end-to-end"
+    description: |
+      Test the complete question flow:
+      1. cc-watch starts Claude in streaming mode
+      2. Claude asks a question (AskUserQuestion)
+      3. Question appears on watch
+      4. User answers on watch
+      5. Claude receives answer and continues
+
+      TEST SCRIPT:
+      ```bash
+      # Terminal 1: Start cc-watch
+      cd claude-watch-npm && npm run build && npx cc-watch
+
+      # Terminal 2: Trigger question via curl (if needed for testing)
+      # Or just use a prompt that triggers AskUserQuestion
+      ```
+
+      PROMPTS THAT TRIGGER QUESTIONS:
+      - "Help me choose between approaches for X"
+      - "Which option do you prefer for Y?"
+      - Any ambiguous request
+    priority: high
+    parallel_group: 6
+    completed: true
+    depends_on:
+      - "P10-5"
+    verification: |
+      echo "Manual E2E test required"
+    acceptance_criteria:
+      - "Question appears on watch"
+      - "Watch answer received by CLI"
+      - "Claude continues after answer"
+      - "Terminal fallback works"
+    files: []
+    tags:
+      - phase-10
+      - e2e
+      - testing
+    commit_template: "test(cli): E2E question flow verified"
   # ═══════════════════════════════════════════════════════════════════════════
   # COMPETITIVE PARITY: Learnings from Happy Coder
   # Source: .claude/analysis/happy-vs-claude-watch-comparison.md
@@ -1237,7 +1474,7 @@ To investigate:
       - More reliable session tracking
     priority: medium
     parallel_group: 1
-    completed: false
+    completed: true
     verification: |
       [ -f .claude/hooks/session-start.py ] && \
       grep -q "SessionStart" .claude/settings.json
@@ -1309,7 +1546,7 @@ To investigate:
       - happy-reference/sources/components/tools/ThinkingIndicator.tsx
     priority: low
     parallel_group: 2
-    completed: false
+    completed: true
     depends_on:
       - "COMP1"
     verification: |
@@ -1374,7 +1611,7 @@ To investigate:
       TIMELINE: Multi-phase implementation
     priority: medium
     parallel_group: 3
-    completed: false
+    completed: true
     verification: |
       grep -q "NaCl\|encrypt\|decrypt" MCPServer/worker/src/index.ts
     acceptance_criteria:
@@ -1457,7 +1694,7 @@ To investigate:
       COMPLEXITY: Low-medium
     priority: low
     parallel_group: 2
-    completed: false
+    completed: true
     verification: |
       grep -q "ActivityBatcher\|flushInterval" ClaudeWatch/Services/WatchService.swift
     acceptance_criteria:

@@ -9,7 +9,8 @@ import {
   createPairingConfig,
 } from "../config/pairing-store.js";
 import { CloudClient } from "../cloud/client.js";
-import { StdinProxy } from "./stdin-proxy.js";
+import { StreamingClaudeRunner } from "./streaming-claude.js";
+import { renderApp } from "../ui/App.js";
 import type { SessionState, WatchMessage } from "../types/index.js";
 
 // YOLO mode flags for autonomous execution (from ralph.sh pattern)
@@ -545,12 +546,18 @@ export async function runCcWatch(): Promise<void> {
     }
 
     console.log();
-    console.log(chalk.dim("  Starting Claude with watch support..."));
+    console.log(chalk.dim("  Starting Claude with Ink UI..."));
     console.log(chalk.dim("  Tool approvals + questions will appear on your watch."));
     console.log();
 
-    const proxy = new StdinProxy();
-    const exitCode = await proxy.start([response.task.trim()]);
-    process.exit(exitCode);
+    // Use the new Ink-based UI
+    renderApp({
+      prompt: response.task.trim(),
+      cloudUrl,
+      pairingId,
+      onComplete: (exitCode) => {
+        process.exit(exitCode);
+      },
+    });
   }
 }
