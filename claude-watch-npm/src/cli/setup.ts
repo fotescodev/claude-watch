@@ -265,43 +265,38 @@ async function showComplete(): Promise<void> {
   });
 
   if (response.startClaude) {
-    // Ask for project directory
-    const dirResponse = await prompts({
+    // Ask for task
+    const taskResponse = await prompts({
       type: "text",
-      name: "projectDir",
-      message: "Project directory (or Enter for current):",
-      initial: process.cwd(),
+      name: "task",
+      message: "What would you like Claude to do?",
     });
 
-    const projectDir = dirResponse.projectDir || process.cwd();
+    if (!taskResponse.task || !taskResponse.task.trim()) {
+      console.log(chalk.dim("  No task provided. Run 'npx cc-watch watch' to start."));
+      return;
+    }
 
     console.log();
-    console.log(chalk.cyan(`  Starting Claude Code in ${projectDir}...`));
-    console.log(chalk.dim("  (All tool calls will require watch approval)"));
+    console.log(chalk.cyan("  Starting Claude with Ink UI..."));
+    console.log(chalk.dim("  Tool approvals + questions will appear on your watch."));
     console.log();
 
-    // Start Claude Code in the specified directory
-    // Set CLAUDE_WATCH_SESSION_ACTIVE=1 so hooks know this is a watch session
-    const claude = spawn("claude", [], {
-      stdio: "inherit",
-      shell: true,
-      cwd: projectDir,
-      env: {
-        ...process.env,
-        CLAUDE_WATCH_SESSION_ACTIVE: "1",
-      },
-    });
-
-    claude.on("error", (err) => {
-      console.error(chalk.red(`  Failed to start Claude: ${err.message}`));
-      console.log();
-      console.log(chalk.dim("  Try running 'claude' manually."));
-    });
-
-    // Wait for Claude to exit
-    await new Promise<void>((resolve) => {
-      claude.on("close", () => resolve());
-    });
+    // Use the Ink-based UI with streaming JSON mode
+    const config = readPairingConfig();
+    if (config) {
+      const { renderApp } = await import("../ui/App.js");
+      renderApp({
+        prompt: taskResponse.task.trim(),
+        cloudUrl: config.cloudUrl,
+        pairingId: config.pairingId,
+        onComplete: (exitCode) => {
+          process.exit(exitCode);
+        },
+      });
+    } else {
+      console.error(chalk.red("  Configuration not found. Please run setup again."));
+    }
   } else {
     console.log();
     console.log(chalk.dim("  Commands:"));
