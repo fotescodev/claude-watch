@@ -8,9 +8,9 @@
 
 ## Current Phase
 
-**Phase 6: App Store Submission**
+**Phase 10: Question Response from Watch (COMP5)**
 
-Progress: ████░░░░░░ 40% (Privacy + launch posts done, TestFlight next)
+Progress: ██░░░░░░░░ 20% (Research complete, need architecture pivot)
 
 ---
 
@@ -146,6 +146,35 @@ cat ~/.claude-watch-pairing
 
 *Write any context the next session needs to know:*
 
+### Phase 10 Research Complete (2026-01-22) ⚠️ CRITICAL
+
+**Problem**: We tried to implement answering Claude's AskUserQuestion from the watch but our approach was fundamentally flawed.
+
+**What We Tried (Failed)**:
+1. PreToolUse hook intercepts AskUserQuestion
+2. Hook sends question to cloud, waits for watch answer
+3. Hook writes answer to a file
+4. StdinProxy tries to inject answer into Claude's terminal stdin
+5. ❌ FAILS - timing issues, terminal UI already rendered, can't inject reliably
+
+**What Happy Coder Does (Works)**:
+1. Uses `--output-format stream-json --input-format stream-json` (CLI flags, NOT direct API)
+2. Uses `--permission-prompt-tool stdio`
+3. Claude sends `control_request` JSON via stdout when needing permission/answers
+4. CLI responds with `control_response` JSON via stdin
+5. ✅ WORKS - clean JSON protocol, no terminal UI to fight
+6. ✅ NO API COSTS - still uses Claude CLI, just with JSON output mode
+
+**Key Insight**: You can't inject answers into Claude's interactive terminal UI. You need to use SDK/streaming mode where Claude sends JSON requests and receives JSON responses.
+
+**Next Steps for Phase 10**:
+1. Read `.claude/plans/phase10-RESEARCH.md` for full analysis
+2. Pivot to SDK approach: `--output-format stream-json`
+3. Implement `control_request`/`control_response` handling
+4. Study Happy Coder's `cli/src/claude/sdk/query.ts` for implementation
+
+**Reference Code**: `/tmp/happy-research/happy-main/cli/src/claude/` (extracted from happy-main.zip)
+
 ### Phase 8 V2 Redesign Planned (2026-01-21)
 - Full V2 specification analyzed from `/v2/` directory
 - Created `phase8-CONTEXT.md` with complete implementation plan
@@ -214,6 +243,7 @@ Run tasks in order: COMP4 → COMP1 → COMP3
 
 | Date | Duration | Focus | Outcome |
 |------|----------|-------|---------|
+| 2026-01-22 | ~2hr | Phase 10 COMP5 Question Response | Failed stdin injection approach; researched Happy Coder; discovered need for streaming JSON mode |
 | 2026-01-21 | ~30min | COMP3 E2E encryption | Full implementation: CLI + Worker + Watch encryption stack |
 | 2026-01-21 | - | Phase 5 planning | E2E test passed, created phase5-CONTEXT.md with decisions |
 | 2026-01-20 | ~1hr | Happy Coder competitive analysis | Cloned repos, created comparison, added COMP1-4 tasks, implementation spec ready |
@@ -223,4 +253,4 @@ Run tasks in order: COMP4 → COMP1 → COMP3
 
 ---
 
-*Last updated: 2026-01-21 by Claude*
+*Last updated: 2026-01-22 by Claude*
