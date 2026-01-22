@@ -12,6 +12,7 @@ Quick reference for previously solved problems. **Check here before debugging.**
 ### Integration Issues
 | Problem | File | Severity |
 |---------|------|----------|
+| COMP5 question proxy architectural failure (codex-review) | [comp5-question-proxy-failure-analysis.md](integration-issues/comp5-question-proxy-failure-analysis.md) | Critical |
 | Question flow bugs - pairing mismatch, wrong function, missing proxy | [question-flow-prevention-strategies.md](integration-issues/question-flow-prevention-strategies.md) | High |
 | E2E tests failing - missing cloud endpoints & wrong API references | [missing-cloud-endpoints-e2e-failure.md](integration-issues/missing-cloud-endpoints-e2e-failure.md) | High |
 | Silent push notifications not updating watch UI | [watchos-silent-push-ui-update.md](integration-issues/watchos-silent-push-ui-update.md) | High |
@@ -43,6 +44,9 @@ _None documented yet_
 | Questions not showing on watch | [question-flow-prevention-strategies.md](integration-issues/question-flow-prevention-strategies.md) |
 | Answers not returning to terminal | [question-flow-prevention-strategies.md](integration-issues/question-flow-prevention-strategies.md) |
 | Pairing ID mismatch between simulator/device | [question-flow-prevention-strategies.md](integration-issues/question-flow-prevention-strategies.md) |
+| API contract mismatch (CLI vs Cloud) | [comp5-question-proxy-failure-analysis.md](integration-issues/comp5-question-proxy-failure-analysis.md) |
+| CLI hangs forever waiting for answer | [comp5-question-proxy-failure-analysis.md](integration-issues/comp5-question-proxy-failure-analysis.md) |
+| stdin listener conflicts | [comp5-question-proxy-failure-analysis.md](integration-issues/comp5-question-proxy-failure-analysis.md) |
 | E2E test returns 404 | [missing-cloud-endpoints-e2e-failure.md](integration-issues/missing-cloud-endpoints-e2e-failure.md) |
 | `/request` endpoint not found | [missing-cloud-endpoints-e2e-failure.md](integration-issues/missing-cloud-endpoints-e2e-failure.md) - Use `/approval` instead |
 | Session control endpoints missing | [missing-cloud-endpoints-e2e-failure.md](integration-issues/missing-cloud-endpoints-e2e-failure.md) |
@@ -83,6 +87,14 @@ _None documented yet_
 - **Using `/request` endpoint?** → Wrong! Use `/approval` instead
 - **Session control not working?** → Endpoints added 2026-01-21, redeploy cloud worker
 - **Approval flow hangs?** → Hook polls `GET /approval/:pairingId/:requestId`, verify it exists
+
+### COMP5 / Phase 10 Architecture (Lessons Learned)
+- **API contract mismatch?** → Define shared contract FIRST, all components implement to same spec
+- **Question ID mismatch?** → CLI generates ID, cloud stores as-is (don't generate new one)
+- **CLI hangs forever?** → Add timeouts to ALL promises; never use `new Promise(() => {})`
+- **stdin duplicated?** → Single listener with router pattern, not multiple listeners
+- **Wrong option selected?** → Use escape sequences (Arrow down + Enter), not text input
+- **Full plan?** → See `.claude/plans/phase10-CONTEXT.md`
 
 ---
 
