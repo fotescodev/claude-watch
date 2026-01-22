@@ -27,7 +27,7 @@ Progress: ████░░░░░░ 40% (Privacy + launch posts done, TestF
 | P6.6 | Prepare launch posts | DONE ✅ | HN, Reddit, Twitter, LinkedIn in launch-posts.md |
 | P6.7 | Submit for App Store review | NOT STARTED | After TestFlight validation |
 | COMP4 | Activity batching | DEFERRED | Out of scope for launch |
-| COMP5 | Question response from watch | IN PROGRESS | Phase 1 (CLI) done, needs Cloud + Watch phases |
+| COMP5 | Question response from watch | PIVOTED → Phase 9 | Simplified approach via CLAUDE.md yes/no constraints |
 | FE2b | Stop/Play interrupt controls | DEFERRED | Nice-to-have, not blocking |
 
 ---
@@ -147,24 +147,23 @@ cat ~/.claude-watch-pairing
 
 *Write any context the next session needs to know:*
 
-### COMP5: Question Response from Watch (2026-01-22)
-**Problem**: `AskUserQuestion` outputs to stdout (no hook), so watch can't intercept and respond to Claude's questions.
+### COMP5: Question Response - PIVOTED to Phase 9 (2026-01-22)
+**Problem**: `AskUserQuestion` outputs to stdout (no hook), so watch can't intercept multiple-choice questions.
 
-**Solution**: `cc-watch run` command that spawns claude as child process, intercepts stdout for question patterns, forwards to watch, injects answers into stdin.
+**Failed Approach (Phase 10)**: Complex stdout interception, stdin injection - abandoned after 2 days.
 
-**Phase 1 DONE** (CLI launcher):
-- Created `claude-watch-npm/src/cli/run.ts`
-- Detects numbered options, y/n confirmations, bracketed selections
-- Added `sendQuestion()` and `pollForAnswer()` to CloudClient
-- New types: `PendingQuestion`, `QuestionResponse`
-- Usage: `npx cc-watch run "fix the bug"` or `npx cc-watch run`
+**New Approach (Phase 9)**: Constrain Claude to yes/no questions via CLAUDE.md instructions.
+- Key insight: Don't intercept questions, prevent multi-choice from being asked
+- Watch's existing approve/reject UI works perfectly for yes/no
+- ~95% coverage expected, 5% fallback to terminal acceptable
 
-**Remaining phases**:
-- **Phase 2**: Cloud endpoints (`POST /question`, `GET /question/:pairingId`, `POST /question-response`, `GET /question-response/:pairingId/:questionId`)
-- **Phase 3**: Watch UI (`QuestionView.swift` with tappable options)
-- **Phase 4**: CLI polling for answers (already implemented, just needs cloud endpoints)
+**Cleanup Done**:
+- Deleted `claude-watch-npm/src/cli/run.ts` (366 lines)
+- Removed question types from `types/index.ts`
+- Removed question methods from `cloud/client.ts`
+- Deleted `.claude/plans/COMP5-question-response.md` and `phase10-CONTEXT.md`
 
-Full plan: `.claude/plans/COMP5-question-response.md`
+**Next Step**: Add yes/no constraints to CLAUDE.md (see `phase9-CONTEXT.md`)
 
 ### Phase 8 V2 Redesign Planned (2026-01-21)
 - Full V2 specification analyzed from `/v2/` directory
