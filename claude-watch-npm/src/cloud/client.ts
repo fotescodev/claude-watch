@@ -171,6 +171,7 @@ export class CloudClient {
   getPairingId(): string | null {
     return this.pairingId;
   }
+
 }
 
 /**

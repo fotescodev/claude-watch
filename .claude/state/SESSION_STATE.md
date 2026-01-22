@@ -27,6 +27,7 @@ Progress: ████░░░░░░ 40% (Privacy + launch posts done, TestF
 | P6.6 | Prepare launch posts | DONE ✅ | HN, Reddit, Twitter, LinkedIn in launch-posts.md |
 | P6.7 | Submit for App Store review | NOT STARTED | After TestFlight validation |
 | COMP4 | Activity batching | DEFERRED | Out of scope for launch |
+| COMP5 | Question response from watch | PIVOTED → Phase 9 | Simplified approach via CLAUDE.md yes/no constraints |
 | FE2b | Stop/Play interrupt controls | DEFERRED | Nice-to-have, not blocking |
 
 ---
@@ -146,6 +147,24 @@ cat ~/.claude-watch-pairing
 
 *Write any context the next session needs to know:*
 
+### COMP5: Question Response - PIVOTED to Phase 9 (2026-01-22)
+**Problem**: `AskUserQuestion` outputs to stdout (no hook), so watch can't intercept multiple-choice questions.
+
+**Failed Approach (Phase 10)**: Complex stdout interception, stdin injection - abandoned after 2 days.
+
+**New Approach (Phase 9)**: Constrain Claude to yes/no questions via CLAUDE.md instructions.
+- Key insight: Don't intercept questions, prevent multi-choice from being asked
+- Watch's existing approve/reject UI works perfectly for yes/no
+- ~95% coverage expected, 5% fallback to terminal acceptable
+
+**Cleanup Done**:
+- Deleted `claude-watch-npm/src/cli/run.ts` (366 lines)
+- Removed question types from `types/index.ts`
+- Removed question methods from `cloud/client.ts`
+- Deleted `.claude/plans/COMP5-question-response.md` and `phase10-CONTEXT.md`
+
+**Next Step**: Add yes/no constraints to CLAUDE.md (see `phase9-CONTEXT.md`)
+
 ### Phase 8 V2 Redesign Planned (2026-01-21)
 - Full V2 specification analyzed from `/v2/` directory
 - Created `phase8-CONTEXT.md` with complete implementation plan
@@ -214,6 +233,7 @@ Run tasks in order: COMP4 → COMP1 → COMP3
 
 | Date | Duration | Focus | Outcome |
 |------|----------|-------|---------|
+| 2026-01-22 | ~30min | COMP5 Phase 1 | CLI launcher for question forwarding (`cc-watch run`) |
 | 2026-01-21 | ~30min | COMP3 E2E encryption | Full implementation: CLI + Worker + Watch encryption stack |
 | 2026-01-21 | - | Phase 5 planning | E2E test passed, created phase5-CONTEXT.md with decisions |
 | 2026-01-20 | ~1hr | Happy Coder competitive analysis | Cloned repos, created comparison, added COMP1-4 tasks, implementation spec ready |
@@ -223,4 +243,4 @@ Run tasks in order: COMP4 → COMP1 → COMP3
 
 ---
 
-*Last updated: 2026-01-21 by Claude*
+*Last updated: 2026-01-22 by Claude*

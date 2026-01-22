@@ -17,6 +17,7 @@ Quick reference for previously solved problems. **Check here before debugging.**
 | E2E tests failing - missing cloud endpoints & wrong API references | [missing-cloud-endpoints-e2e-failure.md](integration-issues/missing-cloud-endpoints-e2e-failure.md) | High |
 | Silent push notifications not updating watch UI | [watchos-silent-push-ui-update.md](integration-issues/watchos-silent-push-ui-update.md) | High |
 | Multi-session progress conflicts & stale UI state | [multi-session-progress-conflicts.md](integration-issues/multi-session-progress-conflicts.md) | Medium |
+| COMP5 question proxy failure (codex-review branch) | [comp5-question-proxy-failure-analysis.md](integration-issues/comp5-question-proxy-failure-analysis.md) | Critical |
 
 ### Build Errors
 _None documented yet_
@@ -56,6 +57,9 @@ _None documented yet_
 | Progress stuck at percentage forever | [multi-session-progress-conflicts.md](integration-issues/multi-session-progress-conflicts.md) |
 | Wrong session's tasks showing on watch | [multi-session-progress-conflicts.md](integration-issues/multi-session-progress-conflicts.md) |
 | Ralph's progress appearing on watch | [multi-session-progress-conflicts.md](integration-issues/multi-session-progress-conflicts.md) |
+| Question never reaches watch | [comp5-question-proxy-failure-analysis.md](integration-issues/comp5-question-proxy-failure-analysis.md) |
+| CLI hangs waiting for question answer | [comp5-question-proxy-failure-analysis.md](integration-issues/comp5-question-proxy-failure-analysis.md) |
+| Question ID mismatch between components | [comp5-question-proxy-failure-analysis.md](integration-issues/comp5-question-proxy-failure-analysis.md) |
 
 ## Quick Lookups
 

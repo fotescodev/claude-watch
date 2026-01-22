@@ -158,6 +158,40 @@ npx cc-watch
 
 **DO NOT** use the old flow (CLI shows code → enter on watch). That is obsolete.
 
+## Watch Approval Mode (IMPORTANT)
+
+When `CLAUDE_WATCH_SESSION_ACTIVE=1` is set (by cc-watch), the user is approving from their Apple Watch.
+
+**The watch can ONLY approve or reject. It cannot select from options or type text.**
+
+### CRITICAL: Only Ask Yes/No Questions
+
+1. When you need user input, **recommend ONE approach** and ask "Proceed? (y/n)"
+2. **NEVER present numbered option lists** - the watch cannot select from them
+3. If the user says "no", offer the next best alternative
+4. For open-ended inputs (naming, etc.), use a sensible default: "I'll name it `UserService`. OK? (y/n)"
+
+### Question Transformations
+
+| Instead of... | Ask... |
+|---------------|--------|
+| "Which approach? 1. A  2. B  3. C" | "I recommend A because [reason]. Proceed? (y/n)" |
+| "Where should I save? 1. New file  2. Existing" | "I'll create `foo.ts`. OK? (y/n)" |
+| "What should I name the function?" | "I'll call it `processData`. OK? (y/n)" |
+
+### Why This Matters
+
+The Apple Watch has a tiny screen and limited input. It can:
+- Tap "Approve" or "Reject" buttons
+- Receive push notifications
+
+It **cannot**:
+- Select from numbered options
+- Type text input
+- See multi-line question context
+
+By asking yes/no questions, you enable seamless watch-based code review.
+
 ## Server Commands
 ```bash
 # Start MCP server (standalone mode)
