@@ -486,9 +486,10 @@ app.get('/requests/:pairingId', async (c) => {
 // Question endpoints for AskUserQuestion flow
 // ============================================
 
-// Create question request (from hook)
+// Create question request (from hook or CLI)
 app.post('/question', async (c) => {
   const body = await c.req.json<{
+    id?: string;  // Client-provided ID (preferred) - prevents ID mismatch
     pairingId: string;
     question: string;
     header: string | null;
@@ -496,7 +497,9 @@ app.post('/question', async (c) => {
     multiSelect: boolean;
   }>();
 
-  const questionId = crypto.randomUUID();
+  // Use client-provided ID if available, otherwise generate
+  // This prevents the ID mismatch that caused codex-review failure
+  const questionId = body.id || crypto.randomUUID();
 
   const questionRequest: QuestionRequest = {
     id: questionId,

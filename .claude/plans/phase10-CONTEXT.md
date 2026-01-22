@@ -1,6 +1,7 @@
 # Phase 10 Context: COMP5 Question Response from Watch
 
 > Decisions captured: 2026-01-22
+> Robustness review: 2026-01-22
 > Participants: dfotesco
 > Previous attempt: codex-review branch (failed - see `docs/solutions/integration-issues/comp5-question-proxy-failure-analysis.md`)
 
@@ -207,6 +208,129 @@ Response:
 
 ---
 
+## Robustness Analysis (2026-01-22)
+
+Comparison of spec vs actual implementation revealed critical gaps that must be fixed.
+
+### CRITICAL: Implementation vs Spec Mismatches
+
+#### 1. Question ID Generation (ROOT CAUSE OF PREVIOUS FAILURE)
+
+| Component | Current Behavior | Required Behavior |
+|-----------|------------------|-------------------|
+| Cloud `index.ts:499` | Generates `questionId = crypto.randomUUID()` | Accept `id` from request body |
+| CLI `stdin-proxy.ts` | Relies on cloud-returned ID | Generate ID before POST |
+
+**Fix Required in Cloud:**
+```typescript
+// index.ts - Accept client-provided ID
+app.post('/question', async (c) => {
+  const body = await c.req.json<{ id?: string; pairingId: string; ... }>();
+  const questionId = body.id || crypto.randomUUID();  // Client wins
+  // ... rest unchanged
+});
+```
+
+**Fix Required in CLI:**
+```typescript
+// stdin-proxy.ts - Generate ID before POST
+private async createCloudQuestion(question: ParsedQuestion): Promise<string | null> {
+  const questionId = crypto.randomUUID();  // Generate locally
+  const requestData = {
+    id: questionId,  // Send our ID to cloud
+    pairingId: this.pairingId,
+    question: question.text,
+    header: question.header || "Question",
+    options: question.options.map((label) => ({ label, description: "" })),
+    multiSelect: false,
+  };
+  // ... POST to cloud
+  return questionId;  // Use OUR ID, not response
+}
+```
+
+#### 2. Never-Resolving Promises (MEMORY LEAK / HANG)
+
+**Current Problem (`stdin-proxy.ts:293, 305`):**
+```typescript
+// These never resolve, causing Promise.race to hang
+if (result.status === "skipped") {
+  return new Promise(() => {});  // HANGS FOREVER!
+}
+return new Promise(() => {});  // On timeout, also hangs
+```
+
+**Fix Required:**
+```typescript
+// Reject instead of hang
+if (result.status === "skipped") {
+  throw new Error('User chose terminal input');
+}
+// On timeout:
+throw new Error('Watch answer timeout');
+```
+
+#### 3. API Path Mismatch (Watch Polling)
+
+| Spec Path | Current Cloud Path |
+|-----------|-------------------|
+| `GET /question/{pairingId}` | `GET /questions/{pairingId}` (plural) |
+
+**Decision**: Keep current cloud paths (plural `/questions/`), update spec.
+
+### MODERATE: Potential Issues
+
+#### 4. Answer Injection Method
+
+| Method | When to Use |
+|--------|-------------|
+| Text + newline (`1\n`) | Simple numbered prompts (try first) |
+| Escape sequences (`\x1b[B` + `\r`) | Interactive list with arrow navigation |
+
+**Decision**: Start with text+newline. If fails, add escape sequence fallback.
+
+#### 5. Missing Master Timeout
+
+**Current**: No overall timeout on `raceForAnswer()`
+
+**Fix Required:**
+```typescript
+private async raceForAnswer(questionId: string, optionCount: number): Promise<string> {
+  const MASTER_TIMEOUT = 30000;  // 30 seconds (confirmed)
+
+  return Promise.race([
+    this.pollWatchAnswer(questionId),
+    this.readTerminalInput(optionCount),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Answer timeout')), MASTER_TIMEOUT)
+    ),
+  ]);
+}
+```
+
+### Already Correct (Keep)
+
+| Component | Status |
+|-----------|--------|
+| QuestionView.swift | Complete - single/multi-select, accessibility, haptics |
+| WatchService question methods | Complete - fetchPendingQuestions, answerQuestion |
+| Cloud question endpoints (structure) | Correct - just need ID fix |
+| E2E test in test-hooks.py | Complete - tests full flow |
+
+---
+
+## Confirmed Decisions (2026-01-22)
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| **ID generation** | **CLI generates** | Single source of truth, prevents mismatch |
+| **Timeout** | **30 seconds** | Matches watch screen timeout, prevents hangs |
+| **Answer injection** | Text + newline first | Simpler, likely works for numbered options |
+| **Answer fallback** | Escape sequences | If text fails, use arrow keys |
+| **API paths** | Keep current (plural) | Avoid breaking existing implementation |
+
+---
+
 ## Implementation Plan
 
 ### Phase 10.1: Cloud Endpoints (1-2 hours)
@@ -377,14 +501,15 @@ wait $CLI_PID
 
 ## Decision Log
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| ID generation | CLI generates | Single source of truth, no mismatch |
-| Polling interval | 500ms | Balance between latency and load |
-| Timeout | 30 seconds | Match watch screen timeout |
-| Key injection | Escape sequences | Claude uses interactive list, not text |
-| Multi-select | Space to toggle | Standard terminal convention |
-| Fallback | "Type in terminal" | Always allow local input |
+| Decision | Choice | Rationale | Confirmed |
+|----------|--------|-----------|-----------|
+| ID generation | **CLI generates** | Single source of truth, prevents mismatch | ✅ 2026-01-22 |
+| Polling interval | 500ms | Balance between latency and load | |
+| Timeout | **30 seconds** | Match watch screen timeout, prevents hangs | ✅ 2026-01-22 |
+| Key injection | **Text + newline first**, escape sequences fallback | Simpler approach, add complexity only if needed | ✅ 2026-01-22 |
+| Multi-select | Space to toggle | Standard terminal convention | |
+| Fallback | "Type in terminal" | Always allow local input | |
+| API paths | Keep current (plural `/questions/`) | Avoid breaking existing implementation | ✅ 2026-01-22 |
 
 ---
 
@@ -421,6 +546,117 @@ wait $CLI_PID
 | `ClaudeWatch/Views/QuestionView.swift` | Create | Question UI |
 | `ClaudeWatch/Services/WatchService.swift` | Modify | Add question methods |
 | `.claude/plans/phase10-CONTEXT.md` | This file | Decisions |
+
+---
+
+## Pre-Implementation Checklist (Robustness Fixes)
+
+Before starting Phase 10 implementation, these fixes MUST be applied:
+
+### 1. Cloud: Accept Client-Provided Question ID
+**File**: `claude-watch-cloud/src/index.ts`
+**Line**: ~490-512 (`app.post('/question', ...)`)
+
+```diff
+ app.post('/question', async (c) => {
+   const body = await c.req.json<{
++    id?: string;
+     pairingId: string;
+     question: string;
+     // ...
+   }>();
+
+-  const questionId = crypto.randomUUID();
++  const questionId = body.id || crypto.randomUUID();
+
+   const questionRequest: QuestionRequest = {
+     id: questionId,
+     // ...
+   };
+```
+
+### 2. CLI: Generate Question ID Before POST
+**File**: `claude-watch-npm/src/cli/stdin-proxy.ts`
+**Line**: ~204-237 (`createCloudQuestion`)
+
+```diff
+ private async createCloudQuestion(question: ParsedQuestion): Promise<string | null> {
+   try {
++    const questionId = crypto.randomUUID();  // Generate locally
+     const requestData = {
++      id: questionId,
+       pairingId: this.pairingId,
+-      type: "question",  // Remove - not in spec
+       question: question.text,
+       // ...
+     };
+
+     const response = await fetch(...);
+-    const result = (await response.json()) as { questionId: string };
+-    return result.questionId;
++    if (!response.ok) throw new Error(`HTTP ${response.status}`);
++    return questionId;  // Use OUR ID
+   }
+ }
+```
+
+### 3. CLI: Fix Never-Resolving Promises
+**File**: `claude-watch-npm/src/cli/stdin-proxy.ts`
+**Line**: ~267-306 (`pollWatchAnswer`)
+
+```diff
+ private async pollWatchAnswer(questionId: string): Promise<string> {
+-  const timeout = 300000; // 5 minutes
++  const timeout = 30000; // 30 seconds
+   // ...
+   while (Date.now() - startTime < timeout) {
+     // ...
+     if (result.status === "skipped") {
+-      return new Promise(() => {}); // Never resolves
++      throw new Error('User chose terminal input');
+     }
+   }
+
+-  return new Promise(() => {});
++  throw new Error('Watch answer timeout');
+ }
+```
+
+### 4. CLI: Add Master Timeout to Race
+**File**: `claude-watch-npm/src/cli/stdin-proxy.ts`
+**Line**: ~243-262 (`raceForAnswer`)
+
+```diff
+ private async raceForAnswer(
+   questionId: string,
+   optionCount: number
+ ): Promise<string> {
++  const MASTER_TIMEOUT = 30000;
+
+   try {
+     const answer = await Promise.race([
+       this.pollWatchAnswer(questionId),
+       this.readTerminalInput(optionCount),
++      new Promise<never>((_, reject) =>
++        setTimeout(() => reject(new Error('Answer timeout')), MASTER_TIMEOUT)
++      ),
+     ]);
+     return answer;
++  } catch (error) {
++    // If watch times out or user skips, fall back to terminal
++    console.log(chalk.yellow(`  ${(error as Error).message}, waiting for terminal input...`));
++    return this.readTerminalInput(optionCount);
+   } finally {
+     // ...
+   }
+ }
+```
+
+### 5. Verify Test Coverage
+Run existing E2E tests to ensure cloud endpoints still work:
+```bash
+python3 .claude/hooks/test-hooks.py
+```
 
 ---
 

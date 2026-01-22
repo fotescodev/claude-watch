@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "child_process";
 import * as readline from "readline";
+import * as crypto from "crypto";
 import chalk from "chalk";
 import { readPairingConfig } from "../config/pairing-store.js";
 
@@ -200,12 +201,17 @@ export class StdinProxy {
 
   /**
    * Create a question request on the cloud server.
+   * IMPORTANT: CLI generates the question ID to prevent mismatch issues.
    */
   private async createCloudQuestion(question: ParsedQuestion): Promise<string | null> {
     try {
+      // Generate ID locally - this is the single source of truth
+      // Prevents the ID mismatch that caused codex-review failure
+      const questionId = crypto.randomUUID();
+
       const requestData = {
+        id: questionId,  // Send our ID to cloud
         pairingId: this.pairingId,
-        type: "question",
         question: question.text,
         header: question.header || "Question",
         options: question.options.map((label) => ({
@@ -213,9 +219,6 @@ export class StdinProxy {
           description: "",
         })),
         multiSelect: false,
-        hasOtherOption: question.options.some((opt) =>
-          opt.toLowerCase().includes("other")
-        ),
       };
 
       const response = await fetch(`${this.cloudUrl}/question`, {
@@ -228,8 +231,9 @@ export class StdinProxy {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const result = (await response.json()) as { questionId: string };
-      return result.questionId;
+      // Use OUR generated ID, not the response
+      // Cloud will store under our ID
+      return questionId;
     } catch (error) {
       console.error(chalk.dim(`  Cloud error: ${(error as Error).message}`));
       return null;
@@ -239,6 +243,7 @@ export class StdinProxy {
   /**
    * Race between watch answer and terminal input.
    * Returns the answer (option number) to inject.
+   * Falls back to terminal if watch times out or user skips.
    */
   private async raceForAnswer(
     questionId: string,
@@ -246,14 +251,33 @@ export class StdinProxy {
   ): Promise<string> {
     // Create abort controller for cancellation
     this.terminalInputAbort = new AbortController();
+    const MASTER_TIMEOUT = 30000; // 30 seconds absolute max
 
     try {
       const answer = await Promise.race([
         this.pollWatchAnswer(questionId),
         this.readTerminalInput(optionCount),
+        // Master timeout prevents any hang
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("MASTER_TIMEOUT")), MASTER_TIMEOUT)
+        ),
       ]);
 
       return answer;
+    } catch (error) {
+      const msg = (error as Error).message;
+
+      // Handle known error cases - fall back to terminal
+      if (msg === "SKIP_TO_TERMINAL") {
+        console.log(chalk.yellow("  Watch: type answer in terminal"));
+      } else if (msg === "WATCH_TIMEOUT" || msg === "MASTER_TIMEOUT") {
+        console.log(chalk.yellow("  Watch timeout, type answer here:"));
+      } else {
+        console.log(chalk.yellow(`  ${msg}, type answer here:`));
+      }
+
+      // Wait for terminal input as fallback
+      return this.readTerminalInput(optionCount);
     } finally {
       // Cancel any pending operations
       this.terminalInputAbort?.abort();
@@ -263,10 +287,11 @@ export class StdinProxy {
 
   /**
    * Poll the cloud server for watch answer.
+   * Throws on timeout or skip - caller handles fallback to terminal.
    */
   private async pollWatchAnswer(questionId: string): Promise<string> {
-    const timeout = 300000; // 5 minutes
-    const pollInterval = 1000; // 1 second
+    const timeout = 30000; // 30 seconds (matches watch screen timeout)
+    const pollInterval = 500; // 500ms for responsive feel
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeout) {
@@ -282,27 +307,29 @@ export class StdinProxy {
           if (result.status === "answered" && result.selectedIndices) {
             // Convert 0-based index to 1-based for Claude's input
             const selectedIndex = result.selectedIndices[0] + 1;
-            console.log(chalk.green("  Answered from watch"));
+            console.log(chalk.green("  ✓ Answered from watch"));
             return selectedIndex.toString();
           }
 
           if (result.status === "skipped") {
-            // User chose to answer in terminal
-            console.log(chalk.yellow("  Watch: answer in terminal"));
-            // Continue waiting for terminal input
-            return new Promise(() => {}); // Never resolves
+            // User chose to answer in terminal - throw to trigger fallback
+            throw new Error("SKIP_TO_TERMINAL");
           }
         }
-      } catch {
-        // Ignore poll errors, continue polling
+      } catch (error) {
+        // Re-throw skip signal
+        if ((error as Error).message === "SKIP_TO_TERMINAL") {
+          throw error;
+        }
+        // Ignore other poll errors, continue polling
       }
 
       // Wait before next poll
       await new Promise((resolve) => setTimeout(resolve, pollInterval));
     }
 
-    // Timeout - never resolves (let terminal input win)
-    return new Promise(() => {});
+    // Timeout - throw to trigger terminal fallback
+    throw new Error("WATCH_TIMEOUT");
   }
 
   /**
