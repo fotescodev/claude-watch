@@ -7,8 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		86A109572F22803E00E1A9DA /* EncryptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A109562F22803E00E1A9DA /* EncryptionService.swift */; };
+		86A109582F22803E00E1A9DA /* EncryptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A109562F22803E00E1A9DA /* EncryptionService.swift */; };
+		86A1095A2F22804D00E1A9DA /* QuestionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A109592F22804D00E1A9DA /* QuestionView.swift */; };
+		86A1095B2F22804D00E1A9DA /* QuestionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A109592F22804D00E1A9DA /* QuestionView.swift */; };
 		APP001 /* ClaudeWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC001 /* ClaudeWatchApp.swift */; };
 		CMP002 /* ComplicationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC014 /* ComplicationViews.swift */; };
+		DS001 /* Claude.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_DS001 /* Claude.swift */; };
+		MODEL001 /* ApprovalRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_MODEL001 /* ApprovalRequest.swift */; };
 		PRIVACY001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = RES_PRIVACY /* PrivacyInfo.xcprivacy */; };
 		RES001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = RES_ASSETS /* Assets.xcassets */; };
 		SVC001 /* WatchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC011 /* WatchService.swift */; };
@@ -21,12 +27,10 @@
 		VIEW002 /* PairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC005 /* PairingView.swift */; };
 		VIEW003 /* ConsentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC006 /* ConsentView.swift */; };
 		VIEW004 /* RecordingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC007 /* RecordingIndicator.swift */; };
-		DS001 /* Claude.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_DS001 /* Claude.swift */; };
 		VIEW005 /* StateViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC008 /* StateViews.swift */; };
 		VIEW006 /* ActionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC009 /* ActionViews.swift */; };
 		VIEW007 /* CommandViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC010 /* CommandViews.swift */; };
 		VIEW008 /* SheetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC012 /* SheetViews.swift */; };
-		MODEL001 /* ApprovalRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_MODEL001 /* ApprovalRequest.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -40,6 +44,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		86A109562F22803E00E1A9DA /* EncryptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionService.swift; sourceTree = "<group>"; };
+		86A109592F22804D00E1A9DA /* QuestionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionView.swift; sourceTree = "<group>"; };
 		86B9C9412F1965EB005C3830 /* ClaudeWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ClaudeWatch.entitlements; sourceTree = "<group>"; };
 		ENT_RELEASE /* ClaudeWatch-Release.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "ClaudeWatch-Release.entitlements"; sourceTree = "<group>"; };
 		PROD001 /* ClaudeWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClaudeWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -52,38 +58,22 @@
 		SRC005 /* PairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingView.swift; sourceTree = "<group>"; };
 		SRC006 /* ConsentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsentView.swift; sourceTree = "<group>"; };
 		SRC007 /* RecordingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingIndicator.swift; sourceTree = "<group>"; };
+		SRC008 /* StateViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateViews.swift; sourceTree = "<group>"; };
+		SRC009 /* ActionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionViews.swift; sourceTree = "<group>"; };
+		SRC010 /* CommandViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandViews.swift; sourceTree = "<group>"; };
 		SRC011 /* WatchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchService.swift; sourceTree = "<group>"; };
+		SRC012 /* SheetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetViews.swift; sourceTree = "<group>"; };
 		SRC014 /* ComplicationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationViews.swift; sourceTree = "<group>"; };
+		SRC_DS001 /* Claude.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Claude.swift; sourceTree = "<group>"; };
+		SRC_MODEL001 /* ApprovalRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalRequest.swift; sourceTree = "<group>"; };
 		TEST_SRC001 /* ReconnectionConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconnectionConfigTests.swift; sourceTree = "<group>"; };
 		TEST_SRC002 /* ConnectionStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatusTests.swift; sourceTree = "<group>"; };
 		TEST_SRC003 /* WebSocketErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketErrorTests.swift; sourceTree = "<group>"; };
 		TEST_SRC004 /* QueuedMessageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueuedMessageTests.swift; sourceTree = "<group>"; };
 		TEST_SRC005 /* WatchServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchServiceTests.swift; sourceTree = "<group>"; };
-		SRC_DS001 /* Claude.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Claude.swift; sourceTree = "<group>"; };
-		SRC008 /* StateViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateViews.swift; sourceTree = "<group>"; };
-		SRC009 /* ActionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionViews.swift; sourceTree = "<group>"; };
-		SRC010 /* CommandViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandViews.swift; sourceTree = "<group>"; };
-		SRC012 /* SheetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetViews.swift; sourceTree = "<group>"; };
-		SRC_MODEL001 /* ApprovalRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalRequest.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
-		GRP_MODELS /* Models */ = {
-			isa = PBXGroup;
-			children = (
-				SRC_MODEL001 /* ApprovalRequest.swift */,
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
-		GRP_DESIGNSYSTEM /* DesignSystem */ = {
-			isa = PBXGroup;
-			children = (
-				SRC_DS001 /* Claude.swift */,
-			);
-			path = DesignSystem;
-			sourceTree = "<group>";
-		};
 		GRP_APP /* App */ = {
 			isa = PBXGroup;
 			children = (
@@ -100,6 +90,30 @@
 			path = Complications;
 			sourceTree = "<group>";
 		};
+		GRP_COMPONENTS /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				SRC007 /* RecordingIndicator.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		GRP_DESIGNSYSTEM /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				SRC_DS001 /* Claude.swift */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		GRP_MODELS /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				SRC_MODEL001 /* ApprovalRequest.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
 		GRP_PRODUCTS /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -112,6 +126,7 @@
 		GRP_SERVICES /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				86A109562F22803E00E1A9DA /* EncryptionService.swift */,
 				SRC011 /* WatchService.swift */,
 			);
 			path = Services;
@@ -129,17 +144,10 @@
 			path = Tests;
 			sourceTree = "<group>";
 		};
-		GRP_COMPONENTS /* Components */ = {
-			isa = PBXGroup;
-			children = (
-				SRC007 /* RecordingIndicator.swift */,
-			);
-			path = Components;
-			sourceTree = "<group>";
-		};
 		GRP_VIEWS /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				86A109592F22804D00E1A9DA /* QuestionView.swift */,
 				GRP_COMPONENTS /* Components */,
 				SRC009 /* ActionViews.swift */,
 				SRC010 /* CommandViews.swift */,
@@ -277,7 +285,9 @@
 				VIEW004 /* RecordingIndicator.swift in Sources */,
 				VIEW005 /* StateViews.swift in Sources */,
 				VIEW006 /* ActionViews.swift in Sources */,
+				86A109582F22803E00E1A9DA /* EncryptionService.swift in Sources */,
 				VIEW007 /* CommandViews.swift in Sources */,
+				86A1095B2F22804D00E1A9DA /* QuestionView.swift in Sources */,
 				VIEW008 /* SheetViews.swift in Sources */,
 				SVC001 /* WatchService.swift in Sources */,
 				CMP002 /* ComplicationViews.swift in Sources */,
@@ -291,6 +301,8 @@
 			files = (
 				TEST001 /* ReconnectionConfigTests.swift in Sources */,
 				TEST002 /* ConnectionStatusTests.swift in Sources */,
+				86A109572F22803E00E1A9DA /* EncryptionService.swift in Sources */,
+				86A1095A2F22804D00E1A9DA /* QuestionView.swift in Sources */,
 				TEST003 /* WebSocketErrorTests.swift in Sources */,
 				TEST004 /* QueuedMessageTests.swift in Sources */,
 				TEST005 /* WatchServiceTests.swift in Sources */,

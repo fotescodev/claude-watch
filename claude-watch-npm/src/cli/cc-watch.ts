@@ -549,7 +549,7 @@ export async function runCcWatch(): Promise<void> {
     console.log(chalk.dim("  Tool approvals + questions will appear on your watch."));
     console.log();
 
-    const proxy = new StdinProxy(pairingId, cloudUrl);
+    const proxy = new StdinProxy();
     const exitCode = await proxy.start([response.task.trim()]);
     process.exit(exitCode);
   }
