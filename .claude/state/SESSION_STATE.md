@@ -27,6 +27,7 @@ Progress: ████░░░░░░ 40% (Privacy + launch posts done, TestF
 | P6.6 | Prepare launch posts | DONE ✅ | HN, Reddit, Twitter, LinkedIn in launch-posts.md |
 | P6.7 | Submit for App Store review | NOT STARTED | After TestFlight validation |
 | COMP4 | Activity batching | DEFERRED | Out of scope for launch |
+| COMP5 | Question response from watch | IN PROGRESS | Phase 1 (CLI) done, needs Cloud + Watch phases |
 | FE2b | Stop/Play interrupt controls | DEFERRED | Nice-to-have, not blocking |
 
 ---
@@ -146,6 +147,25 @@ cat ~/.claude-watch-pairing
 
 *Write any context the next session needs to know:*
 
+### COMP5: Question Response from Watch (2026-01-22)
+**Problem**: `AskUserQuestion` outputs to stdout (no hook), so watch can't intercept and respond to Claude's questions.
+
+**Solution**: `cc-watch run` command that spawns claude as child process, intercepts stdout for question patterns, forwards to watch, injects answers into stdin.
+
+**Phase 1 DONE** (CLI launcher):
+- Created `claude-watch-npm/src/cli/run.ts`
+- Detects numbered options, y/n confirmations, bracketed selections
+- Added `sendQuestion()` and `pollForAnswer()` to CloudClient
+- New types: `PendingQuestion`, `QuestionResponse`
+- Usage: `npx cc-watch run "fix the bug"` or `npx cc-watch run`
+
+**Remaining phases**:
+- **Phase 2**: Cloud endpoints (`POST /question`, `GET /question/:pairingId`, `POST /question-response`, `GET /question-response/:pairingId/:questionId`)
+- **Phase 3**: Watch UI (`QuestionView.swift` with tappable options)
+- **Phase 4**: CLI polling for answers (already implemented, just needs cloud endpoints)
+
+Full plan: `.claude/plans/COMP5-question-response.md`
+
 ### Phase 8 V2 Redesign Planned (2026-01-21)
 - Full V2 specification analyzed from `/v2/` directory
 - Created `phase8-CONTEXT.md` with complete implementation plan
@@ -214,6 +234,7 @@ Run tasks in order: COMP4 → COMP1 → COMP3
 
 | Date | Duration | Focus | Outcome |
 |------|----------|-------|---------|
+| 2026-01-22 | ~30min | COMP5 Phase 1 | CLI launcher for question forwarding (`cc-watch run`) |
 | 2026-01-21 | ~30min | COMP3 E2E encryption | Full implementation: CLI + Worker + Watch encryption stack |
 | 2026-01-21 | - | Phase 5 planning | E2E test passed, created phase5-CONTEXT.md with decisions |
 | 2026-01-20 | ~1hr | Happy Coder competitive analysis | Cloned repos, created comparison, added COMP1-4 tasks, implementation spec ready |
@@ -223,4 +244,4 @@ Run tasks in order: COMP4 → COMP1 → COMP3
 
 ---
 
-*Last updated: 2026-01-21 by Claude*
+*Last updated: 2026-01-22 by Claude*
