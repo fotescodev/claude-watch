@@ -1,251 +1,216 @@
 # API Contract Audit Report
 
 > **Date**: 2026-01-22
-> **Status**: Critical issues found - must fix before V2
-> **Priority**: P0 for next phase
+> **Status**: Most issues FIXED in recent merge
+> **Updated**: Reflects current state after cloud worker updates
 
 ---
 
 ## Executive Summary
 
-The API contracts between CLI ↔ Cloud ↔ Watch have **critical mismatches** that cause the polling-based action flow to fail. The system currently works only because APNs push notifications bypass the broken polling endpoint.
+The Cloud worker has been significantly updated with proper API contracts. Most critical issues identified have been **fixed**. This document now serves as a reference for the current API structure.
 
 ---
 
-## Critical Issues
+## Current API Endpoints (Cloud Worker)
 
-### 1. `/requests` Endpoint Filter is Broken (CRITICAL)
+### Pairing Endpoints ✅
+| Endpoint | Method | Purpose | Status |
+|----------|--------|---------|--------|
+| `/pair/initiate` | POST | Watch requests pairing code | ✅ Working |
+| `/pair/status/:watchId` | GET | Watch polls for completion | ✅ Working |
+| `/pair/complete` | POST | CLI enters code | ✅ Working |
 
-**Location**: `claude-watch-cloud/src/index.ts` line 291
-
-```typescript
-// CURRENT (BROKEN):
-const requests = data.messages.filter(m => m.type === 'action_requested');
-
-// Messages are stored with:
-{
-  type: "to_watch",           // ← This is what's stored
-  payload: {
-    type: "action_requested", // ← This is what filter looks for
-    action: {...}
-  }
-}
-
-// Filter NEVER matches because m.type === "to_watch", not "action_requested"
-```
-
-**Result**: Watch always receives empty array from `/requests/:pairingId`
-
-**Fix**:
-```typescript
-const requests = data.messages.filter(m => m.payload?.type === 'action_requested');
-```
+**E2E Encryption integrated**: `publicKey` exchanged during pairing.
 
 ---
 
-### 2. Nested Structure Mismatch (CRITICAL)
+### Approval Endpoints ✅ (NEW - Properly Structured)
+| Endpoint | Method | Purpose | Status |
+|----------|--------|---------|--------|
+| `/approval` | POST | Hook adds approval request | ✅ NEW |
+| `/approval-queue/:pairingId` | GET | Watch polls pending approvals | ✅ NEW |
+| `/approval/:requestId` | POST | Watch approves/rejects | ✅ NEW |
+| `/approval/:pairingId/:requestId` | GET | Hook polls for response | ✅ NEW |
+| `/approval-queue/:pairingId` | DELETE | Clear queue on session end | ✅ NEW |
 
-**Cloud returns**:
-```json
-{
-  "requests": [
-    {
-      "id": "uuid",
-      "type": "to_watch",
-      "payload": {
-        "type": "action_requested",
-        "action": {
-          "id": "abc123",
-          "title": "Edit file",
-          "description": "...",
-          "file_path": "/src/main.ts"
-        }
-      }
-    }
-  ]
+**Structure is now FLAT** (fixed from previous nested issue):
+```typescript
+interface ApprovalRequest {
+  id: string;
+  type: string;
+  title: string;
+  description?: string;
+  filePath?: string;      // camelCase ✅
+  command?: string;
+  createdAt: string;
+  status: 'pending' | 'approved' | 'rejected';
 }
 ```
 
-**Watch expects** (`WatchService.swift` lines 1147-1181):
-```json
-{
-  "requests": [
-    {
-      "id": "abc123",
-      "type": "action_requested",
-      "title": "Edit file",
-      "description": "...",
-      "filePath": "/src/main.ts"
-    }
-  ]
+---
+
+### Legacy Endpoints (Backwards Compatible)
+| Endpoint | Method | Purpose | Status |
+|----------|--------|---------|--------|
+| `/requests/:pairingId` | GET | Old watch polling | ✅ FIXED - tries approval_queue first |
+| `/respond/:requestId` | POST | Old approval response | ✅ Working |
+| `/api/message` | POST | Old message queue | ✅ Working |
+| `/api/messages` | GET | Old message polling | ✅ Working |
+
+**`/requests/:pairingId` now fixed:**
+```typescript
+// Tries new approval queue first, returns flat structure
+const queue = await c.env.MESSAGES_KV.get<ApprovalQueue>(`approval_queue:${pairingId}`, 'json');
+if (queue) {
+  const pending = queue.requests.filter(r => r.status === 'pending');
+  return c.json({ requests: pending.map(r => ({
+    id: r.id,
+    type: r.type,
+    title: r.title,
+    description: r.description,
+    filePath: r.filePath,  // camelCase ✅
+    command: r.command,
+    timestamp: r.createdAt,
+  }))});
 }
 ```
 
-**Result**: Watch `guard let` statements fail, all requests silently dropped
+---
 
-**Fix** (in Cloud):
+### Question Endpoints ✅ (NEW)
+| Endpoint | Method | Purpose | Status |
+|----------|--------|---------|--------|
+| `/question` | POST | Hook creates question | ✅ NEW |
+| `/question/:questionId` | GET | Hook polls for answer | ✅ NEW |
+| `/question/:questionId/answer` | POST | Watch submits answer | ✅ NEW |
+| `/questions/:pairingId` | GET | Watch polls pending questions | ✅ NEW |
+
+**Note**: Phase 9 approach (yes/no constraints in CLAUDE.md) means these may not be needed for most cases.
+
+---
+
+### Session Progress Endpoints ✅ (NEW)
+| Endpoint | Method | Purpose | Status |
+|----------|--------|---------|--------|
+| `/session-progress` | POST | Hook updates progress | ✅ NEW |
+| `/session-progress/:pairingId` | GET | Watch polls progress | ✅ NEW |
+
 ```typescript
-const flatRequests = requests.map(msg => ({
-  id: msg.payload?.action?.id || msg.id,
-  type: msg.payload?.type,
-  title: msg.payload?.action?.title,
-  description: msg.payload?.action?.description,
-  filePath: msg.payload?.action?.file_path,  // Convert to camelCase
-  command: msg.payload?.action?.command
-}));
-return c.json({ requests: flatRequests });
+interface SessionProgress {
+  pairingId: string;
+  currentTask: string | null;
+  currentActivity: string | null;
+  progress: number;
+  completedCount: number;
+  totalCount: number;
+  elapsedSeconds: number;
+  tasks: Array<{ content: string; status: string; activeForm: string | null }>;
+  updatedAt: string;
+}
 ```
 
 ---
 
-### 3. Field Case Inconsistency (HIGH)
-
-| Component | Field Name | Case Style |
-|-----------|------------|------------|
-| CLI (TypeScript) | `file_path` | snake_case |
-| Cloud (TypeScript) | `file_path` | snake_case |
-| Watch (Swift) | `filePath` | camelCase |
-
-**Affected locations**:
-- `WatchService.swift` line 1166: `filePath`
-- `ClaudeWatchApp.swift` line 200: `filePath` in notification handler
-- `claude-watch-npm/src/types/index.ts` line 50: `file_path`
-
-**Result**: File path information lost when Watch parses requests/notifications
-
-**Fix options**:
-1. Cloud converts snake_case → camelCase before sending to Watch
-2. Watch accepts both cases with fallback
-3. Standardize on one case everywhere
+### Session Control Endpoints ✅ (NEW)
+| Endpoint | Method | Purpose | Status |
+|----------|--------|---------|--------|
+| `/session-end` | POST | Watch ends session | ✅ NEW |
+| `/session-status/:pairingId` | GET | Hook checks if session active | ✅ NEW |
+| `/session-interrupt` | POST | Watch pauses/resumes Claude | ✅ NEW |
+| `/session-interrupt/:pairingId` | GET | Hook checks interrupt state | ✅ NEW |
 
 ---
 
-## Flow Analysis
+## Issues Fixed ✅
 
-### Working Flows ✅
+### 1. `/requests` Filter Mismatch - FIXED
+**Before**: Filtered `m.type === 'action_requested'` but stored `m.type === 'to_watch'`
+**After**: Tries new `approval_queue` first, which has correct structure
 
-| Flow | Why It Works |
-|------|--------------|
-| Pairing (Watch → Cloud → CLI) | Direct endpoint calls, no message queue |
-| APNs push notifications | Bypasses `/requests` polling entirely |
-| Approval response (Watch → Cloud → CLI) | Payload extraction fixes nesting |
+### 2. Nested Structure - FIXED
+**Before**: `{id, type, payload: {type, action}}`
+**After**: Flat `{id, type, title, description, filePath, command}`
 
-### Broken Flows ❌
-
-| Flow | Why It's Broken |
-|------|-----------------|
-| CLI → Cloud → Watch action requests (polling) | Filter mismatch + nested structure |
-| Watch polling for pending actions | Returns empty array always |
+### 3. Field Case - FIXED
+**Before**: Mixed `file_path` (snake) and `filePath` (camel)
+**After**: Consistent `filePath` (camelCase) in new endpoints
 
 ---
 
-## Why Testing Passed
+## Remaining Items to Verify
 
-The dog walk test and other E2E tests passed because:
+### 1. Watch App Compatibility
+Need to verify `WatchService.swift` uses the new endpoints:
+- [ ] Uses `/approval-queue/:pairingId` or updated `/requests/:pairingId`
+- [ ] Parses flat structure correctly
+- [ ] Uses `filePath` (camelCase)
 
-1. **APNs is the primary path**: Push notifications deliver actions directly to Watch
-2. **Polling is backup**: The broken `/requests` endpoint is only used when APNs fails
-3. **Happy path works**: When notifications succeed, the broken backup isn't exercised
+### 2. Hook Compatibility
+Need to verify hooks use new endpoints:
+- [ ] PreToolUse hook uses `/approval` POST
+- [ ] Hook polls `/approval/:pairingId/:requestId` for response
+- [ ] Progress hook uses `/session-progress`
 
-This is a **latent bug** that will cause failures when:
-- APNs delivery is delayed
-- Watch polls before notification arrives
-- Network issues cause notification loss
-
----
-
-## Recommended Fix Plan
-
-### Phase A: Quick Fixes (30 min)
-
-1. **Fix filter** in `claude-watch-cloud/src/index.ts`:
-   ```typescript
-   // Line 291
-   const requests = data.messages.filter(m => m.payload?.type === 'action_requested');
-   ```
-
-2. **Flatten response** in same file:
-   ```typescript
-   // Line 298
-   const flatRequests = requests.map(msg => ({
-     id: msg.payload?.action?.id || msg.id,
-     type: msg.payload?.type,
-     title: msg.payload?.action?.title,
-     description: msg.payload?.action?.description,
-     filePath: msg.payload?.action?.file_path,
-     command: msg.payload?.action?.command
-   }));
-   return c.json({ requests: flatRequests });
-   ```
-
-3. **Deploy** cloud worker
-
-### Phase B: Proper API Contract (Future)
-
-1. Create shared type definitions in `types/api-contract.ts`
-2. Generate TypeScript types for CLI and Cloud
-3. Generate Swift Codable structs for Watch
-4. Add contract validation tests
+### 3. APNs Payload
+Need to verify APNs notifications use correct field names:
+- [ ] `filePath` not `file_path`
+- [ ] Consistent with polling response structure
 
 ---
 
-## Files to Modify
-
-| File | Change |
-|------|--------|
-| `claude-watch-cloud/src/index.ts` | Fix filter + flatten response |
-| `ClaudeWatch/Services/WatchService.swift` | (Optional) Accept both cases |
-
----
-
-## Test Plan
-
-After fixes:
-
-1. **Unit test**: Mock `/requests` response, verify Watch parses correctly
-2. **Integration test**: Disable APNs, verify polling-only flow works
-3. **E2E test**: Full flow with real Watch
-
----
-
-## Related Documents
-
-- `.claude/research/yes-no-questions-research.md` - Phase 9 pivot
-- `.claude/plans/phase9-CONTEXT.md` - Current approach
-- `docs/solutions/integration-issues/comp5-question-proxy-failure-analysis.md` - Previous failure analysis
-
----
-
-## Appendix: Message Flow Diagram
+## API Contract Summary
 
 ```
-CLI                          Cloud                         Watch
- │                             │                             │
- │  POST /api/message          │                             │
- │  {type: "to_watch",         │                             │
- │   payload: {                │                             │
- │     type: "action_requested"│                             │
- │     action: {...}           │                             │
- │   }}                        │                             │
- │ ─────────────────────────►  │                             │
- │                             │  Store in MESSAGES_KV       │
- │                             │  key: to_watch:{pairingId}  │
- │                             │                             │
- │                             │  GET /requests/{pairingId}  │
- │                             │ ◄───────────────────────────│
- │                             │                             │
- │                             │  Filter: m.type === "action_requested"
- │                             │  FAILS because m.type === "to_watch"
- │                             │                             │
- │                             │  Returns: {requests: []}    │
- │                             │ ────────────────────────────►│
- │                             │                             │
- │                             │  Watch sees no actions      │
- │                             │                             │
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│    Hook     │     │    Cloud    │     │    Watch    │
+│   (CLI)     │     │   Worker    │     │    App      │
+└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+       │                   │                   │
+       │ POST /approval    │                   │
+       │ {pairingId, id,   │                   │
+       │  type, title,     │                   │
+       │  filePath}        │                   │
+       │──────────────────►│                   │
+       │                   │                   │
+       │                   │ GET /approval-queue/:pairingId
+       │                   │◄──────────────────│
+       │                   │                   │
+       │                   │ {requests: [{     │
+       │                   │   id, type,       │
+       │                   │   title, filePath │
+       │                   │ }]}               │
+       │                   │──────────────────►│
+       │                   │                   │
+       │                   │ POST /approval/:id│
+       │                   │ {pairingId,       │
+       │                   │  approved}        │
+       │                   │◄──────────────────│
+       │                   │                   │
+       │ GET /approval/:pairingId/:requestId   │
+       │──────────────────►│                   │
+       │                   │                   │
+       │ {status: 'approved'}                  │
+       │◄──────────────────│                   │
+       │                   │                   │
 ```
+
+---
+
+## Historical Context
+
+This audit was originally created when critical mismatches were found:
+1. Filter bug in `/requests` (stored `to_watch`, filtered `action_requested`)
+2. Nested structure (Watch expected flat, Cloud returned nested)
+3. Case inconsistency (`file_path` vs `filePath`)
+
+These issues were **fixed** in the merge that added:
+- New `/approval` endpoint family with flat structure
+- Updated `/requests` to try approval_queue first
+- Consistent camelCase field naming
 
 ---
 
 *Created: 2026-01-22*
-*Author: Claude*
-*Status: Ready for next phase implementation*
+*Updated: 2026-01-22 (post-merge)*
+*Status: Most issues resolved*
