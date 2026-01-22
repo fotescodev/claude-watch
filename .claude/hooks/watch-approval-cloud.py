@@ -58,6 +58,9 @@ BUNDLE_ID = "com.edgeoftrust.claudewatch"
 # Tools that require watch approval
 TOOLS_REQUIRING_APPROVAL = {"Bash", "Edit", "Write", "MultiEdit", "NotebookEdit"}
 
+# Tools that are questions (need different handling)
+QUESTION_TOOLS = {"AskUserQuestion"}
+
 
 def should_send_notification() -> bool:
     """
@@ -129,11 +132,319 @@ def get_pairing_id() -> str | None:
     return None
 
 
+def log_debug(msg: str):
+    """Direct file logging for debugging."""
+    with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+        f.write(f"{time.time()}: [QUESTION] {msg}\n")
+
+
+def send_question_notification_only(tool_input: dict):
+    """
+    Send a notification about a question to the watch (info only - answer in terminal).
+    Sends to both cloud server (for physical watch) and simulator.
+    """
+    questions = tool_input.get("questions", [])
+    if not questions:
+        return
+
+    question_data = questions[0]
+    pairing_id = get_pairing_id()
+    if not pairing_id:
+        return
+
+    # Only send if debounce allows
+    if not should_send_notification():
+        return
+
+    options = question_data.get("options", [])
+
+    # Send to cloud server for physical watch polling
+    try:
+        import uuid
+        cloud_payload = {
+            "pairingId": pairing_id,
+            "questionId": str(uuid.uuid4()),
+            "question": question_data.get("question", ""),
+            "header": question_data.get("header", "Question"),
+            "options": options,
+            "multiSelect": question_data.get("multiSelect", False),
+            "infoOnly": True,  # Watch shows info but answer is in terminal
+        }
+        req = urllib.request.Request(
+            f"{CLOUD_SERVER}/question",
+            data=json.dumps(cloud_payload).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = json.loads(resp.read())
+            log_debug(f"Sent question to cloud: {question_data.get('question', '')[:30]}")
+    except Exception as e:
+        log_debug(f"Failed to send question to cloud: {e}")
+
+    # Also send to simulator (for testing)
+    import tempfile
+    option_count = len(options)
+    sim_payload = {
+        "aps": {
+            "alert": {
+                "title": "Claude asks:",
+                "body": question_data.get("question", "")[:80],
+                "subtitle": f"{option_count} options - answer in terminal"
+            },
+            "sound": "default",
+            "category": "CLAUDE_QUESTION_INFO",
+        },
+        "type": "question_notification",
+        "question": question_data.get("question"),
+        "header": question_data.get("header"),
+        "optionCount": option_count,
+    }
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        json.dump(sim_payload, f)
+        temp_path = f.name
+
+    try:
+        subprocess.run(
+            ["xcrun", "simctl", "push", SIMULATOR_NAME, BUNDLE_ID, temp_path],
+            capture_output=True,
+            timeout=5
+        )
+    except Exception:
+        pass  # Simulator may not be running
+
+
+def handle_question(tool_input: dict):
+    """
+    Handle AskUserQuestion tool - send question to watch and wait for answer.
+
+    AskUserQuestion tool_input format:
+    {
+        "questions": [
+            {
+                "question": "Which testing framework?",
+                "header": "Testing",
+                "options": [{"label": "Jest", "description": "..."}],
+                "multiSelect": false
+            }
+        ]
+    }
+    """
+    log_debug(f"handle_question called with: {json.dumps(tool_input)[:200]}")
+
+    questions = tool_input.get("questions", [])
+    if not questions:
+        log_debug("No questions found, exiting")
+        # No questions - let it pass through
+        sys.exit(0)
+
+    # For now, handle only the first question
+    # (AskUserQuestion typically has 1-4 questions)
+    question_data = questions[0]
+
+    pairing_id = get_pairing_id()
+    log_debug(f"Pairing ID: {pairing_id}")
+    if not pairing_id:
+        log_debug("No pairing ID, skipping watch question")
+        sys.exit(0)
+
+    # Check for "Other" / free-text options - skip to terminal for those
+    options = question_data.get("options", [])
+    log_debug(f"Options count: {len(options)}")
+    has_other_option = any(
+        "other" in opt.get("label", "").lower() or
+        "type" in opt.get("label", "").lower()
+        for opt in options
+    )
+
+    debug_log("QUESTION", f"Sending question to watch: {question_data.get('question', '')[:30]}")
+
+    # Build question request for cloud server
+    request_data = {
+        "pairingId": pairing_id,
+        "type": "question",
+        "question": question_data.get("question", ""),
+        "header": question_data.get("header"),
+        "options": [
+            {
+                "label": opt.get("label", ""),
+                "description": opt.get("description", ""),
+            }
+            for opt in options
+        ],
+        "multiSelect": question_data.get("multiSelect", False),
+        "hasOtherOption": has_other_option,
+    }
+
+    try:
+        log_debug(f"Creating question request...")
+        # Create question request on cloud server
+        request_id = create_question_request(request_data)
+        if not request_id:
+            log_debug("ERROR: Failed to create question request")
+            sys.exit(0)
+
+        log_debug(f"Question created: {request_id}")
+
+        # Send notification to watch
+        if should_send_notification():
+            log_debug("Sending notification...")
+            send_question_notification(request_id, request_data)
+
+        # Wait for response
+        log_debug("Waiting for question answer...")
+        response = wait_for_question_response(request_id)
+        log_debug(f"Response received: {response}")
+
+        if response is None:
+            # Timeout or error - fall back to terminal
+            log_debug("No response, falling back to terminal")
+            sys.exit(0)
+
+        if response.get("skipped"):
+            # User selected "Other" - fall back to terminal
+            log_debug("User selected Other, falling back to terminal")
+            sys.exit(0)
+
+        # Return the selected answer(s) to Claude
+        selected_indices = response.get("selected", [])
+        log_debug(f"Answer received: indices {selected_indices}")
+
+        # Build the answer for Claude
+        # AskUserQuestion expects answers in format: {"questionId": "answer"}
+        # For single select, answer is the label; for multi, it's comma-separated labels
+        selected_labels = []
+        for idx in selected_indices:
+            if 0 <= idx < len(options):
+                selected_labels.append(options[idx].get("label", ""))
+
+        answer = ", ".join(selected_labels) if selected_labels else "Other"
+        log_debug(f"Returning answer: {answer}")
+
+        # Return the answer via hook output
+        output = {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "answers": {
+                    question_data.get("header", "question"): answer
+                }
+            }
+        }
+        log_debug(f"Output JSON: {json.dumps(output)}")
+        print(json.dumps(output))
+        sys.exit(0)
+
+    except Exception as e:
+        import traceback
+        log_debug(f"ERROR: Question handling error: {e}")
+        log_debug(f"Traceback: {traceback.format_exc()}")
+        sys.exit(0)
+
+
+def create_question_request(request_data: dict) -> str:
+    """Create a question request on the cloud server, return request_id."""
+    req = urllib.request.Request(
+        f"{CLOUD_SERVER}/question",
+        data=json.dumps(request_data).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        result = json.loads(resp.read())
+        return result.get("questionId")
+
+
+def send_question_notification(request_id: str, request_data: dict):
+    """Send a notification for a question to the watch."""
+    import tempfile
+
+    option_count = len(request_data.get("options", []))
+
+    payload = {
+        "aps": {
+            "alert": {
+                "title": "Claude asks:",
+                "body": request_data.get("question", "")[:50],
+                "subtitle": f"{option_count} options"
+            },
+            "sound": "default",
+            "category": "CLAUDE_QUESTION",
+        },
+        "questionId": request_id,
+        "type": "question",
+        "question": request_data.get("question"),
+        "header": request_data.get("header"),
+        "options": request_data.get("options"),
+        "multiSelect": request_data.get("multiSelect", False),
+    }
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        json.dump(payload, f)
+        temp_path = f.name
+
+    try:
+        subprocess.run(
+            ["xcrun", "simctl", "push", SIMULATOR_NAME, BUNDLE_ID, temp_path],
+            capture_output=True,
+            timeout=5
+        )
+    except Exception as e:
+        print(f"Failed to send question notification: {e}", file=sys.stderr)
+
+
+def wait_for_question_response(request_id: str, timeout: int = 300) -> dict | None:
+    """
+    Poll the cloud server for the question response.
+
+    Returns:
+        {"selected": [0, 1], "skipped": false} - selected option indices
+        {"skipped": true} - user chose to answer in terminal
+        None - timeout or error
+    """
+    start_time = time.time()
+    poll_interval = 1.0
+
+    while time.time() - start_time < timeout:
+        try:
+            req = urllib.request.Request(
+                f"{CLOUD_SERVER}/question/{request_id}",
+                method="GET"
+            )
+
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                result = json.loads(resp.read())
+                status = result.get("status")
+
+                if status == "answered":
+                    return {
+                        "selected": result.get("selectedIndices", []),
+                        "skipped": False,
+                    }
+                elif status == "skipped":
+                    return {"skipped": True}
+                # Still pending, continue polling
+
+        except Exception as e:
+            debug_log("ERROR", f"Question poll error: {e}")
+
+        time.sleep(poll_interval)
+
+    return None
+
+
 def main():
+    # DEBUG: Log every hook invocation to diagnose issues
+    with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+        f.write(f"{time.time()}: Hook called, CLAUDE_WATCH_SESSION_ACTIVE={os.environ.get('CLAUDE_WATCH_SESSION_ACTIVE')}\n")
+
     # SESSION ISOLATION: Only run for cc-watch sessions
     # cc-watch sets CLAUDE_WATCH_SESSION_ACTIVE=1 when starting
     # Other Claude Code sessions will not interact with the watch
     if os.environ.get("CLAUDE_WATCH_SESSION_ACTIVE") != "1":
+        with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+            f.write(f"{time.time()}: Exiting - not a watch session\n")
         sys.exit(0)  # Not a watch session - let terminal handle permissions
 
     try:
@@ -144,6 +455,26 @@ def main():
     tool_name = input_data.get("tool_name", "")
     tool_input = input_data.get("tool_input", {})
 
+    # Log what tool we received
+    with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+        f.write(f"{time.time()}: Tool received: {tool_name}\n")
+
+    # Handle AskUserQuestion
+    # Send question to watch and wait for answer
+    if tool_name in QUESTION_TOOLS:
+        if os.environ.get("CLAUDE_WATCH_PROXY_MODE") == "1":
+            # Proxy mode: stdin-proxy.ts handles questions directly via stdout parsing
+            # Skip hook handling to avoid duplicate questions
+            with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+                f.write(f"{time.time()}: AskUserQuestion - proxy mode, skipping\n")
+            sys.exit(0)
+        else:
+            # Non-proxy mode: send question to watch and wait for answer
+            with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+                f.write(f"{time.time()}: AskUserQuestion - sending to watch and waiting\n")
+            handle_question(tool_input)  # This waits for the watch answer
+            sys.exit(0)
+
     # Skip tools that don't need approval
     if tool_name not in TOOLS_REQUIRING_APPROVAL:
         sys.exit(0)
@@ -152,24 +483,38 @@ def main():
 
     # Get pairing ID from config
     pairing_id = get_pairing_id()
+    with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+        f.write(f"{time.time()}: Pairing ID: {pairing_id[:12] if pairing_id else 'None'}...\n")
     if not pairing_id:
         print("Claude Watch not configured. Run 'claude-watch-pair' or set CLAUDE_WATCH_PAIRING_ID", file=sys.stderr)
         # Allow the action to proceed if watch is not configured (fail open)
         sys.exit(0)
 
     # Check if session was ended from watch BEFORE creating request
-    if check_session_ended(pairing_id):
+    with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+        f.write(f"{time.time()}: Checking session ended...\n")
+    session_ended = check_session_ended(pairing_id)
+    with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+        f.write(f"{time.time()}: Session ended check result: {session_ended}\n")
+    if session_ended:
         debug_log("SESSION", "Session was ended from watch, using terminal mode", f"pairing={pairing_id[:8]}")
         print("Watch session ended. Using terminal mode.", file=sys.stderr)
         sys.exit(0)  # Allow action - terminal will handle permission
 
     # Check if session is interrupted (paused) from watch
+    with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+        f.write(f"{time.time()}: Checking session interrupted...\n")
     is_interrupted, interrupt_action = check_session_interrupted(pairing_id)
+    with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+        f.write(f"{time.time()}: Session interrupted check result: {is_interrupted}\n")
     if is_interrupted:
         debug_log("INTERRUPT", "Session paused from watch - blocking tool", f"pairing={pairing_id[:8]}")
         print("⏸️  Session paused from watch. Tap Resume on watch to continue.", file=sys.stderr)
         # Return a rejection to block the tool
         sys.exit(2)
+
+    with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+        f.write(f"{time.time()}: Building approval request...\n")
 
     # Build approval request
     request_data = {
@@ -183,8 +528,12 @@ def main():
 
     try:
         # Step 1: Create the request on cloud server
+        with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+            f.write(f"{time.time()}: Creating request on cloud server...\n")
         debug_log("CLOUD", "Creating approval request", f"title={request_data['title'][:30]}")
         request_id = create_request(request_data)
+        with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+            f.write(f"{time.time()}: Request ID: {request_id}\n")
         if not request_id:
             debug_log("ERROR", "Failed to create request")
             print("Failed to create request", file=sys.stderr)
@@ -201,8 +550,12 @@ def main():
             debug_log("APNS", "Notification debounced (recent notification sent)", f"id={request_id[:8]}")
 
         # Step 3: Poll for approval (blocking)
+        with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+            f.write(f"{time.time()}: Polling for watch response (request: {request_id[:8]}...)\n")
         debug_log("BLOCK", "Waiting for watch response...", f"id={request_id[:8]}")
-        approved = wait_for_response(request_id)
+        approved = wait_for_response(request_id, pairing_id)
+        with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+            f.write(f"{time.time()}: Poll result: {approved}\n")
 
         if approved is True:
             debug_log("APPROVE", f"✓ Approved: {request_data['title'][:25]}", f"id={request_id[:8]}")
@@ -226,10 +579,14 @@ def main():
             sys.exit(2)
 
     except urllib.error.URLError as e:
+        with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+            f.write(f"{time.time()}: ERROR URLError: {e}\n")
         debug_log("ERROR", "Cloud server unavailable", str(e)[:50])
         print(f"Cloud server unavailable: {e}", file=sys.stderr)
         sys.exit(0)
     except Exception as e:
+        with open("/tmp/claude-watch-hook-debug.log", "a") as f:
+            f.write(f"{time.time()}: ERROR Exception: {e}\n")
         debug_log("ERROR", "Hook error", str(e)[:50])
         print(f"Hook error: {e}", file=sys.stderr)
         sys.exit(0)
@@ -286,8 +643,14 @@ def build_description(tool_name: str, tool_input: dict) -> str:
 
 def create_request(request_data: dict) -> str:
     """Create a request on the cloud server, return request_id."""
+    import uuid
+
+    # Generate request ID - cloud server expects this in the body
+    request_id = str(uuid.uuid4())
+    request_data["id"] = request_id
+
     req = urllib.request.Request(
-        f"{CLOUD_SERVER}/request",
+        f"{CLOUD_SERVER}/approval",
         data=json.dumps(request_data).encode(),
         headers={"Content-Type": "application/json"},
         method="POST"
@@ -295,7 +658,35 @@ def create_request(request_data: dict) -> str:
 
     with urllib.request.urlopen(req, timeout=10) as resp:
         result = json.loads(resp.read())
-        return result.get("requestId")
+        # Server returns the same ID we sent
+        returned_id = result.get("requestId", request_id)
+
+    return returned_id
+
+
+def add_to_approval_queue(request_id: str, request_data: dict):
+    """Add approval request to the queue for dynamic list display."""
+    try:
+        queue_data = {
+            "pairingId": request_data["pairingId"],
+            "id": request_id,
+            "type": request_data["type"],
+            "title": request_data["title"],
+            "description": request_data.get("description"),
+            "filePath": request_data.get("filePath"),
+            "command": request_data.get("command"),
+        }
+
+        req = urllib.request.Request(
+            f"{CLOUD_SERVER}/approval",
+            data=json.dumps(queue_data).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        urllib.request.urlopen(req, timeout=5)
+    except Exception as e:
+        # Non-critical - queue is for UI only
+        debug_log("WARN", f"Failed to add to approval queue: {e}")
 
 
 def send_simulator_notification(request_id: str, request_data: dict, pending_count: int = 1):
@@ -382,7 +773,7 @@ def check_session_interrupted(pairing_id: str) -> tuple[bool, str | None]:
         return (False, None)  # Assume not interrupted if we can't check
 
 
-def wait_for_response(request_id: str, timeout: int = 300) -> bool | None:
+def wait_for_response(request_id: str, pairing_id: str, timeout: int = 300) -> bool | None:
     """
     Poll the cloud server for the response.
 
@@ -396,8 +787,9 @@ def wait_for_response(request_id: str, timeout: int = 300) -> bool | None:
 
     while time.time() - start_time < timeout:
         try:
+            # Poll individual request status
             req = urllib.request.Request(
-                f"{CLOUD_SERVER}/request/{request_id}",
+                f"{CLOUD_SERVER}/approval/{pairing_id}/{request_id}",
                 method="GET"
             )
 
@@ -410,11 +802,16 @@ def wait_for_response(request_id: str, timeout: int = 300) -> bool | None:
                 elif status == "rejected":
                     return False
                 elif status == "session_ended":
-                    # User ended session from watch - fall back to terminal mode
                     debug_log("SESSION", "Session ended from watch", f"id={request_id[:8]}")
                     return None
                 # Still pending, continue polling
 
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                # Request not found - may have expired or been cleared
+                debug_log("NOTFOUND", f"Request not found: {request_id[:8]}")
+                return None
+            print(f"Poll error: {e}", file=sys.stderr)
         except Exception as e:
             print(f"Poll error: {e}", file=sys.stderr)
 
