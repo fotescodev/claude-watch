@@ -37,12 +37,14 @@ export class StdinProxy {
    * Returns the exit code when Claude completes.
    */
   async start(claudeArgs: string[]): Promise<number> {
-    // Find the claude executable
-    const shell = process.platform === "win32" ? "cmd.exe" : "claude";
-    const args = process.platform === "win32" ? ["/c", "claude", ...claudeArgs] : claudeArgs;
+    // Use shell to find and run claude (handles PATH lookup)
+    const shell = process.env.SHELL || "/bin/zsh";
+    const claudeCommand = ["claude", ...claudeArgs].map(arg =>
+      arg.includes(" ") ? `"${arg}"` : arg
+    ).join(" ");
 
-    // Spawn Claude in a PTY
-    this.ptyProcess = pty.spawn(shell, args, {
+    // Spawn shell with claude command in a PTY
+    this.ptyProcess = pty.spawn(shell, ["-c", claudeCommand], {
       name: "xterm-256color",
       cols: process.stdout.columns || 120,
       rows: process.stdout.rows || 30,
