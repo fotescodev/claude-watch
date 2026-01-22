@@ -1,4 +1,4 @@
-import type { CloudMessage, SessionState, WatchMessage } from "../types/index.js";
+import type { CloudMessage, SessionState, WatchMessage, PendingQuestion } from "../types/index.js";
 import { getCloudUrl, getPairingId } from "../config/pairing-store.js";
 
 /**
@@ -170,6 +170,63 @@ export class CloudClient {
    */
   getPairingId(): string | null {
     return this.pairingId;
+  }
+
+  // ===========================================================================
+  // Question Methods (COMP5 - Interactive Question Response)
+  // ===========================================================================
+
+  /**
+   * Send a question to the watch via cloud relay
+   */
+  async sendQuestion(question: PendingQuestion): Promise<boolean> {
+    if (!this.pairingId) {
+      console.error("No pairing ID configured");
+      return false;
+    }
+
+    try {
+      const response = await fetch(`${this.cloudUrl}/question`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          pairingId: this.pairingId,
+          question,
+        }),
+      });
+
+      return response.ok;
+    } catch (error) {
+      console.error("Failed to send question to cloud:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Poll for an answer to a specific question
+   */
+  async pollForAnswer(questionId: string): Promise<string | null> {
+    if (!this.pairingId) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(
+        `${this.cloudUrl}/question-response/${this.pairingId}/${questionId}`
+      );
+
+      if (response.ok) {
+        const data = (await response.json()) as { answer?: string };
+        return data.answer || null;
+      }
+
+      return null;
+    } catch (error) {
+      // Silent fail - polling is expected to fail until answer arrives
+      return null;
+    }
   }
 }
 

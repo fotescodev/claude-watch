@@ -184,3 +184,32 @@ export function createPendingAction(
     status: ActionStatus.PENDING,
   };
 }
+
+// =============================================================================
+// Question Types (COMP5 - Interactive Question Response)
+// =============================================================================
+
+/**
+ * Question type for AskUserQuestion forwarding
+ */
+export type QuestionType = "multiple_choice" | "text_input" | "confirmation";
+
+/**
+ * A pending question from Claude that needs user response
+ */
+export interface PendingQuestion {
+  id: string;
+  type: QuestionType;
+  prompt: string;
+  options: string[];
+  timestamp: string;
+}
+
+/**
+ * Response to a question from the watch
+ */
+export interface QuestionResponse {
+  questionId: string;
+  answer: string;
+  timestamp: string;
+}
