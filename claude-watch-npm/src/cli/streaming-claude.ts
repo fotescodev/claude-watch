@@ -620,6 +620,21 @@ export class StreamingClaudeRunner {
     if (usage) {
       console.log(chalk.dim(`Tokens: ${usage.input_tokens || 0} in / ${usage.output_tokens || 0} out`));
     }
+
+    // Close stdin to signal we're done - Claude will exit
+    if (this.claudeProcess?.stdin && !this.claudeProcess.stdin.destroyed) {
+      console.error(chalk.dim("[StreamingClaude] Closing stdin to signal completion"));
+      this.claudeProcess.stdin.end();
+
+      // Give Claude 2 seconds to exit gracefully, then force kill
+      const proc = this.claudeProcess;
+      setTimeout(() => {
+        if (proc && !proc.killed) {
+          console.error(chalk.dim("[StreamingClaude] Force killing after timeout"));
+          proc.kill("SIGKILL");
+        }
+      }, 2000);
+    }
   }
 
   /**
@@ -665,7 +680,9 @@ export class StreamingClaudeRunner {
    * Kill the Claude process
    */
   kill(): void {
-    this.claudeProcess?.kill("SIGTERM");
+    if (this.claudeProcess && !this.claudeProcess.killed) {
+      this.claudeProcess.kill("SIGKILL");
+    }
     this.cleanup();
   }
 }
@@ -686,5 +703,19 @@ export async function runStreamingClaude(prompt: string): Promise<number> {
   console.log();
 
   const runner = new StreamingClaudeRunner(config.cloudUrl);
-  return runner.start(prompt);
+
+  // Handle Ctrl+C
+  const handleSigint = () => {
+    console.error(chalk.yellow("\n[StreamingClaude] Interrupted, exiting..."));
+    runner.kill();
+    process.exit(130);
+  };
+
+  process.on("SIGINT", handleSigint);
+
+  try {
+    return await runner.start(prompt);
+  } finally {
+    process.removeListener("SIGINT", handleSigint);
+  }
 }

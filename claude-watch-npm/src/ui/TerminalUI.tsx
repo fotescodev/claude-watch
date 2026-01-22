@@ -1,10 +1,10 @@
 /**
  * TerminalUI - Ink-based terminal UI for cc-watch
- * Displays Claude's streaming output with watch integration
+ * Based on Happy Coder's RemoteModeDisplay pattern
  */
 
-import React, { useState, useEffect, useCallback } from "react";
-import { Box, Text, useStdout, useInput, useApp } from "ink";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { Box, Text, useStdout, useInput } from "ink";
 import Spinner from "ink-spinner";
 import { MessageBuffer, type BufferedMessage } from "./MessageBuffer.js";
 
@@ -45,9 +45,8 @@ export const TerminalUI: React.FC<TerminalUIProps> = ({
 }) => {
   const [messages, setMessages] = useState<BufferedMessage[]>([]);
   const [selectedOption, setSelectedOption] = useState(0);
-  const [confirmExit, setConfirmExit] = useState(false);
+  const [exiting, setExiting] = useState(false);
   const { stdout } = useStdout();
-  const { exit } = useApp();
   const terminalWidth = stdout?.columns || 80;
   const terminalHeight = stdout?.rows || 24;
 
@@ -64,27 +63,17 @@ export const TerminalUI: React.FC<TerminalUIProps> = ({
     };
   }, [messageBuffer]);
 
-  // Reset confirm exit after timeout
-  useEffect(() => {
-    if (confirmExit) {
-      const timer = setTimeout(() => setConfirmExit(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [confirmExit]);
-
-  // Handle keyboard input
+  // Handle keyboard input - Following Happy's pattern
   useInput(
     useCallback(
       (input, key) => {
-        // Handle Ctrl+C
+        // Don't process if already exiting
+        if (exiting) return;
+
+        // Handle Ctrl+C - exit immediately
         if (key.ctrl && input === "c") {
-          if (confirmExit) {
-            onExit?.();
-            exit();
-          } else {
-            setConfirmExit(true);
-            onInterrupt?.();
-          }
+          setExiting(true);
+          onExit?.();
           return;
         }
 
@@ -107,13 +96,8 @@ export const TerminalUI: React.FC<TerminalUIProps> = ({
             }
           }
         }
-
-        // Reset confirm exit on any other key
-        if (confirmExit && !(key.ctrl && input === "c")) {
-          setConfirmExit(false);
-        }
       },
-      [confirmExit, watchState.pendingQuestion, selectedOption, onExit, onInterrupt, onQuestionAnswer, exit]
+      [exiting, watchState.pendingQuestion, selectedOption, onExit, onQuestionAnswer]
     )
   );
 
@@ -181,14 +165,14 @@ export const TerminalUI: React.FC<TerminalUIProps> = ({
         </Box>
       </Box>
 
-      {/* Message Area */}
+      {/* Message Area - Shows recent output, auto-scrolls to bottom */}
       <Box
         flexDirection="column"
         height={messageAreaHeight}
         borderStyle="round"
         borderColor="gray"
         paddingX={1}
-        overflow="hidden"
+        overflowY="hidden"
       >
         {messages.length === 0 ? (
           <Box>
@@ -197,10 +181,11 @@ export const TerminalUI: React.FC<TerminalUIProps> = ({
             </Text>
           </Box>
         ) : (
-          messages.slice(-messageAreaHeight + 2).map((msg) => (
+          // Show last 10 messages max, each truncated to fit reasonable space
+          messages.slice(-10).map((msg) => (
             <Box key={msg.id} marginBottom={0}>
               <Text color={getMessageColor(msg.type)} wrap="wrap">
-                {msg.content}
+                {msg.content.length > 500 ? msg.content.slice(0, 500) + "..." : msg.content}
               </Text>
             </Box>
           ))
@@ -256,16 +241,18 @@ export const TerminalUI: React.FC<TerminalUIProps> = ({
       {/* Status Bar */}
       <Box
         borderStyle="round"
-        borderColor={confirmExit ? "red" : "gray"}
+        borderColor={exiting ? "gray" : "green"}
         paddingX={1}
         justifyContent="center"
       >
-        {confirmExit ? (
-          <Text color="red" bold>
-            Press Ctrl+C again to exit
+        {exiting ? (
+          <Text color="gray" bold>
+            Exiting...
           </Text>
         ) : (
-          <Text color="gray">Ctrl+C to interrupt • Questions route to watch</Text>
+          <Text color="green" bold>
+            Ctrl+C to exit • Questions route to watch
+          </Text>
         )}
       </Box>
     </Box>
