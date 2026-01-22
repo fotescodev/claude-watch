@@ -14,6 +14,7 @@ Quick reference for previously solved problems. **Check here before debugging.**
 |---------|------|----------|
 | Silent push notifications not updating watch UI | [watchos-silent-push-ui-update.md](integration-issues/watchos-silent-push-ui-update.md) | High |
 | Multi-session progress conflicts & stale UI state | [multi-session-progress-conflicts.md](integration-issues/multi-session-progress-conflicts.md) | Medium |
+| COMP5 question proxy failure (codex-review branch) | [comp5-question-proxy-failure-analysis.md](integration-issues/comp5-question-proxy-failure-analysis.md) | Critical |
 
 ### Build Errors
 _None documented yet_
@@ -43,6 +44,9 @@ _None documented yet_
 | Progress stuck at percentage forever | [multi-session-progress-conflicts.md](integration-issues/multi-session-progress-conflicts.md) |
 | Wrong session's tasks showing on watch | [multi-session-progress-conflicts.md](integration-issues/multi-session-progress-conflicts.md) |
 | Ralph's progress appearing on watch | [multi-session-progress-conflicts.md](integration-issues/multi-session-progress-conflicts.md) |
+| Question never reaches watch | [comp5-question-proxy-failure-analysis.md](integration-issues/comp5-question-proxy-failure-analysis.md) |
+| CLI hangs waiting for question answer | [comp5-question-proxy-failure-analysis.md](integration-issues/comp5-question-proxy-failure-analysis.md) |
+| Question ID mismatch between components | [comp5-question-proxy-failure-analysis.md](integration-issues/comp5-question-proxy-failure-analysis.md) |
 
 ## Quick Lookups
 
@@ -62,6 +66,13 @@ _None documented yet_
 
 ### SwiftUI State
 - **New `@Published` property not showing?** → Check ALL view conditions that might hide it (empty states, loading states)
+
+### COMP5 Question Response (Phase 10)
+- **Question not reaching watch?** → Check endpoint paths match: CLI must poll same path cloud stores
+- **Question ID mismatch?** → CLI generates ID, cloud must use same ID (not generate new one)
+- **CLI hangs forever?** → Add timeouts to ALL promises, avoid `new Promise(() => {})`
+- **stdin input duplicated?** → Use single listener with router pattern, not multiple listeners
+- **Wrong option selected?** → Arrow down + Enter, not text input; log escape sequences
 
 ---
 
