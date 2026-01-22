@@ -13,6 +13,7 @@ const HELP = `
     npx cc-watch                 Pair (if needed) then run Claude with watch support
     npx cc-watch "task"          Run Claude directly with a task
     npx cc-watch [command]       Run a specific command
+    npx cc-watch --log           Enable stdin-proxy debug logging
 
   Commands:
     (default)   Pair + prompt for task + run Claude with full watch support
@@ -25,11 +26,18 @@ const HELP = `
     npx cc-watch                           # Pair and run Claude interactively
     npx cc-watch "build a login feature"   # Run Claude directly with task
     npx cc-watch status                    # Check pairing status
+    npx cc-watch --log                     # Enable stdin-proxy debug logging
 `;
 
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
+  const rawArgs = process.argv.slice(2);
+  const enableLog = rawArgs.includes("--log");
+  const args = rawArgs.filter((arg) => arg !== "--log");
   const command = args[0] || "";
+
+  if (enableLog) {
+    process.env.DEBUG_STDIN_PROXY = "1";
+  }
 
   // If first arg looks like a task (not a known command), run proxy directly
   // e.g., `npx cc-watch "build a login feature"`
