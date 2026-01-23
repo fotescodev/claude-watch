@@ -52,7 +52,8 @@ extension GenerableApprovalRequest {
     ) async throws -> GenerableApprovalRequest {
         let description = actionData["description"] as? String ?? ""
         let type = actionData["type"] as? String ?? "unknown"
-        let filePath = actionData["file_path"] as? String ?? ""
+        // Try camelCase first (cloud mode), fall back to snake_case (legacy)
+        let filePath = actionData["filePath"] as? String ?? actionData["file_path"] as? String ?? ""
         let command = actionData["command"] as? String ?? ""
 
         let prompt = """
@@ -86,7 +87,8 @@ struct ApprovalRequest {
     static func from(actionData: [String: Any]) -> ApprovalRequest {
         let type = actionData["type"] as? String ?? "unknown"
         let description = actionData["description"] as? String ?? ""
-        let filePath = actionData["file_path"] as? String ?? ""
+        // Try camelCase first (cloud mode), fall back to snake_case (legacy)
+        let filePath = actionData["filePath"] as? String ?? actionData["file_path"] as? String ?? ""
 
         // Determine risk level heuristically
         let riskLevel: Int

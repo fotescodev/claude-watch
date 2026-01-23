@@ -131,6 +131,20 @@ final class ApprovalRequestTests: XCTestCase {
     // MARK: - File Path Extraction
 
     func testFilePathExtractedFromData() {
+        // Uses camelCase (cloud mode - primary convention)
+        let data: [String: Any] = [
+            "type": "file_edit",
+            "description": "Edit file",
+            "filePath": "src/main.swift"
+        ]
+
+        let request = ApprovalRequest.from(actionData: data)
+
+        XCTAssertEqual(request.filePath, "src/main.swift")
+    }
+
+    func testFilePathExtractedFromDataLegacySnakeCase() {
+        // Uses snake_case (legacy WebSocket mode - fallback)
         let data: [String: Any] = [
             "type": "file_edit",
             "description": "Edit file",
@@ -213,10 +227,11 @@ final class ApprovalRequestTests: XCTestCase {
     // MARK: - Complete Data Parsing
 
     func testCompleteDataParsing() {
+        // Uses camelCase (cloud mode - primary convention)
         let data: [String: Any] = [
             "type": "file_edit",
             "description": "Update login handler",
-            "file_path": "src/auth/login.swift"
+            "filePath": "src/auth/login.swift"
         ]
 
         let request = ApprovalRequest.from(actionData: data)
