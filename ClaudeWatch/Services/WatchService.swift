@@ -23,8 +23,12 @@ class WatchService: ObservableObject {
     @Published var sessionProgress: SessionProgress?
     @Published var isAPNsTokenReady = false
     @Published var sessionHistory: [CompletedSession] = []
-    // Note: Question handling moved to Phase 9 yes/no approach via CLAUDE.md constraints
-    // The watch uses existing approve/reject UI for binary questions
+
+    // MARK: - F18: Question Response State
+    @Published var pendingQuestion: PendingQuestion?
+
+    // MARK: - F16: Context Warning State
+    @Published var contextWarning: ContextWarning?
 
     /// Maximum number of sessions to keep in history
     private let maxHistoryCount = 10
@@ -767,15 +771,29 @@ class WatchService: ObservableObject {
     ///   - handleOnMac: Whether to defer to Mac for answering
     func respondToQuestion(_ questionId: String, answer: String?, handleOnMac: Bool) async {
         if useCloudMode && isPaired {
-            // Cloud mode: send via API
-            let response: [String: Any] = [
-                "questionId": questionId,
-                "answer": answer as Any,
-                "handleOnMac": handleOnMac
-            ]
-            // For now, questions are handled via existing cloud mechanism
-            // Future: implement dedicated question response endpoint
-            print("Question response: \(response)")
+            // Cloud mode: use dedicated question response endpoint
+            do {
+                let url = URL(string: "\(cloudServerURL)/question/\(questionId)/respond")!
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+                let body: [String: Any] = [
+                    "pairingId": pairingId,
+                    "accepted": !handleOnMac && answer != nil,
+                    "handleOnMac": handleOnMac
+                ]
+                request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+                let (_, response) = try await urlSession.data(for: request)
+
+                if let httpResponse = response as? HTTPURLResponse,
+                   httpResponse.statusCode == 200 {
+                    playHaptic(handleOnMac ? .click : .success)
+                }
+            } catch {
+                print("Failed to respond to question: \(error)")
+            }
         } else {
             // WebSocket mode
             send([
@@ -785,6 +803,46 @@ class WatchService: ObservableObject {
                 "handleOnMac": handleOnMac
             ])
         }
+
+        // Clear the pending question
+        pendingQuestion = nil
+    }
+
+    /// Handle incoming question from push notification (F18)
+    func handleQuestionNotification(_ userInfo: [AnyHashable: Any]) {
+        guard let questionId = userInfo["questionId"] as? String,
+              let question = userInfo["question"] as? String,
+              let recommended = userInfo["recommendedAnswer"] as? String else {
+            return
+        }
+
+        pendingQuestion = PendingQuestion(
+            id: questionId,
+            question: question,
+            recommendedAnswer: recommended
+        )
+
+        playHaptic(.notification)
+    }
+
+    /// Handle incoming context warning from push notification (F16)
+    func handleContextWarningNotification(_ userInfo: [AnyHashable: Any]) {
+        guard let percentage = userInfo["percentage"] as? Int,
+              let threshold = userInfo["threshold"] as? Int else {
+            return
+        }
+
+        contextWarning = ContextWarning(
+            percentage: percentage,
+            threshold: threshold
+        )
+
+        // Play haptic based on severity
+        if threshold >= 85 {
+            playHaptic(.failure)
+        } else {
+            playHaptic(.notification)
+        }
     }
 
     /// Acknowledges a context warning (F16: Context Warning flow)
@@ -792,6 +850,8 @@ class WatchService: ObservableObject {
         // Context warning is purely informational on watch
         // No server communication needed - just dismiss the UI
         // The session continues normally
+        contextWarning = nil
+        playHaptic(.click)
     }
 
     /// Legacy method for toggling YOLO mode.
@@ -2112,6 +2172,65 @@ enum FoundationModelsUnavailabilityReason: Equatable {
             return "Foundation Models are not available on watchOS. AI features work on iPhone, iPad, and Mac."
         case .unknown:
             return "On-device AI is currently unavailable."
+        }
+    }
+}
+
+// MARK: - F18: Question Response Model
+
+/// A pending question from Claude's AskUserQuestion tool
+struct PendingQuestion: Identifiable {
+    let id: String
+    let question: String
+    let recommendedAnswer: String
+}
+
+// MARK: - F16: Context Warning Model
+
+/// A context usage warning from Claude Code
+struct ContextWarning: Identifiable {
+    let id = UUID()
+    let percentage: Int
+    let threshold: Int
+
+    /// Severity level based on threshold
+    var severity: Severity {
+        if threshold >= 95 {
+            return .critical
+        } else if threshold >= 85 {
+            return .warning
+        } else {
+            return .notice
+        }
+    }
+
+    enum Severity {
+        case notice   // 75%
+        case warning  // 85%
+        case critical // 95%
+
+        var title: String {
+            switch self {
+            case .notice: return "Context Notice"
+            case .warning: return "Context Warning"
+            case .critical: return "Context Critical"
+            }
+        }
+
+        var message: String {
+            switch self {
+            case .notice: return "Approaching context limit"
+            case .warning: return "Context running low"
+            case .critical: return "Session may compact soon"
+            }
+        }
+
+        var color: Color {
+            switch self {
+            case .notice: return Color.yellow
+            case .warning: return Color.orange
+            case .critical: return Color.red
+            }
         }
     }
 }

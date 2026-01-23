@@ -1335,6 +1335,225 @@ export default {
         });
       }
 
+      // =======================================================================
+      // F18: QUESTION RESPONSE (Binary questions with recommendation)
+      // =======================================================================
+
+      // POST /question - Create question request from CLI
+      if (path === '/question' && request.method === 'POST') {
+        const { pairingId, questionId, question, recommendedAnswer } = await request.json();
+
+        if (!pairingId || !question || !recommendedAnswer) {
+          return jsonResponse({ error: 'Missing required fields' }, 400);
+        }
+
+        // Check if session was ended from watch
+        const sessionEnded = await env.PAIRINGS.get(`session-ended:${pairingId}`);
+        if (sessionEnded) {
+          return jsonResponse({ error: 'Session ended', sessionEnded: true }, 400);
+        }
+
+        // Get pairing to find device token
+        const pairingData = await env.PAIRINGS.get(`pairing:${pairingId}`);
+        if (!pairingData) {
+          return jsonResponse({ error: 'Invalid pairing' }, 404);
+        }
+
+        const pairing = JSON.parse(pairingData);
+        if (pairing.status !== 'active') {
+          return jsonResponse({ error: 'Pairing not active' }, 400);
+        }
+
+        // Create question request
+        const qId = questionId || generateRequestId();
+        const questionRequest = {
+          id: qId,
+          pairingId,
+          type: 'question',
+          question,
+          recommendedAnswer,
+          status: 'pending',
+          createdAt: Date.now()
+        };
+
+        // Store request (expires in 10 minutes)
+        await env.REQUESTS.put(`question:${qId}`, JSON.stringify(questionRequest), {
+          expirationTtl: 600
+        });
+
+        // Send push notification
+        const apnsPayload = {
+          aps: {
+            alert: {
+              title: 'Claude: Question',
+              body: question.slice(0, 100),
+              subtitle: `Recommend: ${recommendedAnswer.slice(0, 50)}`
+            },
+            sound: 'default',
+            category: 'CLAUDE_QUESTION'
+          },
+          questionId: qId,
+          type: 'question',
+          question,
+          recommendedAnswer
+        };
+
+        const apnsResult = await sendAPNs(env, pairing.deviceToken, apnsPayload);
+
+        return jsonResponse({
+          questionId: qId,
+          apnsSent: apnsResult.success
+        });
+      }
+
+      // GET /question/:id - Poll for question response
+      if (path.startsWith('/question/') && !path.includes('/respond') && request.method === 'GET') {
+        const questionId = path.split('/')[2];
+        const pairingId = url.searchParams.get('pairingId');
+
+        const questionData = await env.REQUESTS.get(`question:${questionId}`);
+        if (!questionData) {
+          return jsonResponse({ error: 'Question not found or expired' }, 404);
+        }
+
+        const questionRequest = JSON.parse(questionData);
+
+        // Verify pairingId if provided
+        if (pairingId && questionRequest.pairingId !== pairingId) {
+          return jsonResponse({ error: 'Unauthorized' }, 403);
+        }
+
+        return jsonResponse({
+          id: questionRequest.id,
+          status: questionRequest.status,
+          answer: questionRequest.answer || null,
+          handleOnMac: questionRequest.handleOnMac || false,
+          respondedAt: questionRequest.respondedAt || null
+        });
+      }
+
+      // POST /question/:id/respond - Watch responds to question
+      if (path.match(/^\/question\/[^/]+\/respond$/) && request.method === 'POST') {
+        const questionId = path.split('/')[2];
+        const { pairingId, accepted, handleOnMac } = await request.json();
+
+        if (!pairingId) {
+          return jsonResponse({ error: 'Missing pairingId' }, 400);
+        }
+
+        const questionData = await env.REQUESTS.get(`question:${questionId}`);
+        if (!questionData) {
+          return jsonResponse({ error: 'Question not found or expired' }, 404);
+        }
+
+        const questionRequest = JSON.parse(questionData);
+
+        // Verify the responder owns this request
+        if (questionRequest.pairingId !== pairingId) {
+          return jsonResponse({ error: 'Unauthorized' }, 403);
+        }
+
+        // Update question with response
+        if (handleOnMac) {
+          questionRequest.status = 'handle_on_mac';
+          questionRequest.handleOnMac = true;
+        } else if (accepted) {
+          questionRequest.status = 'accepted';
+          questionRequest.answer = questionRequest.recommendedAnswer;
+        } else {
+          questionRequest.status = 'rejected';
+        }
+        questionRequest.respondedAt = Date.now();
+
+        // Store updated request (keep for 1 minute for polling)
+        await env.REQUESTS.put(`question:${questionId}`, JSON.stringify(questionRequest), {
+          expirationTtl: 60
+        });
+
+        return jsonResponse({
+          success: true,
+          status: questionRequest.status
+        });
+      }
+
+      // =======================================================================
+      // F16: CONTEXT WARNING (75/85/95% thresholds)
+      // =======================================================================
+
+      // POST /context-warning - CLI sends context usage warning
+      if (path === '/context-warning' && request.method === 'POST') {
+        const { pairingId, percentage, threshold } = await request.json();
+
+        if (!pairingId || percentage === undefined || !threshold) {
+          return jsonResponse({ error: 'Missing required fields' }, 400);
+        }
+
+        // Get pairing to find device token
+        const pairingData = await env.PAIRINGS.get(`pairing:${pairingId}`);
+        if (!pairingData) {
+          return jsonResponse({ error: 'Invalid pairing' }, 404);
+        }
+
+        const pairing = JSON.parse(pairingData);
+        if (pairing.status !== 'active') {
+          return jsonResponse({ error: 'Pairing not active' }, 400);
+        }
+
+        // Store context warning in KV (for watch to poll)
+        await env.PAIRINGS.put(`context:${pairingId}`, JSON.stringify({
+          percentage,
+          threshold,
+          updatedAt: Date.now()
+        }), { expirationTtl: 3600 });
+
+        // Severity-based messaging
+        let title, body;
+        if (threshold >= 95) {
+          title = '⚠️ Context Critical';
+          body = `${percentage}% used - session may compact soon`;
+        } else if (threshold >= 85) {
+          title = 'Context Warning';
+          body = `${percentage}% used - approaching limit`;
+        } else {
+          title = 'Context Notice';
+          body = `${percentage}% of context used`;
+        }
+
+        // Send push notification
+        const apnsPayload = {
+          aps: {
+            alert: { title, body },
+            sound: threshold >= 85 ? 'default' : undefined,
+            category: 'CLAUDE_CONTEXT'
+          },
+          type: 'context_warning',
+          percentage,
+          threshold
+        };
+
+        const apnsResult = await sendAPNs(env, pairing.deviceToken, apnsPayload);
+
+        return jsonResponse({
+          success: true,
+          apnsSent: apnsResult.success
+        });
+      }
+
+      // GET /context/:pairingId - Get current context usage (for watch polling)
+      if (path.startsWith('/context/') && request.method === 'GET') {
+        const pairingId = path.split('/')[2];
+
+        const contextData = await env.PAIRINGS.get(`context:${pairingId}`);
+        if (!contextData) {
+          return jsonResponse({
+            percentage: null,
+            threshold: null
+          });
+        }
+
+        return jsonResponse(JSON.parse(contextData));
+      }
+
       // Health check
       if (path === '/health') {
         return jsonResponse({ status: 'ok', timestamp: Date.now() });

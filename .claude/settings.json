@@ -7,23 +7,6 @@
     "WATCHOS_DEPLOYMENT_TARGET": "10.0",
     "DEFAULT_SIMULATOR": "Apple Watch Series 9 (45mm)"
   },
-  "mcpServers": {
-    "apple-docs": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@kimsungwhee/apple-docs-mcp"
-      ],
-      "description": "Apple Developer Documentation, WWDC videos, framework APIs, and platform compatibility"
-    },
-    "claude-watch": {
-      "command": "python",
-      "args": [
-        "MCPServer/server.py"
-      ],
-      "description": "Claude Watch bridge server for Apple Watch integration"
-    }
-  },
   "permissions": {
     "allow": [
       "Read",
@@ -121,11 +104,37 @@
             "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/watch-approval-cloud.py"
           }
         ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/question-handler.py"
+          }
+        ]
       }
     ]
   },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true
+  },
+  "mcpServers": {
+    "apple-docs": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@kimsungwhee/apple-docs-mcp"
+      ],
+      "description": "Apple Developer Documentation, WWDC videos, framework APIs, and platform compatibility"
+    },
+    "claude-watch": {
+      "command": "python",
+      "args": [
+        "MCPServer/server.py"
+      ],
+      "description": "Claude Watch bridge server for Apple Watch integration"
+    }
   },
   "_disabledPlugins_note": "Disabled compound-engineering and superpowers to prevent research sprees. Re-enable if needed for specific tasks."
 }

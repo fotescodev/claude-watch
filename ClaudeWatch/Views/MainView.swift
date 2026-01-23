@@ -69,6 +69,24 @@ struct MainView: View {
                 case .approval:
                     // Single approval - use existing ActionQueue
                     mainContentView
+                case .question:
+                    // F18: Binary question response
+                    if let question = service.pendingQuestion {
+                        QuestionResponseView(
+                            question: question.question,
+                            recommendedAnswer: question.recommendedAnswer,
+                            questionId: question.id
+                        )
+                    } else {
+                        mainContentView
+                    }
+                case .contextWarning:
+                    // F16: Context warning
+                    if let warning = service.contextWarning {
+                        ContextWarningView(percentage: warning.percentage)
+                    } else {
+                        mainContentView
+                    }
                 case .empty:
                     EmptyStateView()
                 case .main:
@@ -214,6 +232,16 @@ struct MainView: View {
             return .paused
         }
 
+        // F18: Question takes high priority
+        if service.pendingQuestion != nil {
+            return .question
+        }
+
+        // F16: Context warning takes priority over normal states
+        if service.contextWarning != nil {
+            return .contextWarning
+        }
+
         // Session progress states
         if let progress = service.sessionProgress {
             let isComplete = progress.isComplete
@@ -246,6 +274,8 @@ struct MainView: View {
         case alwaysOn, pairing, offline, reconnecting
         // V2 states
         case paused, working, success, approval, approvalQueue
+        // F18/F16 states
+        case question, contextWarning
         // Fallback
         case empty, main
     }
