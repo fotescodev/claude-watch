@@ -101,11 +101,20 @@
             "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/progress-tracker.py"
           }
         ]
+      },
+      {
+        "matcher": "mobile_click_on_screen_at_coordinates|mobile_double_tap_on_screen|mobile_long_press_on_screen_at_coordinates|mobile_swipe_on_screen|mobile_type_keys",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/validators/mobile/screen_state_validator.py"
+          }
+        ]
       }
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Write|Edit|MultiEdit",
+        "matcher": "Bash|Write|Edit|MultiEdit|mobile_install_app|mobile_uninstall_app",
         "hooks": [
           {
             "type": "command",

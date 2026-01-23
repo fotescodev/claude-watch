@@ -56,7 +56,13 @@ SIMULATOR_NAME = "Apple Watch Series 11 (46mm)"
 BUNDLE_ID = "com.edgeoftrust.claudewatch"
 
 # Tools that require watch approval
-TOOLS_REQUIRING_APPROVAL = {"Bash", "Edit", "Write", "MultiEdit", "NotebookEdit"}
+TOOLS_REQUIRING_APPROVAL = {
+    # Standard Claude Code tools
+    "Bash", "Edit", "Write", "MultiEdit", "NotebookEdit",
+    # Mobile-MCP destructive tools (state-changing operations)
+    "mobile_install_app",    # Installs app bundle to simulator
+    "mobile_uninstall_app",  # Removes app from simulator
+}
 
 
 def should_send_notification() -> bool:
@@ -279,6 +285,9 @@ def map_tool_type(tool_name: str) -> str:
         "Write": "file_create",
         "MultiEdit": "file_edit",
         "NotebookEdit": "file_edit",
+        # Mobile-MCP tools
+        "mobile_install_app": "mobile_install",
+        "mobile_uninstall_app": "mobile_uninstall",
     }
     return mapping.get(tool_name, "tool_use")
 
@@ -300,6 +309,14 @@ def build_title(tool_name: str, tool_input: dict) -> str:
         path = tool_input.get("notebook_path", "unknown")
         filename = path.split("/")[-1]
         return f"Edit: {filename}"
+    # Mobile-MCP tools
+    elif tool_name == "mobile_install_app":
+        path = tool_input.get("path", "unknown")
+        app_name = path.split("/")[-1] if path else "app"
+        return f"Install: {app_name}"
+    elif tool_name == "mobile_uninstall_app":
+        app = tool_input.get("app", tool_input.get("bundleId", "unknown"))
+        return f"Uninstall: {app}"
     return f"{tool_name}"
 
 
@@ -318,6 +335,14 @@ def build_description(tool_name: str, tool_input: dict) -> str:
     elif tool_name == "MultiEdit":
         edits = tool_input.get("edits", [])
         return f"{len(edits)} edits"
+    # Mobile-MCP tools
+    elif tool_name == "mobile_install_app":
+        path = tool_input.get("path", "")
+        device = tool_input.get("device", "simulator")
+        return f"Deploy to {device}: {path[:100]}"
+    elif tool_name == "mobile_uninstall_app":
+        app = tool_input.get("app", tool_input.get("bundleId", ""))
+        return f"Remove app: {app}"
     return ""
 
 

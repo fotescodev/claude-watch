@@ -16,8 +16,9 @@
 │   MAC (Developer Machine)                                                       │
 │   ├── Claude Code (agent runtime)                                               │
 │   │   ├── PreToolUse hooks → approval requests                                  │
-│   │   ├── PostToolUse hooks → progress updates                                  │
-│   │   └── SessionStart hooks → context injection                                │
+│   │   ├── PostToolUse hooks → progress updates + mobile validation              │
+│   │   ├── SessionStart hooks → context injection                                │
+│   │   └── Mobile-MCP tools → iOS Simulator automation                           │
 │   │                                                                             │
 │   └── cc-watch CLI (claude-watch-npm/)                                          │
 │       ├── Pairing flow → POST /pair/complete                                    │
@@ -46,6 +47,7 @@
 | **Pairing** | Watch → Cloud → CLI | `WatchService.swift` → `index.ts` → `cc-watch.ts` |
 | **Approval** | Hook → Cloud → Watch → Cloud → Hook | `watch-approval-cloud.py` → `index.ts` → `WatchService.swift` |
 | **Progress** | Hook → Cloud → Watch | `progress-tracker.py` → `index.ts` → `WatchService.swift` |
+| **Mobile Test** | Agent → Simulator → Validator | `mobile_*` tools → iOS Simulator → `screen_state_validator.py` |
 
 ### Key File Locations
 
@@ -57,6 +59,7 @@
 | **CLI** | `claude-watch-npm/src/cli/cc-watch.ts` | Pairing + Claude launcher |
 | **Approval Hook** | `.claude/hooks/watch-approval-cloud.py` | PreToolUse → sends approvals |
 | **Progress Hook** | `.claude/hooks/progress-tracker.py` | PostToolUse → sends progress |
+| **Mobile Validator** | `.claude/hooks/validators/mobile/screen_state_validator.py` | PostToolUse → validates UI state |
 
 ---
 
@@ -78,6 +81,8 @@ Answer these questions FIRST:
 | Add new UI element | Watch only |
 | Change polling interval | Watch only (WatchService) |
 | Add new API endpoint | Cloud + caller (Hook or Watch) |
+| Add mobile test automation | Mobile-MCP tools + validator hook |
+| Add UI validation assertion | `screen_state_validator.py` |
 
 ---
 
@@ -170,6 +175,13 @@ Watch: Polls /pair/status/:watchId → {paired: true, pairingId}
 - Agents lose context each session; hooks inject mandatory architecture checklist
 - Validators (Python scripts) enforce doc structure deterministically
 - Learnings Log compounds knowledge; `/compound` captures session insights
+
+### 2026-01-23: Mobile-MCP integration with Ralph Loop
+- Mobile-MCP tools enable iOS Simulator automation for testing Claude Watch
+- Destructive tools (`mobile_install_app`, `mobile_uninstall_app`) require watch approval
+- PostToolUse validator (`screen_state_validator.py`) implements self-healing loop
+- Pattern: Code > Vibes (deterministic validation beats probabilistic verification)
+- `mobile_list_elements_on_screen` provides "visual sense" without computer vision
 
 ---
 
