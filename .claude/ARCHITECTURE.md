@@ -157,15 +157,19 @@ Watch: Polls /pair/status/:watchId → {paired: true, pairingId}
 - Key insight: Most features require changes in 2-3 components (hook + cloud + watch)
 
 ### 2026-01-21: E2E encryption key exchange
-- Keys exchanged during pairing, not after
-- Watch sends publicKey in `/pair/initiate`
-- CLI sends publicKey in `/pair/complete`
-- Watch receives cliPublicKey from `/pair/status`
+- Keys exchanged during pairing: watch in /pair/initiate, CLI in /pair/complete
+- Watch receives cliPublicKey from /pair/status response
+- Uses x25519 key agreement + XSalsa20-Poly1305 (CLI) / ChaChaPoly (Watch)
 
 ### 2026-01-22: Question handling simplified
 - COMP5 complex stdout interception abandoned
 - Solution: Constrain Claude to yes/no questions via CLAUDE.md
 - Watch's existing approve/reject UI handles this perfectly
+
+### 2026-01-23: Documentation architecture for agent retention
+- Agents lose context each session; hooks inject mandatory architecture checklist
+- Validators (Python scripts) enforce doc structure deterministically
+- Learnings Log compounds knowledge; `/compound` captures session insights
 
 ---
 
