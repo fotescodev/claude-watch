@@ -23,7 +23,8 @@ class WatchService: ObservableObject {
     @Published var sessionProgress: SessionProgress?
     @Published var isAPNsTokenReady = false
     @Published var sessionHistory: [CompletedSession] = []
-    @Published var pendingQuestion: ClaudeQuestion?
+    // Note: Question handling moved to Phase 9 yes/no approach via CLAUDE.md constraints
+    // The watch uses existing approve/reject UI for binary questions
 
     /// Maximum number of sessions to keep in history
     private let maxHistoryCount = 10
@@ -1156,9 +1157,9 @@ class WatchService: ObservableObject {
                 guard let self = self else { return }
 
                 do {
-                    // Fetch pending requests, questions, AND session progress
+                    // Fetch pending requests AND session progress
+                    // Note: Questions are handled via yes/no constraints (Phase 9)
                     try await self.fetchPendingRequests()
-                    try await self.fetchPendingQuestions()
                     try await self.fetchSessionProgress()
                 } catch {
                     print("[Polling] Error: \(error)")
@@ -1394,115 +1395,10 @@ class WatchService: ObservableObject {
         }
     }
 
-    // MARK: - Question Handling
-
-    /// Fetch pending questions from cloud server
-    private func fetchPendingQuestions() async throws {
-        let url = URL(string: "\(cloudServerURL)/questions/\(pairingId)")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-
-        let (data, response) = try await urlSession.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            print("[Questions] HTTP error: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
-            return
-        }
-
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let questions = json["questions"] as? [[String: Any]] else {
-            print("[Questions] Failed to parse JSON")
-            return
-        }
-
-        print("[Questions] Found \(questions.count) questions")
-
-        // Get the first pending question (handle one at a time)
-        guard let firstQuestion = questions.first,
-              let payload = firstQuestion["payload"] as? [String: Any] else {
-            // No pending questions - clear any displayed question
-            await MainActor.run {
-                if pendingQuestion != nil {
-                    print("[Questions] Clearing displayed question")
-                    pendingQuestion = nil
-                }
-            }
-            return
-        }
-
-        print("[Questions] Processing question: \(payload["id"] ?? "unknown")")
-
-        // Parse question from payload
-        let question = ClaudeQuestion.from(payload)
-
-        if question == nil {
-            print("[Questions] Failed to parse question from payload: \(payload)")
-        }
-
-        await MainActor.run {
-            // Only update if it's a new question
-            if pendingQuestion?.id != question?.id {
-                pendingQuestion = question
-                if question != nil {
-                    print("[Questions] Displaying new question: \(question!.id)")
-                    playHaptic(.notification)
-                }
-            }
-        }
-    }
-
-    /// Answer a pending question
-    /// - Parameters:
-    ///   - questionId: The question ID
-    ///   - selectedIndices: Array of selected option indices
-    func answerQuestion(_ questionId: String, selectedIndices: [Int]) async throws {
-        let url = URL(string: "\(cloudServerURL)/question/\(questionId)/answer")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body: [String: Any] = [
-            "selectedIndices": selectedIndices
-        ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (_, response) = try await urlSession.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw CloudError.serverError((response as? HTTPURLResponse)?.statusCode ?? 0)
-        }
-
-        // Clear pending question
-        pendingQuestion = nil
-        playHaptic(.success)
-    }
-
-    /// Skip a question (defer to terminal input)
-    /// - Parameter questionId: The question ID
-    func skipQuestion(_ questionId: String) async throws {
-        let url = URL(string: "\(cloudServerURL)/question/\(questionId)/answer")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body: [String: Any] = [
-            "skipped": true
-        ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (_, response) = try await urlSession.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw CloudError.serverError((response as? HTTPURLResponse)?.statusCode ?? 0)
-        }
-
-        // Clear pending question
-        pendingQuestion = nil
-        playHaptic(.click)
-    }
+    // MARK: - Question Handling (Phase 9)
+    // Questions are now handled via yes/no constraints in CLAUDE.md
+    // The watch's existing approve/reject UI works for binary questions
+    // Multi-choice questions fall back to terminal input (~5% of cases)
 
     // MARK: - Cloud Errors
 
@@ -2068,7 +1964,8 @@ struct PendingAction: Identifiable {
         self.type = type
         self.title = title
         self.description = description
-        self.filePath = data["file_path"] as? String
+        // Try camelCase first (cloud mode), fall back to snake_case (legacy WebSocket)
+        self.filePath = data["filePath"] as? String ?? data["file_path"] as? String
         self.command = data["command"] as? String
 
         if let ts = data["timestamp"] as? String {

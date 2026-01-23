@@ -9,7 +9,6 @@ import {
   createPairingConfig,
 } from "../config/pairing-store.js";
 import { CloudClient } from "../cloud/client.js";
-import { StdinProxy } from "./stdin-proxy.js";
 import type { SessionState, WatchMessage } from "../types/index.js";
 
 // YOLO mode flags for autonomous execution (from ralph.sh pattern)
@@ -527,7 +526,7 @@ export async function runCcWatch(): Promise<void> {
     console.log(chalk.green("  Pairing saved!"));
   }
 
-  // Prompt for task and run Claude with full watch support
+  // Prompt for task and run Claude with watch support
   if (pairingId) {
     console.log();
     console.log(chalk.green("  Ready! Watch connected."));
@@ -546,11 +545,29 @@ export async function runCcWatch(): Promise<void> {
 
     console.log();
     console.log(chalk.dim("  Starting Claude with watch support..."));
-    console.log(chalk.dim("  Tool approvals + questions will appear on your watch."));
+    console.log(chalk.dim("  Tool approvals will appear on your watch."));
+    console.log(chalk.dim("  Questions will be answered in terminal."));
     console.log();
 
-    const proxy = new StdinProxy(pairingId, cloudUrl);
-    const exitCode = await proxy.start([response.task.trim()]);
-    process.exit(exitCode);
+    // Spawn Claude directly with watch session env vars
+    // Tool approvals are handled by watch-approval-cloud.py hook
+    // Questions are answered in terminal (watch can only approve/reject)
+    const claudeProcess = spawn("claude", [response.task.trim()], {
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        CLAUDE_WATCH_SESSION_ACTIVE: "1",
+        CLAUDE_WATCH_PAIRING_ID: pairingId,
+      },
+    });
+
+    claudeProcess.on("close", (code) => {
+      process.exit(code ?? 0);
+    });
+
+    claudeProcess.on("error", (error) => {
+      console.error(chalk.red(`Failed to start Claude: ${error.message}`));
+      process.exit(1);
+    });
   }
 }

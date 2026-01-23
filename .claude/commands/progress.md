@@ -11,6 +11,15 @@ allowed-tools: Read, Glob, Grep, Bash(git log:*), Bash(git status:*)
 
 Read and synthesize these sources to provide a concise status report:
 
+### 0. Architecture Context (REQUIRED)
+```
+Read: .claude/ARCHITECTURE.md
+Understand: System components, data flows, critical constraints
+```
+**Before proposing ANY solution, confirm you understand how Hook → Cloud → Watch communicate.**
+
+For task-specific reading order, see: `.claude/AGENT_GUIDE.md`
+
 ### 1. Session State
 ```
 Read: .claude/state/SESSION_STATE.md

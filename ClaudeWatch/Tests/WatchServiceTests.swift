@@ -398,6 +398,27 @@ final class WatchServiceTests: XCTestCase {
     // MARK: - Pending Action
 
     func testPendingActionFromDictionary() {
+        // Uses camelCase (cloud mode - primary convention)
+        let data: [String: Any] = [
+            "id": "test-id",
+            "type": "file_edit",
+            "title": "Edit file",
+            "description": "Modify content",
+            "filePath": "src/main.swift",
+            "timestamp": "2024-01-15T10:30:00Z"
+        ]
+
+        let action = PendingAction(from: data)
+
+        XCTAssertNotNil(action)
+        XCTAssertEqual(action?.id, "test-id")
+        XCTAssertEqual(action?.type, "file_edit")
+        XCTAssertEqual(action?.title, "Edit file")
+        XCTAssertEqual(action?.filePath, "src/main.swift")
+    }
+
+    func testPendingActionFromDictionaryLegacySnakeCase() {
+        // Uses snake_case (legacy WebSocket mode - fallback)
         let data: [String: Any] = [
             "id": "test-id",
             "type": "file_edit",
@@ -410,9 +431,6 @@ final class WatchServiceTests: XCTestCase {
         let action = PendingAction(from: data)
 
         XCTAssertNotNil(action)
-        XCTAssertEqual(action?.id, "test-id")
-        XCTAssertEqual(action?.type, "file_edit")
-        XCTAssertEqual(action?.title, "Edit file")
         XCTAssertEqual(action?.filePath, "src/main.swift")
     }
 

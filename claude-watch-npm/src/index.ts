@@ -1,10 +1,11 @@
 #!/usr/bin/env node
+import { spawn } from "child_process";
 import { runSetup } from "./cli/setup.js";
 import { runStatus } from "./cli/status.js";
 import { runUnpair } from "./cli/unpair.js";
 import { runServe } from "./cli/serve.js";
 import { runCcWatch } from "./cli/cc-watch.js";
-import { runClaudeProxy } from "./cli/stdin-proxy.js";
+import { readPairingConfig, isPaired } from "./config/pairing-store.js";
 
 const HELP = `
   Claude Watch - Control Claude Code from your Apple Watch
@@ -27,16 +28,43 @@ const HELP = `
     npx cc-watch status                    # Check pairing status
 `;
 
+/**
+ * Run Claude with watch session environment variables.
+ * Tool approvals are handled by watch-approval-cloud.py hook.
+ * Questions are answered in terminal (watch can only approve/reject).
+ */
+async function runClaudeWithWatch(args: string[]): Promise<number> {
+  const config = readPairingConfig();
+  if (!config?.pairingId) {
+    console.error("Not paired. Run 'npx cc-watch' first to pair.");
+    return 1;
+  }
+
+  return new Promise((resolve) => {
+    const claudeProcess = spawn("claude", args, {
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        CLAUDE_WATCH_SESSION_ACTIVE: "1",
+        CLAUDE_WATCH_PAIRING_ID: config.pairingId,
+      },
+    });
+
+    claudeProcess.on("close", (code) => resolve(code ?? 0));
+    claudeProcess.on("error", () => resolve(1));
+  });
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const command = args[0] || "";
 
-  // If first arg looks like a task (not a known command), run proxy directly
+  // If first arg looks like a task (not a known command), run Claude directly
   // e.g., `npx cc-watch "build a login feature"`
-  const knownCommands = ["", "setup", "watch", "cc-watch", "claude", "status", "serve", "unpair", "help", "--help", "-h", "version", "--version", "-v"];
+  const knownCommands = ["", "setup", "watch", "cc-watch", "status", "serve", "unpair", "help", "--help", "-h", "version", "--version", "-v"];
   if (command && !knownCommands.includes(command)) {
-    // Treat as task - run Claude with proxy
-    const exitCode = await runClaudeProxy(args);
+    // Treat as task - run Claude with watch env vars
+    const exitCode = await runClaudeWithWatch(args);
     process.exit(exitCode);
   }
 
@@ -50,13 +78,6 @@ async function main(): Promise<void> {
     case "cc-watch":
       await runCcWatch();
       break;
-
-    case "claude": {
-      // Run Claude with stdin proxy for watch question support
-      const claudeArgs = args.slice(1); // Remove 'claude' from args
-      const exitCode = await runClaudeProxy(claudeArgs);
-      process.exit(exitCode);
-    }
 
     case "status":
       await runStatus();
@@ -100,6 +121,5 @@ export { runStatus } from "./cli/status.js";
 export { runUnpair } from "./cli/unpair.js";
 export { runServe } from "./cli/serve.js";
 export { runCcWatch } from "./cli/cc-watch.js";
-export { runClaudeProxy, StdinProxy } from "./cli/stdin-proxy.js";
 export { runMCPServer, createMCPServer } from "./server/index.js";
 export * from "./types/index.js";

@@ -147,23 +147,52 @@ cat ~/.claude-watch-pairing
 
 *Write any context the next session needs to know:*
 
-### COMP5: Question Response - PIVOTED to Phase 9 (2026-01-22)
+### Phase 11: Documentation Overhaul - COMPLETE (2026-01-23)
+**Problem**: Agents losing effectiveness by re-exploring codebase each session.
+
+**Solution**: Architecture-first documentation with hard enforcement via hooks.
+
+**Implemented:**
+- `.claude/ARCHITECTURE.md` - System skeleton, source of truth (READ FIRST)
+- `.claude/AGENT_GUIDE.md` - Task-specific reading order, update protocol
+- `.claude/hooks/context-enforcer.py` - SessionStart hook injects mandatory context
+- `.claude/hooks/validators/` - Deterministic validators (architecture, docs, learnings)
+- `.claude/commands/compound.md` - `/compound` command for knowledge capture
+- `docs/GETTING_STARTED.md` - Consolidated user docs
+- Updated README with quick start and doc links
+- Updated `/progress` to require ARCHITECTURE.md reading
+
+**New Workflow:**
+1. Session starts → context-enforcer.py shows mandatory checklist
+2. Agent must acknowledge reading ARCHITECTURE.md before proposing solutions
+3. Session ends → run `/compound` to capture learnings
+4. Learnings Log in ARCHITECTURE.md compounds knowledge over time
+
+**Validators enforce "Agents + Code > Agents" philosophy:**
+- architecture_validator.py checks required sections
+- docs_validator.py checks structure and links
+- learning_validator.py checks Learnings Log format
+
+### COMP5: Question Response - COMPLETE via Phase 9 + Phase 10 Cleanup (2026-01-22)
 **Problem**: `AskUserQuestion` outputs to stdout (no hook), so watch can't intercept multiple-choice questions.
 
 **Failed Approach (Phase 10)**: Complex stdout interception, stdin injection - abandoned after 2 days.
 
-**New Approach (Phase 9)**: Constrain Claude to yes/no questions via CLAUDE.md instructions.
+**Final Approach (Phase 9)**: Constrain Claude to yes/no questions via CLAUDE.md instructions.
 - Key insight: Don't intercept questions, prevent multi-choice from being asked
 - Watch's existing approve/reject UI works perfectly for yes/no
 - ~95% coverage expected, 5% fallback to terminal acceptable
 
-**Cleanup Done**:
-- Deleted `claude-watch-npm/src/cli/run.ts` (366 lines)
-- Removed question types from `types/index.ts`
-- Removed question methods from `cloud/client.ts`
-- Deleted `.claude/plans/COMP5-question-response.md` and `phase10-CONTEXT.md`
+**Phase 10 Cleanup Complete** (~1,700 lines removed):
+- Deleted `claude-watch-npm/src/cli/stdin-proxy.ts` (379 lines)
+- Simplified `cc-watch.ts` to spawn Claude directly without stdin interception
+- Removed `runClaudeProxy` and `StdinProxy` exports from `index.ts`
+- Removed `QuestionRequest` type and 4 question endpoints from cloud worker
+- Removed `QUESTION_TOOLS`, `handle_question()`, `create_question_request()`, `send_question_notification()`, `wait_for_question_response()` from Python hook
+- Deleted test files: `test-question-e2e.py`, `test-question-flow-e2e.py`
+- Archived 7 docs to `.claude/archive/phase10/`
 
-**Next Step**: Add yes/no constraints to CLAUDE.md (see `phase9-CONTEXT.md`)
+**Status**: Watch handles tool approvals only. Questions answered in terminal per CLAUDE.md constraints.
 
 ### Phase 8 V2 Redesign Planned (2026-01-21)
 - Full V2 specification analyzed from `/v2/` directory
@@ -233,6 +262,8 @@ Run tasks in order: COMP4 → COMP1 → COMP3
 
 | Date | Duration | Focus | Outcome |
 |------|----------|-------|---------|
+| 2026-01-23 | ~1hr | Phase 11: Documentation Overhaul | Created ARCHITECTURE.md, AGENT_GUIDE.md, validators, /compound command, context-enforcer hook |
+| 2026-01-22 | ~1hr | Phase 10 cleanup | Removed all question handling code (~1,700 lines), archived docs |
 | 2026-01-22 | ~30min | COMP5 Phase 1 | CLI launcher for question forwarding (`cc-watch run`) |
 | 2026-01-21 | ~30min | COMP3 E2E encryption | Full implementation: CLI + Worker + Watch encryption stack |
 | 2026-01-21 | - | Phase 5 planning | E2E test passed, created phase5-CONTEXT.md with decisions |
@@ -243,4 +274,4 @@ Run tasks in order: COMP4 → COMP1 → COMP3
 
 ---
 
-*Last updated: 2026-01-22 by Claude*
+*Last updated: 2026-01-23 by Claude*

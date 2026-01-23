@@ -48,19 +48,6 @@ interface MessageQueue {
   messages: Message[];
 }
 
-// Question from AskUserQuestion tool
-interface QuestionRequest {
-  id: string;
-  pairingId: string;
-  question: string;
-  header: string | null;
-  options: Array<{ label: string; description: string | null }>;
-  multiSelect: boolean;
-  createdAt: string;
-  status: 'pending' | 'answered' | 'skipped';
-  selectedIndices: number[] | null;
-}
-
 // Session progress from TodoWrite hook
 interface SessionProgress {
   pairingId: string;
@@ -480,104 +467,6 @@ app.get('/requests/:pairingId', async (c) => {
   }
 
   return c.json({ requests });
-});
-
-// ============================================
-// Question endpoints for AskUserQuestion flow
-// ============================================
-
-// Create question request (from hook)
-app.post('/question', async (c) => {
-  const body = await c.req.json<{
-    pairingId: string;
-    question: string;
-    header: string | null;
-    options: Array<{ label: string; description: string | null }>;
-    multiSelect: boolean;
-  }>();
-
-  const questionId = crypto.randomUUID();
-
-  const questionRequest: QuestionRequest = {
-    id: questionId,
-    pairingId: body.pairingId,
-    question: body.question,
-    header: body.header,
-    options: body.options,
-    multiSelect: body.multiSelect,
-    createdAt: new Date().toISOString(),
-    status: 'pending',
-    selectedIndices: null,
-  };
-
-  // Store question request (5 min TTL)
-  await c.env.MESSAGES_KV.put(`question:${questionId}`, JSON.stringify(questionRequest), { expirationTtl: 300 });
-
-  // Also add to watch's pending questions list
-  const existing = await c.env.MESSAGES_KV.get<MessageQueue>(`questions:${body.pairingId}`, 'json') || { messages: [] };
-  existing.messages.push({
-    id: questionId,
-    type: 'question_asked',
-    payload: questionRequest,
-    timestamp: new Date().toISOString(),
-  });
-
-  await c.env.MESSAGES_KV.put(`questions:${body.pairingId}`, JSON.stringify(existing), { expirationTtl: 300 });
-
-  return c.json({ questionId });
-});
-
-// Poll for question answer (from hook)
-app.get('/question/:questionId', async (c) => {
-  const questionId = c.req.param('questionId');
-
-  const question = await c.env.MESSAGES_KV.get<QuestionRequest>(`question:${questionId}`, 'json');
-
-  if (!question) {
-    return c.json({ error: 'Question not found or expired' }, 404);
-  }
-
-  return c.json({
-    status: question.status,
-    selectedIndices: question.selectedIndices,
-  });
-});
-
-// Submit answer (from watch)
-app.post('/question/:questionId/answer', async (c) => {
-  const questionId = c.req.param('questionId');
-  const { selectedIndices, skipped } = await c.req.json<{
-    selectedIndices?: number[];
-    skipped?: boolean;
-  }>();
-
-  const question = await c.env.MESSAGES_KV.get<QuestionRequest>(`question:${questionId}`, 'json');
-
-  if (!question) {
-    return c.json({ error: 'Question not found or expired' }, 404);
-  }
-
-  // Update question status
-  question.status = skipped ? 'skipped' : 'answered';
-  question.selectedIndices = selectedIndices || null;
-
-  await c.env.MESSAGES_KV.put(`question:${questionId}`, JSON.stringify(question), { expirationTtl: 60 });
-
-  // Clear from pending questions list
-  const existing = await c.env.MESSAGES_KV.get<MessageQueue>(`questions:${question.pairingId}`, 'json') || { messages: [] };
-  existing.messages = existing.messages.filter(m => m.id !== questionId);
-  await c.env.MESSAGES_KV.put(`questions:${question.pairingId}`, JSON.stringify(existing), { expirationTtl: 300 });
-
-  return c.json({ success: true });
-});
-
-// Fetch pending questions (for watch polling)
-app.get('/questions/:pairingId', async (c) => {
-  const pairingId = c.req.param('pairingId');
-
-  const data = await c.env.MESSAGES_KV.get<MessageQueue>(`questions:${pairingId}`, 'json') || { messages: [] };
-
-  return c.json({ questions: data.messages });
 });
 
 // ============================================

@@ -72,6 +72,15 @@
             "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.py"
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/context-enforcer.py"
+          }
+        ]
       }
     ],
     "PostToolUse": [

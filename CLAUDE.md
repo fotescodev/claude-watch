@@ -1,6 +1,8 @@
 # Project: Claude Watch
 
 > **New Claude session?** Start with `/progress` to orient yourself.
+>
+> **Before proposing solutions:** Read `.claude/ARCHITECTURE.md` first.
 
 ## Session Workflow (GSD-Inspired)
 
@@ -40,8 +42,10 @@
 
 | File | Purpose |
 |------|---------|
+| `.claude/ARCHITECTURE.md` | **System skeleton** - READ BEFORE PROPOSING SOLUTIONS |
+| `.claude/AGENT_GUIDE.md` | Reading order by task type |
 | `.claude/state/SESSION_STATE.md` | Handoff persistence across sessions |
-| `.claude/ralph/tasks.yaml` | Task definitions and progress |
+| `.claude/DATA_FLOW.md` | Detailed API endpoint reference |
 | `.claude/plans/phase{N}-CONTEXT.md` | Pre-implementation decisions |
 
 ## Quick Reference

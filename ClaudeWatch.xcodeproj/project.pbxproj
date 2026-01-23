@@ -12,6 +12,7 @@
 		PRIVACY001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = RES_PRIVACY /* PrivacyInfo.xcprivacy */; };
 		RES001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = RES_ASSETS /* Assets.xcassets */; };
 		SVC001 /* WatchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC011 /* WatchService.swift */; };
+		SVC_ENC001 /* EncryptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_ENC001 /* EncryptionService.swift */; };
 		TEST001 /* ReconnectionConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC001 /* ReconnectionConfigTests.swift */; };
 		TEST002 /* ConnectionStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC002 /* ConnectionStatusTests.swift */; };
 		TEST003 /* WebSocketErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC003 /* WebSocketErrorTests.swift */; };
@@ -53,6 +54,7 @@
 		SRC006 /* ConsentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsentView.swift; sourceTree = "<group>"; };
 		SRC007 /* RecordingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingIndicator.swift; sourceTree = "<group>"; };
 		SRC011 /* WatchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchService.swift; sourceTree = "<group>"; };
+		SRC_ENC001 /* EncryptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionService.swift; sourceTree = "<group>"; };
 		SRC014 /* ComplicationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationViews.swift; sourceTree = "<group>"; };
 		TEST_SRC001 /* ReconnectionConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconnectionConfigTests.swift; sourceTree = "<group>"; };
 		TEST_SRC002 /* ConnectionStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatusTests.swift; sourceTree = "<group>"; };
@@ -112,6 +114,7 @@
 		GRP_SERVICES /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				SRC_ENC001 /* EncryptionService.swift */,
 				SRC011 /* WatchService.swift */,
 			);
 			path = Services;
@@ -280,6 +283,7 @@
 				VIEW007 /* CommandViews.swift in Sources */,
 				VIEW008 /* SheetViews.swift in Sources */,
 				SVC001 /* WatchService.swift in Sources */,
+				SVC_ENC001 /* EncryptionService.swift in Sources */,
 				CMP002 /* ComplicationViews.swift in Sources */,
 				MODEL001 /* ApprovalRequest.swift in Sources */,
 			);
