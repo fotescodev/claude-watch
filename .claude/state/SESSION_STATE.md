@@ -1,277 +1,105 @@
-# Session State
+# Session State - Claude Watch V2
 
-> **Auto-updated by Claude at session end. Read by Claude at session start.**
->
-> This file persists context across Claude Code sessions, preventing "amnesia" between conversations.
-
----
+> Last updated: 2026-01-23
+> Session: V2 Backend Implementation + Testing
 
 ## Current Phase
 
-**Phase 6: App Store Submission**
+**Phase 10: V2 Redesign** - ~90% complete
 
-Progress: ████░░░░░░ 40% (Privacy + launch posts done, TestFlight next)
+## What Was Done This Session
 
----
+### 1. F16/F18 Backend Implementation ✅
+- Created `.claude/hooks/question-handler.py` (PreToolUse for AskUserQuestion)
+- Created `.claude/hooks/context-warning.py` (PostToolUse for context detection)
+- Added worker endpoints: `/question`, `/question/:id/respond`, `/context-warning`, `/context/:pairingId`
+- Added `PendingQuestion` and `ContextWarning` models to WatchService
+- Wired up `handleQuestionNotification()` and `handleContextWarningNotification()` methods
+- Registered hooks in `.claude/settings.json`
 
-## Active Work
+### 2. MainView State Routing ✅
+- Added `question` and `contextWarning` cases to ViewState enum
+- Updated `currentViewState` to check for `pendingQuestion` and `contextWarning`
+- Views route to QuestionResponseView and ContextWarningView
 
-| Task ID | Title | Status | Notes |
-|---------|-------|--------|-------|
-| P5 | Phase 5: TestFlight | DONE ✅ | Privacy policy, entitlements, E2E encryption complete |
-| P6.1 | Push privacy policy to GitHub Pages | DONE ✅ | Pushed, needs Pages enabled in GitHub settings |
-| P6.2 | Record demo video for Apple review | NOT STARTED | Script in phase5-CONTEXT.md |
-| P6.3 | Complete TestFlight submission | NOT STARTED | Archive + upload + internal testing |
-| P6.4 | Capture 5 screenshots | NOT STARTED | Guide in screenshot-guide.md |
-| P6.5 | Create App Store Connect listing | NOT STARTED | Description + keywords + metadata |
-| P6.6 | Prepare launch posts | DONE ✅ | HN, Reddit, Twitter, LinkedIn in launch-posts.md |
-| P6.7 | Submit for App Store review | NOT STARTED | After TestFlight validation |
-| COMP4 | Activity batching | DEFERRED | Out of scope for launch |
-| COMP5 | Question response from watch | PIVOTED → Phase 9 | Simplified approach via CLAUDE.md yes/no constraints |
-| FE2b | Stop/Play interrupt controls | DEFERRED | Nice-to-have, not blocking |
+### 3. Notification Handling ✅
+- Updated `ClaudeWatchApp.swift` to handle `type: "question"` and `type: "context_warning"`
+- Both `willPresent` (foreground) and `didReceive` (tap) handlers updated
 
----
+### 4. Test Infrastructure ✅
+- Created `scripts/test-v2-simulator.sh` for automated simulator testing
+- Sends test notifications for F18, F16, approvals
+- Takes screenshots for manual verification
 
-## Decisions Made
+## What's NOT Working 🔴
 
-### This Session (2026-01-21)
+### View Transitions from Notifications
+**Symptom**: Notifications are received (verified in logs) but `QuestionResponseView` and `ContextWarningView` don't appear. App stays on the demo working view.
 
-**Phase 5 Complete:**
-- [x] Entitlements: Separate files for Debug (development) and Release (production)
-- [x] Privacy policy created: `docs/privacy.md`
-- [x] GitHub Pages setup files: `docs/_config.yml`, `docs/index.md`
-- [x] Privacy contact: GitHub Issues
-- [x] App name: "CC Watch"
-- [x] Category: Developer Tools
-- [x] Age rating: 9+
-- [x] Review strategy: Record video demo
-- [x] E2E encryption complete (CLI + Worker + Watch)
+**Investigation Needed**:
+1. Check if `handleQuestionNotification()` is being called (add print statements)
+2. Check if `pendingQuestion` is being set (guard statement may be failing)
+3. Check if `@Published` property changes are triggering view updates
+4. May need to check notification handling in foreground vs background
 
-**Phase 6 Decisions:**
-- [x] Description style: Consumer-friendly
-- [x] Keywords: `claude,ai,code,developer,approve,watch,programming,assistant`
-- [x] Support URL: GitHub repo issues
-- [x] Screenshots: All 5 scenarios, Series 10 46mm (416x496px)
-- [x] Promo text: "Approve Claude Code changes from your wrist. No phone needed."
-- [x] Launch: Coordinated across HN, Reddit, Twitter, LinkedIn, ProductHunt
-- [x] Created `phase6-CONTEXT.md` with full App Store description
+**Key Files to Debug**:
+- `ClaudeWatch/App/ClaudeWatchApp.swift` (line 176-186) - willPresent handler
+- `ClaudeWatch/Services/WatchService.swift` (line 810-830) - handleQuestionNotification
 
-**Phase 8 (V2 Redesign) Planned:**
-- [x] Analyzed V2 documentation suite (`/v2/`)
-- [x] Created `phase8-CONTEXT.md` with full implementation plan
-- [x] Added Phase 8 to APPSTORE-ROADMAP.md
-- 7 new flows: F15-F21 (Session Resume, Context Warning, Quick Undo, Question Response, Sub-Agent Monitor, Todo Progress, Background Alert)
-- 11 new event types
-- Anthropic brand refresh + SF Symbols
-- 3 new quick commands (Resume, Compact, Undo)
+## Commits This Session
 
-### Previous Session (2026-01-20)
-- [x] Implement all three competitive parity tasks: COMP4 → COMP1 → COMP3
-- [x] COMP4: 2-second flush interval for activity batching
-- [x] COMP1: Store session ID in `~/.claude-watch-session` (matches pairing pattern)
-- [x] COMP3: Use CryptoKit (native Apple) for watch-side encryption
-- [x] COMP3: Phased rollout (CLI → Worker → Watch)
-
-### Previous Session (2026-01-19)
-- [x] Decided to partially adopt GSD framework practices
-- [x] Keep existing Ralph + tasks.yaml workflow
-- [x] Add SESSION_STATE.md, /progress, /discuss-phase commands
-- [x] Target 4-week sprint to App Store submission
-
-### Previous Sessions
-- [x] APNs credentials configured in Cloudflare Worker
-- [x] Notification debouncing implemented (3-second window)
-- [x] Session isolation via CLAUDE_WATCH_SESSION_ACTIVE env var
-- [x] Rich session state display (activity, todos, elapsed time)
-- [x] Physical device dog walk test passed
-
----
-
-## Blockers
-
-| Blocker | Severity | Owner | Resolution Path |
-|---------|----------|-------|-----------------|
-| None active | - | - | - |
-
----
-
-## Technical Context
-
-### Key Files Modified Recently
-- `.claude/plans/GSD-MIGRATION-REPORT.md` - Framework analysis
-- `.claude/hooks/progress-tracker.py` - Session progress capture
-- `ClaudeWatch/Services/WatchService.swift` - Auto-approve mode fix
-
-### Build Status
-- **Simulator**: Builds successfully (Apple Watch Series 11)
-- **Physical Device**: Tested and working
-- **Release Build**: Builds successfully (generic/watchOS)
-- **Archive**: Ready for TestFlight
-
-### Environment
-```bash
-# Active pairing
-cat ~/.claude-watch-pairing
-
-# Enable watch hooks
-./.claude/hooks/toggle-watch-hooks.sh on
-
-# Disable watch hooks
-./.claude/hooks/toggle-watch-hooks.sh off
+```
+ecd5d06 Add F18/F16 notification handlers + automated test script
+44d5c5d Add F16/F18 backend: Question Response + Context Warning hooks
 ```
 
----
+## What's Left for V2
 
-## Next Session Priority
+| Item | Priority | Status |
+|------|----------|--------|
+| **Debug notification → view transitions** | P0 | 🔴 Blocked |
+| Test Controls in Control Center | P1 | Needs device |
+| Test Siri commands | P1 | Needs device |
+| Test Double Tap gesture | P1 | Needs device |
+| Separate Widget files | P2 | Not started |
+| Service refactoring | P3 | Not started |
 
-### TestFlight (Complete First)
-1. **HIGH**: Push `docs/` to repo + enable GitHub Pages
-2. **HIGH**: Record demo video (script in phase5-CONTEXT.md)
-3. **HIGH**: Build signed archive in Xcode
-4. **HIGH**: Upload to App Store Connect + TestFlight
-5. **HIGH**: Validate on physical watch via TestFlight
+## Quick Commands for Next Session
 
-### App Store Submission
-6. **HIGH**: Capture 5 screenshots (Series 10 46mm, 416x496px)
-7. **HIGH**: Create App Store Connect listing
-   - App name: "CC Watch"
-   - Category: Developer Tools
-   - Age rating: 9+
-   - Description: Consumer-friendly (in phase6-CONTEXT.md)
-8. **MEDIUM**: Draft launch posts for HN, Reddit, Twitter, LinkedIn
-9. **MEDIUM**: Submit for App Store review
+```bash
+# Build and run
+xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
+  -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)' build
 
----
+# Launch on simulator
+xcrun simctl launch "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch
 
-## Handoff Notes
+# Run automated test suite
+./scripts/test-v2-simulator.sh
 
-*Write any context the next session needs to know:*
+# Send test question notification
+xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch - <<'EOF'
+{
+  "aps": {"alert": {"title": "Question", "body": "Test"}, "sound": "default"},
+  "questionId": "q-001",
+  "type": "question",
+  "question": "Test question?",
+  "recommendedAnswer": "Test answer"
+}
+EOF
 
-### Phase 11: Documentation Overhaul - COMPLETE (2026-01-23)
-**Problem**: Agents losing effectiveness by re-exploring codebase each session.
+# Check app logs
+xcrun simctl spawn "Apple Watch Series 11 (46mm)" log stream \
+  --predicate 'processImagePath contains "ClaudeWatch"' --timeout 10
+```
 
-**Solution**: Architecture-first documentation with hard enforcement via hooks.
+## Key Learnings
 
-**Implemented:**
-- `.claude/ARCHITECTURE.md` - System skeleton, source of truth (READ FIRST)
-- `.claude/AGENT_GUIDE.md` - Task-specific reading order, update protocol
-- `.claude/hooks/context-enforcer.py` - SessionStart hook injects mandatory context
-- `.claude/hooks/validators/` - Deterministic validators (architecture, docs, learnings)
-- `.claude/commands/compound.md` - `/compound` command for knowledge capture
-- `docs/GETTING_STARTED.md` - Consolidated user docs
-- Updated README with quick start and doc links
-- Updated `/progress` to require ARCHITECTURE.md reading
+1. **Simulator notifications work** - `xcrun simctl push` successfully delivers notifications to the watch simulator
+2. **Notification permissions** - Don't need explicit grants; notifications work once app requests authorization
+3. **Demo mode** - Useful for testing UI without cloud pairing, but may interfere with notification state updates
+4. **Category not required** - Notifications work without a registered category (banner still shows)
 
-**New Workflow:**
-1. Session starts → context-enforcer.py shows mandatory checklist
-2. Agent must acknowledge reading ARCHITECTURE.md before proposing solutions
-3. Session ends → run `/compound` to capture learnings
-4. Learnings Log in ARCHITECTURE.md compounds knowledge over time
+## Files Changed (Uncommitted)
 
-**Validators enforce "Agents + Code > Agents" philosophy:**
-- architecture_validator.py checks required sections
-- docs_validator.py checks structure and links
-- learning_validator.py checks Learnings Log format
-
-### COMP5: Question Response - COMPLETE via Phase 9 + Phase 10 Cleanup (2026-01-22)
-**Problem**: `AskUserQuestion` outputs to stdout (no hook), so watch can't intercept multiple-choice questions.
-
-**Failed Approach (Phase 10)**: Complex stdout interception, stdin injection - abandoned after 2 days.
-
-**Final Approach (Phase 9)**: Constrain Claude to yes/no questions via CLAUDE.md instructions.
-- Key insight: Don't intercept questions, prevent multi-choice from being asked
-- Watch's existing approve/reject UI works perfectly for yes/no
-- ~95% coverage expected, 5% fallback to terminal acceptable
-
-**Phase 10 Cleanup Complete** (~1,700 lines removed):
-- Deleted `claude-watch-npm/src/cli/stdin-proxy.ts` (379 lines)
-- Simplified `cc-watch.ts` to spawn Claude directly without stdin interception
-- Removed `runClaudeProxy` and `StdinProxy` exports from `index.ts`
-- Removed `QuestionRequest` type and 4 question endpoints from cloud worker
-- Removed `QUESTION_TOOLS`, `handle_question()`, `create_question_request()`, `send_question_notification()`, `wait_for_question_response()` from Python hook
-- Deleted test files: `test-question-e2e.py`, `test-question-flow-e2e.py`
-- Archived 7 docs to `.claude/archive/phase10/`
-
-**Status**: Watch handles tool approvals only. Questions answered in terminal per CLAUDE.md constraints.
-
-### Phase 8 V2 Redesign Planned (2026-01-21)
-- Full V2 specification analyzed from `/v2/` directory
-- Created `phase8-CONTEXT.md` with complete implementation plan
-- **7 new flows:** F15-F21 (questions, todos, sub-agents, resume, context, undo, background)
-- **11 new event types** to implement in WatchService
-- **Anthropic brand refresh:** Official colors + SF Symbols (no emojis)
-- **3 new quick commands:** Resume, Compact, Undo
-- Implementation order: Events → Questions (P0) → Resume (P0) → Context/Undo (P1) → Todos/SubAgents (P2) → Brand refresh
-- V2 is POST-LAUNCH work (~6 weeks after App Store submission)
-
-### E2E Encryption Complete (2026-01-21)
-- **COMP3A**: CLI encryption module using TweetNaCl (x25519 + XSalsa20-Poly1305)
-- **COMP3B**: Worker key exchange - stores/forwards public keys during pairing
-- **COMP3C**: Watch decryption using CryptoKit (Curve25519 + ChaChaPoly)
-- Keys exchanged during pairing flow:
-  - Watch sends `publicKey` in `/pair/initiate`
-  - CLI sends `publicKey` in `/pair/complete`
-  - Watch receives `cliPublicKey` from `/pair/status`
-- Both Debug (simulator) and Release (device) builds successful
-
-### Phase 5 Implementation Complete (2026-01-21)
-- ✅ Release entitlements with `aps-environment: production`
-- ✅ PrivacyInfo.xcprivacy manifest
-- ✅ COMP1 - SessionStart hook
-- ✅ COMP3 - Full E2E encryption stack
-- ✅ Archive/Release build tested
-- 🔲 Privacy policy needs to be created and deployed
-- 🔲 TestFlight submission pending
-
-### Phase 5 Planning Complete (2026-01-21)
-- E2E test passed - watch approval flow fully functional
-- Created `.claude/plans/phase5-CONTEXT.md` with all decisions
-- Key decisions: Separate entitlements, internal beta (5-10), GitHub Pages privacy policy
-- Decided to include COMP1 + COMP3 before TestFlight (not COMP2/COMP4)
-- Implementation order: Entitlements → Privacy manifest → COMP1 → COMP3 → Archive test
-
-### Competitive Analysis Complete (2026-01-20)
-- Analyzed Happy Coder (competitor): https://github.com/slopus/happy
-- Cloned reference repos to `happy-*-reference/` (git-ignored)
-- Created comparison: `.claude/analysis/happy-vs-claude-watch-comparison.md`
-- Added 4 Ralph tasks: COMP1-COMP4 in `tasks.yaml`
-- Created implementation spec: `.claude/plans/competitive-parity-implementation.md`
-- Created context file: `.claude/plans/competitive-parity-CONTEXT.md`
-
-### What Happy Does Better (learn from)
-- E2E encryption (zero-knowledge server) - COMP3
-- SessionStart hook (reliable session tracking) - COMP1
-- Activity batching (2s flush) - COMP4
-- Thinking state indicator - COMP2 (deferred)
-
-### Ready to Implement
-Run tasks in order: COMP4 → COMP1 → COMP3
-- COMP4 is watch-side only, quick win
-- COMP1 is foundation for session features
-- COMP3 is multi-phase, highest value
-
-### Previous Context
-- Project is mature (~90% complete), focus on shipping not features
-- All core features working, physical device tested
-- Main gap is App Store submission requirements
-- Use `/progress` to check current state
-
----
-
-## Session Log
-
-| Date | Duration | Focus | Outcome |
-|------|----------|-------|---------|
-| 2026-01-23 | ~1hr | Phase 11: Documentation Overhaul | Created ARCHITECTURE.md, AGENT_GUIDE.md, validators, /compound command, context-enforcer hook |
-| 2026-01-22 | ~1hr | Phase 10 cleanup | Removed all question handling code (~1,700 lines), archived docs |
-| 2026-01-22 | ~30min | COMP5 Phase 1 | CLI launcher for question forwarding (`cc-watch run`) |
-| 2026-01-21 | ~30min | COMP3 E2E encryption | Full implementation: CLI + Worker + Watch encryption stack |
-| 2026-01-21 | - | Phase 5 planning | E2E test passed, created phase5-CONTEXT.md with decisions |
-| 2026-01-20 | ~1hr | Happy Coder competitive analysis | Cloned repos, created comparison, added COMP1-4 tasks, implementation spec ready |
-| 2026-01-19 | ~30min | GSD framework review | Created migration report, decided partial adoption |
-| 2026-01-18 | ~2hr | Physical device testing | Dog walk test passed |
-| 2026-01-18 | ~1hr | Rich session state | Activity, todos, elapsed time display |
-
----
-
-*Last updated: 2026-01-23 by Claude*
+Run `git status` to see remaining uncommitted changes (mostly deletions of old files).
