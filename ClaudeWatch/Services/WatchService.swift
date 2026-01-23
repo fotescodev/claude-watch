@@ -750,6 +750,50 @@ class WatchService: ObservableObject {
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     }
 
+    // MARK: - V2 Session Methods
+
+    /// Clears session progress and returns to idle state
+    func clearSessionProgress() {
+        sessionProgress = nil
+        lastProgressUpdate = nil
+        state.status = .idle
+        hasArchivedCurrentSession = false
+    }
+
+    /// Responds to a question from Claude (F18: Question Response flow)
+    /// - Parameters:
+    ///   - questionId: The ID of the question being answered
+    ///   - answer: The answer text (nil if handling on Mac)
+    ///   - handleOnMac: Whether to defer to Mac for answering
+    func respondToQuestion(_ questionId: String, answer: String?, handleOnMac: Bool) async {
+        if useCloudMode && isPaired {
+            // Cloud mode: send via API
+            let response: [String: Any] = [
+                "questionId": questionId,
+                "answer": answer as Any,
+                "handleOnMac": handleOnMac
+            ]
+            // For now, questions are handled via existing cloud mechanism
+            // Future: implement dedicated question response endpoint
+            print("Question response: \(response)")
+        } else {
+            // WebSocket mode
+            send([
+                "type": "QUESTION_ANSWERED",
+                "questionId": questionId,
+                "answer": answer as Any,
+                "handleOnMac": handleOnMac
+            ])
+        }
+    }
+
+    /// Acknowledges a context warning (F16: Context Warning flow)
+    func acknowledgeContextWarning() {
+        // Context warning is purely informational on watch
+        // No server communication needed - just dismiss the UI
+        // The session continues normally
+    }
+
     /// Legacy method for toggling YOLO mode.
     /// Now delegates to `cycleMode()` to cycle through all permission modes.
     func toggleYolo() {

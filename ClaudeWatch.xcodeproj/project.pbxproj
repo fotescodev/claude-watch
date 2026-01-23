@@ -28,6 +28,23 @@
 		VIEW007 /* CommandViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC010 /* CommandViews.swift */; };
 		VIEW008 /* SheetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC012 /* SheetViews.swift */; };
 		MODEL001 /* ApprovalRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_MODEL001 /* ApprovalRequest.swift */; };
+		MODEL002 /* ClaudeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_MODEL002 /* ClaudeState.swift */; };
+		CTRL001 /* ApproveControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_CTRL001 /* ApproveControl.swift */; };
+		CTRL002 /* RejectControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_CTRL002 /* RejectControl.swift */; };
+		CTRL003 /* PauseResumeControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_CTRL003 /* PauseResumeControl.swift */; };
+		CTRL004 /* StatusControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_CTRL004 /* StatusControl.swift */; };
+		INTENT001 /* ApproveClaudeIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_INTENT001 /* ApproveClaudeIntent.swift */; };
+		INTENT002 /* RejectClaudeIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_INTENT002 /* RejectClaudeIntent.swift */; };
+		INTENT003 /* ClaudeStatusIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_INTENT003 /* ClaudeStatusIntent.swift */; };
+		INTENT004 /* PauseClaudeIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_INTENT004 /* PauseClaudeIntent.swift */; };
+		INTENT005 /* ClaudeShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_INTENT005 /* ClaudeShortcuts.swift */; };
+		VIEW009 /* WorkingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW009 /* WorkingView.swift */; };
+		VIEW010 /* TaskOutcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW010 /* TaskOutcomeView.swift */; };
+		VIEW011 /* PausedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW011 /* PausedView.swift */; };
+		VIEW012 /* QuestionResponseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW012 /* QuestionResponseView.swift */; };
+		VIEW013 /* ContextWarningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW013 /* ContextWarningView.swift */; };
+		VIEW014 /* ApprovalQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW014 /* ApprovalQueueView.swift */; };
+		VIEW015 /* QuickActionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW015 /* QuickActionsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +84,23 @@
 		SRC010 /* CommandViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandViews.swift; sourceTree = "<group>"; };
 		SRC012 /* SheetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetViews.swift; sourceTree = "<group>"; };
 		SRC_MODEL001 /* ApprovalRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalRequest.swift; sourceTree = "<group>"; };
+		SRC_MODEL002 /* ClaudeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeState.swift; sourceTree = "<group>"; };
+		SRC_CTRL001 /* ApproveControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApproveControl.swift; sourceTree = "<group>"; };
+		SRC_CTRL002 /* RejectControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RejectControl.swift; sourceTree = "<group>"; };
+		SRC_CTRL003 /* PauseResumeControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PauseResumeControl.swift; sourceTree = "<group>"; };
+		SRC_CTRL004 /* StatusControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusControl.swift; sourceTree = "<group>"; };
+		SRC_INTENT001 /* ApproveClaudeIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApproveClaudeIntent.swift; sourceTree = "<group>"; };
+		SRC_INTENT002 /* RejectClaudeIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RejectClaudeIntent.swift; sourceTree = "<group>"; };
+		SRC_INTENT003 /* ClaudeStatusIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeStatusIntent.swift; sourceTree = "<group>"; };
+		SRC_INTENT004 /* PauseClaudeIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PauseClaudeIntent.swift; sourceTree = "<group>"; };
+		SRC_INTENT005 /* ClaudeShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeShortcuts.swift; sourceTree = "<group>"; };
+		SRC_VIEW009 /* WorkingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkingView.swift; sourceTree = "<group>"; };
+		SRC_VIEW010 /* TaskOutcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskOutcomeView.swift; sourceTree = "<group>"; };
+		SRC_VIEW011 /* PausedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PausedView.swift; sourceTree = "<group>"; };
+		SRC_VIEW012 /* QuestionResponseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionResponseView.swift; sourceTree = "<group>"; };
+		SRC_VIEW013 /* ContextWarningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextWarningView.swift; sourceTree = "<group>"; };
+		SRC_VIEW014 /* ApprovalQueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalQueueView.swift; sourceTree = "<group>"; };
+		SRC_VIEW015 /* QuickActionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -74,8 +108,32 @@
 			isa = PBXGroup;
 			children = (
 				SRC_MODEL001 /* ApprovalRequest.swift */,
+				SRC_MODEL002 /* ClaudeState.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		GRP_CONTROLS /* Controls */ = {
+			isa = PBXGroup;
+			children = (
+				SRC_CTRL001 /* ApproveControl.swift */,
+				SRC_CTRL002 /* RejectControl.swift */,
+				SRC_CTRL003 /* PauseResumeControl.swift */,
+				SRC_CTRL004 /* StatusControl.swift */,
+			);
+			path = Controls;
+			sourceTree = "<group>";
+		};
+		GRP_INTENTS /* Intents */ = {
+			isa = PBXGroup;
+			children = (
+				SRC_INTENT001 /* ApproveClaudeIntent.swift */,
+				SRC_INTENT002 /* RejectClaudeIntent.swift */,
+				SRC_INTENT003 /* ClaudeStatusIntent.swift */,
+				SRC_INTENT004 /* PauseClaudeIntent.swift */,
+				SRC_INTENT005 /* ClaudeShortcuts.swift */,
+			);
+			path = Intents;
 			sourceTree = "<group>";
 		};
 		GRP_DESIGNSYSTEM /* DesignSystem */ = {
@@ -145,12 +203,19 @@
 			children = (
 				GRP_COMPONENTS /* Components */,
 				SRC009 /* ActionViews.swift */,
+				SRC_VIEW014 /* ApprovalQueueView.swift */,
 				SRC010 /* CommandViews.swift */,
 				SRC006 /* ConsentView.swift */,
+				SRC_VIEW013 /* ContextWarningView.swift */,
 				SRC004 /* MainView.swift */,
 				SRC005 /* PairingView.swift */,
+				SRC_VIEW011 /* PausedView.swift */,
+				SRC_VIEW012 /* QuestionResponseView.swift */,
+				SRC_VIEW015 /* QuickActionsView.swift */,
 				SRC012 /* SheetViews.swift */,
 				SRC008 /* StateViews.swift */,
+				SRC_VIEW010 /* TaskOutcomeView.swift */,
+				SRC_VIEW009 /* WorkingView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -161,7 +226,9 @@
 				86B9C9412F1965EB005C3830 /* ClaudeWatch.entitlements */,
 				ENT_RELEASE /* ClaudeWatch-Release.entitlements */,
 				GRP_APP /* App */,
+				GRP_CONTROLS /* Controls */,
 				GRP_DESIGNSYSTEM /* DesignSystem */,
+				GRP_INTENTS /* Intents */,
 				GRP_MODELS /* Models */,
 				GRP_VIEWS /* Views */,
 				GRP_SERVICES /* Services */,
@@ -286,6 +353,23 @@
 				SVC_ENC001 /* EncryptionService.swift in Sources */,
 				CMP002 /* ComplicationViews.swift in Sources */,
 				MODEL001 /* ApprovalRequest.swift in Sources */,
+				MODEL002 /* ClaudeState.swift in Sources */,
+				CTRL001 /* ApproveControl.swift in Sources */,
+				CTRL002 /* RejectControl.swift in Sources */,
+				CTRL003 /* PauseResumeControl.swift in Sources */,
+				CTRL004 /* StatusControl.swift in Sources */,
+				INTENT001 /* ApproveClaudeIntent.swift in Sources */,
+				INTENT002 /* RejectClaudeIntent.swift in Sources */,
+				INTENT003 /* ClaudeStatusIntent.swift in Sources */,
+				INTENT004 /* PauseClaudeIntent.swift in Sources */,
+				INTENT005 /* ClaudeShortcuts.swift in Sources */,
+				VIEW009 /* WorkingView.swift in Sources */,
+				VIEW010 /* TaskOutcomeView.swift in Sources */,
+				VIEW011 /* PausedView.swift in Sources */,
+				VIEW012 /* QuestionResponseView.swift in Sources */,
+				VIEW013 /* ContextWarningView.swift in Sources */,
+				VIEW014 /* ApprovalQueueView.swift in Sources */,
+				VIEW015 /* QuickActionsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
