@@ -122,7 +122,10 @@ if (hasNumberedOptions(output)) {
 
 ## Verification Checklist
 
-- [ ] CLAUDE.md instructions added
+- [x] CLAUDE.md instructions added (lines 161-193)
+- [x] Phase 10 code cleanup (removed ClaudeQuestion, QuestionView, fetchPendingQuestions)
+- [x] EncryptionService.swift added to Xcode project
+- [x] Build succeeds (simulator)
 - [ ] Test: Simple task with watch hooks enabled
 - [ ] Test: Task requiring approach selection → yes/no question
 - [ ] Test: Task requiring naming → default + yes/no question
