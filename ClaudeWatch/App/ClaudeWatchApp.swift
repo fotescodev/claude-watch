@@ -177,6 +177,18 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             // Handle progress update - update UI without showing banner
             handleProgressNotification(userInfo: userInfo)
             completionHandler([])
+        } else if notificationType == "question" {
+            // F18: Question Response - show QuestionResponseView
+            Task { @MainActor in
+                WatchService.shared.handleQuestionNotification(userInfo)
+            }
+            completionHandler([])
+        } else if notificationType == "context_warning" {
+            // F16: Context Warning - show ContextWarningView
+            Task { @MainActor in
+                WatchService.shared.handleContextWarningNotification(userInfo)
+            }
+            completionHandler([])
         } else {
             // Parse notification payload and add to pending actions
             addPendingActionFromNotification(userInfo: userInfo)
@@ -281,8 +293,16 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                 service.approveAll()
 
             case UNNotificationDefaultActionIdentifier:
-                // User tapped notification - add action if not already present
-                addPendingActionFromNotification(userInfo: userInfo)
+                // User tapped notification - handle based on type
+                let notificationType = userInfo["type"] as? String
+                if notificationType == "question" {
+                    service.handleQuestionNotification(userInfo)
+                } else if notificationType == "context_warning" {
+                    service.handleContextWarningNotification(userInfo)
+                } else {
+                    // Default: add as pending action
+                    addPendingActionFromNotification(userInfo: userInfo)
+                }
 
             case UNNotificationDismissActionIdentifier:
                 // User dismissed notification
