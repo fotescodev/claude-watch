@@ -26,6 +26,15 @@
 
 <br/>
 
+```bash
+# Install and pair in 30 seconds
+npm install -g cc-watch
+cc-watch
+# Enter the code shown on your Apple Watch
+```
+
+<br/>
+
 <p align="center">
   <a href="#-the-problem">Problem</a> •
   <a href="#-the-solution">Solution</a> •
@@ -395,7 +404,9 @@ claude-watch/
 
 ### 📖 Documentation
 
-- **[APNs Setup Guide](docs/APNS_SETUP_GUIDE.md)** - Complete guide for configuring Apple Push Notification service
+- **[Getting Started](docs/GETTING_STARTED.md)** - Complete setup guide (simulator, device, troubleshooting)
+- **[Architecture](.claude/ARCHITECTURE.md)** - System design and data flows (read before contributing)
+- **[Agent Guide](.claude/AGENT_GUIDE.md)** - For AI agents working on this codebase
 
 ### Deploy Your Own Cloud Relay
 
