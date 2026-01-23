@@ -1,26 +1,44 @@
 import SwiftUI
 
-// MARK: - Claude Design System
+// MARK: - Claude Design System V2
 /// Centralized design tokens for Claude Watch app
+/// Hybrid color strategy: Anthropic brand + Apple semantic colors
 /// All colors, materials, spacing, and animations in one place
 public enum Claude {
-    // MARK: - Brand Colors
-    /// Primary Claude orange
-    static let orange = Color(red: 1.0, green: 0.584, blue: 0.0)        // #FF9500
-    /// Light variant for highlights
-    static let orangeLight = Color(red: 1.0, green: 0.702, blue: 0.251) // #FFB340
-    /// Dark variant for depth
-    static let orangeDark = Color(red: 0.8, green: 0.467, blue: 0.0)    // #CC7700
+    // MARK: - Anthropic Brand Colors (Logo, Headers, Primary Accent)
+    /// Primary Anthropic orange - use for logo, headers, brand identity
+    static let anthropicOrange = Color(red: 0.851, green: 0.467, blue: 0.341)  // #d97757
+    /// Dark background from Anthropic palette - use for elevated surfaces
+    static let anthropicDark = Color(red: 0.078, green: 0.078, blue: 0.075)    // #141413
+    /// Light text from Anthropic palette - use on dark backgrounds
+    static let anthropicLight = Color(red: 0.980, green: 0.976, blue: 0.961)   // #faf9f5
 
-    // MARK: - Semantic Colors
-    /// Success state (Apple green)
-    static let success = Color(red: 0.204, green: 0.780, blue: 0.349)   // #34C759
-    /// Danger/error state (Apple red)
-    static let danger = Color(red: 1.0, green: 0.231, blue: 0.188)      // #FF3B30
-    /// Warning state (matches orange)
-    static let warning = Color(red: 1.0, green: 0.584, blue: 0.0)       // #FF9500
-    /// Info/neutral action (Apple blue)
-    static let info = Color(red: 0.0, green: 0.478, blue: 1.0)          // #007AFF
+    // Legacy brand colors (kept for backward compatibility)
+    /// Primary accent (legacy - maps to anthropicOrange)
+    static let orange = Color(red: 0.851, green: 0.467, blue: 0.341)           // #d97757
+    /// Light variant for highlights
+    static let orangeLight = Color(red: 0.902, green: 0.569, blue: 0.463)      // #e69176
+    /// Dark variant for depth
+    static let orangeDark = Color(red: 0.749, green: 0.365, blue: 0.239)       // #bf5d3d
+
+    // MARK: - Apple Semantic Colors (Native Feel, Accessibility)
+    /// Success state - Apple green for approve, checkmarks, completion
+    static let success = Color.green      // #34C759
+    /// Warning state - Apple orange for approval needed, attention
+    static let warning = Color.orange     // #FF9500
+    /// Danger/error state - Apple red for reject, errors, destructive
+    static let danger = Color.red         // #FF3B30
+    /// Info/working state - Apple blue for active, progress
+    static let info = Color.blue          // #007AFF
+    /// Idle state - Apple gray for inactive, neutral
+    static let idle = Color.gray          // #8E8E93
+
+    // MARK: - State Colors (V2 5-State Model)
+    /// Returns the color for a given Claude state
+    /// Delegates to ClaudeState.color for consistency
+    static func color(for state: ClaudeState) -> Color {
+        state.color
+    }
 
     // MARK: - Surface Colors
     /// Primary background (pure black for OLED)

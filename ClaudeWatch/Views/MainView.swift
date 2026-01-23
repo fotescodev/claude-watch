@@ -3,11 +3,12 @@ import WatchKit
 
 // RALPH_TEST: Loop verification successful
 
-// MARK: - Main View
+// MARK: - Main View (V2 State-Driven Architecture)
 struct MainView: View {
     @ObservedObject private var service = WatchService.shared
     @State private var showingVoiceInput = false
     @State private var showingSettings = false
+    @State private var showingQuickActions = false
     @State private var pulsePhase: CGFloat = 0
 
     // Liquid Glass morphing namespace (watchOS 26+)
@@ -26,11 +27,20 @@ struct MainView: View {
     @Environment(\.dynamicTypeSize) var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 12
 
+    /// Derive the current Claude state from service state
+    private var claudeState: ClaudeState {
+        ClaudeState.derive(
+            pendingCount: service.state.pendingActions.count,
+            sessionStatus: service.state.status,
+            hasProgress: service.sessionProgress != nil
+        )
+    }
+
     var body: some View {
         ZStack {
             Claude.background.ignoresSafeArea()
 
-            // Content based on state - use switch on currentViewState for clean transitions
+            // V2 State-driven content
             Group {
                 switch currentViewState {
                 case .alwaysOn:
@@ -48,6 +58,17 @@ struct MainView: View {
                         ReconnectingView(status: service.connectionStatus)
                         Spacer()
                     }
+                case .paused:
+                    PausedView()
+                case .success:
+                    TaskOutcomeView()
+                case .working:
+                    WorkingView()
+                case .approvalQueue:
+                    ApprovalQueueView()
+                case .approval:
+                    // Single approval - use existing ActionQueue
+                    mainContentView
                 case .empty:
                     EmptyStateView()
                 case .main:
@@ -76,6 +97,11 @@ struct MainView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsSheet()
         }
+        .sheet(isPresented: $showingQuickActions) {
+            NavigationStack {
+                QuickActionsView()
+            }
+        }
         .onAppear {
             if !service.isDemoMode {
                 if service.useCloudMode {
@@ -89,6 +115,11 @@ struct MainView: View {
                 }
             }
             startPulse()
+        }
+        // Long press for quick actions menu
+        .onLongPressGesture {
+            showingQuickActions = true
+            WKInterfaceDevice.current().play(.click)
         }
     }
 
@@ -164,8 +195,9 @@ struct MainView: View {
         }
     }
 
-    /// Current view state for animation tracking
+    /// Current view state for animation tracking (V2 state-driven)
     private var currentViewState: ViewState {
+        // System states take priority
         if isLuminanceReduced {
             return .alwaysOn
         } else if service.useCloudMode && !service.isPaired && !service.isDemoMode {
@@ -174,16 +206,48 @@ struct MainView: View {
             return .offline
         } else if case .reconnecting = service.connectionStatus {
             return .reconnecting
-        } else if service.state.pendingActions.isEmpty && service.state.status == .idle && service.sessionProgress == nil {
-            return .empty
-        } else {
-            return .main
         }
+
+        // V2 state-driven views
+        // Paused state takes priority
+        if service.isSessionInterrupted {
+            return .paused
+        }
+
+        // Session progress states
+        if let progress = service.sessionProgress {
+            let isComplete = progress.isComplete
+            if isComplete {
+                return .success
+            } else {
+                return .working
+            }
+        }
+
+        // Approval states
+        let pendingCount = service.state.pendingActions.count
+        if pendingCount >= 2 {
+            return .approvalQueue
+        } else if pendingCount == 1 {
+            return .approval
+        }
+
+        // Idle/empty state
+        if service.state.status == .idle {
+            return .empty
+        }
+
+        return .main
     }
 
-    /// View state enum for animation tracking
+    /// View state enum for animation tracking (V2 expanded)
     private enum ViewState: Equatable {
-        case alwaysOn, pairing, offline, reconnecting, empty, main
+        // System states
+        case alwaysOn, pairing, offline, reconnecting
+        // V2 states
+        case paused, working, success, approval, approvalQueue
+        // Fallback
+        case empty, main
     }
 
     private var connectionIcon: String {

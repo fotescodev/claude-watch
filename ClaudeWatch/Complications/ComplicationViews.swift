@@ -9,9 +9,24 @@ struct ClaudeEntry: TimelineEntry {
     let pendingCount: Int
     let model: String
     let isConnected: Bool
+
+    /// Relevance score for Smart Stack (0.0 to 1.0)
+    /// Higher scores surface the widget when most useful
+    var relevance: TimelineEntryRelevance? {
+        // High relevance when actions pending (user needs to respond)
+        if pendingCount > 0 {
+            return TimelineEntryRelevance(score: 1.0, duration: 300) // 5 min
+        }
+        // Medium relevance when actively working
+        if progress > 0 && progress < 1.0 {
+            return TimelineEntryRelevance(score: 0.6, duration: 60) // 1 min
+        }
+        // Low relevance when idle
+        return TimelineEntryRelevance(score: 0.1, duration: 900) // 15 min
+    }
 }
 
-// MARK: - Provider
+// MARK: - Provider (with RelevanceKit support for Smart Stack)
 struct ClaudeProvider: TimelineProvider {
     private let defaults = UserDefaults(suiteName: "group.com.claudewatch")
 
@@ -31,7 +46,25 @@ struct ClaudeProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ClaudeEntry>) -> Void) {
-        let timeline = Timeline(entries: [currentEntry()], policy: .after(Date().addingTimeInterval(900)))
+        let entry = currentEntry()
+
+        // Dynamic refresh based on activity level
+        let refreshInterval: TimeInterval
+        if entry.pendingCount > 0 {
+            // Active approval needed - check frequently
+            refreshInterval = 30
+        } else if entry.progress > 0 && entry.progress < 1.0 {
+            // Task in progress - moderate refresh
+            refreshInterval = 60
+        } else {
+            // Idle - less frequent refresh
+            refreshInterval = 900
+        }
+
+        let timeline = Timeline(
+            entries: [entry],
+            policy: .after(Date().addingTimeInterval(refreshInterval))
+        )
         completion(timeline)
     }
 
