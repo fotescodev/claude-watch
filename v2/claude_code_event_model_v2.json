@@ -1,0 +1,687 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Claude Code Watch Remote Event Model V2.0",
+  "description": "Complete event schema for wrist remote integration with Claude Code. V2.0 adds QUESTION_ASKED, TODO_UPDATE, SESSION_LIST, SUBAGENT_PROGRESS events.",
+  "version": "2.0.0",
+  "generated": "2026-01-21",
+  "changelog": [
+    "V2.0: Added QUESTION_ASKED event for AskUserQuestion tool",
+    "V2.0: Added TODO_UPDATE event for TodoWrite tool",
+    "V2.0: Added SESSION_LIST event for session resume capability",
+    "V2.0: Added SUBAGENT_PROGRESS event for Task tool monitoring",
+    "V2.0: Added CONTEXT_WARNING event for proactive alerts",
+    "V2.0: Added BACKGROUND_TASK_CREATED event",
+    "V2.0: Updated all events with Anthropic brand color references"
+  ],
+  "events": [
+    {
+      "name": "PERMISSION_REQUESTED_EDIT",
+      "description": "Claude requests permission to modify a file",
+      "trigger": "Claude Code proposes a file edit in Normal mode",
+      "payload": {
+        "fields": [
+          { "name": "requestId", "type": "string", "required": true, "description": "Unique identifier for this permission request" },
+          { "name": "toolName", "type": "string", "required": true, "description": "Tool requesting permission (Edit, Write)" },
+          { "name": "filePath", "type": "string", "required": true, "description": "Absolute path to target file" },
+          { "name": "fileName", "type": "string", "required": true, "description": "File name only for display" },
+          { "name": "diffSummary", "type": "object", "required": true, "description": "Condensed diff information", "properties": {
+            "linesAdded": { "type": "number" },
+            "linesRemoved": { "type": "number" },
+            "hunks": { "type": "number" },
+            "preview": { "type": "string", "description": "First 3-5 lines of change summary" }
+          }},
+          { "name": "isDangerous", "type": "boolean", "required": true, "description": "V2.0: Whether operation is flagged as dangerous (delete, system file)" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "critical",
+      "watch_affordance": "notification",
+      "actions": ["approve", "approve_all_edits", "reject", "request_change"],
+      "brandColor": "#d97757",
+      "source": "https://code.claude.com/docs/en/security"
+    },
+    {
+      "name": "PERMISSION_REQUESTED_BASH",
+      "description": "Claude requests permission to execute a shell command",
+      "trigger": "Claude Code proposes bash execution without pre-approval",
+      "payload": {
+        "fields": [
+          { "name": "requestId", "type": "string", "required": true, "description": "Unique identifier for this permission request" },
+          { "name": "toolName", "type": "string", "required": true, "description": "Always 'Bash'" },
+          { "name": "command", "type": "string", "required": true, "description": "Full command to execute" },
+          { "name": "commandPreview", "type": "string", "required": true, "description": "Truncated command for display (max 100 chars)" },
+          { "name": "workingDirectory", "type": "string", "required": true, "description": "Directory where command will run" },
+          { "name": "riskLevel", "type": "string", "required": true, "description": "Risk assessment", "enum": ["low", "medium", "high", "critical"] },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "critical",
+      "watch_affordance": "notification",
+      "actions": ["approve", "approve_pattern", "reject", "request_change"],
+      "brandColor": "#AF52DE",
+      "source": "https://code.claude.com/docs/en/security"
+    },
+    {
+      "name": "QUESTION_ASKED",
+      "description": "V2.0: Claude asks user a question via AskUserQuestion tool",
+      "trigger": "Claude uses AskUserQuestion tool to gather user input",
+      "payload": {
+        "fields": [
+          { "name": "questionId", "type": "string", "required": true, "description": "Unique identifier for this question" },
+          { "name": "question", "type": "string", "required": true, "description": "The question text to display" },
+          { "name": "header", "type": "string", "required": true, "description": "Short label (max 12 chars) for categorization" },
+          { "name": "options", "type": "array", "required": true, "description": "Available answer options", "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string", "description": "Option display text" },
+              "description": { "type": "string", "description": "Optional explanation" }
+            }
+          }},
+          { "name": "multiSelect", "type": "boolean", "required": true, "description": "Whether multiple options can be selected" },
+          { "name": "hasOtherOption", "type": "boolean", "required": true, "description": "Whether 'Other' (custom input) is available" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "critical",
+      "watch_affordance": "notification",
+      "actions": ["select_option", "select_multiple", "input_other", "dismiss"],
+      "brandColor": "#6a9bcc",
+      "source": "https://code.claude.com/docs/en/common-workflows"
+    },
+    {
+      "name": "QUESTION_ANSWERED",
+      "description": "V2.0: User has answered a question from Claude",
+      "trigger": "User selects option(s) or provides custom input on watch",
+      "payload": {
+        "fields": [
+          { "name": "questionId", "type": "string", "required": true, "description": "Question identifier being answered" },
+          { "name": "selectedOptions", "type": "array", "required": true, "description": "Selected option labels", "items": { "type": "string" }},
+          { "name": "customInput", "type": "string", "required": false, "description": "Custom 'Other' input if provided" },
+          { "name": "answeredVia", "type": "string", "required": true, "description": "How answer was provided", "enum": ["watch_tap", "watch_voice", "notification_action"] },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "high",
+      "watch_affordance": "silent_log",
+      "actions": [],
+      "brandColor": "#788c5d",
+      "source": "https://code.claude.com/docs/en/common-workflows"
+    },
+    {
+      "name": "TODO_UPDATE",
+      "description": "V2.0: Claude's todo list has changed via TodoWrite tool",
+      "trigger": "Claude uses TodoWrite tool to update task list",
+      "payload": {
+        "fields": [
+          { "name": "todos", "type": "array", "required": true, "description": "Complete todo list", "items": {
+            "type": "object",
+            "properties": {
+              "content": { "type": "string", "description": "Task description" },
+              "status": { "type": "string", "enum": ["pending", "in_progress", "completed"] },
+              "activeForm": { "type": "string", "description": "Present tense description for status display" }
+            }
+          }},
+          { "name": "totalCount", "type": "number", "required": true, "description": "Total number of todos" },
+          { "name": "completedCount", "type": "number", "required": true, "description": "Number of completed todos" },
+          { "name": "inProgressCount", "type": "number", "required": true, "description": "Number of in-progress todos" },
+          { "name": "currentTask", "type": "string", "required": false, "description": "Currently active task description" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "low",
+      "watch_affordance": "glance",
+      "actions": ["view_progress"],
+      "brandColor": "#788c5d",
+      "source": "https://code.claude.com/docs/en/cli-reference"
+    },
+    {
+      "name": "SUBAGENT_SPAWNED",
+      "description": "A sub-agent has been created via Task tool",
+      "trigger": "Claude spawns a sub-agent via Task tool",
+      "payload": {
+        "fields": [
+          { "name": "agentId", "type": "string", "required": true, "description": "Sub-agent identifier" },
+          { "name": "agentType", "type": "string", "required": true, "description": "Type of sub-agent", "enum": ["Bash", "general-purpose", "Explore", "Plan", "claude-code-guide"] },
+          { "name": "parentId", "type": "string", "required": false, "description": "Parent agent/session ID" },
+          { "name": "task", "type": "string", "required": true, "description": "Task description assigned to sub-agent" },
+          { "name": "taskPreview", "type": "string", "required": true, "description": "Truncated task for watch display (max 50 chars)" },
+          { "name": "permissionMode", "type": "string", "required": true, "description": "Permission mode for sub-agent", "enum": ["default", "acceptEdits", "plan"] },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "medium",
+      "watch_affordance": "inbox",
+      "actions": ["view_agent", "stop_agent"],
+      "brandColor": "#6a9bcc",
+      "source": "https://code.claude.com/docs/en/sub-agents"
+    },
+    {
+      "name": "SUBAGENT_PROGRESS",
+      "description": "V2.0: Sub-agent progress update",
+      "trigger": "Sub-agent makes progress on its task",
+      "payload": {
+        "fields": [
+          { "name": "agentId", "type": "string", "required": true, "description": "Sub-agent identifier" },
+          { "name": "agentType", "type": "string", "required": true, "description": "Type of sub-agent" },
+          { "name": "progress", "type": "number", "required": false, "description": "Progress percentage if available (0-100)" },
+          { "name": "status", "type": "string", "required": true, "description": "Current status", "enum": ["running", "waiting", "completed", "failed"] },
+          { "name": "currentAction", "type": "string", "required": false, "description": "What agent is currently doing" },
+          { "name": "parentId", "type": "string", "required": true, "description": "Parent session ID" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "low",
+      "watch_affordance": "glance",
+      "actions": ["view_agent", "stop_agent"],
+      "brandColor": "#6a9bcc",
+      "source": "https://code.claude.com/docs/en/sub-agents"
+    },
+    {
+      "name": "SUBAGENT_COMPLETED",
+      "description": "V2.0: Sub-agent has finished its task",
+      "trigger": "Sub-agent completes or fails",
+      "payload": {
+        "fields": [
+          { "name": "agentId", "type": "string", "required": true, "description": "Sub-agent identifier" },
+          { "name": "status", "type": "string", "required": true, "description": "Completion status", "enum": ["success", "failed", "timeout", "cancelled"] },
+          { "name": "result", "type": "string", "required": false, "description": "Brief result summary" },
+          { "name": "duration", "type": "number", "required": true, "description": "Duration in milliseconds" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "medium",
+      "watch_affordance": "notification",
+      "actions": ["view_result", "dismiss"],
+      "brandColor": "#788c5d",
+      "source": "https://code.claude.com/docs/en/sub-agents"
+    },
+    {
+      "name": "SESSION_LIST",
+      "description": "V2.0: List of available sessions for resume",
+      "trigger": "User requests session list or on app launch",
+      "payload": {
+        "fields": [
+          { "name": "sessions", "type": "array", "required": true, "description": "Available sessions", "items": {
+            "type": "object",
+            "properties": {
+              "sessionId": { "type": "string" },
+              "projectName": { "type": "string" },
+              "workingDirectory": { "type": "string" },
+              "lastActive": { "type": "string", "description": "ISO 8601 timestamp" },
+              "contextUsage": { "type": "number", "description": "Context percentage used" },
+              "canResume": { "type": "boolean" }
+            }
+          }},
+          { "name": "activeSessionId", "type": "string", "required": false, "description": "Currently active session if any" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "medium",
+      "watch_affordance": "inbox",
+      "actions": ["resume_session", "dismiss"],
+      "brandColor": "#6a9bcc",
+      "source": "https://code.claude.com/docs/en/cli-reference"
+    },
+    {
+      "name": "SESSION_RESUMED",
+      "description": "V2.0: Session has been resumed",
+      "trigger": "User resumes a previous session from watch",
+      "payload": {
+        "fields": [
+          { "name": "sessionId", "type": "string", "required": true, "description": "Resumed session ID" },
+          { "name": "projectName", "type": "string", "required": true, "description": "Project name" },
+          { "name": "contextRestored", "type": "number", "required": true, "description": "Context percentage restored" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "medium",
+      "watch_affordance": "notification",
+      "actions": ["view_session", "dismiss"],
+      "brandColor": "#788c5d",
+      "source": "https://code.claude.com/docs/en/cli-reference"
+    },
+    {
+      "name": "CONTEXT_WARNING",
+      "description": "V2.0: Proactive warning when context approaching limit",
+      "trigger": "Context usage exceeds threshold (75%, 85%, 95%)",
+      "payload": {
+        "fields": [
+          { "name": "currentTokens", "type": "number", "required": true, "description": "Current context token count" },
+          { "name": "maxTokens", "type": "number", "required": true, "description": "Maximum context window size" },
+          { "name": "usagePercent", "type": "number", "required": true, "description": "Percentage of context used" },
+          { "name": "threshold", "type": "string", "required": true, "description": "Which threshold triggered", "enum": ["elevated", "high", "critical"] },
+          { "name": "compactionAvailable", "type": "boolean", "required": true, "description": "Whether /compact is available" },
+          { "name": "estimatedSavings", "type": "number", "required": false, "description": "Estimated tokens to be saved" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "high",
+      "watch_affordance": "notification",
+      "actions": ["compact_now", "dismiss", "view_details"],
+      "brandColor": "#d97757",
+      "source": "https://code.claude.com/docs/en/slash-commands"
+    },
+    {
+      "name": "CONTEXT_PRESSURE",
+      "description": "Context usage status update (non-alert)",
+      "trigger": "Periodic context status update",
+      "payload": {
+        "fields": [
+          { "name": "currentTokens", "type": "number", "required": true, "description": "Current context token count" },
+          { "name": "maxTokens", "type": "number", "required": true, "description": "Maximum context window size" },
+          { "name": "usagePercent", "type": "number", "required": true, "description": "Percentage of context used" },
+          { "name": "pressureLevel", "type": "string", "required": true, "description": "Current pressure level", "enum": ["normal", "elevated", "high", "critical"] },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "low",
+      "watch_affordance": "glance",
+      "actions": ["compact_now", "view_details"],
+      "brandColor": "#b0aea5",
+      "source": "https://code.claude.com/docs/en/statusline"
+    },
+    {
+      "name": "COMPACTION_STARTED",
+      "description": "Context compaction has begun",
+      "trigger": "Auto-compaction triggered or /compact command issued",
+      "payload": {
+        "fields": [
+          { "name": "compactionId", "type": "string", "required": true, "description": "Unique compaction identifier" },
+          { "name": "reason", "type": "string", "required": true, "description": "Why compaction started", "enum": ["auto", "manual", "watch_triggered"] },
+          { "name": "tokensBefore", "type": "number", "required": true, "description": "Tokens before compaction" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "low",
+      "watch_affordance": "glance",
+      "actions": ["view_progress"],
+      "brandColor": "#b0aea5",
+      "source": "https://code.claude.com/docs/en/slash-commands"
+    },
+    {
+      "name": "COMPACTION_COMPLETED",
+      "description": "Context compaction has finished",
+      "trigger": "Compaction process completes",
+      "payload": {
+        "fields": [
+          { "name": "compactionId", "type": "string", "required": true, "description": "Compaction identifier" },
+          { "name": "tokensBefore", "type": "number", "required": true, "description": "Tokens before compaction" },
+          { "name": "tokensAfter", "type": "number", "required": true, "description": "Tokens after compaction" },
+          { "name": "tokensSaved", "type": "number", "required": true, "description": "Net tokens saved" },
+          { "name": "savingsPercent", "type": "number", "required": true, "description": "Percentage reduction" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "low",
+      "watch_affordance": "notification",
+      "actions": ["dismiss"],
+      "brandColor": "#788c5d",
+      "source": "https://code.claude.com/docs/en/slash-commands"
+    },
+    {
+      "name": "TASK_STARTED",
+      "description": "A new task (foreground or background) has begun",
+      "trigger": "Claude begins executing a tool or user backgrounds a task",
+      "payload": {
+        "fields": [
+          { "name": "taskId", "type": "string", "required": true, "description": "Unique task identifier" },
+          { "name": "taskType", "type": "string", "required": true, "description": "Type of task", "enum": ["bash", "subagent", "tool", "compound"] },
+          { "name": "description", "type": "string", "required": true, "description": "Human-readable task description" },
+          { "name": "isBackground", "type": "boolean", "required": true, "description": "Whether task is running in background" },
+          { "name": "estimatedDuration", "type": "string", "required": false, "description": "Estimated completion time if known" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "medium",
+      "watch_affordance": "glance",
+      "actions": ["view_details", "background", "stop"],
+      "brandColor": "#d97757",
+      "source": "https://code.claude.com/docs/en/interactive-mode"
+    },
+    {
+      "name": "BACKGROUND_TASK_CREATED",
+      "description": "V2.0: Task has been moved to background via Ctrl+B",
+      "trigger": "User presses Ctrl+B to background a running task",
+      "payload": {
+        "fields": [
+          { "name": "taskId", "type": "string", "required": true, "description": "Task identifier" },
+          { "name": "description", "type": "string", "required": true, "description": "Task description" },
+          { "name": "previouslyForeground", "type": "boolean", "required": true, "description": "Whether task was in foreground" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "medium",
+      "watch_affordance": "notification",
+      "actions": ["view_task", "dismiss"],
+      "brandColor": "#6a9bcc",
+      "source": "https://code.claude.com/docs/en/interactive-mode"
+    },
+    {
+      "name": "TASK_OUTPUT",
+      "description": "New output available from a running or completed task",
+      "trigger": "Task produces stdout/stderr or completes",
+      "payload": {
+        "fields": [
+          { "name": "taskId", "type": "string", "required": true, "description": "Task identifier" },
+          { "name": "outputType", "type": "string", "required": true, "description": "Output stream type", "enum": ["stdout", "stderr", "combined"] },
+          { "name": "content", "type": "string", "required": true, "description": "Output content (may be truncated)" },
+          { "name": "contentTruncated", "type": "boolean", "required": true, "description": "Whether content was truncated" },
+          { "name": "lastLine", "type": "string", "required": true, "description": "Last line of output for quick preview" },
+          { "name": "totalLines", "type": "number", "required": true, "description": "Total lines of output" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "low",
+      "watch_affordance": "silent_log",
+      "actions": ["view_full_output", "dismiss"],
+      "brandColor": "#b0aea5",
+      "source": "https://code.claude.com/docs/en/interactive-mode"
+    },
+    {
+      "name": "TASK_COMPLETED",
+      "description": "A task has finished execution",
+      "trigger": "Task exits (success or failure)",
+      "payload": {
+        "fields": [
+          { "name": "taskId", "type": "string", "required": true, "description": "Task identifier" },
+          { "name": "status", "type": "string", "required": true, "description": "Completion status", "enum": ["success", "failed", "timeout", "cancelled"] },
+          { "name": "exitCode", "type": "number", "required": false, "description": "Exit code for bash tasks" },
+          { "name": "duration", "type": "number", "required": true, "description": "Duration in milliseconds" },
+          { "name": "summary", "type": "string", "required": true, "description": "One-line result summary" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "medium",
+      "watch_affordance": "notification",
+      "actions": ["view_output", "dismiss", "retry"],
+      "brandColor": "#788c5d",
+      "source": "https://code.claude.com/docs/en/interactive-mode"
+    },
+    {
+      "name": "TASK_FAILED",
+      "description": "A task has failed with an error",
+      "trigger": "Task exits with non-zero code or throws error",
+      "payload": {
+        "fields": [
+          { "name": "taskId", "type": "string", "required": true, "description": "Task identifier" },
+          { "name": "errorType", "type": "string", "required": true, "description": "Category of error", "enum": ["exit_code", "timeout", "permission_denied", "not_found", "network", "unknown"] },
+          { "name": "errorMessage", "type": "string", "required": true, "description": "Error message or last stderr line" },
+          { "name": "exitCode", "type": "number", "required": false, "description": "Exit code if applicable" },
+          { "name": "recoverable", "type": "boolean", "required": true, "description": "Whether error might be recoverable" },
+          { "name": "suggestedAction", "type": "string", "required": false, "description": "Suggested recovery action" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "high",
+      "watch_affordance": "notification",
+      "actions": ["view_error", "retry", "dismiss", "escalate_to_desktop"],
+      "brandColor": "#FF3B30",
+      "source": "https://code.claude.com/docs/en/interactive-mode"
+    },
+    {
+      "name": "MODE_CHANGED",
+      "description": "Permission mode has changed",
+      "trigger": "User presses Shift+Tab, uses watch mode selector, or mode changed programmatically",
+      "payload": {
+        "fields": [
+          { "name": "previousMode", "type": "string", "required": true, "description": "Previous mode", "enum": ["default", "acceptEdits", "plan"] },
+          { "name": "currentMode", "type": "string", "required": true, "description": "New mode", "enum": ["default", "acceptEdits", "plan"] },
+          { "name": "changedBy", "type": "string", "required": true, "description": "What triggered the change", "enum": ["user_keyboard", "user_command", "hook", "subagent", "watch_remote"] },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "high",
+      "watch_affordance": "glance",
+      "actions": ["confirm", "change_mode"],
+      "brandColor": "#6a9bcc",
+      "source": "https://code.claude.com/docs/en/interactive-mode"
+    },
+    {
+      "name": "SESSION_STATUS",
+      "description": "Periodic session status update",
+      "trigger": "Statusline JSON feed update or polling interval",
+      "payload": {
+        "fields": [
+          { "name": "sessionId", "type": "string", "required": true, "description": "Current session identifier" },
+          { "name": "model", "type": "object", "required": true, "description": "Model information", "properties": {
+            "displayName": { "type": "string" },
+            "apiName": { "type": "string" }
+          }},
+          { "name": "workspace", "type": "object", "required": true, "description": "Workspace information", "properties": {
+            "currentDir": { "type": "string" },
+            "gitBranch": { "type": "string" },
+            "gitDirty": { "type": "boolean" },
+            "repoName": { "type": "string" }
+          }},
+          { "name": "context", "type": "object", "required": true, "description": "Context usage", "properties": {
+            "tokensUsed": { "type": "number" },
+            "tokensLimit": { "type": "number" },
+            "percentUsed": { "type": "number" }
+          }},
+          { "name": "tasks", "type": "object", "required": true, "description": "Task counts", "properties": {
+            "running": { "type": "number" },
+            "background": { "type": "number" },
+            "pendingApprovals": { "type": "number" },
+            "pendingQuestions": { "type": "number" }
+          }},
+          { "name": "todos", "type": "object", "required": false, "description": "V2.0: Todo progress", "properties": {
+            "total": { "type": "number" },
+            "completed": { "type": "number" },
+            "inProgress": { "type": "number" }
+          }},
+          { "name": "permissionMode", "type": "string", "required": true, "description": "Current permission mode", "enum": ["default", "acceptEdits", "plan"] },
+          { "name": "connectionStatus", "type": "string", "required": true, "description": "Connection to desktop", "enum": ["connected", "reconnecting", "disconnected"] },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "low",
+      "watch_affordance": "glance",
+      "actions": ["refresh", "view_details"],
+      "brandColor": "#faf9f5",
+      "source": "https://code.claude.com/docs/en/statusline"
+    },
+    {
+      "name": "SESSION_STARTED",
+      "description": "New Claude Code session has begun",
+      "trigger": "Claude Code launched or session resumed",
+      "payload": {
+        "fields": [
+          { "name": "sessionId", "type": "string", "required": true, "description": "New session identifier" },
+          { "name": "resumedFrom", "type": "string", "required": false, "description": "Previous session ID if resumed" },
+          { "name": "model", "type": "string", "required": true, "description": "Model being used" },
+          { "name": "workingDirectory", "type": "string", "required": true, "description": "Initial working directory" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "medium",
+      "watch_affordance": "notification",
+      "actions": ["view_session", "dismiss"],
+      "brandColor": "#788c5d",
+      "source": "https://code.claude.com/docs/en/cli-reference"
+    },
+    {
+      "name": "SESSION_ENDED",
+      "description": "Claude Code session has ended",
+      "trigger": "User exits Claude Code or session times out",
+      "payload": {
+        "fields": [
+          { "name": "sessionId", "type": "string", "required": true, "description": "Ended session identifier" },
+          { "name": "reason", "type": "string", "required": true, "description": "Why session ended", "enum": ["user_exit", "timeout", "error", "crash"] },
+          { "name": "duration", "type": "number", "required": true, "description": "Session duration in seconds" },
+          { "name": "canResume", "type": "boolean", "required": true, "description": "Whether session can be resumed" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "medium",
+      "watch_affordance": "notification",
+      "actions": ["resume_session", "dismiss"],
+      "brandColor": "#b0aea5",
+      "source": "https://code.claude.com/docs/en/cli-reference"
+    },
+    {
+      "name": "CHECKPOINT_CREATED",
+      "description": "New code checkpoint has been created",
+      "trigger": "Claude makes a file modification (automatic checkpoint)",
+      "payload": {
+        "fields": [
+          { "name": "checkpointId", "type": "string", "required": true, "description": "Checkpoint identifier" },
+          { "name": "filesAffected", "type": "array", "required": true, "description": "List of files in checkpoint", "items": { "type": "string" }},
+          { "name": "fileCount", "type": "number", "required": true, "description": "Number of files affected" },
+          { "name": "description", "type": "string", "required": true, "description": "Auto-generated checkpoint description" },
+          { "name": "canRewind", "type": "boolean", "required": true, "description": "Whether rewind is available" },
+          { "name": "isLatest", "type": "boolean", "required": true, "description": "V2.0: Whether this is the most recent checkpoint" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "low",
+      "watch_affordance": "silent_log",
+      "actions": ["quick_undo"],
+      "brandColor": "#b0aea5",
+      "source": "https://code.claude.com/docs/en/checkpointing"
+    },
+    {
+      "name": "QUICK_UNDO_AVAILABLE",
+      "description": "V2.0: Quick undo is available for recent changes",
+      "trigger": "Checkpoint created, quick undo becomes available",
+      "payload": {
+        "fields": [
+          { "name": "checkpointId", "type": "string", "required": true, "description": "Checkpoint to rewind to" },
+          { "name": "filesAffected", "type": "array", "required": true, "description": "Files that will be reverted", "items": { "type": "string" }},
+          { "name": "changesSummary", "type": "string", "required": true, "description": "Summary of changes that will be undone" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "low",
+      "watch_affordance": "glance",
+      "actions": ["quick_undo", "dismiss"],
+      "brandColor": "#6a9bcc",
+      "source": "https://code.claude.com/docs/en/checkpointing"
+    },
+    {
+      "name": "CONNECTION_STATUS_CHANGED",
+      "description": "Watch-to-desktop connection status changed",
+      "trigger": "Network change, desktop sleep/wake, or manual disconnect",
+      "payload": {
+        "fields": [
+          { "name": "previousStatus", "type": "string", "required": true, "description": "Previous connection status", "enum": ["connected", "reconnecting", "disconnected"] },
+          { "name": "currentStatus", "type": "string", "required": true, "description": "Current connection status", "enum": ["connected", "reconnecting", "disconnected"] },
+          { "name": "reason", "type": "string", "required": false, "description": "Reason for status change" },
+          { "name": "reconnectAttempts", "type": "number", "required": false, "description": "Number of reconnect attempts if reconnecting" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "high",
+      "watch_affordance": "notification",
+      "actions": ["retry_connection", "view_details"],
+      "brandColor": "#d97757",
+      "source": "[INFERRED] Required for remote architecture"
+    },
+    {
+      "name": "BATCH_APPROVAL_AVAILABLE",
+      "description": "Multiple pending approvals can be batched",
+      "trigger": "Two or more similar approval requests pending",
+      "payload": {
+        "fields": [
+          { "name": "batchId", "type": "string", "required": true, "description": "Batch identifier" },
+          { "name": "requestCount", "type": "number", "required": true, "description": "Number of requests in batch" },
+          { "name": "requestType", "type": "string", "required": true, "description": "Type of requests", "enum": ["edit", "bash", "mixed"] },
+          { "name": "requests", "type": "array", "required": true, "description": "Individual request IDs", "items": { "type": "string" }},
+          { "name": "canApproveAll", "type": "boolean", "required": true, "description": "Whether all can be approved together" },
+          { "name": "timestamp", "type": "string", "required": true, "description": "ISO 8601 timestamp" }
+        ]
+      },
+      "priority": "high",
+      "watch_affordance": "inbox",
+      "actions": ["approve_all", "review_individually", "reject_all"],
+      "brandColor": "#d97757",
+      "source": "[INFERRED] Derived from permission system for batch UX"
+    }
+  ],
+  "watch_affordances": {
+    "notification": {
+      "description": "Immediate haptic + visual alert on watch face",
+      "haptic": "prominent",
+      "requires_action": true,
+      "auto_dismiss": false
+    },
+    "inbox": {
+      "description": "Added to approval inbox, badge count incremented",
+      "haptic": "subtle",
+      "requires_action": true,
+      "auto_dismiss": false
+    },
+    "glance": {
+      "description": "Updates status glance complication, no alert",
+      "haptic": "none",
+      "requires_action": false,
+      "auto_dismiss": true
+    },
+    "silent_log": {
+      "description": "Logged for history, no immediate visibility",
+      "haptic": "none",
+      "requires_action": false,
+      "auto_dismiss": true
+    }
+  },
+  "action_definitions": {
+    "approve": "Send approval for single permission request",
+    "approve_all_edits": "Approve and switch to acceptEdits mode for session",
+    "approve_pattern": "Approve and add command pattern to allowed list",
+    "approve_all": "Approve all items in batch",
+    "reject": "Deny single permission request",
+    "reject_all": "Deny all items in batch",
+    "request_change": "Reject with instruction for Claude to revise",
+    "stop": "Stop/cancel running task",
+    "stop_agent": "Stop sub-agent execution",
+    "retry": "Retry failed operation",
+    "dismiss": "Acknowledge and remove from view",
+    "view_details": "Open detailed view",
+    "view_on_desktop": "Bring desktop app to foreground",
+    "escalate_to_desktop": "Flag for desktop attention",
+    "compact_now": "Trigger immediate context compaction",
+    "change_mode": "Open mode selection interface",
+    "confirm": "Confirm current state/action",
+    "refresh": "Request fresh status update",
+    "resume_session": "Resume ended session",
+    "select_option": "V2.0: Select single option for question",
+    "select_multiple": "V2.0: Select multiple options for question",
+    "input_other": "V2.0: Provide custom input via voice/text",
+    "view_progress": "V2.0: View todo progress",
+    "view_agent": "View sub-agent details",
+    "view_task": "View task details",
+    "view_result": "View completion result",
+    "quick_undo": "V2.0: Rewind to most recent checkpoint"
+  },
+  "priority_levels": {
+    "critical": {
+      "description": "Requires immediate user attention, blocks progress",
+      "watch_behavior": "Full haptic burst, persistent notification until acted upon",
+      "timeout_action": "Escalate to desktop after 60 seconds"
+    },
+    "high": {
+      "description": "Important but not blocking, should be seen soon",
+      "watch_behavior": "Standard haptic, notification with 5-minute auto-dismiss",
+      "timeout_action": "Move to inbox"
+    },
+    "medium": {
+      "description": "Informational, review when convenient",
+      "watch_behavior": "Subtle haptic or none, glance update",
+      "timeout_action": "Auto-dismiss after 15 minutes"
+    },
+    "low": {
+      "description": "Background information, no immediate action needed",
+      "watch_behavior": "Silent, logged only",
+      "timeout_action": "Purge from history after 24 hours"
+    }
+  },
+  "brand_colors": {
+    "anthropic_dark": "#141413",
+    "anthropic_light": "#faf9f5",
+    "anthropic_orange": "#d97757",
+    "anthropic_blue": "#6a9bcc",
+    "anthropic_green": "#788c5d",
+    "anthropic_mid_gray": "#b0aea5",
+    "system_red": "#FF3B30",
+    "system_purple": "#AF52DE"
+  }
+}
