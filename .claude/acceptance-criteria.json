@@ -1,0 +1,64 @@
+{
+  "$schema": "./acceptance-criteria.schema.json",
+  "description": "Project-level acceptance criteria for Claude Watch (watchOS)",
+
+  "file_extensions": [".swift"],
+  "max_attempts": 4,
+
+  "build_command": "xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm)' -quiet build",
+  "test_command": "xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm)' test",
+  "lint_command": "swiftlint lint --path {file} --quiet",
+
+  "build_timeout": 300,
+  "test_timeout": 600,
+
+  "checks": [
+    {
+      "type": "no_force_unwrap",
+      "description": "Prevent force unwrapping in Swift code",
+      "severity": "error"
+    },
+    {
+      "type": "pattern_absent",
+      "pattern": "TODO:|FIXME:|HACK:",
+      "message": "Remove TODO/FIXME/HACK comments before completing",
+      "severity": "warning"
+    }
+  ],
+
+  "task_templates": {
+    "fix_ui_overflow": {
+      "description": "Template for fixing UI overflow/truncation issues",
+      "checks": [
+        { "type": "no_force_unwrap" },
+        { "type": "contains", "text": "lineLimit" },
+        { "type": "contains", "text": "truncationMode" },
+        { "type": "build" }
+      ]
+    },
+    "fix_layout": {
+      "description": "Template for fixing layout issues",
+      "checks": [
+        { "type": "no_force_unwrap" },
+        { "type": "build" }
+      ]
+    },
+    "new_view": {
+      "description": "Template for creating new SwiftUI views",
+      "checks": [
+        { "type": "no_force_unwrap" },
+        { "type": "pattern_present", "pattern": "struct\\s+\\w+:\\s*View", "message": "View must conform to View protocol" },
+        { "type": "pattern_present", "pattern": "var\\s+body:\\s*some\\s+View", "message": "View must have body property" },
+        { "type": "build" }
+      ]
+    },
+    "design_system_update": {
+      "description": "Template for design system changes",
+      "checks": [
+        { "type": "no_force_unwrap" },
+        { "type": "pattern_absent", "pattern": "#[0-9A-Fa-f]{6}", "message": "Use Claude.swift color constants, not hardcoded hex" },
+        { "type": "build" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "$comment": "Task Criteria Template - Copy to .claude/tasks/{task-id}/criteria.json",
+
+  "task_id": "example-task-id",
+  "description": "Description of what this task accomplishes",
+
+  "max_attempts": 4,
+
+  "checks": [
+    {
+      "type": "pattern_absent",
+      "pattern": "TODO|FIXME|HACK",
+      "message": "Resolve all TODO/FIXME/HACK comments before completion"
+    },
+    {
+      "type": "no_force_unwrap",
+      "$comment": "Swift-specific: prevents force unwrapping (!)"
+    },
+    {
+      "type": "lint",
+      "$comment": "Uses lint_command from project config if no command specified"
+    },
+    {
+      "type": "build",
+      "$comment": "Uses build_command from project config if no command specified",
+      "timeout": 300
+    },
+    {
+      "type": "test",
+      "$comment": "Uses test_command from project config if no command specified",
+      "timeout": 600
+    },
+    {
+      "type": "files_modified",
+      "files": ["ClaudeWatch/Views/Example.swift"],
+      "$comment": "Verify expected files were actually modified"
+    },
+    {
+      "type": "transcript_contains",
+      "text": "successfully implemented",
+      "message": "Agent should confirm successful implementation"
+    },
+    {
+      "type": "custom",
+      "command": "echo 'custom validation'",
+      "message": "Custom check failed",
+      "timeout": 60
+    }
+  ],
+
+  "$available_check_types": {
+    "lightweight_per_edit": [
+      "pattern_absent - Fail if regex pattern found in file",
+      "pattern_present - Fail if regex pattern NOT found in file",
+      "contains - Fail if text NOT in file",
+      "not_contains - Fail if text IS in file",
+      "no_force_unwrap - Swift: fail if force unwrap (!) detected",
+      "lint - Run lint command (swiftlint, eslint, etc.)",
+      "custom - Run arbitrary command"
+    ],
+    "full_on_task_completion": [
+      "build - Run build command",
+      "test - Run test command",
+      "transcript_contains - Check agent output contains text",
+      "transcript_not_contains - Check agent output does NOT contain text",
+      "files_modified - Verify specific files were changed",
+      "custom - Run arbitrary command"
+    ]
+  },
+
+  "$bug_discovery_markers": {
+    "description": "Agents can report discovered bugs using these markers in their output",
+    "markers": [
+      "DISCOVERED_BUG: [P1] description of the bug",
+      "FOUND_ISSUE: [P2] description of the issue",
+      "ADJACENT_BUG: description (defaults to P2)",
+      "NOTE_FOR_LATER: description (defaults to P2)"
+    ],
+    "priorities": {
+      "P0": "Critical - blocks user, data loss risk",
+      "P1": "High - major functionality broken",
+      "P2": "Medium - important but workaround exists",
+      "P3": "Low - minor issue, cosmetic"
+    }
+  }
+}
