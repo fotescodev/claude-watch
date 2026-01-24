@@ -1,68 +1,51 @@
 # Session State - Claude Watch V2
 
 > Last updated: 2026-01-23
-> Session: V2 Backend Implementation + Testing
+> Session: V2 View Transitions Verified ✅
 
 ## Current Phase
 
-**Phase 10: V2 Redesign** - ~90% complete
+**Phase 10: V2 Redesign** - ~95% complete
 
 ## What Was Done This Session
 
-### 1. F16/F18 Backend Implementation ✅
-- Created `.claude/hooks/question-handler.py` (PreToolUse for AskUserQuestion)
-- Created `.claude/hooks/context-warning.py` (PostToolUse for context detection)
-- Added worker endpoints: `/question`, `/question/:id/respond`, `/context-warning`, `/context/:pairingId`
-- Added `PendingQuestion` and `ContextWarning` models to WatchService
-- Wired up `handleQuestionNotification()` and `handleContextWarningNotification()` methods
-- Registered hooks in `.claude/settings.json`
+### 1. Debugged and Verified F16/F18 View Transitions ✅
+- Added debug logging (NSLog) to trace notification handling
+- Confirmed `handleQuestionNotification()` and `handleContextWarningNotification()` are called correctly
+- Verified `pendingQuestion` and `contextWarning` are being set properly
+- **View transitions from notifications ARE WORKING**
+- Cleaned up debug logging after verification
 
-### 2. MainView State Routing ✅
-- Added `question` and `contextWarning` cases to ViewState enum
-- Updated `currentViewState` to check for `pendingQuestion` and `contextWarning`
-- Views route to QuestionResponseView and ContextWarningView
+### 2. Test Results ✅
+- **F18 QuestionResponseView**: Shows correctly with question text, "Mac" and "Accept" buttons
+- **F16 ContextWarningView**: Shows correctly with percentage (85%), warning color, and "OK" button
+- State priority in `currentViewState` works correctly:
+  - Question > Context Warning > Session Progress > Approval Queue
 
-### 3. Notification Handling ✅
-- Updated `ClaudeWatchApp.swift` to handle `type: "question"` and `type: "context_warning"`
-- Both `willPresent` (foreground) and `didReceive` (tap) handlers updated
+### 3. Test Screenshots
+- `/tmp/watch-after-question.png` - QuestionResponseView working
+- `/tmp/watch-context-warning.png` - ContextWarningView working
 
-### 4. Test Infrastructure ✅
-- Created `scripts/test-v2-simulator.sh` for automated simulator testing
-- Sends test notifications for F18, F16, approvals
-- Takes screenshots for manual verification
+## What's Working ✅
 
-## What's NOT Working 🔴
-
-### View Transitions from Notifications
-**Symptom**: Notifications are received (verified in logs) but `QuestionResponseView` and `ContextWarningView` don't appear. App stays on the demo working view.
-
-**Investigation Needed**:
-1. Check if `handleQuestionNotification()` is being called (add print statements)
-2. Check if `pendingQuestion` is being set (guard statement may be failing)
-3. Check if `@Published` property changes are triggering view updates
-4. May need to check notification handling in foreground vs background
-
-**Key Files to Debug**:
-- `ClaudeWatch/App/ClaudeWatchApp.swift` (line 176-186) - willPresent handler
-- `ClaudeWatch/Services/WatchService.swift` (line 810-830) - handleQuestionNotification
-
-## Commits This Session
-
-```
-ecd5d06 Add F18/F16 notification handlers + automated test script
-44d5c5d Add F16/F18 backend: Question Response + Context Warning hooks
-```
+| Feature | Status | Notes |
+|---------|--------|-------|
+| F18: Question Response | ✅ Working | QuestionResponseView shows on notification |
+| F16: Context Warning | ✅ Working | ContextWarningView shows on notification |
+| Approval Queue | ✅ Working | Shows when 2+ pending actions |
+| Demo Mode | ✅ Working | Shows sample pending actions |
+| State-driven Views | ✅ Working | Correct priority handling |
 
 ## What's Left for V2
 
 | Item | Priority | Status |
 |------|----------|--------|
-| **Debug notification → view transitions** | P0 | 🔴 Blocked |
 | Test Controls in Control Center | P1 | Needs device |
 | Test Siri commands | P1 | Needs device |
 | Test Double Tap gesture | P1 | Needs device |
 | Separate Widget files | P2 | Not started |
 | Service refactoring | P3 | Not started |
+| Remove debug logging | ✅ Done | Cleaned up this session |
 
 ## Quick Commands for Next Session
 
@@ -71,13 +54,12 @@ ecd5d06 Add F18/F16 notification handlers + automated test script
 xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch \
   -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)' build
 
-# Launch on simulator
+# Install and launch on simulator
+xcrun simctl install "Apple Watch Series 11 (46mm)" \
+  /Users/dfotesco/Library/Developer/Xcode/DerivedData/ClaudeWatch-bbrrzhpllvbeclgkzndtqspahinu/Build/Products/Debug-watchsimulator/ClaudeWatch.app
 xcrun simctl launch "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch
 
-# Run automated test suite
-./scripts/test-v2-simulator.sh
-
-# Send test question notification
+# Send test F18 Question notification
 xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch - <<'EOF'
 {
   "aps": {"alert": {"title": "Question", "body": "Test"}, "sound": "default"},
@@ -88,18 +70,40 @@ xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch - <
 }
 EOF
 
+# Send test F16 Context Warning notification
+xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch - <<'EOF'
+{
+  "aps": {"alert": {"title": "Context Warning", "body": "85%"}, "sound": "default"},
+  "type": "context_warning",
+  "percentage": 85,
+  "threshold": 85
+}
+EOF
+
+# Run automated test suite
+./scripts/test-v2-simulator.sh
+
 # Check app logs
-xcrun simctl spawn "Apple Watch Series 11 (46mm)" log stream \
+xcrun simctl spawn "Apple Watch Series 11 (46mm)" log show --last 30s \
   --predicate 'processImagePath contains "ClaudeWatch"' --timeout 10
 ```
 
 ## Key Learnings
 
-1. **Simulator notifications work** - `xcrun simctl push` successfully delivers notifications to the watch simulator
-2. **Notification permissions** - Don't need explicit grants; notifications work once app requests authorization
-3. **Demo mode** - Useful for testing UI without cloud pairing, but may interfere with notification state updates
-4. **Category not required** - Notifications work without a registered category (banner still shows)
+1. **Swift print() vs NSLog()**: On watchOS, `print()` doesn't show in system logs. Use `NSLog()` for debugging with `xcrun simctl log`.
+2. **Demo mode interference**: Demo mode loads sample pending actions that can mask other UI states during testing.
+3. **State priority**: `currentViewState` correctly prioritizes Question > Context Warning > Approval Queue.
+4. **@Published works**: SwiftUI correctly re-renders when `@Published` properties change on `ObservableObject` singleton.
 
-## Files Changed (Uncommitted)
+## Commits This Session
 
-Run `git status` to see remaining uncommitted changes (mostly deletions of old files).
+```
+870054f Update session state: V2 backend done, view transitions need debugging
+ecd5d06 Add F18/F16 notification handlers + automated test script
+44d5c5d Add F16/F18 backend: Question Response + Context Warning hooks
+```
+
+## Files Modified (Uncommitted)
+
+- `ClaudeWatch/Services/WatchService.swift` - Cleaned up debug logging
+- `ClaudeWatch/App/ClaudeWatchApp.swift` - Cleaned up debug logging
