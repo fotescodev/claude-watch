@@ -13,6 +13,11 @@ import {
   isClaudeWatchConfigured,
   getMCPConfigPath,
 } from "../config/mcp-config.js";
+import {
+  setupHook,
+  isHookConfigured,
+  getInstalledHookPath,
+} from "../config/hooks-config.js";
 import { createLocalPairing } from "../cloud/pairing.js";
 import { CloudClient } from "../cloud/client.js";
 
@@ -31,7 +36,7 @@ function showHeader(): void {
  * Check if already configured
  */
 async function checkExistingConfig(): Promise<boolean> {
-  if (isPaired() && isClaudeWatchConfigured()) {
+  if (isPaired() && isClaudeWatchConfigured() && isHookConfigured()) {
     const config = readPairingConfig();
     console.log(chalk.yellow("  Already configured!"));
     console.log();
@@ -208,18 +213,34 @@ async function runLocalSetup(): Promise<string> {
 }
 
 /**
- * Configure Claude Code
+ * Configure Claude Code (MCP server and PreToolUse hook)
  */
 function configureClaude(): void {
-  const spinner = ora("Configuring Claude Code...").start();
-
+  // Configure MCP server
+  const mcpSpinner = ora("Configuring MCP server...").start();
   try {
     addClaudeWatchServer();
-    spinner.succeed("Claude Code configured");
-    console.log();
+    mcpSpinner.succeed("MCP server configured");
     console.log(`  Config: ${chalk.dim(getMCPConfigPath())}`);
   } catch (error) {
-    spinner.fail("Failed to configure Claude Code");
+    mcpSpinner.fail("Failed to configure MCP server");
+    console.error(error);
+  }
+
+  // Install and register PreToolUse hook
+  const hookSpinner = ora("Installing approval hook...").start();
+  try {
+    const result = setupHook();
+    if (result.installed && result.registered) {
+      hookSpinner.succeed("Approval hook installed");
+      console.log(`  Hook:   ${chalk.dim(getInstalledHookPath())}`);
+    } else if (!result.installed) {
+      hookSpinner.fail("Failed to install hook script");
+    } else {
+      hookSpinner.fail("Failed to register hook");
+    }
+  } catch (error) {
+    hookSpinner.fail("Failed to configure hook");
     console.error(error);
   }
 }

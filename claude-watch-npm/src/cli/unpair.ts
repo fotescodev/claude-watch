@@ -10,6 +10,11 @@ import {
   isClaudeWatchConfigured,
   getMCPConfigPath,
 } from "../config/mcp-config.js";
+import {
+  removeHook,
+  isHookConfigured,
+  getInstalledHookPath,
+} from "../config/hooks-config.js";
 
 /**
  * Remove Claude Watch configuration
@@ -21,8 +26,9 @@ export async function runUnpair(): Promise<void> {
 
   const paired = isPaired();
   const claudeConfigured = isClaudeWatchConfigured();
+  const hookConfigured = isHookConfigured();
 
-  if (!paired && !claudeConfigured) {
+  if (!paired && !claudeConfigured && !hookConfigured) {
     console.log(chalk.dim("  No configuration found."));
     console.log();
     return;
@@ -38,6 +44,10 @@ export async function runUnpair(): Promise<void> {
   if (claudeConfigured) {
     console.log(`    ${chalk.yellow("•")} Claude Code MCP server entry`);
     console.log(`      ${chalk.dim(getMCPConfigPath())}`);
+  }
+  if (hookConfigured) {
+    console.log(`    ${chalk.yellow("•")} PreToolUse approval hook`);
+    console.log(`      ${chalk.dim(getInstalledHookPath())}`);
   }
   console.log();
 
@@ -72,6 +82,15 @@ export async function runUnpair(): Promise<void> {
       console.log(chalk.green("  ✓ Claude Code MCP server entry removed"));
     } catch (error) {
       console.log(chalk.red("  ✗ Failed to remove MCP server entry"));
+    }
+  }
+
+  if (hookConfigured) {
+    try {
+      removeHook();
+      console.log(chalk.green("  ✓ PreToolUse approval hook removed"));
+    } catch (error) {
+      console.log(chalk.red("  ✗ Failed to remove approval hook"));
     }
   }
 

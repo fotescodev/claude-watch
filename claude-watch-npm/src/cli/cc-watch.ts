@@ -8,6 +8,11 @@ import {
   savePairingConfig,
   createPairingConfig,
 } from "../config/pairing-store.js";
+import {
+  isHookConfigured,
+  setupHook,
+  getInstalledHookPath,
+} from "../config/hooks-config.js";
 import { CloudClient } from "../cloud/client.js";
 import type { SessionState, WatchMessage } from "../types/index.js";
 
@@ -468,10 +473,22 @@ export async function runCcWatch(): Promise<void> {
   if (paired && config) {
     // Already paired - use existing config
     console.log(chalk.dim(`  Already paired: ${config.pairingId}`));
-    console.log();
 
     pairingId = config.pairingId;
     cloudUrl = config.cloudUrl;
+
+    // Ensure hook is installed
+    if (!isHookConfigured()) {
+      console.log();
+      const hookSpinner = ora("Installing approval hook...").start();
+      const result = setupHook();
+      if (result.installed && result.registered) {
+        hookSpinner.succeed("Approval hook installed");
+      } else {
+        hookSpinner.warn("Hook installation incomplete");
+      }
+    }
+    console.log();
 
     // Verify connectivity
     const cloudConnected = await verifyCloud(cloudUrl);
@@ -524,6 +541,18 @@ export async function runCcWatch(): Promise<void> {
 
     console.log();
     console.log(chalk.green("  Pairing saved!"));
+
+    // Install hook if not already configured
+    if (!isHookConfigured()) {
+      const hookSpinner = ora("Installing approval hook...").start();
+      const result = setupHook();
+      if (result.installed && result.registered) {
+        hookSpinner.succeed("Approval hook installed");
+        console.log(chalk.dim(`  Hook: ${getInstalledHookPath()}`));
+      } else {
+        hookSpinner.warn("Hook installation incomplete - approvals may not work");
+      }
+    }
   }
 
   // Prompt for task and run Claude with watch support
