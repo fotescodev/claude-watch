@@ -1472,3 +1472,570 @@ To investigate:
       - happy-learning
       - performance
     commit_template: "perf(service): Add activity batching for smoother updates"
+  # ═══════════════════════════════════════════════════════════════════════════
+  # E2E TESTING BUGS - 2026-01-24
+  # Discovered during comprehensive cloud + simulator testing session
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: "E2E-P0-1"
+    title: "Fix PostToolUse hooks not firing during Claude Code sessions"
+    description: |
+      CRITICAL BUG: PostToolUse hooks are registered in settings.json but
+      not being invoked by Claude Code at runtime.
+
+      SYMPTOMS:
+      - Hook debug log (~/.claude-watch-hook-debug.log) never created
+      - progress-tracker.py never executes during tool use
+      - Watch shows "idle" even during active coding sessions
+      - Manual curl to /session-progress works, but automatic sync doesn't
+
+      ROOT CAUSE INVESTIGATION NEEDED:
+      1. Check if Claude Code restart is required after settings.json changes
+      2. Verify hook matcher pattern is correct: "Read|Write|Edit|Grep|Glob|Bash|TodoWrite|TaskCreate|TaskUpdate|TaskList"
+      3. Test hook execution with debug logging:
+         ```python
+         # Add to top of progress-tracker.py
+         with open("/tmp/hook-fired.log", "a") as f:
+             f.write(f"{datetime.now()}: Hook fired\n")
+         ```
+      4. Check Claude Code version compatibility with PostToolUse hooks
+
+      VERIFICATION:
+      ```bash
+      # During active session, this file should exist and update
+      cat /tmp/hook-fired.log
+      ```
+
+      WORKAROUND (current):
+      Manual sync via curl to /session-progress endpoint.
+
+      PRIORITY: P0 - This blocks all automatic watch sync features
+    priority: critical
+    parallel_group: 1
+    completed: false
+    verification: |
+      [ -f /tmp/hook-fired.log ] && [ $(wc -l < /tmp/hook-fired.log) -gt 0 ]
+    acceptance_criteria:
+      - "Hook debug log created during Claude Code session"
+      - "progress-tracker.py executes on each tool use"
+      - "Watch receives automatic progress updates"
+      - "No manual curl required for sync"
+    files:
+      - ".claude/settings.json"
+      - ".claude/hooks/progress-tracker.py"
+    tags:
+      - bug
+      - critical
+      - e2e-testing
+      - hooks
+    commit_template: "fix(hooks): PostToolUse hooks now fire correctly"
+  - id: "E2E-P0-2"
+    title: "Fix watch showing 'Idle' status during active sessions"
+    description: |
+      BUG: Watch displays "Session idle for X minutes" while actively
+      working with Claude Code.
+
+      SYMPTOMS:
+      - StatusHeader shows "Session Idle" with timer
+      - Even during rapid tool use (Read, Edit, Grep)
+      - "6 minutes idle" displayed during active conversation
+      - Caused by E2E-P0-1 (hooks not firing)
+
+      ROOT CAUSE:
+      - progressStaleThreshold = 300 seconds (5 minutes)
+      - No progress updates received (hooks not firing)
+      - Watch assumes idle when no recent /session-progress data
+
+      FIX (after E2E-P0-1 resolved):
+      1. Ensure heartbeat sent on every tool use
+      2. Add fallback polling from watch to /session-progress/:pairingId
+      3. Consider shorter staleness threshold for "thinking" state
+
+      DATA FLOW:
+      ```
+      Tool use → Hook → /session-progress → APNs → Watch
+                                ↓
+                        KV: progress:${pairingId}
+      ```
+
+      FALLBACK POLLING (if hooks unreliable):
+      Add timer in WatchService to poll /session-progress every 30s
+      when session is active.
+    priority: critical
+    parallel_group: 1
+    completed: false
+    depends_on:
+      - "E2E-P0-1"
+    verification: |
+      # During active Claude session, watch should not show "idle"
+      echo "Manual verification - watch shows Working state"
+    acceptance_criteria:
+      - "Watch shows 'Working' during active tool use"
+      - "Progress updates arrive within 5 seconds of tool use"
+      - "No false 'idle' states during active sessions"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+      - "ClaudeWatch/Views/MainView.swift"
+      - ".claude/hooks/progress-tracker.py"
+    tags:
+      - bug
+      - critical
+      - e2e-testing
+      - status
+    commit_template: "fix(status): Show Working state during active sessions"
+  - id: "E2E-P0-3"
+    title: "Fix task list not syncing to watch automatically"
+    description: |
+      BUG: Watch task list shows stale data or "Test task" placeholder
+      instead of real task list from Claude Code.
+
+      SYMPTOMS:
+      - TaskCreate in terminal doesn't appear on watch
+      - TaskUpdate status changes not reflected
+      - Watch may show old/test data from previous sessions
+      - Manual curl sync works, automatic sync doesn't
+
+      ROOT CAUSE: E2E-P0-1 (hooks not firing)
+
+      IMPLEMENTATION (in progress-tracker.py):
+      ```python
+      def handle_task_tools(tool_name, tool_input):
+          if tool_name == "TaskCreate":
+              task = extract_task(tool_input)
+              tasks = load_task_state()
+              tasks.append(task)
+              save_task_state(tasks)
+              send_to_cloud(tasks)
+          elif tool_name == "TaskUpdate":
+              task_id = tool_input.get("taskId")
+              updates = extract_updates(tool_input)
+              tasks = update_task_in_state(task_id, updates)
+              send_to_cloud(tasks)
+      ```
+
+      LOCAL STATE FILE: ~/.claude-watch-tasks.json
+      - Persists tasks between hook invocations
+      - Synced to cloud on each update
+
+      CLOUD PAYLOAD:
+      ```json
+      {
+        "pairingId": "...",
+        "tasks": [
+          {"id": "1", "subject": "Task 1", "status": "completed"},
+          {"id": "2", "subject": "Task 2", "status": "in_progress"}
+        ]
+      }
+      ```
+    priority: critical
+    parallel_group: 1
+    completed: false
+    depends_on:
+      - "E2E-P0-1"
+    verification: |
+      # Create task in Claude, verify watch shows it
+      echo "Manual verification - create TaskCreate, check watch"
+    acceptance_criteria:
+      - "TaskCreate appears on watch within 5 seconds"
+      - "TaskUpdate status changes reflected on watch"
+      - "Task list persists in ~/.claude-watch-tasks.json"
+      - "Watch shows expandable task list during Working state"
+    files:
+      - ".claude/hooks/progress-tracker.py"
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - bug
+      - critical
+      - e2e-testing
+      - tasks
+    commit_template: "fix(tasks): Auto-sync task list to watch"
+  - id: "E2E-P1-1"
+    title: "Fix History not recording context warnings"
+    description: |
+      BUG: Context warnings (e.g., "Context at 80%") don't appear in
+      the History view's activity log.
+
+      SYMPTOMS:
+      - Context warning notification received
+      - Warning not added to ActivityStore
+      - History shows other events but not context warnings
+
+      INVESTIGATION:
+      1. Check if /context endpoint exists on cloud worker (returns 404)
+      2. Verify ActivityStore.recordContextWarning() is called
+      3. Check notification handler in ClaudeWatchApp for "context" type
+
+      IMPLEMENTATION:
+      1. Add /context endpoint to Cloudflare worker:
+         ```typescript
+         router.post('/context', async (request, env) => {
+           const { pairingId, percentage, message } = await request.json();
+           // Send APNs notification with type: "context"
+         });
+         ```
+
+      2. Handle "context" notification type in ClaudeWatchApp:
+         ```swift
+         case "context":
+           let percentage = userInfo["percentage"] as? Int ?? 0
+           ActivityStore.shared.recordContextWarning(percentage: percentage)
+         ```
+
+      3. Add hook to detect context warnings:
+         - Could use SubagentStop hook
+         - Or add to progress-tracker.py with context detection
+
+      REFERENCE:
+      - ClaudeWatch/Services/ActivityStore.swift:132-140 (recordContextWarning)
+      - ClaudeWatch/Views/HistoryView.swift
+    priority: high
+    parallel_group: 2
+    completed: false
+    verification: |
+      grep -q "context" claude-watch-cloud/src/index.ts
+    acceptance_criteria:
+      - "/context endpoint exists on cloud worker"
+      - "Context warnings appear in History view"
+      - "ActivityStore.recordContextWarning called correctly"
+      - "Events persist across app restarts"
+    files:
+      - "claude-watch-cloud/src/index.ts"
+      - "ClaudeWatch/App/ClaudeWatchApp.swift"
+      - ".claude/hooks/progress-tracker.py"
+    tags:
+      - bug
+      - high
+      - e2e-testing
+      - history
+    commit_template: "fix(history): Record context warnings in activity log"
+  - id: "E2E-P1-2"
+    title: "Add missing /question endpoint to cloud worker"
+    description: |
+      BUG: Question flow returns 404 - endpoint missing from cloud worker.
+
+      SYMPTOMS:
+      - POST /question returns 404
+      - Questions never reach the watch
+      - AskUserQuestion tool can't route to watch
+
+      IMPLEMENTATION:
+      Add question flow endpoints to cloud worker:
+
+      ```typescript
+      // Create question request
+      router.post('/question', async (request, env) => {
+        const { pairingId, questionId, question, options } = await request.json();
+
+        // Store in KV
+        await env.WATCH_KV.put(`question:${pairingId}:${questionId}`, JSON.stringify({
+          question, options, timestamp: Date.now(), status: 'pending'
+        }));
+
+        // Queue for watch
+        const queue = JSON.parse(await env.WATCH_KV.get(`question-queue:${pairingId}`) || '[]');
+        queue.push(questionId);
+        await env.WATCH_KV.put(`question-queue:${pairingId}`, JSON.stringify(queue));
+
+        // Send APNs notification
+        await sendPush(pairingId, {
+          type: 'question',
+          questionId,
+          question,
+          optionCount: options.length
+        });
+
+        return new Response(JSON.stringify({ success: true, questionId }));
+      });
+
+      // Watch responds to question
+      router.post('/question/:questionId', async (request, env) => {
+        const { answer } = await request.json();
+        // Store answer, remove from queue
+      });
+
+      // Hook polls for answer
+      router.get('/question/:pairingId/:questionId', async (request, env) => {
+        const data = await env.WATCH_KV.get(`question:${pairingId}:${questionId}`);
+        return new Response(data);
+      });
+      ```
+
+      WATCH UI:
+      - Already has QuestionResponseView.swift
+      - Needs to handle "question" notification type
+
+      HOOK:
+      - question-handler.py exists in PreToolUse
+      - Needs to call /question endpoint and poll for answer
+    priority: high
+    parallel_group: 2
+    completed: false
+    verification: |
+      curl -s https://claude-watch.fotescodev.workers.dev/question -X POST -d '{}' | grep -v 404
+    acceptance_criteria:
+      - "POST /question endpoint returns 200"
+      - "Questions stored in KV with pending status"
+      - "APNs notification sent to watch"
+      - "Watch can respond to questions"
+      - "Hook receives answer via polling"
+    files:
+      - "claude-watch-cloud/src/index.ts"
+      - ".claude/hooks/question-handler.py"
+      - "ClaudeWatch/App/ClaudeWatchApp.swift"
+    tags:
+      - bug
+      - high
+      - e2e-testing
+      - questions
+    commit_template: "feat(cloud): Add /question endpoint for watch questions"
+  - id: "E2E-P1-3"
+    title: "Fix silent push not updating foreground UI"
+    description: |
+      BUG: Silent push notifications (content-available: 1) don't
+      trigger UI updates when app is in foreground.
+
+      SYMPTOMS:
+      - Progress updates sent as silent push
+      - Watch doesn't update until user interacts
+      - Works when using alert-style notifications
+
+      ROOT CAUSE:
+      - Silent push requires didReceiveRemoteNotification delegate
+      - NOT handled by willPresent (for alert-style only)
+      - See: docs/solutions/integration-issues/watchos-silent-push-ui-update.md
+
+      FIX OPTIONS:
+
+      Option A: Use alert-style for all notifications
+      ```json
+      {
+        "aps": {
+          "alert": {"title": "Progress", "body": "Working on task"},
+          "sound": "default"
+        },
+        "type": "progress",
+        "data": {...}
+      }
+      ```
+      Downside: Noisy for user
+
+      Option B: Implement didReceiveRemoteNotification
+      ```swift
+      func application(_ application: WKApplication,
+                       didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+                       fetchCompletionHandler: @escaping (WKBackgroundFetchResult) -> Void) {
+        // Handle silent push
+        processProgressUpdate(userInfo)
+        fetchCompletionHandler(.newData)
+      }
+      ```
+
+      Option C: Hybrid approach
+      - Use silent push for progress updates (background refresh)
+      - Use alert for action requests (needs user attention)
+      - Add polling as fallback
+
+      RECOMMENDED: Option C (hybrid)
+
+      REFERENCE:
+      - docs/solutions/integration-issues/watchos-silent-push-ui-update.md
+    priority: high
+    parallel_group: 2
+    completed: false
+    verification: |
+      grep -q "didReceiveRemoteNotification" ClaudeWatch/App/ClaudeWatchApp.swift
+    acceptance_criteria:
+      - "Silent push updates UI in foreground"
+      - "Progress updates don't require user interaction"
+      - "Action requests still use alert-style"
+      - "Background refresh works correctly"
+    files:
+      - "ClaudeWatch/App/ClaudeWatchApp.swift"
+      - "claude-watch-cloud/src/index.ts"
+    tags:
+      - bug
+      - high
+      - e2e-testing
+      - notifications
+    commit_template: "fix(notifications): Handle silent push in foreground"
+  - id: "E2E-P2-1"
+    title: "Re-enable Bash approval hook for watch mode"
+    description: |
+      BUG: Bash PreToolUse hook is disabled in settings.json, marked
+      with "_DISABLED_FOR_TESTING_" prefix.
+
+      CURRENT STATE (line 109):
+      ```json
+      "matcher": "_DISABLED_FOR_TESTING_Bash|Write|Edit|MultiEdit|..."
+      ```
+
+      SHOULD BE:
+      ```json
+      "matcher": "Bash|Write|Edit|MultiEdit|..."
+      ```
+
+      REASON FOR DISABLE:
+      - Was disabled during local development
+      - Prevents interruption of development workflow
+      - Should be re-enabled when using watch approval mode
+
+      FIX:
+      1. Edit .claude/settings.json
+      2. Remove "_DISABLED_FOR_TESTING_" prefix from Bash
+      3. Restart Claude Code session
+
+      ALTERNATIVE:
+      Create toggle script that enables/disables Bash hook:
+      ```bash
+      # .claude/hooks/toggle-bash-approval.sh
+      if grep -q "_DISABLED_FOR_TESTING_Bash" .claude/settings.json; then
+        sed -i '' 's/_DISABLED_FOR_TESTING_Bash/Bash/' .claude/settings.json
+        echo "Bash approval enabled"
+      else
+        sed -i '' 's/"Bash|/"_DISABLED_FOR_TESTING_Bash|/' .claude/settings.json
+        echo "Bash approval disabled"
+      fi
+      ```
+
+      NOTE: Only relevant when CLAUDE_WATCH_SESSION_ACTIVE=1 is set
+      (session isolation already implemented in hooks)
+    priority: medium
+    parallel_group: 3
+    completed: false
+    verification: |
+      grep -q '"Bash|Write|Edit' .claude/settings.json
+    acceptance_criteria:
+      - "Bash commands require watch approval"
+      - "Only when CLAUDE_WATCH_SESSION_ACTIVE=1"
+      - "Toggle script available for enable/disable"
+    files:
+      - ".claude/settings.json"
+    tags:
+      - bug
+      - medium
+      - e2e-testing
+      - configuration
+    commit_template: "fix(hooks): Re-enable Bash approval for watch mode"
+  - id: "E2E-P2-2"
+    title: "Tune progress staleness threshold for better UX"
+    description: |
+      ISSUE: Progress staleness threshold was 60 seconds (too aggressive),
+      extended to 300 seconds (may be too long).
+
+      CURRENT BEHAVIOR:
+      - After 300 seconds with no progress update, watch shows "Idle"
+      - During long-running operations (builds, tests), watch may timeout
+      - User sees misleading "idle" status
+
+      OPTIMAL UX:
+      - Show "Working" during any active Claude session
+      - Show "Thinking..." when Claude is processing (no tool use)
+      - Show "Idle" only when truly no session active
+
+      IMPLEMENTATION:
+      1. Reduce staleness to 120 seconds for "Working" → "Thinking" transition
+      2. Add separate "Thinking" state when no recent tool use but session active
+      3. Only show "Idle" when session explicitly ended or very stale (10+ min)
+
+      STATE MACHINE:
+      ```
+      Working (tool use within 30s)
+          ↓ no tool for 30s
+      Thinking (session active, no recent tools)
+          ↓ no update for 120s
+      Idle (stale or no session)
+      ```
+
+      CODE CHANGE:
+      ```swift
+      private let workingThreshold: TimeInterval = 30
+      private let thinkingThreshold: TimeInterval = 120
+      private let idleThreshold: TimeInterval = 600
+
+      var sessionDisplayState: SessionDisplayState {
+          guard let lastUpdate = lastProgressUpdate else { return .idle }
+          let elapsed = Date().timeIntervalSince(lastUpdate)
+
+          if elapsed < workingThreshold { return .working }
+          if elapsed < thinkingThreshold { return .thinking }
+          if elapsed < idleThreshold { return .thinking } // Still show thinking
+          return .idle
+      }
+      ```
+    priority: medium
+    parallel_group: 3
+    completed: false
+    verification: |
+      grep -q "thinkingThreshold\|workingThreshold" ClaudeWatch/Services/WatchService.swift
+    acceptance_criteria:
+      - "Watch shows 'Thinking' during LLM processing"
+      - "Watch shows 'Working' during tool execution"
+      - "Watch shows 'Idle' only when truly idle"
+      - "Smooth transitions between states"
+    files:
+      - "ClaudeWatch/Services/WatchService.swift"
+      - "ClaudeWatch/Views/MainView.swift"
+    tags:
+      - enhancement
+      - medium
+      - e2e-testing
+      - ux
+    commit_template: "feat(status): Add Thinking state for better session awareness"
+  - id: "E2E-P2-3"
+    title: "History shows inflated task count (99 tasks)"
+    description: |
+      ISSUE: History view showed "99 tasks and 0 approvals" - confusing.
+
+      ROOT CAUSE:
+      - ActivityStore.currentSessionStats counts ALL .taskCompleted events
+      - This includes events from entire day, not current task list
+      - Preview/test data may have inflated the count
+
+      FIX OPTIONS:
+
+      Option A: Only count current session events
+      ```swift
+      var currentSessionStats: (tasks: Int, approvals: Int)? {
+          guard let sessionId = currentSessionId else { return nil }
+          let sessionEvents = events.filter { $0.sessionId == sessionId }
+          // Count from current session only
+      }
+      ```
+
+      Option B: Clear on session start
+      ```swift
+      func recordSessionStarted() {
+          // Clear old events for clean session
+          pruneEventsOlderThan(hours: 1)
+          // Start new session
+      }
+      ```
+
+      Option C: Show task list count, not event count
+      ```swift
+      // Show actual task list size, not completed event count
+      Text("\(taskList.count) tasks")
+      ```
+
+      RECOMMENDED: Option A (scope to current session)
+
+      UI COPY CHANGE:
+      - "99 tasks" → "3 tasks in list" (actual count)
+      - Or: "5 tasks completed" (clear it's historical)
+    priority: medium
+    parallel_group: 3
+    completed: false
+    verification: |
+      grep -q "currentSessionStats" ClaudeWatch/Services/ActivityStore.swift
+    acceptance_criteria:
+      - "Task count reflects current session only"
+      - "No inflated counts from old events"
+      - "UI copy is clear about what's being counted"
+    files:
+      - "ClaudeWatch/Services/ActivityStore.swift"
+      - "ClaudeWatch/Views/HistoryView.swift"
+    tags:
+      - bug
+      - medium
+      - e2e-testing
+      - history
+    commit_template: "fix(history): Scope task count to current session"
