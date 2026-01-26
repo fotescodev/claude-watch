@@ -33,6 +33,9 @@ class WatchService: ObservableObject {
     /// Maximum number of sessions to keep in history
     private let maxHistoryCount = 10
 
+    /// Activity store for F22 Session Dashboard
+    private let activityStore = ActivityStore.shared
+
     /// Track when session progress was last updated (for staleness check)
     var lastProgressUpdate: Date?
 
@@ -42,9 +45,10 @@ class WatchService: ObservableObject {
     /// Track if we already archived the current session (prevent duplicates)
     private var hasArchivedCurrentSession = false
 
-    /// Clear stale session progress (60s for in-progress, 3s for complete)
+    /// Clear stale session progress (5min for in-progress, 3s for complete)
     /// Complete state is a brief acknowledgment, then return to "Listening..."
-    private let progressStaleThreshold: TimeInterval = 60
+    /// Extended to 5 minutes since hooks send heartbeats and there can be gaps between tool calls
+    private let progressStaleThreshold: TimeInterval = 300
     private let completeStaleThreshold: TimeInterval = 3
 
     // MARK: - Foundation Models (On-Device AI)
@@ -687,16 +691,29 @@ class WatchService: ObservableObject {
     /// Approves a specific pending action and notifies the server.
     /// Optimistically removes the action from local state and provides haptic feedback.
     func approveAction(_ actionId: String) {
+        // Find the action before removing it (for activity recording)
+        let action = state.pendingActions.first { $0.id == actionId }
+
         send([
             "type": "action_response",
             "action_id": actionId,
             "approved": true
         ], priority: .high)
 
+        // F22: Record approval in activity store
+        if let action = action {
+            activityStore.recordApproval(type: action.type, title: action.title, approved: true)
+        }
+
         // Optimistic update
         state.pendingActions.removeAll { $0.id == actionId }
         if state.pendingActions.isEmpty {
-            state.status = .running
+            // V2 Fix: Return to idle unless there's active session progress
+            if sessionProgress == nil {
+                state.status = .idle
+            } else {
+                state.status = .running
+            }
         }
 
         // Clear the notification for this action
@@ -708,16 +725,29 @@ class WatchService: ObservableObject {
     /// Rejects a specific pending action and notifies the server.
     /// Optimistically removes the action from local state and provides haptic feedback.
     func rejectAction(_ actionId: String) {
+        // Find the action before removing it (for activity recording)
+        let action = state.pendingActions.first { $0.id == actionId }
+
         send([
             "type": "action_response",
             "action_id": actionId,
             "approved": false
         ], priority: .high)
 
+        // F22: Record rejection in activity store
+        if let action = action {
+            activityStore.recordApproval(type: action.type, title: action.title, approved: false)
+        }
+
         // Optimistic update
         state.pendingActions.removeAll { $0.id == actionId }
         if state.pendingActions.isEmpty {
-            state.status = .running
+            // V2 Fix: Return to idle unless there's active session progress
+            if sessionProgress == nil {
+                state.status = .idle
+            } else {
+                state.status = .running
+            }
         }
 
         // Clear the notification for this action
@@ -748,7 +778,12 @@ class WatchService: ObservableObject {
 
         // Optimistic update
         state.pendingActions.removeAll()
-        state.status = .running
+        // V2 Fix: Return to idle unless there's active session progress
+        if sessionProgress == nil {
+            state.status = .idle
+        } else {
+            state.status = .running
+        }
 
         // Clear ALL delivered notifications
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
@@ -762,6 +797,55 @@ class WatchService: ObservableObject {
         lastProgressUpdate = nil
         state.status = .idle
         hasArchivedCurrentSession = false
+    }
+
+    // MARK: - Emergency Stop (V2)
+
+    /// Emergency stop - rejects all pending approvals and ends session
+    /// Triggered by long press on Action Button
+    @MainActor
+    func emergencyStop() async {
+        // 1. Reject all pending approvals
+        let pendingIds = state.pendingActions.map { $0.id }
+        for actionId in pendingIds {
+            if useCloudMode && isPaired {
+                try? await respondToCloudRequest(actionId, approved: false)
+            } else {
+                rejectAction(actionId)
+            }
+        }
+        state.pendingActions.removeAll()
+
+        // 2. Send session end to CLI (via cloud API if connected)
+        if useCloudMode && isPaired {
+            // End session by stopping polling - CLI will detect disconnect
+            stopPolling()
+        }
+
+        // 3. Haptic feedback
+        playHaptic(.failure)
+
+        // 4. Clear session state
+        clearSessionProgress()
+
+        // 5. Return to unpaired state
+        unpair()
+
+        // Post notification for UI update
+        NotificationCenter.default.post(
+            name: Notification.Name("EmergencyStopTriggered"),
+            object: nil
+        )
+    }
+
+    /// Check if there's an approvable pending action (Tier 1-2)
+    var hasApprovablePending: Bool {
+        state.pendingActions.first?.tier.canApproveFromWatch ?? false
+    }
+
+    /// Get the first pending action for Action Button quick approve
+    var firstPendingAction: PendingAction? {
+        state.pendingActions.first
     }
 
     /// Responds to a question from Claude (F18: Question Response flow)
@@ -804,6 +888,11 @@ class WatchService: ObservableObject {
             ])
         }
 
+        // F22: Record question answered in activity store
+        if let question = pendingQuestion?.question {
+            activityStore.recordQuestion(question)
+        }
+
         // Clear the pending question
         pendingQuestion = nil
     }
@@ -811,15 +900,29 @@ class WatchService: ObservableObject {
     /// Handle incoming question from push notification (F18)
     func handleQuestionNotification(_ userInfo: [AnyHashable: Any]) {
         guard let questionId = userInfo["questionId"] as? String,
-              let question = userInfo["question"] as? String,
-              let recommended = userInfo["recommendedAnswer"] as? String else {
+              let question = userInfo["question"] as? String else {
             return
         }
+
+        // Parse options array (V2: binary choice)
+        var parsedOptions: [PendingQuestionOption] = []
+        if let optionsArray = userInfo["options"] as? [[String: Any]] {
+            for optDict in optionsArray.prefix(2) {  // V2: max 2 options
+                if let label = optDict["label"] as? String {
+                    let desc = optDict["description"] as? String
+                    parsedOptions.append(PendingQuestionOption(label: label, description: desc))
+                }
+            }
+        }
+
+        // Get recommended answer (first option label or explicit field)
+        let recommended = userInfo["recommendedAnswer"] as? String ?? parsedOptions.first?.label ?? "Yes"
 
         pendingQuestion = PendingQuestion(
             id: questionId,
             question: question,
-            recommendedAnswer: recommended
+            recommendedAnswer: recommended,
+            options: parsedOptions
         )
 
         playHaptic(.notification)
@@ -836,6 +939,9 @@ class WatchService: ObservableObject {
             percentage: percentage,
             threshold: threshold
         )
+
+        // F22: Record context warning in activity store
+        activityStore.recordContextWarning(percentage: percentage)
 
         // Play haptic based on severity
         if threshold >= 85 {
@@ -1089,7 +1195,9 @@ class WatchService: ObservableObject {
     /// - Parameter approved: Whether to approve (true) or reject (false) the request
     /// - Throws: `CloudError.serverError` if the server returns an error status code or the response is invalid
     func respondToCloudRequest(_ requestId: String, approved: Bool) async throws {
-        let url = URL(string: "\(cloudServerURL)/approval/\(requestId)")!
+        guard let url = URL(string: "\(cloudServerURL)/approval/\(requestId)") else {
+            throw CloudError.serverError(0)
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1110,7 +1218,13 @@ class WatchService: ObservableObject {
         // Update local state
         state.pendingActions.removeAll { $0.id == requestId }
         if state.pendingActions.isEmpty {
-            state.status = .running
+            // V2 Fix: Return to idle unless there's active session progress
+            // This prevents showing "Working... 0%" after approval
+            if sessionProgress == nil {
+                state.status = .idle
+            } else {
+                state.status = .running
+            }
         }
 
         // Clear delivered notifications for this request
@@ -1207,6 +1321,22 @@ class WatchService: ObservableObject {
     /// When stopped, PreToolUse hook will block all tool calls until resume.
     /// - Parameter action: The interrupt action (.stop, .resume, or .clear)
     func sendInterrupt(action: InterruptAction) async {
+        // Demo mode: toggle local state without API call
+        if isDemoMode {
+            await MainActor.run {
+                switch action {
+                case .stop:
+                    isSessionInterrupted = true
+                case .resume:
+                    isSessionInterrupted = false
+                case .clear:
+                    isSessionInterrupted = false
+                }
+            }
+            playHaptic(action == .stop ? .stop : .start)
+            return
+        }
+
         guard isPaired else { return }
 
         do {
@@ -1414,7 +1544,11 @@ class WatchService: ObservableObject {
         )
 
         await MainActor.run {
-            if totalCount > 0 {
+            // Handle both task progress (totalCount > 0) AND heartbeats (currentActivity present)
+            let hasTaskProgress = totalCount > 0
+            let hasHeartbeat = currentActivity.map { !$0.isEmpty } ?? false
+
+            if hasTaskProgress || hasHeartbeat {
                 // Route through batcher for smoother updates
                 activityBatcher?.add(newProgress)
             } else if sessionProgress != nil {
@@ -1445,16 +1579,36 @@ class WatchService: ObservableObject {
             return
         }
 
+        // F22: Detect session start
+        let isNewSession = sessionStartTime == nil && progress.totalCount > 0
+
         // Track session start for duration calculation
-        if sessionStartTime == nil && progress.totalCount > 0 {
+        if isNewSession {
             sessionStartTime = Date()
             hasArchivedCurrentSession = false
+            activityStore.recordSessionStarted()
+        }
+
+        // F22: Detect task completions by comparing with previous progress
+        if let previousProgress = sessionProgress {
+            let previousCompleted = Set(previousProgress.tasks.filter { $0.status == .completed }.map { $0.id })
+            let currentCompleted = Set(progress.tasks.filter { $0.status == .completed }.map { $0.id })
+            let newlyCompleted = currentCompleted.subtracting(previousCompleted)
+
+            for taskId in newlyCompleted {
+                if let task = progress.tasks.first(where: { $0.id == taskId }) {
+                    activityStore.recordTaskCompleted(task.content)
+                }
+            }
         }
 
         sessionProgress = progress
         lastProgressUpdate = Date()
 
         if isComplete && !hasArchivedCurrentSession {
+            // F22: Record session end
+            activityStore.recordSessionEnded()
+
             // Archive to history
             let duration = sessionStartTime.map { Date().timeIntervalSince($0) } ?? TimeInterval(progress.elapsedSeconds)
             let completedSession = CompletedSession(
@@ -1604,42 +1758,61 @@ class WatchService: ObservableObject {
         // Simulate connected state
         connectionStatus = .connected
 
-        // Set up a running task
+        // Set up a running task (V2: use sessionProgress for WorkingView)
         state.taskName = "Refactoring auth module"
         state.taskDescription = "Updating authentication to use OAuth2"
-        state.progress = 0.45
-        state.status = .waiting
+        state.status = .running
         state.model = "opus"
         // Preserve persisted mode (don't overwrite with .normal)
 
-        // Add some pending actions
+        // V2: Set sessionProgress to trigger WorkingView
+        sessionProgress = SessionProgress(
+            currentTask: "Refactoring auth module",
+            currentActivity: "Updating models",
+            progress: 0.45,
+            completedCount: 2,
+            totalCount: 5,
+            elapsedSeconds: 127,
+            tasks: [
+                TodoItem(content: "Create models", status: "completed"),
+                TodoItem(content: "Add validation", status: "completed"),
+                TodoItem(content: "Update tests", status: "in_progress", activeForm: "Running tests"),
+                TodoItem(content: "Refactor service", status: "pending"),
+                TodoItem(content: "Update docs", status: "pending")
+            ]
+        )
+
+        // Add demo actions for all tiers (V2)
         state.pendingActions = [
+            // Tier 1: Low risk (Green) - Read
             PendingAction(
                 id: "action-1",
-                type: "file_edit",
-                title: "Edit App.tsx",
-                description: "Update main component",
-                filePath: "src/app/App.tsx",
+                type: "read",
+                title: "Read config.json",
+                description: "Reading configuration",
+                filePath: "config.json",
                 command: nil,
-                timestamp: Date().addingTimeInterval(-120)
+                timestamp: Date().addingTimeInterval(-60)
             ),
+            // Tier 2: Medium risk (Orange) - npm install
             PendingAction(
                 id: "action-2",
-                type: "file_create",
-                title: "Create AuthService.ts",
-                description: "New authentication service",
-                filePath: "src/services/AuthService.ts",
-                command: nil,
-                timestamp: Date().addingTimeInterval(-300)
+                type: "bash",
+                title: "npm install express",
+                description: "Install dependencies",
+                filePath: nil,
+                command: "npm install express",
+                timestamp: Date().addingTimeInterval(-120)
             ),
+            // Tier 3: DANGEROUS (Red) - rm -rf
             PendingAction(
                 id: "action-3",
                 type: "bash",
-                title: "Run npm install",
-                description: "Install new dependencies",
+                title: "rm -rf ./build",
+                description: "Delete build directory",
                 filePath: nil,
-                command: "npm install oauth2-client",
-                timestamp: Date().addingTimeInterval(-480)
+                command: "rm -rf ./build",
+                timestamp: Date().addingTimeInterval(-180)
             ),
         ]
 
@@ -2045,6 +2218,11 @@ struct PendingAction: Identifiable {
     let command: String?
     let timestamp: Date
 
+    /// Risk tier classification (V2)
+    var tier: ActionTier {
+        ActionTier.classify(type: type, command: command, filePath: filePath)
+    }
+
     // Direct initializer for demo/testing
     init(id: String, type: String, title: String, description: String, filePath: String?, command: String?, timestamp: Date) {
         self.id = id
@@ -2183,6 +2361,41 @@ struct PendingQuestion: Identifiable {
     let id: String
     let question: String
     let recommendedAnswer: String
+    let options: [PendingQuestionOption]
+
+    /// Initialize with just recommended answer (legacy)
+    init(id: String, question: String, recommendedAnswer: String) {
+        self.id = id
+        self.question = question
+        self.recommendedAnswer = recommendedAnswer
+        self.options = [PendingQuestionOption(label: recommendedAnswer)]
+    }
+
+    /// Initialize with full options array (V2)
+    init(id: String, question: String, recommendedAnswer: String, options: [PendingQuestionOption]) {
+        self.id = id
+        self.question = question
+        self.recommendedAnswer = recommendedAnswer
+        // Ensure we have at least 2 options, use recommended as fallback
+        if options.count >= 2 {
+            self.options = Array(options.prefix(2))  // V2: max 2 options
+        } else if options.count == 1 {
+            self.options = options
+        } else {
+            self.options = [PendingQuestionOption(label: recommendedAnswer)]
+        }
+    }
+}
+
+/// Option for a pending question
+struct PendingQuestionOption {
+    let label: String
+    let description: String?
+
+    init(label: String, description: String? = nil) {
+        self.label = label
+        self.description = description
+    }
 }
 
 // MARK: - F16: Context Warning Model

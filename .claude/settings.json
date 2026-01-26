@@ -86,11 +86,11 @@
         ]
       },
       {
-        "matcher": "TodoWrite",
+        "matcher": "Read|Write|Edit|Grep|Glob|Bash|TodoWrite|TaskCreate|TaskUpdate|TaskList",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/progress-tracker.py"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/progress-tracker.sh"
           }
         ]
       },
@@ -106,7 +106,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Write|Edit|MultiEdit|mobile_install_app|mobile_uninstall_app",
+        "matcher": "_ALL_DISABLED_Write|Edit|MultiEdit|mobile_install_app|mobile_uninstall_app",
         "hooks": [
           {
             "type": "command",
