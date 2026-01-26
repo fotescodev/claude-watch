@@ -1,4 +1,7 @@
 #!/bin/bash
+# IMMEDIATE DEBUG
+echo "$(date '+%Y-%m-%d %H:%M:%S') - post-swift-edit.sh invoked" >> /tmp/post-swift-edit-invoked.log
+
 # Post-edit hook for Swift files - runs linting if available
 
 # Read file path from stdin JSON

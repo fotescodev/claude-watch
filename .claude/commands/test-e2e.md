@@ -10,12 +10,41 @@ Comprehensive test suite covering all Claude Watch V2 components: simulator test
 ## Quick Start
 
 ```bash
-# Run V2 simulator tests (recommended)
+# Run V2 simulator tests (fast, no cloud)
 ./scripts/test-v2-simulator.sh
+
+# Run interactive cloud tests (waits for watch response at each step)
+./scripts/test-v2-cloud.sh
 
 # Run hook validation
 python3 /Users/dfotesco/claude-watch/claude-watch/.claude/hooks/test-hooks.py
 ```
+
+---
+
+## Interactive Cloud Tests (NEW)
+
+**Best for verifying real watch behavior.** Sends requests through cloud relay and waits for you to interact with your watch at each step.
+
+```bash
+./scripts/test-v2-cloud.sh
+```
+
+**What It Tests (with user confirmation at each step):**
+| Test | What Happens | You Verify |
+|------|--------------|------------|
+| Tier 1 Approval | Creates Read request | Green card, approve/reject buttons |
+| Tier 2 Approval | Creates npm install request | Orange card, approve/reject buttons |
+| Tier 3 Approval | Creates rm -rf request | Red card, reject only, "requires Mac" hint |
+| Question Flow | Creates binary question | 2 option buttons, no Mac escape |
+| Context Warning | Posts 85% warning | Orange warning view |
+| Progress Update | Posts task progress | Working view with task list |
+| Approval Queue | Creates 3 pending requests | Queue view with tier colors |
+
+**Requirements:**
+- Active pairing (run `npx cc-watch` first)
+- Watch connected (simulator or physical)
+- Cloud server healthy
 
 ---
 
@@ -32,12 +61,16 @@ Tests all V2 views via simulator push notifications. No cloud connection require
 **What It Tests:**
 | Test | View | Expected Result |
 |------|------|-----------------|
-| F18 Question | QuestionResponseView | Shows question + "Accept"/"Mac" buttons |
+| F18 Question | QuestionResponseView | Shows question + binary option buttons (NO Mac escape) |
 | F16 Context 75% | ContextWarningView | Yellow/info color, "OK" button |
 | F16 Context 85% | ContextWarningView | Orange warning color |
 | F16 Context 95% | ContextWarningView | Red critical color |
-| Single Approval | ActionQueue | Shows approve/reject buttons |
-| Multiple Approvals | ApprovalQueueView | Shows queue count + list |
+| Tier 1 Approval | TieredActionCard | Green card, Approve + Reject buttons, double tap approves |
+| Tier 2 Approval | TieredActionCard | Orange card, Approve + Reject buttons, double tap approves |
+| Tier 3 Approval | TieredActionCard | Red card, Reject + "Remind 5m" only, double tap REJECTS, "Approve requires Mac" hint |
+| Swipe Gesture | SwipeActionCard | Tier 1-2: swipe enabled; Tier 3: swipe disabled |
+| Emergency Stop | ActionButtonHandler | Long press shows confirmation, executes emergency stop |
+| Breathing Animation | IdleView | 3s ease-in-out cycle (disabled with Reduce Motion) |
 
 **Output:** Screenshots saved to `/tmp/claude-watch-tests/`
 
@@ -80,58 +113,140 @@ echo ""
 echo "Ready for E2E testing!"
 ```
 
-#### Happy Path: Approval Flow
+#### Happy Path: Tiered Approval Flow (V2)
+
+**V2 Tier System:**
+| Tier | Color | Double Tap | Buttons | Watch Approve? |
+|------|-------|------------|---------|----------------|
+| 1 (Low) | Green | Approve | Approve / Reject | Yes |
+| 2 (Medium) | Orange | Approve | Approve / Reject | Yes |
+| 3 (Dangerous) | Red | **Reject** | Reject / Remind 5m | **NO** |
+
+##### Test: Tier 1 (Low Risk - Green)
 
 ```bash
 PAIRING_ID=$(cat ~/.claude-watch-pairing)
 REQUEST_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
 
-echo "=== E2E Test: Approval Flow ==="
-echo "Step 1: Creating approval request..."
+echo "=== E2E Test: Tier 1 Approval (Low Risk) ==="
+echo "Step 1: Creating low-risk approval request (Read file)..."
 
 RESULT=$(curl -s -X POST "https://claude-watch.fotescodev.workers.dev/approval" \
   -H "Content-Type: application/json" \
   -d "{
     \"pairingId\": \"$PAIRING_ID\",
     \"id\": \"$REQUEST_ID\",
-    \"type\": \"bash\",
-    \"title\": \"E2E Test: echo hello\",
-    \"description\": \"Approve this to verify the flow works.\"
+    \"type\": \"Read\",
+    \"title\": \"Read config.json\",
+    \"description\": \"Reading configuration file\"
   }")
 
 if echo "$RESULT" | grep -q '"success":true'; then
   echo "✓ Request created: ${REQUEST_ID:0:8}..."
   echo ""
-  echo "Step 2: Check your watch for the approval request"
-  echo "        → Approve or Reject it"
-  echo ""
-  echo "Step 3: Run this to verify response:"
-  echo "        curl -s 'https://claude-watch.fotescodev.workers.dev/approval/$PAIRING_ID/$REQUEST_ID' | jq .status"
+  echo "Step 2: Check your watch - should show:"
+  echo "        → GREEN card background"
+  echo "        → [Approve] + [Reject] buttons"
+  echo "        → Double tap = Approve"
+  echo "        → Swipe right = Approve, left = Reject"
 else
   echo "✗ Failed to create request"
   echo "$RESULT"
 fi
 ```
 
-#### Happy Path: Question Flow (F18)
+##### Test: Tier 2 (Medium Risk - Orange)
+
+```bash
+PAIRING_ID=$(cat ~/.claude-watch-pairing)
+REQUEST_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
+
+echo "=== E2E Test: Tier 2 Approval (Medium Risk) ==="
+echo "Step 1: Creating medium-risk approval request (npm install)..."
+
+RESULT=$(curl -s -X POST "https://claude-watch.fotescodev.workers.dev/approval" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"pairingId\": \"$PAIRING_ID\",
+    \"id\": \"$REQUEST_ID\",
+    \"type\": \"Bash\",
+    \"command\": \"npm install lodash\",
+    \"title\": \"npm install lodash\",
+    \"description\": \"Installing npm package\"
+  }")
+
+if echo "$RESULT" | grep -q '"success":true'; then
+  echo "✓ Request created: ${REQUEST_ID:0:8}..."
+  echo ""
+  echo "Step 2: Check your watch - should show:"
+  echo "        → ORANGE card background"
+  echo "        → [Approve] + [Reject] buttons"
+  echo "        → Double tap = Approve"
+  echo "        → Swipe right = Approve, left = Reject"
+else
+  echo "✗ Failed to create request"
+  echo "$RESULT"
+fi
+```
+
+##### Test: Tier 3 (Dangerous - Red, NO Watch Approve)
+
+```bash
+PAIRING_ID=$(cat ~/.claude-watch-pairing)
+REQUEST_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
+
+echo "=== E2E Test: Tier 3 Approval (DANGEROUS) ==="
+echo "Step 1: Creating dangerous approval request (rm -rf)..."
+
+RESULT=$(curl -s -X POST "https://claude-watch.fotescodev.workers.dev/approval" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"pairingId\": \"$PAIRING_ID\",
+    \"id\": \"$REQUEST_ID\",
+    \"type\": \"Bash\",
+    \"command\": \"rm -rf ./build\",
+    \"title\": \"rm -rf ./build\",
+    \"description\": \"Deleting build directory\"
+  }")
+
+if echo "$RESULT" | grep -q '"success":true'; then
+  echo "✓ Request created: ${REQUEST_ID:0:8}..."
+  echo ""
+  echo "Step 2: Check your watch - should show:"
+  echo "        → RED card background"
+  echo "        → [Reject] + [Remind 5m] buttons ONLY (no Approve!)"
+  echo "        → Double tap = REJECT (safety default)"
+  echo "        → Swipe DISABLED for Tier 3"
+  echo "        → 'Approve requires Mac' hint text"
+  echo ""
+  echo "IMPORTANT: Cannot approve Tier 3 from watch - must use Mac!"
+else
+  echo "✗ Failed to create request"
+  echo "$RESULT"
+fi
+```
+
+#### Happy Path: Question Flow (F18 - Binary Options)
+
+**V2 Behavior:** Watch shows max 2 options as buttons. No "Handle on Mac" escape.
 
 ```bash
 PAIRING_ID=$(cat ~/.claude-watch-pairing)
 QUESTION_ID="q-e2e-$(date +%s)"
 
-echo "=== E2E Test: Question Flow (F18) ==="
-echo "Step 1: Creating question..."
+echo "=== E2E Test: Question Flow (F18 - V2 Binary) ==="
+echo "Step 1: Creating question with 2 options..."
 
 RESULT=$(curl -s -X POST "https://claude-watch.fotescodev.workers.dev/question" \
   -H "Content-Type: application/json" \
   -d "{
     \"pairingId\": \"$PAIRING_ID\",
     \"questionId\": \"$QUESTION_ID\",
-    \"question\": \"E2E Test: Which option should we use?\",
-    \"header\": \"Test\",
+    \"question\": \"E2E Test: Which database should we use?\",
+    \"header\": \"Database\",
     \"options\": [
-      {\"label\": \"Option A\", \"description\": \"First choice\"},
-      {\"label\": \"Option B\", \"description\": \"Second choice (Recommended)\"}
+      {\"label\": \"PostgreSQL\", \"description\": \"Recommended for production\"},
+      {\"label\": \"SQLite\", \"description\": \"Simpler for development\"}
     ],
     \"multiSelect\": false
   }")
@@ -140,7 +255,9 @@ if echo "$RESULT" | grep -q '"questionId"'; then
   echo "✓ Question created: $QUESTION_ID"
   echo ""
   echo "Step 2: Check your watch for the question"
-  echo "        → Tap 'Accept' to choose recommended, or 'Mac' to handle on desktop"
+  echo "        → Shows 2 buttons: [PostgreSQL (Recommended)] [SQLite]"
+  echo "        → Double tap selects recommended option"
+  echo "        → NO 'Handle on Mac' button (removed in V2)"
   echo ""
   echo "Step 3: Run this to verify response:"
   echo "        curl -s 'https://claude-watch.fotescodev.workers.dev/question/$QUESTION_ID/status?pairingId=$PAIRING_ID' | jq ."
@@ -215,7 +332,7 @@ xcrun simctl launch "$SIMULATOR" "$BUNDLE_ID"
 echo "✓ App launched"
 ```
 
-#### Test: F18 Question Notification
+#### Test: F18 Question Notification (V2 Binary)
 
 ```bash
 SIMULATOR="Apple Watch Series 11 (46mm)"
@@ -223,16 +340,24 @@ BUNDLE_ID="com.edgeoftrust.claudewatch"
 
 xcrun simctl push "$SIMULATOR" "$BUNDLE_ID" - <<'EOF'
 {
-  "aps": {"alert": {"title": "Claude: Question", "body": "Which approach?"}, "sound": "default"},
+  "aps": {"alert": {"title": "Claude: Question", "body": "Which database?"}, "sound": "default"},
   "type": "question",
   "questionId": "q-sim-test",
-  "question": "Which authentication approach should we use for the API?",
-  "recommendedAnswer": "Use JWT with refresh tokens"
+  "question": "Which database should we use?",
+  "options": [
+    {"label": "PostgreSQL", "description": "Recommended for production"},
+    {"label": "SQLite", "description": "Simpler for development"}
+  ],
+  "recommendedAnswer": "PostgreSQL"
 }
 EOF
 
 echo "✓ F18 Question notification sent"
-echo "  → Watch should show QuestionResponseView"
+echo "  → Watch should show QuestionResponseView with:"
+echo "    • 2 option buttons (max shown on watch)"
+echo "    • First option marked as (Recommended)"
+echo "    • NO 'Handle on Mac' button (V2 removed)"
+echo "    • Double tap selects recommended option"
 ```
 
 #### Test: F16 Context Warning Notification
@@ -254,7 +379,9 @@ echo "✓ F16 Context Warning notification sent"
 echo "  → Watch should show ContextWarningView with orange color"
 ```
 
-#### Test: Approval Notification
+#### Test: Tiered Approval Notifications
+
+##### Tier 1 (Low Risk - Green)
 
 ```bash
 SIMULATOR="Apple Watch Series 11 (46mm)"
@@ -262,16 +389,74 @@ BUNDLE_ID="com.edgeoftrust.claudewatch"
 
 xcrun simctl push "$SIMULATOR" "$BUNDLE_ID" - <<'EOF'
 {
-  "aps": {"alert": {"title": "Claude: Approval", "body": "Edit main.swift"}, "sound": "default"},
+  "aps": {"alert": {"title": "Claude: Approval", "body": "Read config.json"}, "sound": "default"},
   "type": "approval",
-  "requestId": "test-sim-001",
-  "title": "Edit main.swift",
-  "description": "Add validation function"
+  "requestId": "test-tier1-001",
+  "actionType": "Read",
+  "title": "Read config.json",
+  "description": "Reading configuration file"
 }
 EOF
 
-echo "✓ Approval notification sent"
-echo "  → Watch should show ActionQueue with approve/reject"
+echo "✓ Tier 1 (Low Risk) notification sent"
+echo "  → Watch should show TieredActionCard with:"
+echo "    • GREEN card background"
+echo "    • [Approve] + [Reject] buttons"
+echo "    • Double tap = Approve"
+echo "    • Swipe gestures enabled"
+```
+
+##### Tier 2 (Medium Risk - Orange)
+
+```bash
+SIMULATOR="Apple Watch Series 11 (46mm)"
+BUNDLE_ID="com.edgeoftrust.claudewatch"
+
+xcrun simctl push "$SIMULATOR" "$BUNDLE_ID" - <<'EOF'
+{
+  "aps": {"alert": {"title": "Claude: Approval", "body": "npm install lodash"}, "sound": "default"},
+  "type": "approval",
+  "requestId": "test-tier2-001",
+  "actionType": "Bash",
+  "command": "npm install lodash",
+  "title": "npm install lodash",
+  "description": "Installing npm package"
+}
+EOF
+
+echo "✓ Tier 2 (Medium Risk) notification sent"
+echo "  → Watch should show TieredActionCard with:"
+echo "    • ORANGE card background"
+echo "    • [Approve] + [Reject] buttons"
+echo "    • Double tap = Approve"
+echo "    • Swipe gestures enabled"
+```
+
+##### Tier 3 (Dangerous - Red, NO Approve)
+
+```bash
+SIMULATOR="Apple Watch Series 11 (46mm)"
+BUNDLE_ID="com.edgeoftrust.claudewatch"
+
+xcrun simctl push "$SIMULATOR" "$BUNDLE_ID" - <<'EOF'
+{
+  "aps": {"alert": {"title": "⚠️ DANGER", "body": "rm -rf ./build"}, "sound": "default"},
+  "type": "approval",
+  "requestId": "test-tier3-001",
+  "actionType": "Bash",
+  "command": "rm -rf ./build",
+  "title": "rm -rf ./build",
+  "description": "Delete build directory"
+}
+EOF
+
+echo "✓ Tier 3 (DANGEROUS) notification sent"
+echo "  → Watch should show TieredActionCard with:"
+echo "    • RED card background"
+echo "    • [Reject] + [Remind 5m] buttons ONLY (no Approve!)"
+echo "    • Double tap = REJECT (safety default)"
+echo "    • Swipe gestures DISABLED"
+echo "    • 'Approve requires Mac' hint text"
 ```
 
 #### Test: Progress Notification
@@ -301,6 +486,125 @@ EOF
 
 echo "✓ Progress notification sent"
 echo "  → Watch should show WorkingView with task list"
+```
+
+#### Test: Idle State - Breathing Animation (V2)
+
+```bash
+SIMULATOR="Apple Watch Series 11 (46mm)"
+BUNDLE_ID="com.edgeoftrust.claudewatch"
+
+# Just launch the app in idle state
+xcrun simctl launch "$SIMULATOR" "$BUNDLE_ID"
+
+echo "✓ App launched in idle state"
+echo "  → Watch should show V2 idle design with:"
+echo "    • BreathingLogo - 3s ease-in-out animation cycle"
+echo "    • 'Ready' text"
+echo "    • 'Waiting for activity' subtitle"
+echo "    • Pairing ID at bottom"
+echo ""
+echo "  To test Reduce Motion:"
+echo "    Settings > Accessibility > Reduce Motion = ON"
+echo "    • Animation should be static (no breathing)"
+```
+
+#### Test: Emergency Stop (Long Press)
+
+**Prerequisites**: Have an active session with pending actions
+
+```bash
+PAIRING_ID=$(cat ~/.claude-watch-pairing)
+
+echo "=== E2E Test: Emergency Stop ==="
+echo ""
+echo "Step 1: Create some pending actions first..."
+
+# Create a Tier 1 action
+curl -s -X POST "https://claude-watch.fotescodev.workers.dev/approval" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"pairingId\": \"$PAIRING_ID\",
+    \"id\": \"estop-test-1\",
+    \"type\": \"Read\",
+    \"title\": \"Read file.txt\",
+    \"description\": \"Test action 1\"
+  }" > /dev/null
+
+# Create a Tier 2 action
+curl -s -X POST "https://claude-watch.fotescodev.workers.dev/approval" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"pairingId\": \"$PAIRING_ID\",
+    \"id\": \"estop-test-2\",
+    \"type\": \"Bash\",
+    \"command\": \"npm install\",
+    \"title\": \"npm install\",
+    \"description\": \"Test action 2\"
+  }" > /dev/null
+
+echo "✓ Created 2 pending actions"
+echo ""
+echo "Step 2: On the watch, perform LONG PRESS (Action Button)"
+echo "        → Should show EmergencyStopAlert confirmation"
+echo ""
+echo "Step 3: Tap 'Stop' to confirm emergency stop"
+echo "        → All pending requests rejected"
+echo "        → Session ended"
+echo "        → Failure haptic"
+echo "        → Returns to unpaired state"
+echo ""
+echo "Expected behavior:"
+echo "  • Long press shows confirmation dialog"
+echo "  • 'Cancel' dismisses dialog"
+echo "  • 'Stop' executes emergency stop"
+echo "  • Haptic feedback on stop"
+```
+
+#### Test: Swipe Gestures (V2)
+
+**Test swipe-to-approve/reject functionality:**
+
+```bash
+PAIRING_ID=$(cat ~/.claude-watch-pairing)
+
+echo "=== E2E Test: Swipe Gestures ==="
+echo ""
+echo "Step 1: Create Tier 1 action (swipe ENABLED)..."
+
+curl -s -X POST "https://claude-watch.fotescodev.workers.dev/approval" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"pairingId\": \"$PAIRING_ID\",
+    \"id\": \"swipe-test-1\",
+    \"type\": \"Edit\",
+    \"title\": \"Edit config.json\",
+    \"description\": \"Swipe test - Tier 1\"
+  }" > /dev/null
+
+echo "✓ Tier 1 action created"
+echo "  → Test: Swipe RIGHT → GREEN fill → Approve"
+echo "  → Test: Swipe LEFT → RED fill → Reject"
+echo "  → Test: 50% threshold triggers haptic"
+echo "  → Test: Release before threshold cancels"
+echo ""
+echo "Step 2: Create Tier 3 action (swipe DISABLED)..."
+
+curl -s -X POST "https://claude-watch.fotescodev.workers.dev/approval" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"pairingId\": \"$PAIRING_ID\",
+    \"id\": \"swipe-test-3\",
+    \"type\": \"Bash\",
+    \"command\": \"rm -rf ./build\",
+    \"title\": \"rm -rf ./build\",
+    \"description\": \"Swipe test - Tier 3 (DISABLED)\"
+  }" > /dev/null
+
+echo "✓ Tier 3 action created"
+echo "  → Test: Swipe gestures should be DISABLED"
+echo "  → Card should NOT move on swipe"
+echo "  → Must use buttons: [Reject] or [Remind 5m]"
 ```
 
 ---
@@ -347,6 +651,12 @@ python3 /Users/dfotesco/claude-watch/claude-watch/.claude/hooks/test_watch_appro
 | Cloud request fails | No pairing | Run `npx cc-watch` to pair |
 | Simulator push fails | App not installed | Run `xcodebuild` then install |
 | "Session ended" | Watch ended session | Re-pair via watch app |
+| Breathing animation not showing | Old build | Rebuild and reinstall app |
+| Swipe not working | Tier 3 action | Swipe disabled for Tier 3 (safety) |
+| Can't approve Tier 3 | Expected behavior | Tier 3 requires Mac approval |
+| Double tap rejects | Tier 3 action | Tier 3 double tap = reject (safety) |
+| Only 2 question options shown | Expected V2 behavior | Watch shows max 2 options |
+| No "Handle on Mac" button | Expected V2 behavior | Removed in V2 - binary choice only |
 
 ---
 

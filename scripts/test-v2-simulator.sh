@@ -91,18 +91,22 @@ send_notification '{
 wait_and_screenshot "02-notification-test" 2
 test_passed "Notification sent"
 
-# Test: F18 Question Response
+# Test: F18 Question Response (V2 - Binary options, NO Mac escape)
 echo ""
-echo "5. Testing F18: Question Response..."
+echo "5. Testing F18: Question Response (V2 Binary)..."
 send_notification '{
-  "aps": {"alert": {"title": "Claude: Question", "body": "Which auth approach?"}, "sound": "default"},
+  "aps": {"alert": {"title": "Claude: Question", "body": "Which database?"}, "sound": "default"},
   "questionId": "q-test-001",
   "type": "question",
-  "question": "Which authentication approach should we use for the API?",
-  "recommendedAnswer": "Use JWT with refresh tokens"
+  "question": "Which database should we use for the API?",
+  "options": [
+    {"label": "PostgreSQL", "description": "Recommended for production"},
+    {"label": "SQLite", "description": "Simpler for development"}
+  ],
+  "recommendedAnswer": "PostgreSQL"
 }'
 wait_and_screenshot "03-f18-question-response"
-test_info "Check screenshot for QuestionResponseView with Accept/Mac buttons"
+test_info "Check: 2 option buttons (NO 'Handle on Mac' in V2), double tap hint"
 
 # Test: F16 Context Warning (75%)
 echo ""
@@ -140,55 +144,103 @@ send_notification '{
 wait_and_screenshot "06-f16-context-95"
 test_info "Check screenshot for ContextWarningView at 95% (red)"
 
-# Test: Approval notification
+# Test: Tier 1 Approval (Low Risk - Green)
 echo ""
-echo "9. Testing Approval Request..."
+echo "9. Testing V2 Tier 1 Approval (Low Risk)..."
 send_notification '{
-  "aps": {"alert": {"title": "Claude: Approval", "body": "Edit main.swift"}, "sound": "default"},
-  "requestId": "test-approval-001",
+  "aps": {"alert": {"title": "Claude: Approval", "body": "Read config.json"}, "sound": "default"},
+  "requestId": "test-tier1-001",
   "type": "approval",
-  "title": "Edit main.swift",
-  "description": "Add validation function"
+  "actionType": "Read",
+  "title": "Read config.json",
+  "description": "Reading configuration file"
 }'
-wait_and_screenshot "07-approval-request"
-test_info "Check screenshot for approval view"
+wait_and_screenshot "07-tier1-approval"
+test_info "Check: GREEN card, [Approve]+[Reject] buttons, double tap approves"
 
-# Test: Multiple approvals (queue)
+# Test: Tier 2 Approval (Medium Risk - Orange)
 echo ""
-echo "10. Testing Approval Queue (2+ pending)..."
+echo "10. Testing V2 Tier 2 Approval (Medium Risk)..."
 send_notification '{
-  "aps": {"alert": {"title": "Claude: Approval", "body": "Create AuthService.ts"}, "sound": "default"},
-  "requestId": "test-approval-002",
+  "aps": {"alert": {"title": "Claude: Approval", "body": "npm install lodash"}, "sound": "default"},
+  "requestId": "test-tier2-001",
   "type": "approval",
-  "title": "Create AuthService.ts",
-  "description": "New authentication service"
+  "actionType": "Bash",
+  "command": "npm install lodash",
+  "title": "npm install lodash",
+  "description": "Installing npm package"
+}'
+wait_and_screenshot "08-tier2-approval"
+test_info "Check: ORANGE card, [Approve]+[Reject] buttons, double tap approves"
+
+# Test: Tier 3 Approval (Dangerous - Red, NO Approve)
+echo ""
+echo "11. Testing V2 Tier 3 Approval (DANGEROUS)..."
+send_notification '{
+  "aps": {"alert": {"title": "⚠️ DANGER", "body": "rm -rf ./build"}, "sound": "default"},
+  "requestId": "test-tier3-001",
+  "type": "approval",
+  "actionType": "Bash",
+  "command": "rm -rf ./build",
+  "title": "rm -rf ./build",
+  "description": "Delete build directory"
+}'
+wait_and_screenshot "09-tier3-approval"
+test_info "Check: RED card, [Reject]+[Remind 5m] ONLY, NO approve, 'Approve requires Mac' hint"
+
+# Test: Multiple approvals (queue with mixed tiers)
+echo ""
+echo "12. Testing Approval Queue (mixed tiers)..."
+send_notification '{
+  "aps": {"alert": {"title": "Claude: Approval", "body": "Edit AuthService.ts"}, "sound": "default"},
+  "requestId": "test-queue-001",
+  "type": "approval",
+  "actionType": "Edit",
+  "title": "Edit AuthService.ts",
+  "description": "Update authentication"
 }'
 sleep 1
 send_notification '{
-  "aps": {"alert": {"title": "Claude: Approval", "body": "Run npm install"}, "sound": "default"},
-  "requestId": "test-approval-003",
+  "aps": {"alert": {"title": "Claude: Approval", "body": "npm install"}, "sound": "default"},
+  "requestId": "test-queue-002",
   "type": "approval",
-  "title": "Run npm install",
+  "actionType": "Bash",
+  "command": "npm install express",
+  "title": "npm install express",
   "description": "Install dependencies"
 }'
-wait_and_screenshot "08-approval-queue"
-test_info "Check screenshot for ApprovalQueueView with multiple items"
+wait_and_screenshot "10-approval-queue"
+test_info "Check: ApprovalQueueView with tier indicators"
 
 # Summary
 echo ""
 echo "========================================"
-echo "Test Suite Complete"
+echo "V2 Test Suite Complete"
 echo "========================================"
 echo ""
 echo "Screenshots saved to: $SCREENSHOTS_DIR"
 echo ""
 echo "Manual verification needed:"
-echo "  - 03-f18-question-response.png: Shows Accept/Mac buttons"
-echo "  - 04-f16-context-75.png: Shows 75% with info color"
-echo "  - 05-f16-context-85.png: Shows 85% with orange color"
-echo "  - 06-f16-context-95.png: Shows 95% with red color"
-echo "  - 07-approval-request.png: Shows approval view"
-echo "  - 08-approval-queue.png: Shows queue with 3+ items"
+echo ""
+echo "F18 Question (V2):"
+echo "  - 03-f18-question-response.png: 2 option buttons, NO 'Handle on Mac'"
+echo ""
+echo "F16 Context Warnings:"
+echo "  - 04-f16-context-75.png: 75% with info color"
+echo "  - 05-f16-context-85.png: 85% with orange color"
+echo "  - 06-f16-context-95.png: 95% with red color"
+echo ""
+echo "V2 Tiered Approvals:"
+echo "  - 07-tier1-approval.png: GREEN card, Approve+Reject, swipe enabled"
+echo "  - 08-tier2-approval.png: ORANGE card, Approve+Reject, swipe enabled"
+echo "  - 09-tier3-approval.png: RED card, Reject+Remind ONLY, 'Approve requires Mac'"
+echo "  - 10-approval-queue.png: Queue with tier indicators"
+echo ""
+echo "V2 Key Behaviors to Verify:"
+echo "  • Tier 1-2: Double tap = Approve, swipe gestures enabled"
+echo "  • Tier 3: Double tap = REJECT, swipe DISABLED, no approve button"
+echo "  • F18: Binary choice only (no Mac escape in V2)"
+echo "  • Idle: Breathing animation (if visible)"
 echo ""
 echo "Open screenshots:"
 echo "  open $SCREENSHOTS_DIR"

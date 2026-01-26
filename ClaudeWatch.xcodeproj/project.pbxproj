@@ -29,6 +29,13 @@
 		VIEW008 /* SheetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC012 /* SheetViews.swift */; };
 		MODEL001 /* ApprovalRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_MODEL001 /* ApprovalRequest.swift */; };
 		MODEL002 /* ClaudeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_MODEL002 /* ClaudeState.swift */; };
+		MODEL003 /* ActionTier.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_MODEL003 /* ActionTier.swift */; };
+		MODEL004 /* ActivityEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_MODEL004 /* ActivityEvent.swift */; };
+		SVC002 /* ActivityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_SVC002 /* ActivityStore.swift */; };
+		VIEW016 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW016 /* HistoryView.swift */; };
+		COMP001 /* BreathingAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP001 /* BreathingAnimation.swift */; };
+		COMP002 /* SwipeActionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP002 /* SwipeActionCard.swift */; };
+		COMP003 /* ActionButtonHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP003 /* ActionButtonHandler.swift */; };
 		CTRL001 /* ApproveControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_CTRL001 /* ApproveControl.swift */; };
 		CTRL002 /* RejectControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_CTRL002 /* RejectControl.swift */; };
 		CTRL003 /* PauseResumeControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_CTRL003 /* PauseResumeControl.swift */; };
@@ -85,6 +92,13 @@
 		SRC012 /* SheetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetViews.swift; sourceTree = "<group>"; };
 		SRC_MODEL001 /* ApprovalRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalRequest.swift; sourceTree = "<group>"; };
 		SRC_MODEL002 /* ClaudeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeState.swift; sourceTree = "<group>"; };
+		SRC_MODEL003 /* ActionTier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionTier.swift; sourceTree = "<group>"; };
+		SRC_MODEL004 /* ActivityEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityEvent.swift; sourceTree = "<group>"; };
+		SRC_SVC002 /* ActivityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityStore.swift; sourceTree = "<group>"; };
+		SRC_VIEW016 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		SRC_COMP001 /* BreathingAnimation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreathingAnimation.swift; sourceTree = "<group>"; };
+		SRC_COMP002 /* SwipeActionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeActionCard.swift; sourceTree = "<group>"; };
+		SRC_COMP003 /* ActionButtonHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButtonHandler.swift; sourceTree = "<group>"; };
 		SRC_CTRL001 /* ApproveControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApproveControl.swift; sourceTree = "<group>"; };
 		SRC_CTRL002 /* RejectControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RejectControl.swift; sourceTree = "<group>"; };
 		SRC_CTRL003 /* PauseResumeControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PauseResumeControl.swift; sourceTree = "<group>"; };
@@ -107,8 +121,10 @@
 		GRP_MODELS /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				SRC_MODEL004 /* ActivityEvent.swift */,
 				SRC_MODEL001 /* ApprovalRequest.swift */,
 				SRC_MODEL002 /* ClaudeState.swift */,
+				SRC_MODEL003 /* ActionTier.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -172,6 +188,7 @@
 		GRP_SERVICES /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				SRC_SVC002 /* ActivityStore.swift */,
 				SRC_ENC001 /* EncryptionService.swift */,
 				SRC011 /* WatchService.swift */,
 			);
@@ -207,6 +224,7 @@
 				SRC010 /* CommandViews.swift */,
 				SRC006 /* ConsentView.swift */,
 				SRC_VIEW013 /* ContextWarningView.swift */,
+				SRC_VIEW016 /* HistoryView.swift */,
 				SRC004 /* MainView.swift */,
 				SRC005 /* PairingView.swift */,
 				SRC_VIEW011 /* PausedView.swift */,
@@ -230,6 +248,7 @@
 				GRP_DESIGNSYSTEM /* DesignSystem */,
 				GRP_INTENTS /* Intents */,
 				GRP_MODELS /* Models */,
+				GRP_COMP /* Components */,
 				GRP_VIEWS /* Views */,
 				GRP_SERVICES /* Services */,
 				GRP_COMPLICATIONS /* Complications */,
@@ -247,6 +266,16 @@
 				GRP_WATCH /* ClaudeWatch */,
 				GRP_PRODUCTS /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+GRP_COMP /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				SRC_COMP001 /* BreathingAnimation.swift */,
+				SRC_COMP002 /* SwipeActionCard.swift */,
+				SRC_COMP003 /* ActionButtonHandler.swift */,
+			);
+			path = Components;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -354,6 +383,13 @@
 				CMP002 /* ComplicationViews.swift in Sources */,
 				MODEL001 /* ApprovalRequest.swift in Sources */,
 				MODEL002 /* ClaudeState.swift in Sources */,
+				MODEL003 /* ActionTier.swift in Sources */,
+				MODEL004 /* ActivityEvent.swift in Sources */,
+				SVC002 /* ActivityStore.swift in Sources */,
+				VIEW016 /* HistoryView.swift in Sources */,
+				COMP001 /* BreathingAnimation.swift in Sources */,
+				COMP002 /* SwipeActionCard.swift in Sources */,
+				COMP003 /* ActionButtonHandler.swift in Sources */,
 				CTRL001 /* ApproveControl.swift in Sources */,
 				CTRL002 /* RejectControl.swift in Sources */,
 				CTRL003 /* PauseResumeControl.swift in Sources */,

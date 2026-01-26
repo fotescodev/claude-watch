@@ -4,7 +4,9 @@ import WatchKit
 // MARK: - Empty State
 struct EmptyStateView: View {
     @ObservedObject private var service = WatchService.shared
+    @ObservedObject private var activityStore = ActivityStore.shared
     @State private var showingPairing = false
+    @State private var showingSettings = false
 
     // Accessibility: High Contrast support
     @Environment(\.colorSchemeContrast) var colorSchemeContrast
@@ -19,121 +21,69 @@ struct EmptyStateView: View {
         }
     }
 
-    /// When paired: show waiting-for-activity state with session history
+    /// When paired: show Session Dashboard with activity info
     private var pairedEmptyState: some View {
-        ScrollView {
-            VStack(spacing: 10) {
-                // Current status: Listening...
-                VStack(spacing: 6) {
-                    HStack(spacing: 5) {
-                        Circle()
-                            .fill(connectionColor)
-                            .frame(width: 6, height: 6)
-
-                        Text("Listening...")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(Claude.textSecondary)
-
-                        Spacer()
-                    }
-
-                    if service.sessionHistory.isEmpty {
-                        Text("Activity will appear here")
-                            .font(.system(size: 10))
-                            .foregroundColor(Claude.textTertiary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 4)
-                    }
-                }
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Claude.surface1)
-                )
-
-                // Session History
-                if !service.sessionHistory.isEmpty {
-                    ForEach(service.sessionHistory) { session in
-                        SessionHistoryRow(session: session) {
-                            WKInterfaceDevice.current().play(.click)
-                            service.toggleSessionExpanded(session.id)
-                        }
-                    }
-                }
-
-                // Pairing ID (subtle, at bottom)
-                Text(String(service.pairingId.prefix(8)))
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundColor(Claude.textTertiary)
-                    .padding(.top, 4)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-        }
-        .focusable()
-    }
-
-    /// A single row in session history
-    struct SessionHistoryRow: View {
-        let session: CompletedSession
-        let onTap: () -> Void
-
-        var body: some View {
-            Button(action: onTap) {
-                VStack(alignment: .leading, spacing: 4) {
-                    // Header row
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 12) {
+                    // V2: State header with colored dot
                     HStack(spacing: 6) {
-                        Image(systemName: "checkmark.circle")
-                            .font(.system(size: 10))
-                            .foregroundColor(Claude.textSecondary)
-
-                        Text(session.taskCountText)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(Claude.textPrimary)
-
+                        ClaudeStateDot(state: .idle, size: 6)
+                        Text("Idle")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(ClaudeState.idle.color)
                         Spacer()
-
-                        Text(session.relativeTimeText)
-                            .font(.system(size: 9))
-                            .foregroundColor(Claude.textTertiary)
-
-                        Image(systemName: session.isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 8, weight: .semibold))
-                            .foregroundColor(Claude.textTertiary)
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
 
-                    // Expanded task list
-                    if session.isExpanded {
-                        VStack(alignment: .leading, spacing: 2) {
-                            ForEach(session.tasks) { task in
-                                HStack(spacing: 4) {
-                                    Text("·")
-                                        .font(.system(size: 10, weight: .bold))
-                                        .foregroundColor(Claude.textTertiary)
-                                    Text(task.content)
-                                        .font(.system(size: 9))
-                                        .foregroundColor(Claude.textSecondary)
-                                        .lineLimit(1)
-                                }
+                    // F22: Session Dashboard Content
+                    SessionDashboardContent(activityStore: activityStore)
+
+                    // Bottom action buttons - History + Settings
+                    HStack(spacing: 16) {
+                        NavigationLink(destination: HistoryView()) {
+                            VStack(spacing: 4) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.system(size: 16))
+                                Text("History")
+                                    .font(.system(size: 10))
                             }
-
-                            // Duration
-                            Text("Took \(session.durationText)")
-                                .font(.system(size: 8))
-                                .foregroundColor(Claude.textTertiary)
-                                .padding(.top, 2)
+                            .foregroundColor(Claude.textSecondary)
                         }
-                        .padding(.leading, 16)
-                        .padding(.top, 2)
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Session history")
+
+                        Button {
+                            WKInterfaceDevice.current().play(.click)
+                            showingSettings = true
+                        } label: {
+                            VStack(spacing: 4) {
+                                Image(systemName: "gearshape")
+                                    .font(.system(size: 16))
+                                Text("Settings")
+                                    .font(.system(size: 10))
+                            }
+                            .foregroundColor(Claude.textSecondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Settings")
                     }
+                    .padding(.top, 4)
+
+                    // Pairing ID (subtle, at bottom)
+                    Text(String(service.pairingId.prefix(8)))
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundColor(Claude.textTertiary)
+                        .padding(.top, 4)
                 }
-                .padding(10)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Claude.surface1)
-                )
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
             }
-            .buttonStyle(.plain)
+            .focusable()
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsSheet()
         }
     }
 
@@ -142,15 +92,19 @@ struct EmptyStateView: View {
         VStack(spacing: 12) {
             Spacer()
 
-            // Icon
-            Image(systemName: "link.circle")
-                .font(.system(size: 36, weight: .light))
-                .foregroundColor(Claude.textTertiaryContrast(colorSchemeContrast))
+            // Claude face logo
+            ClaudeFaceLogo(size: 50)
 
-            // Title
-            Text("Not Paired")
-                .font(.headline)
-                .foregroundColor(Claude.textPrimary)
+            // Title and subtitle
+            VStack(spacing: 4) {
+                Text("Claude Code")
+                    .font(.headline)
+                    .foregroundColor(Claude.textPrimary)
+
+                Text("Watch Companion")
+                    .font(.caption)
+                    .foregroundColor(Claude.textSecondary)
+            }
 
             Spacer()
 
@@ -206,53 +160,51 @@ struct EmptyStateView: View {
 struct OfflineStateView: View {
     @ObservedObject private var service = WatchService.shared
 
-    // Accessibility: High Contrast support
-    @Environment(\.colorSchemeContrast) var colorSchemeContrast
-
     var body: some View {
         VStack(spacing: 12) {
-            Spacer()
-
-            // Icon - compact 40pt (triple-tap to load demo)
-            Image(systemName: "wifi.slash")
-                .font(.system(size: 40, weight: .light))
-                .foregroundColor(Claude.textTertiaryContrast(colorSchemeContrast))
-                .onTapGesture(count: 3) {
-                    service.loadDemoData()
-                }
-
-            // Title only - no subtitle
-            Text("Offline")
-                .font(.headline)
-                .foregroundColor(Claude.textPrimary)
-
-            Spacer()
-
-            // Action buttons
-            VStack(spacing: 6) {
-                // Full-width Retry button
-                Button {
-                    service.connect()
-                    WKInterfaceDevice.current().play(.click)
-                } label: {
-                    Text("Retry")
-                        .font(.caption.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.glassProminentCompat)
-                .accessibilityLabel("Retry connection")
-
-                // Demo as text link
-                Button {
-                    service.loadDemoData()
-                } label: {
-                    Text("Demo")
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(Claude.orange)
-                }
-                .buttonStyle(.glassCompat)
-                .accessibilityLabel("Enter demo mode")
+            // V2: State header with colored dot
+            HStack(spacing: 6) {
+                ClaudeStateDot(state: .error, size: 6)
+                Text("Error")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(ClaudeState.error.color)
+                Spacer()
             }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+
+            Spacer()
+
+            // Icon - yellow/orange exclamation triangle per design spec
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 40, weight: .light))
+                .foregroundColor(Claude.warning)
+
+            // Title and subtitle per design spec
+            VStack(spacing: 4) {
+                Text("Connection Lost")
+                    .font(.headline)
+                    .foregroundColor(Claude.textPrimary)
+
+                Text("Unable to reach session")
+                    .font(.caption)
+                    .foregroundColor(Claude.textSecondary)
+            }
+
+            Spacer()
+
+            // Retry button only (no Demo per spec)
+            Button {
+                service.connect()
+                WKInterfaceDevice.current().play(.click)
+            } label: {
+                Text("Retry")
+                    .font(.caption.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.glassProminentCompat)
+            .tint(Claude.orange)
+            .accessibilityLabel("Retry connection")
             .padding(.horizontal, 20)
             .padding(.bottom, 8)
         }
@@ -382,6 +334,137 @@ struct AlwaysOnDisplayView: View {
     }
 }
 
+// MARK: - F22: Session Dashboard Content
+
+/// Dynamic content for the Session Dashboard
+/// Shows last activity, session stats, or waiting state
+struct SessionDashboardContent: View {
+    @ObservedObject var activityStore: ActivityStore
+
+    // Timer to refresh time ago text
+    @State private var refreshTrigger = false
+    private let refreshTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        VStack(spacing: 8) {
+            if let lastActivity = activityStore.lastActivity {
+                // Has activity - show last activity card
+                LastActivityCard(event: lastActivity)
+
+                // Session stats row (if available)
+                if let stats = activityStore.currentSessionStats {
+                    SessionStatsRow(tasks: stats.tasks, approvals: stats.approvals)
+                }
+
+                // Idle warning (if idle for >5 minutes)
+                if activityStore.isIdleFor(minutes: 5) {
+                    IdleWarningText(minutes: Int((activityStore.timeSinceLastActivity ?? 0) / 60))
+                }
+            } else {
+                // Fresh session - no activity yet
+                BreathingLogo(size: 50)
+
+                VStack(spacing: 4) {
+                    Text("Claude Code")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Claude.textPrimary)
+
+                    Text("Waiting for first task")
+                        .font(.system(size: 11))
+                        .foregroundColor(Claude.textSecondary)
+                }
+            }
+        }
+        .id(refreshTrigger)  // Force refresh on timer
+        .onReceive(refreshTimer) { _ in
+            refreshTrigger.toggle()
+        }
+    }
+}
+
+/// Card showing the last activity event
+struct LastActivityCard: View {
+    let event: ActivityEvent
+
+    var body: some View {
+        HStack(spacing: 10) {
+            // Event icon
+            Image(systemName: event.icon)
+                .font(.system(size: 18))
+                .foregroundColor(event.color)
+                .frame(width: 24)
+
+            // Event details
+            VStack(alignment: .leading, spacing: 2) {
+                Text(event.truncatedTitle)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Claude.textPrimary)
+                    .lineLimit(1)
+
+                HStack(spacing: 4) {
+                    if let subtitle = event.subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 9))
+                            .foregroundColor(Claude.textTertiary)
+                    }
+
+                    Text(event.timeAgoText)
+                        .font(.system(size: 9))
+                        .foregroundColor(Claude.textTertiary)
+                }
+            }
+
+            Spacer()
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Claude.surface1)
+        )
+    }
+}
+
+/// Row showing session statistics
+struct SessionStatsRow: View {
+    let tasks: Int
+    let approvals: Int
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "checklist")
+                .font(.system(size: 10))
+                .foregroundColor(Claude.textTertiary)
+
+            Text("\(tasks) task\(tasks == 1 ? "" : "s")")
+                .font(.system(size: 10))
+                .foregroundColor(Claude.textSecondary)
+
+            Text("•")
+                .font(.system(size: 10))
+                .foregroundColor(Claude.textTertiary)
+
+            Image(systemName: "hand.raised")
+                .font(.system(size: 10))
+                .foregroundColor(Claude.textTertiary)
+
+            Text("\(approvals) approval\(approvals == 1 ? "" : "s")")
+                .font(.system(size: 10))
+                .foregroundColor(Claude.textSecondary)
+        }
+    }
+}
+
+/// Warning text shown when session has been idle
+struct IdleWarningText: View {
+    let minutes: Int
+
+    var body: some View {
+        Text("Session idle for \(minutes) min")
+            .font(.system(size: 9))
+            .foregroundColor(Claude.warning)
+    }
+}
+
 // MARK: - Previews
 #Preview("Empty State - Paired") {
     EmptyStateView()
@@ -401,4 +484,26 @@ struct AlwaysOnDisplayView: View {
         pendingCount: 3,
         status: .waiting
     )
+}
+
+#Preview("Last Activity Card") {
+    LastActivityCard(event: ActivityEvent(
+        type: .taskCompleted,
+        title: "Fixed authentication bug",
+        subtitle: "3 files changed"
+    ))
+    .padding()
+}
+
+#Preview("Session Stats Row") {
+    VStack(spacing: 16) {
+        SessionStatsRow(tasks: 3, approvals: 8)
+        SessionStatsRow(tasks: 1, approvals: 1)
+    }
+    .padding()
+}
+
+#Preview("Idle Warning") {
+    IdleWarningText(minutes: 12)
+        .padding()
 }

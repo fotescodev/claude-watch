@@ -271,6 +271,65 @@ Include relevant principles in agent prompts:
 4. **Graceful Degradation** - OK to punt to Mac
 5. **Brand Presence** - `#d97757` for brand, system colors for state
 
+---
+
+## Strict Triage Rules
+
+**BE STRICT during triage.** These rules are non-negotiable:
+
+### Rule 1: Use Exact Assets - NEVER Recreate
+
+When a design shows a logo, icon, or image asset:
+
+```
+❌ WRONG: Recreate the logo programmatically with shapes
+❌ WRONG: Use a "similar" SF Symbol (face.smiling, waveform.circle)
+❌ WRONG: Draw an approximation that "looks close enough"
+
+✅ RIGHT: Find the actual asset in Assets.xcassets
+✅ RIGHT: Create an image set from the existing asset
+✅ RIGHT: Use Image("AssetName") to reference it exactly
+```
+
+**Example - The Claude Logo Lesson:**
+```
+Design showed: Claude face logo (rounded square with eye + smile)
+Wrong approach: Drew shapes (RoundedRectangle + circles)
+Result: Logo looked "off" - wrong proportions, wrong style
+Correct approach: Used actual PNG from AppIcon.appiconset
+Result: Pixel-perfect match to design
+```
+
+### Rule 2: Verify Against Actual Design, Not Description
+
+```
+❌ WRONG: "The design says show a logo, so I'll add any logo"
+✅ RIGHT: Look at the actual design image and match it exactly
+```
+
+### Rule 3: When In Doubt, Ask
+
+If the design shows something specific but you can't find the asset:
+1. Check `Assets.xcassets/` for existing assets
+2. Check if there's a reusable component already
+3. ASK the user before recreating anything
+
+### Rule 4: Colors Must Be Exact
+
+```
+❌ WRONG: "It's orange-ish, so I'll use .orange"
+✅ RIGHT: Use Claude.orange (#d97757) from the design system
+```
+
+### Asset Locations Reference
+
+| Asset Type | Location |
+|------------|----------|
+| App Icon | `Assets.xcassets/AppIcon.appiconset/` |
+| Logo (reusable) | `Assets.xcassets/ClaudeLogo.imageset/` |
+| Colors | `ClaudeWatch/DesignSystem/Claude.swift` |
+| SF Symbols | Only when design explicitly shows SF Symbol |
+
 ## Key Files Reference
 
 | File | Purpose |
@@ -593,6 +652,12 @@ Do NOT try to fix adjacent bugs - stay focused on your task.
 ## Key Files
 - Design tokens: ClaudeWatch/DesignSystem/Claude.swift
 - Task criteria: .claude/tasks/{task-id}/criteria.json
+- Logo asset: Assets.xcassets/ClaudeLogo.imageset (use Image("ClaudeLogo"))
+
+## STRICT RULES
+- NEVER recreate logos/icons programmatically - use actual assets
+- NEVER use "similar" SF Symbols when design shows specific asset
+- Colors MUST come from Claude.swift, not approximations
 
 Hooks verify automatically. Continue until all criteria pass.
 ```

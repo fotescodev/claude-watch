@@ -15,12 +15,12 @@ struct WorkingView: View {
             VStack(spacing: 8) {
                 // Header with state indicator and percentage
                 HStack(spacing: 6) {
-                    ClaudeStateDot(state: .working)
+                    ClaudeStateDot(state: .working, size: 6)
                         .opacity(reduceMotion ? 1.0 : 0.5 + 0.5 * Double(pulsePhase))
 
                     Text("Working")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(Claude.textSecondary)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(ClaudeState.working.color)
 
                     Spacer()
 
@@ -37,23 +37,31 @@ struct WorkingView: View {
                 // Current activity
                 if let progress = service.sessionProgress {
                     VStack(alignment: .leading, spacing: 6) {
-                        // Activity name with in-progress task indicator
-                        if let activity = progress.currentActivity ?? progress.currentTask {
-                            HStack(spacing: 6) {
-                                // Animated activity indicator
-                                ProgressView()
-                                    .scaleEffect(0.6)
-                                    .frame(width: 14, height: 14)
+                        // Task fraction + activity name (V2: "2/3 Update auth service")
+                        HStack(spacing: 6) {
+                            // Animated activity indicator
+                            ProgressView()
+                                .scaleEffect(0.6)
+                                .frame(width: 14, height: 14)
 
+                            // Task fraction prefix
+                            if progress.totalCount > 0 {
+                                Text("\(progress.completedCount + 1)/\(progress.totalCount)")
+                                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                    .foregroundColor(ClaudeState.working.color)
+                            }
+
+                            // Activity name
+                            if let activity = progress.currentActivity ?? progress.currentTask {
                                 Text(activity)
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundColor(Claude.textPrimary)
                                     .lineLimit(2)
+                            } else {
+                                Text("Processing...")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(Claude.textPrimary)
                             }
-                        } else {
-                            Text("Processing...")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(Claude.textPrimary)
                         }
 
                         // Collapsible todo list (V2)

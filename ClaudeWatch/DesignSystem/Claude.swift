@@ -122,6 +122,8 @@ public enum Claude {
         static let large: CGFloat = 16
         /// Extra large radius: 20pt
         static let xlarge: CGFloat = 20
+        /// Button radius: 22pt (V2 standard for pill buttons)
+        static let button: CGFloat = 22
     }
 }
 

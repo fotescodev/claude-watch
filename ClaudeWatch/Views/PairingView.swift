@@ -53,17 +53,15 @@ struct UnpairedMainView: View {
                 Spacer()
             }
 
-            // Empty state card - compact
+            // Claude Code branding card
             VStack(spacing: Claude.Spacing.sm) {
-                Image(systemName: "link")
-                    .font(.system(size: 28))
-                    .foregroundStyle(Claude.orange)
+                ClaudeFaceLogo(size: 50)
 
-                Text("Pair with Claude")
+                Text("Claude Code")
                     .font(.claudeHeadline)
                     .foregroundStyle(Claude.textPrimary)
 
-                Text("Get code to enter in CLI")
+                Text("Watch Companion")
                     .font(.claudeFootnote)
                     .foregroundStyle(Claude.textSecondary)
             }
@@ -82,7 +80,7 @@ struct UnpairedMainView: View {
                         WKInterfaceDevice.current().play(.click)
                         onPairNow()
                     }) {
-                        Text("Pair Now")
+                        Text("Pair with Code")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -155,25 +153,24 @@ struct PairingCodeDisplayView: View {
     @State private var errorMessage: String?
     @State private var showSuccess = false
     @State private var pollingTask: Task<Void, Never>?
+    @State private var secondsRemaining: Int = 300  // 5 minutes
+    @State private var countdownTimer: Timer?
 
     var body: some View {
         if showSuccess {
             ConnectedSuccessView()
         } else {
             VStack(spacing: Claude.Spacing.sm) {
-                // Header with back button
+                // Header with back arrow per design spec
                 HStack {
                     Button(action: {
                         WKInterfaceDevice.current().play(.click)
                         pollingTask?.cancel()
                         onBack()
                     }) {
-                        HStack(spacing: 2) {
-                            Image(systemName: "chevron.left")
-                            Text("Back")
-                        }
-                        .font(.claudeFootnote)
-                        .foregroundStyle(Claude.orange)
+                        Image(systemName: "arrow.left")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Claude.textSecondary)
                     }
                     .buttonStyle(.plain)
                     Spacer()
@@ -217,16 +214,17 @@ struct PairingCodeDisplayView: View {
                     Spacer()
                 } else if let code = code {
                     // Code display state
-                    Text("Enter in CLI:")
-                        .font(.claudeFootnote)
-                        .foregroundStyle(Claude.textSecondary)
+                    VStack(spacing: 2) {
+                        Text("Enter Code")
+                            .font(.claudeHeadline)
+                            .foregroundStyle(Claude.textPrimary)
+                        Text("Run npx cc-watch")
+                            .font(.claudeFootnote)
+                            .foregroundStyle(Claude.textSecondary)
+                    }
 
-                    // Large code display - sized to fit watch screen
-                    Text(formatCodeForDisplay(code))
-                        .font(.system(size: 22, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Claude.textPrimary)
-                        .minimumScaleFactor(0.8)
-                        .lineLimit(1)
+                    // Large code display - Anthropic orange per design spec
+                    codeDisplayView(for: code)
                         .padding(.vertical, Claude.Spacing.md)
 
                     // Waiting indicator
@@ -241,8 +239,8 @@ struct PairingCodeDisplayView: View {
 
                     Spacer()
 
-                    // Code expires info
-                    Text("Code expires in 5 min")
+                    // Code expires countdown
+                    Text("Expires in \(secondsRemaining / 60):\(String(format: "%02d", secondsRemaining % 60))")
                         .font(.system(size: 11))
                         .foregroundStyle(Claude.textTertiary)
                 }
@@ -253,13 +251,21 @@ struct PairingCodeDisplayView: View {
             }
             .onDisappear {
                 pollingTask?.cancel()
+                countdownTimer?.invalidate()
             }
         }
     }
 
-    /// Format code with spaces for readability: "472913" -> "4 7 2 9 1 3"
-    private func formatCodeForDisplay(_ code: String) -> String {
-        return code.map { String($0) }.joined(separator: " ")
+    /// Creates code display with Anthropic orange per design spec
+    @ViewBuilder
+    private func codeDisplayView(for code: String) -> some View {
+        HStack(spacing: 10) {
+            ForEach(Array(code.enumerated()), id: \.offset) { _, char in
+                Text(String(char))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundColor(Claude.anthropicOrange)
+            }
+        }
     }
 
     private func initiatePairing() {
@@ -267,6 +273,8 @@ struct PairingCodeDisplayView: View {
         errorMessage = nil
         code = nil
         watchId = nil
+        secondsRemaining = 300  // Reset countdown
+        countdownTimer?.invalidate()
 
         Task {
             do {
@@ -277,6 +285,7 @@ struct PairingCodeDisplayView: View {
                     self.isLoading = false
                     WKInterfaceDevice.current().play(.click)
                     startPolling(watchId: result.watchId)
+                    startCountdownTimer()
                 }
             } catch {
                 await MainActor.run {
@@ -284,6 +293,17 @@ struct PairingCodeDisplayView: View {
                     isLoading = false
                     WKInterfaceDevice.current().play(.failure)
                 }
+            }
+        }
+    }
+
+    private func startCountdownTimer() {
+        countdownTimer?.invalidate()
+        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+            if secondsRemaining > 0 {
+                secondsRemaining -= 1
+            } else {
+                timer.invalidate()
             }
         }
     }

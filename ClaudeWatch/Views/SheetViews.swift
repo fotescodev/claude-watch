@@ -233,6 +233,9 @@ struct SettingsSheet: View {
                 Button {
                     service.isDemoMode = false
                     service.state = WatchState()
+                    service.sessionProgress = nil  // Clear demo progress
+                    service.pendingQuestion = nil  // Clear demo question
+                    service.contextWarning = nil   // Clear demo warning
                     service.connectionStatus = .disconnected
                     service.pairingId = ""
                     WKInterfaceDevice.current().play(.click)

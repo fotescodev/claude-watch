@@ -70,11 +70,13 @@ struct MainView: View {
                     // Single approval - use existing ActionQueue
                     mainContentView
                 case .question:
-                    // F18: Binary question response
+                    // F18: Binary question response (V2: exactly 2 options)
                     if let question = service.pendingQuestion {
                         QuestionResponseView(
                             question: question.question,
-                            recommendedAnswer: question.recommendedAnswer,
+                            options: question.options.map { opt in
+                                QuestionOption(label: opt.label, description: opt.description)
+                            },
                             questionId: question.id
                         )
                     } else {
@@ -242,7 +244,15 @@ struct MainView: View {
             return .contextWarning
         }
 
-        // Session progress states
+        // Approval states - PRIORITY over working (user must approve for Claude to continue)
+        let pendingCount = service.state.pendingActions.count
+        if pendingCount >= 2 {
+            return .approvalQueue
+        } else if pendingCount == 1 {
+            return .approval
+        }
+
+        // Session progress states (only shown when no pending approvals)
         if let progress = service.sessionProgress {
             let isComplete = progress.isComplete
             if isComplete {
@@ -250,14 +260,6 @@ struct MainView: View {
             } else {
                 return .working
             }
-        }
-
-        // Approval states
-        let pendingCount = service.state.pendingActions.count
-        if pendingCount >= 2 {
-            return .approvalQueue
-        } else if pendingCount == 1 {
-            return .approval
         }
 
         // Idle/empty state

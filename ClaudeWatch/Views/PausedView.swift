@@ -9,6 +9,17 @@ struct PausedView: View {
 
     var body: some View {
         VStack(spacing: 8) {
+            // V2: State header with colored dot
+            HStack(spacing: 6) {
+                ClaudeStateDot(state: .idle, size: 6)
+                Text("Paused")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(ClaudeState.idle.color)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+
             // Pause icon - compact
             ZStack {
                 Circle()
@@ -53,7 +64,7 @@ struct PausedView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(ClaudeState.success.color)
+                    .background(Claude.info)
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)

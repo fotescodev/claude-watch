@@ -13,52 +13,71 @@ struct ContextWarningView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            // Warning icon with urgency color
-            ZStack {
+            // Header with state dot
+            HStack {
                 Circle()
-                    .fill(urgencyColor.opacity(0.2))
-                    .frame(width: 50, height: 50)
-
-                Image(systemName: urgencyIcon)
-                    .font(.system(size: 28, weight: .semibold))
-                    .foregroundColor(urgencyColor)
+                    .fill(Claude.warning)
+                    .frame(width: 6, height: 6)
+                Text("Warning")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Claude.warning)
+                Spacer()
             }
-            .padding(.top, 16)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
 
-            // Context usage percentage
-            Text("\(percentage)%")
-                .font(.system(size: 32, weight: .bold, design: .rounded))
-                .foregroundColor(urgencyColor)
+            // Warning icon - triangle
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 32))
+                .foregroundColor(.yellow)
+                .padding(.top, 4)
 
-            // Warning message
-            VStack(spacing: 4) {
-                Text("Context Usage")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Claude.textPrimary)
+            // Title with percentage
+            Text("Context at \(percentage)%")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(Claude.textPrimary)
 
-                Text(warningMessage)
-                    .font(.system(size: 10))
-                    .foregroundColor(Claude.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-            }
+            // Subtitle
+            Text("Session may compress soon")
+                .font(.system(size: 11))
+                .foregroundColor(Claude.textSecondary)
+
+            // Red progress bar
+            ProgressView(value: Double(percentage) / 100.0)
+                .tint(.red)
+                .padding(.horizontal, 20)
 
             Spacer()
 
-            // Acknowledge button
-            Button {
-                acknowledge()
-            } label: {
-                Text("OK")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(urgencyColor)
-                    .clipShape(Capsule())
+            // Two buttons: Dismiss + View
+            HStack(spacing: 12) {
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Dismiss")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Claude.surface2)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    view()
+                } label: {
+                    Text("View")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Claude.warning)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.bottom, 8)
             .disabled(acknowledged)
         }
@@ -74,40 +93,18 @@ struct ContextWarningView: View {
         }
     }
 
-    private var urgencyColor: Color {
-        if percentage >= 95 {
-            return ClaudeState.error.color
-        } else if percentage >= 85 {
-            return Claude.warning
-        } else {
-            return Claude.info
-        }
-    }
-
-    private var urgencyIcon: String {
-        if percentage >= 95 {
-            return "exclamationmark.triangle.fill"
-        } else if percentage >= 85 {
-            return "exclamationmark.circle.fill"
-        } else {
-            return "info.circle.fill"
-        }
-    }
-
-    private var warningMessage: String {
-        if percentage >= 95 {
-            return "Context nearly full. Consider starting fresh."
-        } else if percentage >= 85 {
-            return "Context getting full. Summarization may occur."
-        } else {
-            return "Context usage is elevated. Monitor closely."
-        }
-    }
-
-    private func acknowledge() {
+    private func dismiss() {
         guard !acknowledged else { return }
         acknowledged = true
         WKInterfaceDevice.current().play(.click)
+        service.acknowledgeContextWarning()
+    }
+
+    private func view() {
+        guard !acknowledged else { return }
+        acknowledged = true
+        WKInterfaceDevice.current().play(.click)
+        // View action - for now just acknowledge (could navigate to details in future)
         service.acknowledgeContextWarning()
     }
 }

@@ -439,6 +439,150 @@ app.delete('/approval-queue/:pairingId', async (c) => {
   return c.json({ success: true });
 });
 
+// ============================================
+// Question endpoints (for multi-select/single-select questions)
+// ============================================
+
+// Question option
+interface QuestionOption {
+  label: string;
+  description?: string;
+}
+
+// Question request stored in queue
+interface QuestionRequest {
+  questionId: string;
+  question: string;
+  header?: string;
+  options: QuestionOption[];
+  multiSelect: boolean;
+  recommendedAnswer?: string;
+  createdAt: string;
+  status: 'pending' | 'answered';
+  answer?: string | string[];
+}
+
+// Question queue for a pairing
+interface QuestionQueue {
+  questions: QuestionRequest[];
+}
+
+// Add question to queue (from hook)
+app.post('/question', async (c) => {
+  const body = await c.req.json<{
+    pairingId: string;
+    questionId: string;
+    question: string;
+    header?: string;
+    options: QuestionOption[];
+    multiSelect?: boolean;
+    recommendedAnswer?: string;
+  }>();
+
+  if (!body.pairingId || !body.questionId || !body.question || !body.options) {
+    return c.json({ error: 'pairingId, questionId, question, and options are required' }, 400);
+  }
+
+  const request: QuestionRequest = {
+    questionId: body.questionId,
+    question: body.question,
+    header: body.header,
+    options: body.options,
+    multiSelect: body.multiSelect || false,
+    recommendedAnswer: body.recommendedAnswer,
+    createdAt: new Date().toISOString(),
+    status: 'pending',
+  };
+
+  // Get existing queue or create new
+  const queue = await c.env.MESSAGES_KV.get<QuestionQueue>(`question_queue:${body.pairingId}`, 'json') || { questions: [] };
+
+  // Check for duplicate
+  if (!queue.questions.find(q => q.questionId === body.questionId)) {
+    queue.questions.push(request);
+    // Keep last 50 questions
+    if (queue.questions.length > 50) {
+      queue.questions = queue.questions.slice(-50);
+    }
+    await c.env.MESSAGES_KV.put(`question_queue:${body.pairingId}`, JSON.stringify(queue), { expirationTtl: 300 });
+  }
+
+  return c.json({ questionId: body.questionId, success: true });
+});
+
+// Fetch question queue (for watch polling) - returns all pending questions
+app.get('/question-queue/:pairingId', async (c) => {
+  const pairingId = c.req.param('pairingId');
+
+  const queue = await c.env.MESSAGES_KV.get<QuestionQueue>(`question_queue:${pairingId}`, 'json') || { questions: [] };
+
+  // Return only pending questions
+  const pending = queue.questions.filter(q => q.status === 'pending');
+
+  return c.json({ questions: pending, totalCount: queue.questions.length });
+});
+
+// Answer a question (from watch)
+app.post('/question/:questionId', async (c) => {
+  const questionId = c.req.param('questionId');
+  const { pairingId, answer } = await c.req.json<{ pairingId: string; answer: string | string[] }>();
+
+  const queue = await c.env.MESSAGES_KV.get<QuestionQueue>(`question_queue:${pairingId}`, 'json');
+  if (!queue) {
+    return c.json({ error: 'Queue not found' }, 404);
+  }
+
+  // Update question status
+  const question = queue.questions.find(q => q.questionId === questionId);
+  if (question) {
+    question.status = 'answered';
+    question.answer = answer;
+    await c.env.MESSAGES_KV.put(`question_queue:${pairingId}`, JSON.stringify(queue), { expirationTtl: 300 });
+  }
+
+  // Also store response for hook to poll
+  const existing = await c.env.MESSAGES_KV.get<MessageQueue>(`to_server:${pairingId}`, 'json') || { messages: [] };
+  existing.messages.push({
+    id: crypto.randomUUID(),
+    type: 'question_response',
+    payload: { type: 'question_response', question_id: questionId, answer },
+    timestamp: new Date().toISOString(),
+  });
+  await c.env.MESSAGES_KV.put(`to_server:${pairingId}`, JSON.stringify(existing), { expirationTtl: 300 });
+
+  return c.json({ success: true });
+});
+
+// Get individual question status (for hook polling)
+app.get('/question/:pairingId/:questionId', async (c) => {
+  const pairingId = c.req.param('pairingId');
+  const questionId = c.req.param('questionId');
+
+  const queue = await c.env.MESSAGES_KV.get<QuestionQueue>(`question_queue:${pairingId}`, 'json');
+  if (!queue) {
+    return c.json({ error: 'Queue not found', status: 'not_found' }, 404);
+  }
+
+  const question = queue.questions.find(q => q.questionId === questionId);
+  if (!question) {
+    return c.json({ error: 'Question not found', status: 'not_found' }, 404);
+  }
+
+  return c.json({
+    questionId: question.questionId,
+    status: question.status,
+    question: question.question,
+    answer: question.answer,
+  });
+});
+
+// Clear question queue (when session ends)
+app.delete('/question-queue/:pairingId', async (c) => {
+  const pairingId = c.req.param('pairingId');
+  await c.env.MESSAGES_KV.delete(`question_queue:${pairingId}`);
+  return c.json({ success: true });
+});
+
 // Legacy: Fetch pending requests (for backwards compatibility)
 app.get('/requests/:pairingId', async (c) => {
   const pairingId = c.req.param('pairingId');
@@ -533,6 +677,9 @@ app.post('/session-end', async (c) => {
 
   // Clear approval queue
   await c.env.MESSAGES_KV.delete(`approval_queue:${pairingId}`);
+
+  // Clear question queue
+  await c.env.MESSAGES_KV.delete(`question_queue:${pairingId}`);
 
   // Clear progress
   await c.env.MESSAGES_KV.delete(`progress:${pairingId}`);
