@@ -2,18 +2,17 @@ import SwiftUI
 import WatchKit
 
 /// Shows current task progress when Claude is actively working
-/// V2: Displays percentage, collapsible task list, Digital Crown scroll
+/// V3: Uses TaskChecklist component, progress bar with percentage, pause button
 struct WorkingView: View {
     @ObservedObject private var service = WatchService.shared
     @State private var pulsePhase: CGFloat = 0
-    @State private var isTaskListExpanded = false
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 8) {
-                // Header with state indicator and percentage
+            VStack(spacing: 12) {
+                // Header with state indicator
                 HStack(spacing: 6) {
                     ClaudeStateDot(state: .working, size: 6)
                         .opacity(reduceMotion ? 1.0 : 0.5 + 0.5 * Double(pulsePhase))
@@ -23,116 +22,42 @@ struct WorkingView: View {
                         .foregroundColor(ClaudeState.working.color)
 
                     Spacer()
-
-                    // Progress percentage (V2)
-                    if let progress = service.sessionProgress, progress.totalCount > 0 {
-                        Text("\(Int(progress.progress * 100))%")
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .foregroundColor(ClaudeState.working.color)
-                    }
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
 
-                // Current activity
+                // Task card with checklist and progress
                 if let progress = service.sessionProgress {
-                    VStack(alignment: .leading, spacing: 6) {
-                        // Task fraction + activity name (V2: "2/3 Update auth service")
-                        HStack(spacing: 6) {
-                            // Animated activity indicator
-                            ProgressView()
-                                .scaleEffect(0.6)
-                                .frame(width: 14, height: 14)
-
-                            // Task fraction prefix
-                            if progress.totalCount > 0 {
-                                Text("\(progress.completedCount + 1)/\(progress.totalCount)")
-                                    .font(.system(size: 13, weight: .bold, design: .monospaced))
-                                    .foregroundColor(ClaudeState.working.color)
-                            }
-
-                            // Activity name
-                            if let activity = progress.currentActivity ?? progress.currentTask {
-                                Text(activity)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(Claude.textPrimary)
-                                    .lineLimit(2)
-                            } else {
-                                Text("Processing...")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(Claude.textPrimary)
-                            }
+                    VStack(alignment: .leading, spacing: 10) {
+                        // Task title
+                        if let taskTitle = progress.currentActivity ?? progress.currentTask {
+                            Text(taskTitle)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Claude.textPrimary)
+                                .lineLimit(2)
+                        } else {
+                            Text("Processing...")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Claude.textPrimary)
                         }
 
-                        // Collapsible todo list (V2)
+                        // Task checklist using TaskChecklist component
                         if !progress.tasks.isEmpty {
-                            Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    isTaskListExpanded.toggle()
-                                }
-                                WKInterfaceDevice.current().play(.click)
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: isTaskListExpanded ? "chevron.down" : "chevron.right")
-                                        .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(Claude.textTertiary)
-
-                                    Text("\(progress.completedCount)/\(progress.totalCount) tasks")
-                                        .font(.system(size: 10, weight: .medium))
-                                        .foregroundColor(Claude.textSecondary)
-
-                                    Spacer()
-                                }
-                            }
-                            .buttonStyle(.plain)
-
-                            // Expanded task list (max 4 items to prevent scroll overflow on watch)
-                            if isTaskListExpanded {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    ForEach(progress.tasks.prefix(4)) { task in
-                                        HStack(spacing: 4) {
-                                            Image(systemName: task.status.systemIcon)
-                                                .font(.system(size: 9))
-                                                .foregroundColor(task.status.color)
-
-                                            Text(task.content)
-                                                .font(.system(size: 9))
-                                                .foregroundColor(task.status == .completed ? Claude.textSecondary : Claude.textPrimary)
-                                                .lineLimit(1)
-                                                .strikethrough(task.status == .completed, color: Claude.textTertiary)
-                                        }
-                                    }
-
-                                    // Show overflow indicator if more than 4 tasks
-                                    if progress.tasks.count > 4 {
-                                        Text("+\(progress.tasks.count - 4) more")
-                                            .font(.system(size: 8))
-                                            .foregroundColor(Claude.textTertiary)
-                                            .padding(.leading, 13)
-                                    }
-                                }
-                                .padding(.leading, 12)
-                                .transition(.opacity.combined(with: .move(edge: .top)))
-                            }
+                            TaskChecklist(items: progress.tasks.prefix(4).map { task in
+                                (status: mapTodoStatusToCheckStatus(task.status), text: task.content)
+                            })
                         }
 
-                        // Progress bar with elapsed time
+                        // Progress bar with percentage
                         VStack(spacing: 4) {
                             ProgressView(value: progress.progress)
                                 .tint(ClaudeState.working.color)
 
                             HStack {
-                                Text("\(progress.completedCount)/\(progress.totalCount)")
-                                    .font(.system(size: 9, weight: .medium, design: .monospaced))
-                                    .foregroundColor(Claude.textSecondary)
-
                                 Spacer()
-
-                                if progress.elapsedSeconds > 0 {
-                                    Text(progress.formattedElapsedTime)
-                                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                                        .foregroundColor(Claude.textTertiary)
-                                }
+                                Text("\(Int(progress.progress * 100))%")
+                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                    .foregroundColor(Claude.textSecondary)
                             }
                         }
                     }
@@ -156,7 +81,7 @@ struct WorkingView: View {
                     .glassEffectCompat(RoundedRectangle(cornerRadius: Claude.Radius.large))
                 }
 
-                // Pause button at bottom (V2 design spec)
+                // Pause button (V3 design spec)
                 Button {
                     WKInterfaceDevice.current().play(.click)
                     Task {
@@ -178,13 +103,30 @@ struct WorkingView: View {
                 .buttonStyle(.plain)
                 .padding(.horizontal, 20)
 
-                Spacer(minLength: 20)
+                // Hint text
+                Text("Double tap to pause")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(Claude.textTertiary)
+
+                Spacer(minLength: 12)
             }
         }
         .focusable()  // Enable Digital Crown scrolling
         .contentMargins(.top, 8, for: .scrollContent)  // Prevent toolbar overlap when scrolling
         .onAppear {
             startPulse()
+        }
+    }
+
+    /// Maps TodoStatus to TaskCheckStatus for the TaskChecklist component
+    private func mapTodoStatusToCheckStatus(_ status: TodoItem.TodoStatus) -> TaskCheckStatus {
+        switch status {
+        case .completed:
+            return .done
+        case .inProgress:
+            return .active
+        case .pending:
+            return .pending
         }
     }
 

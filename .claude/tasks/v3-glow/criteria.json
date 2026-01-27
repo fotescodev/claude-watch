@@ -1,0 +1,11 @@
+{
+  "task_id": "v3-glow",
+  "max_attempts": 3,
+  "checks": [
+    { "type": "file_exists", "file": "ClaudeWatch/Components/AmbientGlow.swift" },
+    { "type": "contains", "file": "ClaudeWatch/Components/AmbientGlow.swift", "text": "struct AmbientGlow" },
+    { "type": "contains", "file": "ClaudeWatch/Components/AmbientGlow.swift", "text": "opacity(0.18)" },
+    { "type": "contains", "file": "ClaudeWatch/Components/AmbientGlow.swift", "text": "blur(radius: 35)" },
+    { "type": "build" }
+  ]
+}

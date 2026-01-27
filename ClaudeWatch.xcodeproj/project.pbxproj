@@ -36,6 +36,9 @@
 		COMP001 /* BreathingAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP001 /* BreathingAnimation.swift */; };
 		COMP002 /* SwipeActionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP002 /* SwipeActionCard.swift */; };
 		COMP003 /* ActionButtonHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP003 /* ActionButtonHandler.swift */; };
+		COMP004 /* ActionButtonRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP004 /* ActionButtonRow.swift */; };
+		COMP005 /* TaskChecklist.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP005 /* TaskChecklist.swift */; };
+		COMP006 /* AmbientGlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP006 /* AmbientGlow.swift */; };
 		CTRL001 /* ApproveControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_CTRL001 /* ApproveControl.swift */; };
 		CTRL002 /* RejectControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_CTRL002 /* RejectControl.swift */; };
 		CTRL003 /* PauseResumeControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_CTRL003 /* PauseResumeControl.swift */; };
@@ -99,6 +102,9 @@
 		SRC_COMP001 /* BreathingAnimation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreathingAnimation.swift; sourceTree = "<group>"; };
 		SRC_COMP002 /* SwipeActionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeActionCard.swift; sourceTree = "<group>"; };
 		SRC_COMP003 /* ActionButtonHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButtonHandler.swift; sourceTree = "<group>"; };
+		SRC_COMP004 /* ActionButtonRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButtonRow.swift; sourceTree = "<group>"; };
+		SRC_COMP005 /* TaskChecklist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskChecklist.swift; sourceTree = "<group>"; };
+		SRC_COMP006 /* AmbientGlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientGlow.swift; sourceTree = "<group>"; };
 		SRC_CTRL001 /* ApproveControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApproveControl.swift; sourceTree = "<group>"; };
 		SRC_CTRL002 /* RejectControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RejectControl.swift; sourceTree = "<group>"; };
 		SRC_CTRL003 /* PauseResumeControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PauseResumeControl.swift; sourceTree = "<group>"; };
@@ -271,9 +277,12 @@
 GRP_COMP /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				SRC_COMP006 /* AmbientGlow.swift */,
 				SRC_COMP001 /* BreathingAnimation.swift */,
 				SRC_COMP002 /* SwipeActionCard.swift */,
 				SRC_COMP003 /* ActionButtonHandler.swift */,
+				SRC_COMP004 /* ActionButtonRow.swift */,
+				SRC_COMP005 /* TaskChecklist.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -390,6 +399,9 @@ GRP_COMP /* Components */ = {
 				COMP001 /* BreathingAnimation.swift in Sources */,
 				COMP002 /* SwipeActionCard.swift in Sources */,
 				COMP003 /* ActionButtonHandler.swift in Sources */,
+				COMP004 /* ActionButtonRow.swift in Sources */,
+				COMP005 /* TaskChecklist.swift in Sources */,
+				COMP006 /* AmbientGlow.swift in Sources */,
 				CTRL001 /* ApproveControl.swift in Sources */,
 				CTRL002 /* RejectControl.swift in Sources */,
 				CTRL003 /* PauseResumeControl.swift in Sources */,

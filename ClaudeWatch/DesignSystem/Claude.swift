@@ -32,6 +32,12 @@ public enum Claude {
     static let info = Color.blue          // #007AFF
     /// Idle state - Apple gray for inactive, neutral
     static let idle = Color.gray          // #8E8E93
+    /// Plan mode - Purple (#5E5CE6) - Planning state
+    static let plan = Color(red: 0.369, green: 0.361, blue: 0.902)  // #5E5CE6
+    /// Context warning - Yellow (#FFD60A) - Context usage alert
+    static let context = Color(red: 1.0, green: 0.839, blue: 0.039)  // #FFD60A
+    /// Question - Purple (#BF5AF2) - Needs user input
+    static let question = Color(red: 0.749, green: 0.353, blue: 0.949)  // #BF5AF2
 
     // MARK: - State Colors (V2 5-State Model)
     /// Returns the color for a given Claude state

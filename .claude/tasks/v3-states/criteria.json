@@ -1,0 +1,13 @@
+{
+  "task_id": "v3-states",
+  "max_attempts": 3,
+  "checks": [
+    { "type": "contains", "file": "ClaudeWatch/Models/ClaudeState.swift", "text": "case plan" },
+    { "type": "contains", "file": "ClaudeWatch/Models/ClaudeState.swift", "text": "case context" },
+    { "type": "contains", "file": "ClaudeWatch/Models/ClaudeState.swift", "text": "case question" },
+    { "type": "contains", "file": "ClaudeWatch/Models/ClaudeState.swift", "text": "Plan Mode" },
+    { "type": "contains", "file": "ClaudeWatch/Models/ClaudeState.swift", "text": "Context Warning" },
+    { "type": "contains", "file": "ClaudeWatch/Models/ClaudeState.swift", "text": "Question" },
+    { "type": "build" }
+  ]
+}

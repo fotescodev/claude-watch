@@ -58,7 +58,7 @@ Entry point - Tap to begin pairing
 │                             │
 │      [Claude Icon 32×32]    │
 │                             │
-│   Enter code from terminal  │ ← 11pt Inter, secondary color
+│   Enter code into terminal  │ ← 11pt Inter, secondary color
 │                             │
 │      ┌─┐ ┌─┐ ┌─┐ ┌─┐       │ ← 4 CodeDigit components
 │      │A│ │7│ │X│ │9│       │

@@ -156,8 +156,22 @@ struct TieredActionCard: View {
     /// The action's risk tier
     private var tier: ActionTier { action.tier }
 
+    /// Ambient glow based on tier
+    private var tierGlow: AmbientGlow {
+        switch tier {
+        case .low: return AmbientGlow.success()
+        case .medium: return AmbientGlow.warning()
+        case .high: return AmbientGlow.danger()
+        }
+    }
+
     var body: some View {
-        VStack(spacing: 8) {
+        ZStack {
+            // Glow behind card based on tier
+            tierGlow
+                .offset(y: -20)
+
+            VStack(spacing: 8) {
             // Error banner
             ErrorBanner(message: errorMessage, isVisible: $showError)
 
@@ -231,15 +245,16 @@ struct TieredActionCard: View {
                     .multilineTextAlignment(.center)
             }
         }
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: Claude.Radius.large)
-                .stroke(tier.cardColor.opacity(0.6), lineWidth: 2)
-        )
-        .glassEffectInteractive(RoundedRectangle(cornerRadius: Claude.Radius.large))
-        .sensoryFeedback(.error, trigger: didError)
-        // Double tap gesture per tier
-        .modifier(TieredDoubleTapModifier(tier: tier, onApprove: approveAction, onReject: rejectAction))
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: Claude.Radius.large)
+                    .stroke(tier.cardColor.opacity(0.6), lineWidth: 2)
+            )
+            .glassEffectInteractive(RoundedRectangle(cornerRadius: Claude.Radius.large))
+            .sensoryFeedback(.error, trigger: didError)
+            // Double tap gesture per tier
+            .modifier(TieredDoubleTapModifier(tier: tier, onApprove: approveAction, onReject: rejectAction))
+        }
     }
 
     // MARK: - Standard Buttons (Tier 1-2)
@@ -296,65 +311,120 @@ struct TieredActionCard: View {
         }
     }
 
-    // MARK: - Tier 3 Buttons (Reject + Remind 5m)
+    // MARK: - Tier 3 Buttons (V3: Review on Mac + Reject/Remind)
+    // SAFETY: NO approve button for dangerous operations
+
+    @State private var reviewOnMacPressed = false
+    @State private var didReviewOnMac = false
 
     private var tier3Buttons: some View {
-        HStack(spacing: 6) {
-            // Reject button (primary for Tier 3)
+        VStack(spacing: 8) {
+            // PRIMARY: Review on Mac button (brand color) - dismisses to let user handle on Mac
             Button {
-                rejectAction()
+                reviewOnMac()
             } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .bold))
-                    Text("Reject")
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .foregroundColor(.white)
-                .background(Claude.danger)
-                .clipShape(Capsule())
-                .scaleEffect(rejectPressed && !reduceMotion ? 0.92 : 1.0)
-                .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: rejectPressed)
+                Text("Review on Mac")
+                    .font(.system(size: 14, weight: .bold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .foregroundColor(.white)
+                    .background(
+                        LinearGradient(
+                            colors: [Claude.orange, Claude.orangeDark],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .clipShape(Capsule())
+                    .scaleEffect(reviewOnMacPressed && !reduceMotion ? 0.92 : 1.0)
+                    .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: reviewOnMacPressed)
             }
             .buttonStyle(.plain)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
-                    .onChanged { _ in rejectPressed = true }
-                    .onEnded { _ in rejectPressed = false }
+                    .onChanged { _ in reviewOnMacPressed = true }
+                    .onEnded { _ in reviewOnMacPressed = false }
             )
-            .accessibilityLabel("Reject dangerous action: \(action.title)")
-            .accessibilitySortPriority(2)
-            .sensoryFeedback(.error, trigger: didReject)
+            .accessibilityLabel("Review on Mac - dangerous action requires desktop approval")
+            .accessibilitySortPriority(3)
+            .sensoryFeedback(.success, trigger: didReviewOnMac)
 
-            // Remind 5m button
-            Button {
-                remindLater()
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "clock")
-                        .font(.system(size: 12, weight: .semibold))
-                    Text("5m")
-                        .font(.system(size: 12, weight: .semibold))
+            // SECONDARY: Reject + Remind buttons
+            HStack(spacing: 6) {
+                // Reject button
+                Button {
+                    rejectAction()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                        Text("Reject")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .foregroundColor(.white)
+                    .background(Claude.danger)
+                    .clipShape(Capsule())
+                    .scaleEffect(rejectPressed && !reduceMotion ? 0.92 : 1.0)
+                    .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: rejectPressed)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .foregroundColor(Claude.textPrimary)
-                .background(Claude.surface2)
-                .clipShape(Capsule())
-                .scaleEffect(remindPressed && !reduceMotion ? 0.92 : 1.0)
-                .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: remindPressed)
+                .buttonStyle(.plain)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in rejectPressed = true }
+                        .onEnded { _ in rejectPressed = false }
+                )
+                .accessibilityLabel("Reject dangerous action: \(action.title)")
+                .accessibilitySortPriority(2)
+                .sensoryFeedback(.error, trigger: didReject)
+
+                // Remind button
+                Button {
+                    remindLater()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Remind")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .foregroundColor(Claude.textPrimary)
+                    .background(Claude.surface2)
+                    .clipShape(Capsule())
+                    .scaleEffect(remindPressed && !reduceMotion ? 0.92 : 1.0)
+                    .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: remindPressed)
+                }
+                .buttonStyle(.plain)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in remindPressed = true }
+                        .onEnded { _ in remindPressed = false }
+                )
+                .accessibilityLabel("Remind me later about this action")
+                .accessibilitySortPriority(1)
+                .sensoryFeedback(.success, trigger: didRemind)
             }
-            .buttonStyle(.plain)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in remindPressed = true }
-                    .onEnded { _ in remindPressed = false }
-            )
-            .accessibilityLabel("Remind me in 5 minutes")
-            .accessibilitySortPriority(1)
-            .sensoryFeedback(.success, trigger: didRemind)
+        }
+    }
+
+    // MARK: - Review on Mac Action
+
+    private func reviewOnMac() {
+        // Dismiss from watch - user will handle on Mac
+        // This does NOT approve or reject, just acknowledges
+        Task { @MainActor in
+            service.state.pendingActions.removeAll { $0.id == action.id }
+            if service.state.pendingActions.isEmpty {
+                service.state.status = .idle
+            }
+            service.playHaptic(.notification)
+            didReviewOnMac.toggle()
+            AccessibilityNotification.Announcement("Dismissed to review on Mac").post()
+
+            // Note: Action remains pending on server - user must handle via Mac
         }
     }
 
@@ -415,15 +485,13 @@ struct TieredActionCard: View {
     }
 
     private func remindLater() {
-        // TODO: Implement remind functionality - snooze for 5 minutes
-        // For now, just remove from view (notification will return)
+        // Dismiss from watch UI - action remains pending on server
+        // A follow-up notification will remind the user
         Task { @MainActor in
             service.state.pendingActions.removeAll { $0.id == action.id }
             service.playHaptic(.notification)
             didRemind.toggle()
-            AccessibilityNotification.Announcement("Will remind in 5 minutes").post()
-
-            // TODO: Schedule local notification for 5 minutes
+            AccessibilityNotification.Announcement("Will remind you later").post()
         }
     }
 
@@ -493,10 +561,10 @@ struct CompactStatusHeader: View {
                 .fill(statusColor)
                 .frame(width: 8, height: 8)
 
-            // Status text
+            // Status text - show "DANGEROUS" for Tier 3 actions
             Text(statusText)
                 .font(.caption.weight(.semibold))
-                .foregroundColor(Claude.textPrimary)
+                .foregroundColor(hasDangerousAction ? Claude.danger : Claude.textPrimary)
 
             Spacer()
 
@@ -521,6 +589,11 @@ struct CompactStatusHeader: View {
         service.state.pendingActions.count
     }
 
+    /// Check if there's a Tier 3 (dangerous) action pending
+    private var hasDangerousAction: Bool {
+        service.state.pendingActions.contains { $0.tier == .high }
+    }
+
     /// Badge color reflects highest tier pending
     private var highestTierColor: Color {
         let tiers = service.state.pendingActions.map { $0.tier }
@@ -530,6 +603,11 @@ struct CompactStatusHeader: View {
     }
 
     private var statusText: String {
+        // V3: Show "DANGEROUS" for Tier 3 actions per spec
+        if hasDangerousAction {
+            return "DANGEROUS"
+        }
+
         switch service.state.status {
         case .idle:
             return "Idle"
@@ -545,6 +623,11 @@ struct CompactStatusHeader: View {
     }
 
     private var statusColor: Color {
+        // V3: Red dot for Tier 3 dangerous actions
+        if hasDangerousAction {
+            return Claude.danger
+        }
+
         switch service.state.status {
         case .idle:
             return Claude.textSecondary
@@ -560,6 +643,9 @@ struct CompactStatusHeader: View {
     }
 
     private var accessibilityDescription: String {
+        if hasDangerousAction {
+            return "Dangerous action pending, requires Mac approval"
+        }
         if pendingCount > 0 {
             return "\(statusText), \(pendingCount) pending actions"
         }

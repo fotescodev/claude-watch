@@ -1,0 +1,13 @@
+{
+  "task_id": "v3-colors",
+  "max_attempts": 3,
+  "checks": [
+    { "type": "contains", "file": "ClaudeWatch/DesignSystem/Claude.swift", "text": "static let plan" },
+    { "type": "contains", "file": "ClaudeWatch/DesignSystem/Claude.swift", "text": "static let context" },
+    { "type": "contains", "file": "ClaudeWatch/DesignSystem/Claude.swift", "text": "static let question" },
+    { "type": "contains", "file": "ClaudeWatch/DesignSystem/Claude.swift", "text": "#5E5CE6" },
+    { "type": "contains", "file": "ClaudeWatch/DesignSystem/Claude.swift", "text": "#FFD60A" },
+    { "type": "contains", "file": "ClaudeWatch/DesignSystem/Claude.swift", "text": "#BF5AF2" },
+    { "type": "build" }
+  ]
+}

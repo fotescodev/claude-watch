@@ -126,7 +126,7 @@ struct CircularWidgetView: View {
                 if entry.pendingCount > 0 {
                     Text("\(entry.pendingCount)")
                         .font(.caption2.weight(.bold).monospaced())
-                        .foregroundColor(Color.orange.opacity(isLuminanceReduced ? 0.6 : 1.0))
+                        .foregroundColor(Claude.warning.opacity(isLuminanceReduced ? 0.6 : 1.0))
                 }
             }
         }
@@ -134,11 +134,11 @@ struct CircularWidgetView: View {
     }
 
     private var progressColor: Color {
-        .green
+        Claude.success
     }
 
     private var iconColor: Color {
-        entry.pendingCount > 0 ? .orange : .green
+        entry.pendingCount > 0 ? Claude.warning : Claude.success
     }
 }
 
@@ -185,7 +185,7 @@ struct RectangularWidgetView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Rectangle()
-                        .fill(Color.gray.opacity(isLuminanceReduced ? 0.15 : 0.3))
+                        .fill(Claude.idle.opacity(isLuminanceReduced ? 0.15 : 0.3))
                         .frame(height: 3)
                         .cornerRadius(1.5)
 
@@ -221,11 +221,11 @@ struct RectangularWidgetView: View {
 
     // Dimmed colors for always-on mode
     private var greenColor: Color {
-        Color.green.opacity(isLuminanceReduced ? 0.5 : 1.0)
+        Claude.success.opacity(isLuminanceReduced ? 0.5 : 1.0)
     }
 
     private var orangeColor: Color {
-        Color.orange.opacity(isLuminanceReduced ? 0.5 : 1.0)
+        Claude.warning.opacity(isLuminanceReduced ? 0.5 : 1.0)
     }
 
     private var purpleColor: Color {
@@ -259,7 +259,7 @@ struct CornerWidgetView: View {
     }
 
     private var greenColor: Color {
-        Color.green.opacity(isLuminanceReduced ? 0.5 : 1.0)
+        Claude.success.opacity(isLuminanceReduced ? 0.5 : 1.0)
     }
 }
 
@@ -279,7 +279,7 @@ struct InlineWidgetView: View {
 
             if entry.pendingCount > 0 {
                 Text("• \(entry.pendingCount)")
-                    .foregroundColor(Color.orange.opacity(isLuminanceReduced ? 0.5 : 1.0))
+                    .foregroundColor(Claude.warning.opacity(isLuminanceReduced ? 0.5 : 1.0))
             }
         }
     }

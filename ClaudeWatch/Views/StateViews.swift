@@ -22,16 +22,26 @@ struct EmptyStateView: View {
     }
 
     /// When paired: show Session Dashboard with activity info
+    /// V3 A3: Fresh Session - Green "Connected" status when no activity yet
     private var pairedEmptyState: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 12) {
-                    // V2: State header with colored dot
+                    // V3 A3: Status header - "Connected" (green) when fresh session, "Idle" (gray) when has activity
                     HStack(spacing: 6) {
-                        ClaudeStateDot(state: .idle, size: 6)
-                        Text("Idle")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(ClaudeState.idle.color)
+                        if activityStore.lastActivity == nil {
+                            // Fresh session: Green dot + "Connected"
+                            ClaudeStateDot(state: .success, size: 6)
+                            Text("Connected")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(ClaudeState.success.color)
+                        } else {
+                            // Has activity: Gray dot + "Idle"
+                            ClaudeStateDot(state: .idle, size: 6)
+                            Text("Idle")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(ClaudeState.idle.color)
+                        }
                         Spacer()
                     }
                     .padding(.horizontal, 12)
@@ -361,15 +371,16 @@ struct SessionDashboardContent: View {
                     IdleWarningText(minutes: Int((activityStore.timeSinceLastActivity ?? 0) / 60))
                 }
             } else {
-                // Fresh session - no activity yet
-                BreathingLogo(size: 50)
+                // V3 A3: Fresh session - no activity yet
+                // Shows Claude icon (32x32) with "Waiting for Claude..." text
+                ClaudeFaceLogo(size: 32, animated: true)
 
                 VStack(spacing: 4) {
-                    Text("Claude Code")
+                    Text("Waiting for Claude...")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(Claude.textPrimary)
 
-                    Text("Waiting for first task")
+                    Text("No activity yet")
                         .font(.system(size: 11))
                         .foregroundColor(Claude.textSecondary)
                 }
