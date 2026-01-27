@@ -177,7 +177,7 @@ class TestToolsRequiringApproval(unittest.TestCase):
         spec.loader.exec_module(watch_approval)
 
     def test_expected_tools(self):
-        expected = {"Bash", "Edit", "Write", "MultiEdit", "NotebookEdit"}
+        expected = {"Bash", "Edit", "Write", "MultiEdit", "NotebookEdit", "mobile_install_app", "mobile_uninstall_app"}
         self.assertEqual(watch_approval.TOOLS_REQUIRING_APPROVAL, expected)
 
     def test_read_not_included(self):

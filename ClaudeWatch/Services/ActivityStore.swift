@@ -25,6 +25,9 @@ class ActivityStore: ObservableObject {
     @Published private(set) var events: [ActivityEvent] = []
     @Published private(set) var currentSessionId: UUID?
 
+    /// Last completed session ID (for stats display after session ends)
+    private var lastSessionId: UUID?
+
     // MARK: - Configuration
 
     /// Maximum number of events to retain
@@ -71,6 +74,9 @@ class ActivityStore: ObservableObject {
             sessionId: sessionId
         )
         addEvent(event)
+
+        // Save session ID for stats display after session ends
+        lastSessionId = sessionId
         currentSessionId = nil
     }
 
@@ -169,28 +175,24 @@ class ActivityStore: ObservableObject {
         return elapsed > TimeInterval(minutes * 60)
     }
 
-    /// Stats for the current session
+    /// Stats for the current session (or last completed session)
     var currentSessionStats: (tasks: Int, approvals: Int)? {
-        guard currentSessionId != nil else {
-            // If no active session, return stats from most recent events
-            let recentEvents = eventsFromToday
-            if recentEvents.isEmpty { return nil }
+        // Use current session if active, otherwise use last completed session
+        let sessionId = currentSessionId ?? lastSessionId
 
-            let tasks = recentEvents.filter { $0.type == .taskCompleted }.count
-            let approvals = recentEvents.filter {
-                $0.type == .approvalApproved || $0.type == .approvalRejected
-            }.count
-
-            if tasks == 0 && approvals == 0 { return nil }
-            return (tasks: tasks, approvals: approvals)
+        guard let sid = sessionId else {
+            // No session tracked - return nil (don't count all events from today)
+            return nil
         }
 
-        let sessionEvents = events.filter { $0.sessionId == currentSessionId }
+        let sessionEvents = events.filter { $0.sessionId == sid }
         let tasks = sessionEvents.filter { $0.type == .taskCompleted }.count
         let approvals = sessionEvents.filter {
             $0.type == .approvalApproved || $0.type == .approvalRejected
         }.count
 
+        // Only return stats if we have something to show
+        if tasks == 0 && approvals == 0 { return nil }
         return (tasks: tasks, approvals: approvals)
     }
 
