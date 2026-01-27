@@ -30,7 +30,7 @@ struct PairingView: View {
     }
 }
 
-// MARK: - Unpaired Main View
+// MARK: - Unpaired Main View (V3)
 struct UnpairedMainView: View {
     @ObservedObject private var service = WatchService.shared
     let onPairNow: () -> Void
@@ -42,39 +42,33 @@ struct UnpairedMainView: View {
 
     var body: some View {
         VStack(spacing: Claude.Spacing.md) {
-            // Status indicator
+            // V3: Status indicator - "Unpaired" with gray dot
             HStack(spacing: 6) {
                 Circle()
-                    .fill(Claude.textTertiary)
-                    .frame(width: 6, height: 6)
-                Text("Not Connected")
+                    .fill(Claude.idle)
+                    .frame(width: 8, height: 8)
+                Text("Unpaired")
                     .font(.claudeFootnote)
                     .foregroundStyle(Claude.textSecondary)
                 Spacer()
             }
 
-            // Claude Code branding card
-            VStack(spacing: Claude.Spacing.sm) {
-                ClaudeFaceLogo(size: 50)
+            Spacer()
 
-                Text("Claude Code")
-                    .font(.claudeHeadline)
-                    .foregroundStyle(Claude.textPrimary)
+            // V3: Claude icon with ambient glow
+            ZStack {
+                // Ambient glow behind icon
+                AmbientGlow.idle()
+                    .offset(y: 10)
 
-                Text("Watch Companion")
-                    .font(.claudeFootnote)
-                    .foregroundStyle(Claude.textSecondary)
+                // Claude icon 48×48
+                ClaudeFaceLogo(size: 48)
             }
-            .padding(Claude.Spacing.md)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: Claude.Radius.medium)
-                    .fill(Claude.surface1)
-            )
 
-            // Action buttons - compact
-            // Show "Pair Now" only after BOTH: token is ready AND minimum delay passed
-            VStack(spacing: Claude.Spacing.xs) {
+            Spacer()
+
+            // V3: Single primary button only
+            VStack(spacing: Claude.Spacing.sm) {
                 if service.isAPNsTokenReady && minimumDelayPassed {
                     Button(action: {
                         WKInterfaceDevice.current().play(.click)
@@ -84,8 +78,14 @@ struct UnpairedMainView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(Claude.orange)
+                            .padding(.vertical, 12)
+                            .background(
+                                LinearGradient(
+                                    colors: [Claude.orange, Claude.orangeDark],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
@@ -100,37 +100,19 @@ struct UnpairedMainView: View {
                             .foregroundColor(Claude.textSecondary)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 12)
                     .background(Claude.surface1)
                     .clipShape(Capsule())
-                }
-
-                HStack(spacing: Claude.Spacing.sm) {
-                    Button(action: {
-                        WKInterfaceDevice.current().play(.click)
-                        onLocalMode()
-                    }) {
-                        Text("Local")
-                            .font(.claudeFootnote)
-                            .foregroundColor(Claude.orange)
-                    }
-                    .buttonStyle(.plain)
-
-                    Text("•").foregroundStyle(Claude.textTertiary)
-
-                    Button(action: {
-                        WKInterfaceDevice.current().play(.click)
-                        onDemoMode()
-                    }) {
-                        Text("Demo")
-                            .font(.claudeFootnote)
-                            .foregroundColor(Claude.textTertiary)
-                    }
-                    .buttonStyle(.plain)
                 }
             }
         }
         .padding(Claude.Spacing.md)
+        // V3: Long press for dev options (Local/Demo)
+        .onLongPressGesture {
+            WKInterfaceDevice.current().play(.click)
+            // Show dev options sheet
+            onDemoMode()
+        }
         .onAppear {
             // Start minimum delay timer (1 second) so user sees "Preparing..." feedback
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
@@ -161,18 +143,23 @@ struct PairingCodeDisplayView: View {
             ConnectedSuccessView()
         } else {
             VStack(spacing: Claude.Spacing.sm) {
-                // Header with back arrow per design spec
-                HStack {
+                // V3: Header with back arrow + "Pairing" title
+                HStack(spacing: 8) {
                     Button(action: {
                         WKInterfaceDevice.current().play(.click)
                         pollingTask?.cancel()
                         onBack()
                     }) {
-                        Image(systemName: "arrow.left")
-                            .font(.system(size: 16, weight: .medium))
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(Claude.textSecondary)
                     }
                     .buttonStyle(.plain)
+
+                    Text("Pairing")
+                        .font(.claudeHeadline)
+                        .foregroundStyle(Claude.textPrimary)
+
                     Spacer()
                 }
 
@@ -213,29 +200,21 @@ struct PairingCodeDisplayView: View {
                     }
                     Spacer()
                 } else if let code = code {
-                    // Code display state
-                    VStack(spacing: 2) {
-                        Text("Enter Code")
-                            .font(.claudeHeadline)
-                            .foregroundStyle(Claude.textPrimary)
-                        Text("Run npx cc-watch")
-                            .font(.claudeFootnote)
-                            .foregroundStyle(Claude.textSecondary)
-                    }
+                    // V3: Code display with Claude icon
+                    Spacer()
+
+                    // Claude icon 32×32
+                    ClaudeFaceLogo(size: 32)
+
+                    // Instruction text
+                    Text("Enter code into terminal")
+                        .font(.claudeFootnote)
+                        .foregroundStyle(Claude.textSecondary)
+                        .padding(.top, Claude.Spacing.xs)
 
                     // Large code display - Anthropic orange per design spec
                     codeDisplayView(for: code)
                         .padding(.vertical, Claude.Spacing.md)
-
-                    // Waiting indicator
-                    HStack(spacing: 6) {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                            .tint(Claude.orange)
-                        Text("Waiting for CLI...")
-                            .font(.claudeFootnote)
-                            .foregroundStyle(Claude.textSecondary)
-                    }
 
                     Spacer()
 

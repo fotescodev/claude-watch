@@ -29,6 +29,10 @@ extension AmbientGlow {
     static func danger() -> AmbientGlow { AmbientGlow(color: Claude.danger) }
     static func working() -> AmbientGlow { AmbientGlow(color: Claude.info) }
     static func brand() -> AmbientGlow { AmbientGlow(color: Claude.anthropicOrange) }
+    static func idle() -> AmbientGlow { AmbientGlow(color: Claude.idle) }
+    static func plan() -> AmbientGlow { AmbientGlow(color: Claude.plan) }
+    static func question() -> AmbientGlow { AmbientGlow(color: Claude.question) }
+    static func context() -> AmbientGlow { AmbientGlow(color: Claude.context) }
 }
 
 // MARK: - Preview

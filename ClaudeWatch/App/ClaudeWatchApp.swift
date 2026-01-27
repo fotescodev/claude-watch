@@ -210,7 +210,9 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             return
         }
 
-        let type = userInfo["type"] as? String ?? "tool_use"
+        // Use actionType (e.g., "Bash", "Edit", "Write") for tier classification
+        // Fall back to type only if actionType not present (legacy payloads)
+        let type = userInfo["actionType"] as? String ?? userInfo["type"] as? String ?? "tool_use"
         let title = userInfo["title"] as? String ?? "Action Required"
         let description = userInfo["description"] as? String ?? ""
         let filePath = userInfo["filePath"] as? String

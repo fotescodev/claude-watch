@@ -25,12 +25,12 @@ struct QuestionResponseView: View {
     }
 
     var body: some View {
-        VStack(spacing: 10) {
-            // Question header
+        VStack(spacing: 8) {
+            // V3: Question header with purple dot
             HStack(spacing: 6) {
-                Image(systemName: "questionmark.circle.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Claude.warning)
+                Circle()
+                    .fill(Claude.question)
+                    .frame(width: 8, height: 8)
 
                 Text("Question")
                     .font(.system(size: 11, weight: .semibold))
@@ -39,53 +39,55 @@ struct QuestionResponseView: View {
                 Spacer()
             }
             .padding(.horizontal, 12)
-            .padding(.top, 8)
+            .padding(.top, 4)
 
-            // Question content
-            ScrollView {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(question)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(Claude.textPrimary)
-                        .lineLimit(4)
-                }
-                .padding(12)
+            // V3: Question card with icon and text
+            VStack(spacing: 8) {
+                // Question mark icon
+                Image(systemName: "questionmark.circle.fill")
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(Claude.question)
+
+                // Question text - prominent
+                Text(question)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Claude.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .glassEffectCompat(RoundedRectangle(cornerRadius: Claude.Radius.large))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background(Claude.surface1)
+            .clipShape(RoundedRectangle(cornerRadius: Claude.Radius.large))
 
-            // Binary option buttons (V2: exactly 2, no Mac escape)
+            // V3: Full-width option buttons
             VStack(spacing: 6) {
-                // Recommended option (always first)
+                // Recommended option (Yes)
                 if let recommended = recommendedOption {
                     Button {
                         selectOption(recommended)
                     } label: {
-                        HStack(spacing: 6) {
-                            Text(recommended.label)
-                                .font(.system(size: 12, weight: .semibold))
-                                .lineLimit(1)
-
-                            Text("(recommended)")
-                                .font(.system(size: 9, weight: .medium))
-                                .foregroundColor(.white.opacity(0.7))
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(ClaudeState.success.color)
-                        .clipShape(RoundedRectangle(cornerRadius: Claude.Radius.button))
+                        Text(recommended.label)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Claude.question)
+                            .clipShape(RoundedRectangle(cornerRadius: Claude.Radius.button))
                     }
                     .buttonStyle(.plain)
                     .disabled(isResponding)
                 }
 
-                // Alternative option
+                // Alternative option (No)
                 if let alternative = alternativeOption {
                     Button {
                         selectOption(alternative)
                     } label: {
                         Text(alternative.label)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(Claude.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
@@ -96,11 +98,10 @@ struct QuestionResponseView: View {
                     .disabled(isResponding)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 8)
+            .padding(.horizontal, 8)
 
-            // Double tap hint
-            Text("Double tap = \(recommendedOption?.label ?? "select")")
+            // V3: Handle on Mac hint
+            Text("Handle on Mac")
                 .font(.system(size: 9))
                 .foregroundColor(Claude.textTertiary)
                 .padding(.bottom, 4)
