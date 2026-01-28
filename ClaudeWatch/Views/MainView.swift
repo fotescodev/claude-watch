@@ -5,7 +5,7 @@ import WatchKit
 
 // MARK: - Main View (V2 State-Driven Architecture)
 struct MainView: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     @State private var showingVoiceInput = false
     @State private var showingSettings = false
     @State private var showingQuickActions = false
@@ -297,7 +297,7 @@ struct MainView: View {
 
 // MARK: - Status Header
 struct StatusHeader: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     let pulsePhase: CGFloat
 
     // Accessibility: Reduce Motion support

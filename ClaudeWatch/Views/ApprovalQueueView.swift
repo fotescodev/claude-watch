@@ -4,7 +4,7 @@ import WatchKit
 /// V3: Tier-grouped approval queue with bulk actions
 /// Horizontal swipe between tiers, bulk approve for safe tiers
 struct ApprovalQueueView: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     @State private var selectedTierIndex = 0
     @State private var showingReview = false
     @State private var reviewTier: ActionTier?
@@ -81,7 +81,7 @@ struct TierQueueView: View {
     let onReview: () -> Void
     var showSwipeHint: Bool = true  // Only show when multiple tiers exist
 
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
 
     private var tierColor: Color {
         tierColorFor(tier)
@@ -256,7 +256,7 @@ struct TierReviewView: View {
     let actions: [PendingAction]
     let onBack: () -> Void
 
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     @State private var currentIndex = 0
 
     private var currentAction: PendingAction? {
@@ -382,11 +382,7 @@ struct TierReviewView: View {
         Task { @MainActor in
             service.state.pendingActions.removeAll { $0.id == action.id }
 
-            if service.useCloudMode && service.isPaired {
-                try? await service.respondToCloudRequest(action.id, approved: true)
-            } else {
-                service.approveAction(action.id)
-            }
+            await service.respondToAction(action.id, approved: true)
 
             // Advance or go back
             if currentIndex >= actions.count - 1 {
@@ -405,11 +401,7 @@ struct TierReviewView: View {
         Task { @MainActor in
             service.state.pendingActions.removeAll { $0.id == action.id }
 
-            if service.useCloudMode && service.isPaired {
-                try? await service.respondToCloudRequest(action.id, approved: false)
-            } else {
-                service.rejectAction(action.id)
-            }
+            await service.respondToAction(action.id, approved: false)
 
             // Advance or go back
             if currentIndex >= actions.count - 1 {
@@ -443,7 +435,7 @@ struct EmptyQueueView: View {
 struct CombinedQueueView: View {
     let actions: [PendingAction]
 
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     @State private var selectedAction: PendingAction?
 
     // Design spec colors (from Pencil MCP)
@@ -599,7 +591,7 @@ struct CombinedActionDetailView: View {
     let action: PendingAction
     let onBack: () -> Void
 
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
 
     // Design spec colors
     private let greenColor = Color(red: 0.204, green: 0.780, blue: 0.349)
@@ -719,11 +711,7 @@ struct CombinedActionDetailView: View {
         Task { @MainActor in
             service.state.pendingActions.removeAll { $0.id == action.id }
 
-            if service.useCloudMode && service.isPaired {
-                try? await service.respondToCloudRequest(action.id, approved: true)
-            } else {
-                service.approveAction(action.id)
-            }
+            await service.respondToAction(action.id, approved: true)
 
             // Go back to list (or it will auto-update if empty)
             onBack()
@@ -740,11 +728,7 @@ struct CombinedActionDetailView: View {
         Task { @MainActor in
             service.state.pendingActions.removeAll { $0.id == action.id }
 
-            if service.useCloudMode && service.isPaired {
-                try? await service.respondToCloudRequest(action.id, approved: false)
-            } else {
-                service.rejectAction(action.id)
-            }
+            await service.respondToAction(action.id, approved: false)
 
             // Go back to list
             onBack()

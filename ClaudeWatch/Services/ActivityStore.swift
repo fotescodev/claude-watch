@@ -8,22 +8,26 @@
 
 import Foundation
 import SwiftUI
+import os
+
+private let logger = Logger(subsystem: "com.edgeoftrust.claudewatch", category: "ActivityStore")
 
 // MARK: - Activity Store
 
 /// Singleton service for recording and querying session activity events
 /// Persists events to UserDefaults with automatic pruning
 @MainActor
-class ActivityStore: ObservableObject {
+@Observable
+class ActivityStore {
 
     // MARK: - Singleton
 
     static let shared = ActivityStore()
 
-    // MARK: - Published Properties
+    // MARK: - Observed Properties
 
-    @Published private(set) var events: [ActivityEvent] = []
-    @Published private(set) var currentSessionId: UUID?
+    private(set) var events: [ActivityEvent] = []
+    private(set) var currentSessionId: UUID?
 
     /// Last completed session ID (for stats display after session ends)
     private var lastSessionId: UUID?
@@ -284,7 +288,7 @@ class ActivityStore: ObservableObject {
             let data = try JSONEncoder().encode(events)
             defaults.set(data, forKey: storageKey)
         } catch {
-            print("ActivityStore: Failed to save events: \(error)")
+            logger.error("Failed to save events: \(error)")
         }
     }
 
@@ -297,7 +301,7 @@ class ActivityStore: ObservableObject {
         do {
             events = try JSONDecoder().decode([ActivityEvent].self, from: data)
         } catch {
-            print("ActivityStore: Failed to load events: \(error)")
+            logger.error("Failed to load events: \(error)")
             events = []
         }
     }

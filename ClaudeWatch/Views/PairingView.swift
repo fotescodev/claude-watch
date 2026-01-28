@@ -3,7 +3,7 @@ import WatchKit
 
 // MARK: - Pairing View
 struct PairingView: View {
-    @ObservedObject var service: WatchService
+    var service: WatchService
     @State private var showCodeDisplay = false
 
     var body: some View {
@@ -17,7 +17,6 @@ struct PairingView: View {
                     onPairNow: { showCodeDisplay = true },
                     onLocalMode: {
                         service.useCloudMode = false
-                        service.objectWillChange.send()
                         service.connect()
                     },
                     onDemoMode: {
@@ -32,7 +31,7 @@ struct PairingView: View {
 
 // MARK: - Unpaired Main View (V3)
 struct UnpairedMainView: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     let onPairNow: () -> Void
     let onLocalMode: () -> Void
     let onDemoMode: () -> Void
@@ -126,7 +125,7 @@ struct UnpairedMainView: View {
 
 // MARK: - Pairing Code Display View (NEW FLOW)
 struct PairingCodeDisplayView: View {
-    @ObservedObject var service: WatchService
+    var service: WatchService
     let onBack: () -> Void
 
     @State private var code: String?

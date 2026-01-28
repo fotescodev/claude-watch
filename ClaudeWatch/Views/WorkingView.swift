@@ -5,7 +5,7 @@ import WatchKit
 /// V3 B1: Compact card with task checklist, progress bar, pause button
 /// Must fit on screen without scrolling
 struct WorkingView: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     @State private var pulsePhase: CGFloat = 0
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -39,7 +39,7 @@ struct WorkingView: View {
                         // Task checklist - max 3 items
                         if !progress.tasks.isEmpty {
                             VStack(alignment: .leading, spacing: 2) {
-                                ForEach(Array(progress.tasks.prefix(3).enumerated()), id: \.offset) { _, task in
+                                ForEach(Array(progress.tasks.prefix(3))) { task in
                                     taskRow(task)
                                 }
                             }

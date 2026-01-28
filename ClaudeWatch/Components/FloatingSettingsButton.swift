@@ -4,7 +4,7 @@ import SwiftUI
 /// Positioned at bottom-right corner
 /// - alwaysShow: If true, shows even when not in demo mode (for pairing screen)
 struct FloatingSettingsButton: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     var alwaysShow: Bool = false
 
     var body: some View {

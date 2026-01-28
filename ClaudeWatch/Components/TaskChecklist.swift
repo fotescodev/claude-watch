@@ -62,7 +62,7 @@ struct TaskChecklist: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+            ForEach(Array(items.enumerated()), id: \.element.text) { _, item in
                 TaskCheckItem(status: item.status, text: item.text)
             }
         }

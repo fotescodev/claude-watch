@@ -4,7 +4,7 @@ import WatchKit
 /// Shows paused state when user has interrupted the session
 /// V3 B2: Simple card with PAUSED badge, title, subtitle - no checklist
 struct PausedView: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 

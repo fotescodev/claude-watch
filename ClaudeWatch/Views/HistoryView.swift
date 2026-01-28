@@ -13,7 +13,7 @@ import SwiftUI
 /// Timeline view showing all session activity events
 /// Events are grouped by day with newest first
 struct HistoryView: View {
-    @ObservedObject private var activityStore = ActivityStore.shared
+    var activityStore = ActivityStore.shared
 
     var body: some View {
         Group {

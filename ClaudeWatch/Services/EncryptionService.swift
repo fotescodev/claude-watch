@@ -1,5 +1,8 @@
 import Foundation
 import CryptoKit
+import os
+
+private let logger = Logger(subsystem: "com.edgeoftrust.claudewatch", category: "Encryption")
 
 /// E2E Encryption Service for secure communication with CLI
 /// Uses Curve25519 key exchange + ChaChaPoly symmetric encryption
@@ -36,7 +39,7 @@ final class EncryptionService {
     func generateKeyPair() {
         privateKey = Curve25519.KeyAgreement.PrivateKey()
         savePrivateKey()
-        print("[Encryption] Generated new key pair")
+        logger.info("Generated new key pair")
     }
 
     /// Set the CLI's public key for key exchange
@@ -51,7 +54,7 @@ final class EncryptionService {
         // Derive shared secret
         if let privateKey = privateKey, let peerPublicKey = peerPublicKey {
             sharedSecret = try privateKey.sharedSecretFromKeyAgreement(with: peerPublicKey)
-            print("[Encryption] Derived shared secret")
+            logger.info("Derived shared secret")
         }
     }
 
@@ -125,7 +128,7 @@ final class EncryptionService {
         UserDefaults.standard.removeObject(forKey: privateKeyStorageKey)
         UserDefaults.standard.removeObject(forKey: peerPublicKeyStorageKey)
 
-        print("[Encryption] Cleared all keys")
+        logger.info("Cleared all keys")
     }
 
     // MARK: - Persistence

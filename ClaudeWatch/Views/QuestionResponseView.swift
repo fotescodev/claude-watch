@@ -9,7 +9,7 @@ struct QuestionResponseView: View {
     let options: [QuestionOption]
     let questionId: String
 
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     @State private var isResponding = false
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion

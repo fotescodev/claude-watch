@@ -85,11 +85,12 @@ enum ActionButtonAction {
 
 /// Handles Action Button press events based on current context
 @MainActor
-class ActionButtonHandler: ObservableObject {
+@Observable
+class ActionButtonHandler {
     static let shared = ActionButtonHandler()
 
-    @Published var context: ActionButtonContext = .idle
-    @Published var showEmergencyStopConfirmation = false
+    var context: ActionButtonContext = .idle
+    var showEmergencyStopConfirmation = false
 
     private var service: WatchService { WatchService.shared }
 
@@ -162,11 +163,7 @@ class ActionButtonHandler: ObservableObject {
                     service.playHaptic(.success)
 
                     // Notify server
-                    if service.useCloudMode && service.isPaired {
-                        try? await service.respondToCloudRequest(action.id, approved: true)
-                    } else {
-                        service.approveAction(action.id)
-                    }
+                    await service.respondToAction(action.id, approved: true)
                 }
             }
 
@@ -202,7 +199,7 @@ class ActionButtonHandler: ObservableObject {
 
 /// Shows current Action Button context in UI
 struct ActionButtonIndicator: View {
-    @ObservedObject private var handler = ActionButtonHandler.shared
+    var handler = ActionButtonHandler.shared
 
     var body: some View {
         HStack(spacing: 6) {
@@ -237,7 +234,7 @@ struct ActionButtonIndicator: View {
 
 /// Alert shown when emergency stop is triggered
 struct EmergencyStopAlert: View {
-    @ObservedObject private var handler = ActionButtonHandler.shared
+    var handler = ActionButtonHandler.shared
 
     var body: some View {
         VStack(spacing: 12) {

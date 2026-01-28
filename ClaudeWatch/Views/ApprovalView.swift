@@ -6,7 +6,7 @@ import WatchKit
 /// - C2 (Tier 2): Orange - medium risk, double tap approves
 /// - C3 (Tier 3): Red - high risk, NO approve button, reject only
 struct ApprovalView: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
@@ -185,11 +185,7 @@ struct ApprovalView: View {
             WKInterfaceDevice.current().play(.success)
 
             // Notify server
-            if service.useCloudMode && service.isPaired {
-                try? await service.respondToCloudRequest(action.id, approved: true)
-            } else {
-                service.approveAction(action.id)
-            }
+            await service.respondToAction(action.id, approved: true)
         }
     }
 
@@ -203,11 +199,7 @@ struct ApprovalView: View {
             WKInterfaceDevice.current().play(.failure)
 
             // Notify server
-            if service.useCloudMode && service.isPaired {
-                try? await service.respondToCloudRequest(action.id, approved: false)
-            } else {
-                service.rejectAction(action.id)
-            }
+            await service.respondToAction(action.id, approved: false)
         }
     }
 }

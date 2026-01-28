@@ -3,7 +3,7 @@ import WatchKit
 
 // MARK: - Voice Input Sheet
 struct VoiceInputSheet: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     @Environment(\.dismiss) var dismiss
     @State private var transcribedText = ""
     @State private var showSentConfirmation = false
@@ -124,7 +124,7 @@ struct VoiceInputSheet: View {
 // MARK: - Settings Sheet
 /// Simplified single-scroll settings with easy access to demo/testing
 struct SettingsSheet: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     @Environment(\.dismiss) var dismiss
     @State private var showingPairing = false
     @State private var showingPrivacy = false

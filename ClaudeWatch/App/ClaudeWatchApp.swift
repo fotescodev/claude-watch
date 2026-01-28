@@ -1,6 +1,9 @@
 import SwiftUI
 import WatchKit
 import UserNotifications
+import os
+
+private let logger = Logger(subsystem: "com.edgeoftrust.claudewatch", category: "App")
 
 @main
 struct ClaudeWatchApp: App {
@@ -83,7 +86,7 @@ class AppDelegate: NSObject, WKApplicationDelegate {
     }
 
     func didFailToRegisterForRemoteNotificationsWithError(_ error: Error) {
-        print("Failed to register for remote notifications: \(error)")
+        logger.error("Failed to register for remote notifications: \(error)")
     }
 
     /// Handle silent/background push notifications (content-available: 1)

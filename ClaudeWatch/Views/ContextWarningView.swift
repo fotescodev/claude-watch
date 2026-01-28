@@ -6,7 +6,7 @@ import WatchKit
 struct ContextWarningView: View {
     let percentage: Int  // 75, 85, or 95
 
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     @State private var acknowledged = false
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion

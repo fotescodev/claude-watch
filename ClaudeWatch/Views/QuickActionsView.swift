@@ -4,7 +4,7 @@ import WatchKit
 /// Quick actions menu accessible via swipe or long press
 /// Provides fast access to common actions based on current state
 struct QuickActionsView: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
@@ -124,11 +124,7 @@ struct QuickActionsView: View {
         WKInterfaceDevice.current().play(.success)
 
         Task { @MainActor in
-            if service.useCloudMode && service.isPaired {
-                try? await service.respondToCloudRequest(action.id, approved: true)
-            } else {
-                service.approveAction(action.id)
-            }
+            await service.respondToAction(action.id, approved: true)
         }
         dismiss()
     }
@@ -138,11 +134,7 @@ struct QuickActionsView: View {
         WKInterfaceDevice.current().play(.failure)
 
         Task { @MainActor in
-            if service.useCloudMode && service.isPaired {
-                try? await service.respondToCloudRequest(action.id, approved: false)
-            } else {
-                service.rejectAction(action.id)
-            }
+            await service.respondToAction(action.id, approved: false)
         }
         dismiss()
     }

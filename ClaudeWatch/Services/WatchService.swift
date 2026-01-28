@@ -1,34 +1,37 @@
 import Foundation
-import Combine
 import SwiftUI
 import WatchKit
 import UserNotifications
 import Network
 import WidgetKit
+import os
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
 
+private let logger = Logger(subsystem: "com.edgeoftrust.claudewatch", category: "WatchService")
+
 /// Main service for communicating with Claude Watch MCP Server
 /// Uses WebSocket for real-time updates, with REST fallback
 @MainActor
-class WatchService: ObservableObject {
+@Observable
+class WatchService {
     static let shared = WatchService()
 
-    // MARK: - Published State
-    @Published var state = WatchState()
-    @Published var connectionStatus: ConnectionStatus = .disconnected
-    @Published var lastError: String?
-    @Published var isSendingPrompt = false
-    @Published var sessionProgress: SessionProgress?
-    @Published var isAPNsTokenReady = false
-    @Published var sessionHistory: [CompletedSession] = []
+    // MARK: - Observed State
+    var state = WatchState()
+    var connectionStatus: ConnectionStatus = .disconnected
+    var lastError: String?
+    var isSendingPrompt = false
+    var sessionProgress: SessionProgress?
+    var isAPNsTokenReady = false
+    var sessionHistory: [CompletedSession] = []
 
     // MARK: - F18: Question Response State
-    @Published var pendingQuestion: PendingQuestion?
+    var pendingQuestion: PendingQuestion?
 
     // MARK: - F16: Context Warning State
-    @Published var contextWarning: ContextWarning?
+    var contextWarning: ContextWarning?
 
     /// Maximum number of sessions to keep in history
     private let maxHistoryCount = 10
@@ -52,14 +55,24 @@ class WatchService: ObservableObject {
     private let completeStaleThreshold: TimeInterval = 3
 
     // MARK: - Foundation Models (On-Device AI)
-    @Published var foundationModelsStatus: FoundationModelsStatus = .checking
+    var foundationModelsStatus: FoundationModelsStatus = .checking
 
-    // MARK: - Configuration
-    @AppStorage("serverURL") var serverURLString = "wss://localhost:8787"
-    @AppStorage("cloudServerURL") var cloudServerURL = "https://claude-watch.fotescodev.workers.dev"
-    @AppStorage("pairingId") var pairingId: String = ""
-    @AppStorage("useCloudMode") var useCloudMode = true  // Use cloud relay by default
-    @AppStorage("permissionMode") private var storedMode: String = PermissionMode.normal.rawValue
+    // MARK: - Configuration (UserDefaults-backed for persistence)
+    var serverURLString: String = UserDefaults.standard.string(forKey: "serverURL") ?? "wss://localhost:8787" {
+        didSet { UserDefaults.standard.set(serverURLString, forKey: "serverURL") }
+    }
+    var cloudServerURL: String = UserDefaults.standard.string(forKey: "cloudServerURL") ?? "https://claude-watch.fotescodev.workers.dev" {
+        didSet { UserDefaults.standard.set(cloudServerURL, forKey: "cloudServerURL") }
+    }
+    var pairingId: String = UserDefaults.standard.string(forKey: "pairingId") ?? "" {
+        didSet { UserDefaults.standard.set(pairingId, forKey: "pairingId") }
+    }
+    var useCloudMode: Bool = UserDefaults.standard.object(forKey: "useCloudMode") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(useCloudMode, forKey: "useCloudMode") }
+    }
+    private var storedMode: String = UserDefaults.standard.string(forKey: "permissionMode") ?? PermissionMode.normal.rawValue {
+        didSet { UserDefaults.standard.set(storedMode, forKey: "permissionMode") }
+    }
 
     /// Whether the watch is paired with a Claude Code instance
     var isPaired: Bool {
@@ -101,7 +114,9 @@ class WatchService: ObservableObject {
     private var activityBatcher: ActivityBatcher?
 
     // MARK: - Demo Mode
-    @AppStorage("demoMode") var isDemoMode = false  // Connect to real server by default
+    var isDemoMode: Bool = UserDefaults.standard.bool(forKey: "demoMode") {
+        didSet { UserDefaults.standard.set(isDemoMode, forKey: "demoMode") }
+    }
 
     // MARK: - Initialization
     init() {
@@ -756,6 +771,18 @@ class WatchService: ObservableObject {
         playHaptic(.failure)
     }
 
+    /// Unified approve/reject handler that routes to the correct communication channel.
+    /// Views call this instead of checking `useCloudMode && isPaired` directly.
+    func respondToAction(_ actionId: String, approved: Bool) async {
+        if useCloudMode && isPaired {
+            try? await respondToCloudRequest(actionId, approved: approved)
+        } else if approved {
+            approveAction(actionId)
+        } else {
+            rejectAction(actionId)
+        }
+    }
+
     /// Approves all pending actions at once.
     /// Clears all pending actions locally and notifies server to proceed with all requests.
     func approveAll() {
@@ -767,7 +794,7 @@ class WatchService: ObservableObject {
                     do {
                         try await respondToCloudRequest(action.id, approved: true)
                     } catch {
-                        print("Failed to approve \(action.id): \(error)")
+                        logger.error("Failed to approve \(action.id): \(error)")
                     }
                 }
             }
@@ -800,7 +827,7 @@ class WatchService: ObservableObject {
                     do {
                         try await respondToCloudRequest(action.id, approved: false)
                     } catch {
-                        print("Failed to reject \(action.id): \(error)")
+                        logger.error("Failed to reject \(action.id): \(error)")
                     }
                 }
             }
@@ -907,7 +934,7 @@ class WatchService: ObservableObject {
                     playHaptic(handleOnMac ? .click : .success)
                 }
             } catch {
-                print("Failed to respond to question: \(error)")
+                logger.error("Failed to respond to question: \(error)")
             }
         } else {
             // WebSocket mode
@@ -1010,11 +1037,11 @@ class WatchService: ObservableObject {
     /// Automatically approves pending actions when entering auto-accept mode.
     /// - Parameter mode: The permission mode to activate (normal, autoAccept, or plan)
     func setMode(_ mode: PermissionMode) {
-        print("[MODE] setMode called with: \(mode)")
+        logger.debug("setMode called with: \(mode.rawValue)")
         // Persist mode locally
         storedMode = mode.rawValue
         state.mode = mode
-        print("[MODE] storedMode now: \(storedMode), state.mode: \(state.mode)")
+        logger.debug("storedMode now: \(self.storedMode), state.mode: \(self.state.mode.rawValue)")
 
         // Only send to WebSocket if not in cloud mode (cloud mode has no WebSocket)
         if !useCloudMode {
@@ -1159,9 +1186,9 @@ class WatchService: ObservableObject {
         if paired, let cliPublicKey = cliPublicKey {
             do {
                 try EncryptionService.shared.setPeerPublicKey(cliPublicKey)
-                print("E2E encryption enabled with CLI")
+                logger.notice("E2E encryption enabled with CLI")
             } catch {
-                print("Failed to set CLI public key: \(error)")
+                logger.error("Failed to set CLI public key: \(error)")
             }
         }
 
@@ -1338,10 +1365,10 @@ class WatchService: ObservableObject {
 
             let (_, response) = try await urlSession.data(for: request)
             if let httpResponse = response as? HTTPURLResponse {
-                print("Session end signal sent: \(httpResponse.statusCode)")
+                logger.info("Session end signal sent: \(httpResponse.statusCode)")
             }
         } catch {
-            print("Failed to send session end signal: \(error)")
+            logger.error("Failed to send session end signal: \(error)")
             // Continue with local cleanup even if cloud signal fails
         }
 
@@ -1361,7 +1388,7 @@ class WatchService: ObservableObject {
     }
 
     /// Current interrupt state (true = session paused)
-    @Published var isSessionInterrupted: Bool = false
+    var isSessionInterrupted: Bool = false
 
     /// Debounce timestamp for sendInterrupt to prevent double-firing
     @MainActor private var lastInterruptTime: Date = .distantPast
@@ -1374,7 +1401,7 @@ class WatchService: ObservableObject {
         // Debounce: ignore calls within 500ms of last call (atomic on MainActor)
         let now = Date()
         guard now.timeIntervalSince(lastInterruptTime) > 0.5 else {
-            print("[INTERRUPT] Debounced duplicate call for action: \(action)")
+            logger.debug("Debounced duplicate interrupt call for action: \(action.rawValue)")
             return
         }
         lastInterruptTime = now
@@ -1421,7 +1448,7 @@ class WatchService: ObservableObject {
                 // playHaptic(action == .stop ? .stop : .start)
             }
         } catch {
-            print("Failed to send interrupt signal: \(error)")
+            logger.error("Failed to send interrupt signal: \(error)")
         }
     }
 
@@ -1432,15 +1459,15 @@ class WatchService: ObservableObject {
     /// Only active when in cloud mode with an active pairing. Safe to call multiple times.
     func startPolling() {
         guard useCloudMode && isPaired else {
-            print("[Polling] Cannot start: useCloudMode=\(useCloudMode), isPaired=\(isPaired)")
+            logger.debug("Cannot start polling: useCloudMode=\(self.useCloudMode), isPaired=\(self.isPaired)")
             return
         }
         guard pollingTask == nil else {
-            print("[Polling] Already running")
+            logger.debug("Polling already running")
             return
         }
 
-        print("[Polling] Starting poll loop for pairingId: \(pairingId)")
+        logger.info("Starting poll loop for pairingId: \(self.pairingId)")
         connectionStatus = .connected
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -1452,7 +1479,7 @@ class WatchService: ObservableObject {
                     try await self.fetchPendingQuestions()
                     try await self.fetchSessionProgress()
                 } catch {
-                    print("[Polling] Error: \(error)")
+                    logger.error("Polling error: \(error)")
                 }
 
                 try? await Task.sleep(nanoseconds: UInt64(self.pollingInterval * 1_000_000_000))
@@ -1490,15 +1517,15 @@ class WatchService: ObservableObject {
 
         // Convert to pending actions
         var newActions: [PendingAction] = []
-        print("[Polling] Received \(requests.count) requests from cloud")
+        logger.debug("Received \(requests.count) requests from cloud")
         for req in requests {
             guard let id = req["id"] as? String,
                   let type = req["type"] as? String,
                   let title = req["title"] as? String else {
-                print("[Polling] Skipping invalid request: \(req)")
+                logger.debug("Skipping invalid request: \(req.description)")
                 continue
             }
-            print("[Polling] Parsed: \(id) - \(type) - \(title)")
+            logger.debug("Parsed request: \(id) - \(type) - \(title)")
 
             let action = PendingAction(
                 id: id,
@@ -1527,11 +1554,11 @@ class WatchService: ObservableObject {
                     Date().timeIntervalSince($0.timestamp) < 60
                 }
                 if !recentActions.isEmpty {
-                    print("[Polling] Cloud empty but \(recentActions.count) recent actions - preserving")
+                    logger.debug("Cloud empty but \(recentActions.count) recent actions - preserving")
                     return
                 }
                 // Old actions can be cleared
-                print("[Polling] Cloud empty, clearing \(state.pendingActions.count) stale actions")
+                logger.debug("Cloud empty, clearing \(self.state.pendingActions.count) stale actions")
             }
 
             // Merge: keep notification-added actions that aren't in cloud response
@@ -1541,9 +1568,9 @@ class WatchService: ObservableObject {
 
             // Combine cloud actions with local-only actions
             state.pendingActions = newActions + localOnly
-            print("[Polling] State updated: \(state.pendingActions.count) pending actions")
+            logger.debug("State updated: \(self.state.pendingActions.count) pending actions")
             for action in state.pendingActions {
-                print("[Polling]   - \(action.id): \(action.type) '\(action.title)'")
+                logger.debug("  - \(action.id): \(action.type) '\(action.title)'")
             }
 
             // AUTO-ACCEPT MODE: Automatically approve all pending actions
@@ -1836,7 +1863,7 @@ class WatchService: ObservableObject {
 
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("Notification error: \(error)")
+                logger.error("Notification error: \(error)")
             }
         }
 

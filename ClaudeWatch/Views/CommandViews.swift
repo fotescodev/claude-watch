@@ -3,7 +3,7 @@ import WatchKit
 
 // MARK: - Command Grid
 struct CommandGrid: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     @Binding var showingVoiceInput: Bool
 
     private let commands: [(String, String, String)] = [
@@ -53,7 +53,7 @@ struct CommandGrid: View {
 
 // MARK: - Command Button
 struct CommandButton: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     let icon: String
     let label: String
     let prompt: String
@@ -102,7 +102,7 @@ struct CommandButton: View {
 
 // MARK: - Mode Selector
 struct ModeSelector: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
 
     // Accessibility: Reduce Motion support
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -193,7 +193,7 @@ struct ModeSelector: View {
 // MARK: - Compact Mode Selector
 /// Single-line mode selector for glanceable design
 struct CompactModeSelector: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
 
     // Accessibility: Reduce Motion support
     @Environment(\.accessibilityReduceMotion) var reduceMotion

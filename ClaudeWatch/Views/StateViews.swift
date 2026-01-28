@@ -3,8 +3,8 @@ import WatchKit
 
 // MARK: - Empty State
 struct EmptyStateView: View {
-    @ObservedObject private var service = WatchService.shared
-    @ObservedObject private var activityStore = ActivityStore.shared
+    var service = WatchService.shared
+    var activityStore = ActivityStore.shared
     @State private var showingPairing = false
 
     // Accessibility: High Contrast support
@@ -134,7 +134,7 @@ struct EmptyStateView: View {
 
 // MARK: - Offline State
 struct OfflineStateView: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
 
     var body: some View {
         VStack(spacing: 12) {
@@ -316,48 +316,44 @@ struct AlwaysOnDisplayView: View {
 /// Shows last activity, session stats, or waiting state
 /// V3 A4: Activity state with Claude icon + last activity card
 struct SessionDashboardContent: View {
-    @ObservedObject var activityStore: ActivityStore
-
-    // Timer to refresh time ago text
-    @State private var refreshTrigger = false
-    private let refreshTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
+    var activityStore: ActivityStore
 
     var body: some View {
-        ZStack {
-            if let lastActivity = activityStore.lastActivity {
-                // V3 A4: Brand glow behind entire content (icon + card)
-                AmbientGlow.brand()
-                    .scaleEffect(0.45)
-                    .offset(y: 20)
+        // TimelineView re-evaluates content every 30s to refresh time-ago text
+        // without destroying and recreating the view tree
+        TimelineView(.periodic(from: .now, by: 30)) { _ in
+            ZStack {
+                if let lastActivity = activityStore.lastActivity {
+                    // V3 A4: Brand glow behind entire content (icon + card)
+                    AmbientGlow.brand()
+                        .scaleEffect(0.45)
+                        .offset(y: 20)
 
-                VStack(spacing: 6) {
-                    // Claude icon 32pt
-                    ClaudeFaceLogo(size: 32)
+                    VStack(spacing: 6) {
+                        // Claude icon 32pt
+                        ClaudeFaceLogo(size: 32)
 
-                    // Has activity - show last activity card with stats inside
-                    LastActivityCard(
-                        event: lastActivity,
-                        stats: activityStore.currentSessionStats
-                    )
-                }
-            } else {
-                // V3 A3: Fresh session - Claude icon with brand glow, "Ready" text
-                AmbientGlow.brand()
-                    .scaleEffect(0.5)
-                    .offset(y: 15)
+                        // Has activity - show last activity card with stats inside
+                        LastActivityCard(
+                            event: lastActivity,
+                            stats: activityStore.currentSessionStats
+                        )
+                    }
+                } else {
+                    // V3 A3: Fresh session - Claude icon with brand glow, "Ready" text
+                    AmbientGlow.brand()
+                        .scaleEffect(0.5)
+                        .offset(y: 15)
 
-                VStack(spacing: 6) {
-                    ClaudeFaceLogo(size: 44)
+                    VStack(spacing: 6) {
+                        ClaudeFaceLogo(size: 44)
 
-                    Text("Ready")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(Claude.anthropicOrange)
+                        Text("Ready")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(Claude.anthropicOrange)
+                    }
                 }
             }
-        }
-        .id(refreshTrigger)  // Force refresh on timer
-        .onReceive(refreshTimer) { _ in
-            refreshTrigger.toggle()
         }
     }
 }

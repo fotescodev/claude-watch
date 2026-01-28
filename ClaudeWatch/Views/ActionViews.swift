@@ -42,7 +42,7 @@ struct ErrorBanner: View {
 
 // MARK: - Action Queue
 struct ActionQueue: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
 
     // Accessibility: Reduce Motion support
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -127,7 +127,7 @@ struct ActionQueue: View {
 /// - Tier 2 (Medium): Orange accent, double tap approves
 /// - Tier 3 (High): Red accent, Reject + Remind only, double tap REJECTS
 struct TieredActionCard: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     let action: PendingAction
     var totalCount: Int = 1
 
@@ -453,11 +453,7 @@ struct TieredActionCard: View {
             AccessibilityNotification.Announcement("Approved \(action.title)").post()
 
             // Then notify server (best effort)
-            if service.useCloudMode && service.isPaired {
-                try? await service.respondToCloudRequest(action.id, approved: true)
-            } else {
-                service.approveAction(action.id)
-            }
+            await service.respondToAction(action.id, approved: true)
         }
     }
 
@@ -474,11 +470,7 @@ struct TieredActionCard: View {
             AccessibilityNotification.Announcement("Rejected \(action.title)").post()
 
             // Then notify server (best effort)
-            if service.useCloudMode && service.isPaired {
-                try? await service.respondToCloudRequest(action.id, approved: false)
-            } else {
-                service.rejectAction(action.id)
-            }
+            await service.respondToAction(action.id, approved: false)
         }
     }
 
@@ -550,7 +542,7 @@ private struct TieredDoubleTapModifier: ViewModifier {
 // MARK: - Compact Status Header
 /// Single-line status header for glanceable design (under 40pt height)
 struct CompactStatusHeader: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
 
     var body: some View {
         HStack(spacing: 6) {
@@ -659,7 +651,7 @@ typealias PrimaryActionCard = TieredActionCard
 // MARK: - Compact Action Card
 /// Glanceable action card showing only the first pending action with approve/reject buttons
 struct CompactActionCard: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
 
     // Accessibility: Reduce Motion support
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -781,11 +773,7 @@ struct CompactActionCard: View {
             AccessibilityNotification.Announcement("Rejected \(action.title)").post()
 
             // Then notify server (best effort)
-            if service.useCloudMode && service.isPaired {
-                try? await service.respondToCloudRequest(action.id, approved: false)
-            } else {
-                service.rejectAction(action.id)
-            }
+            await service.respondToAction(action.id, approved: false)
         }
     }
 
@@ -813,11 +801,7 @@ struct CompactActionCard: View {
             AccessibilityNotification.Announcement("Approved \(action.title)").post()
 
             // Then notify server (best effort)
-            if service.useCloudMode && service.isPaired {
-                try? await service.respondToCloudRequest(action.id, approved: true)
-            } else {
-                service.approveAction(action.id)
-            }
+            await service.respondToAction(action.id, approved: true)
         }
     }
 }

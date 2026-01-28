@@ -3,7 +3,7 @@ import WatchKit
 
 /// V3 D1: Task completion screen with checkmark, title, and task summary inside StateCard
 struct TaskOutcomeView: View {
-    @ObservedObject private var service = WatchService.shared
+    var service = WatchService.shared
     @State private var checkmarkScale: CGFloat = 0.5
     @State private var checkmarkOpacity: Double = 0
 
