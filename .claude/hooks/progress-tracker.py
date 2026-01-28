@@ -164,9 +164,9 @@ def update_task_in_state(task_id: str, updates: dict) -> list:
             found = True
             break
 
-    # If task not found, it may be a task we don't have yet
-    # This can happen if session started before this hook was installed
-    if not found and updates.get("subject"):
+    # If task not found, add it with real ID
+    # This can happen if TaskCreate used hash ID or session started before hook was installed
+    if not found:
         tasks.append({
             "id": task_id,
             "subject": updates.get("subject", f"Task #{task_id}"),
@@ -308,7 +308,7 @@ def send_progress(pairing_id: str, tasks: list, current_task: str | None, curren
         print(f"Progress update error: {e}", file=sys.stderr)
 
 
-def parse_task_tools(tool_name: str, tool_input: dict) -> tuple[list[dict], str | None, str | None, float]:
+def parse_task_tools(tool_name: str, tool_input: dict, tool_response: dict = None) -> tuple[list[dict], str | None, str | None, float]:
     """
     Parse TaskCreate/TaskUpdate/TaskList input and extract progress info.
 
@@ -317,14 +317,22 @@ def parse_task_tools(tool_name: str, tool_input: dict) -> tuple[list[dict], str 
     IMPORTANT: This function maintains local task state to provide accurate
     progress counts. The watch needs to see the FULL task list, not just
     the single task being created/updated.
+
+    Args:
+        tool_name: The tool being called (TaskCreate, TaskUpdate, TaskList)
+        tool_input: The input parameters to the tool
+        tool_response: The response from the tool (contains real task ID for TaskCreate)
     """
+    tool_response = tool_response or {}
+
     if tool_name == "TaskCreate":
         # New task being created - add to local state
         subject = tool_input.get("subject", "New task")
         active_form = tool_input.get("activeForm", subject)
 
-        # Generate a temporary ID using subject hash since we don't get real ID
-        task_id = str(hash(subject) % 100000)
+        # Use REAL task ID from tool_response (not hash-based ID)
+        # The response contains {"success": true, "taskId": "1", ...}
+        task_id = tool_response.get("taskId") or str(hash(subject) % 100000)
 
         # Add to local state and get full task list
         all_tasks = add_task_to_state(task_id, subject, active_form)
@@ -391,12 +399,26 @@ def parse_task_tools(tool_name: str, tool_input: dict) -> tuple[list[dict], str 
         return tasks, current_task, current_activity, progress
 
     elif tool_name == "TaskList":
-        # TaskList is called to retrieve tasks - return current local state
-        state = load_task_state()
-        all_tasks = state.get("tasks", [])
+        # TaskList returns full task list in tool_response - use that as source of truth
+        # This syncs local state with Claude Code's actual task list
+        response_tasks = tool_response.get("tasks", [])
+
+        if response_tasks:
+            # Sync local state from tool_response (source of truth)
+            all_tasks = [{
+                "id": t.get("id", str(i)),
+                "subject": t.get("subject", ""),
+                "status": t.get("status", "pending"),
+                "activeForm": t.get("activeForm", "")
+            } for i, t in enumerate(response_tasks)]
+            save_task_state(all_tasks)
+        else:
+            # Fallback to local state
+            state = load_task_state()
+            all_tasks = state.get("tasks", [])
 
         if not all_tasks:
-            # No local state - return placeholder
+            # No tasks at all - return placeholder
             return [{
                 "content": "Checking task list",
                 "status": "in_progress",
@@ -559,8 +581,13 @@ def main():
         with open(debug_log, "a") as f:
             f.write(f"\n--- {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n")
             raw_input = sys.stdin.read()
-            f.write(f"Raw input: {raw_input[:500]}\n")
+            f.write(f"Raw input (truncated): {raw_input[:300]}\n")
             input_data = json.loads(raw_input) if raw_input else {}
+            # Log tool_response separately for Task tools
+            tool_name = input_data.get("tool_name", "")
+            if tool_name.startswith("Task"):
+                tool_resp = input_data.get("tool_response", {})
+                f.write(f"tool_response for {tool_name}: {json.dumps(tool_resp)[:500]}\n")
     except Exception as e:
         with open(debug_log, "a") as f:
             f.write(f"Error: {e}\n")
@@ -568,6 +595,7 @@ def main():
 
     tool_name = input_data.get("tool_name", "")
     tool_input = input_data.get("tool_input", {})
+    tool_response = input_data.get("tool_response", {})
 
     # Get pairing ID early - needed for both heartbeats and progress
     pairing_id = get_pairing_id()
@@ -590,8 +618,8 @@ def main():
     if tool_name == "TodoWrite":
         tasks, current_task, current_activity, progress = parse_todos(tool_input)
     else:
-        # TaskCreate/TaskUpdate/TaskList
-        tasks, current_task, current_activity, progress = parse_task_tools(tool_name, tool_input)
+        # TaskCreate/TaskUpdate/TaskList - pass tool_response for real task IDs
+        tasks, current_task, current_activity, progress = parse_task_tools(tool_name, tool_input, tool_response)
 
     if not tasks:
         # No tasks to report

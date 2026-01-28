@@ -1,0 +1,23 @@
+[
+  {
+    "id": "BUG-001",
+    "priority": "P2",
+    "description": "Double notification haptic when approval request arrives",
+    "details": "User hears notification sound twice when a new approval request appears. Likely race between push notification (line 452) and polling (line 1551) both triggering playHaptic(.notification)",
+    "file": "WatchService.swift",
+    "lines": "452, 1551",
+    "discovered_at": "2026-01-27T20:30:00Z",
+    "status": "pending"
+  },
+  {
+    "id": "BUG-002",
+    "priority": "P3",
+    "description": "Double haptic on Pause button press",
+    "details": "Pause button plays two sounds despite debounce guard. sendInterrupt() is being called twice somehow. Debounce with 500ms threshold and MainActor isolation did not fix. Haptic muted for now.",
+    "file": "WatchService.swift",
+    "lines": "1367-1424",
+    "discovered_at": "2026-01-27T21:15:00Z",
+    "status": "muted",
+    "workaround": "Haptic disabled in sendInterrupt()"
+  }
+]

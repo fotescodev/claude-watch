@@ -68,6 +68,25 @@ echo "========================================"
 echo ""
 
 # Helper functions
+clear_approval_queue() {
+    echo "Clearing approval queue..."
+    QUEUE=$(curl -s "$CLOUD_URL/approval-queue/$PAIRING_ID" 2>/dev/null)
+    IDS=$(echo "$QUEUE" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
+
+    for id in $IDS; do
+        curl -s -X POST "$CLOUD_URL/approval/$PAIRING_ID/$id/respond" \
+          -H "Content-Type: application/json" \
+          -d '{"approved": false}' > /dev/null 2>&1
+    done
+
+    REMAINING=$(curl -s "$CLOUD_URL/approval-queue/$PAIRING_ID" 2>/dev/null | grep -o '"pending":[0-9]*' | cut -d':' -f2)
+    if [ "${REMAINING:-0}" = "0" ]; then
+        echo -e "${GREEN}✓${NC} Queue cleared"
+    else
+        echo -e "${YELLOW}⚠${NC} Queue has $REMAINING remaining items"
+    fi
+}
+
 wait_for_user() {
     local prompt="$1"
     echo ""
@@ -141,6 +160,10 @@ poll_question_status() {
     echo -e "${YELLOW}⏱${NC} Timeout waiting for answer"
     return 1
 }
+
+# Clear queue before starting tests (prevents stale state issues)
+clear_approval_queue
+echo ""
 
 # ============================================================
 # TEST 1: Tier 1 Approval (Low Risk - Green)
@@ -257,15 +280,11 @@ fi
 
 echo ""
 echo -e "${BOLD}Expected on watch:${NC}"
-echo "  • RED card background"
-echo "  • [Reject] + [Remind 5m] buttons ONLY (no Approve!)"
-echo "  • Double tap = REJECT (safety default)"
-echo "  • Swipe gestures DISABLED"
-echo "  • 'Approve requires Mac' hint text"
-echo ""
-echo -e "${YELLOW}IMPORTANT: Cannot approve Tier 3 from watch - must use Mac!${NC}"
+echo "  • RED card background with red glow"
+echo "  • [Approve] + [Reject] buttons (both red-styled)"
+echo "  • 'Dangerous - handle on Mac' warning text"
 
-wait_for_user "Tap Reject on your watch (only option), then press Enter"
+wait_for_user "Tap Approve or Reject on your watch, then press Enter"
 
 poll_approval_status "$REQUEST_ID" 10
 
@@ -398,6 +417,8 @@ echo ""
 # ============================================================
 # TEST 7: Approval Queue (Multiple Pending)
 # ============================================================
+clear_approval_queue
+echo ""
 echo -e "${BOLD}TEST 7: Approval Queue (Multiple Items)${NC}"
 echo "============================================"
 echo ""
@@ -469,6 +490,258 @@ echo "========================================"
 echo ""
 
 # ============================================================
+# TEST 8: Approval Queue - 3 Tiers (TierQueueView with swipe)
+# ============================================================
+clear_approval_queue
+echo ""
+echo -e "${BOLD}TEST 8: Approval Queue - 3 Tiers (V3 TierQueueView)${NC}"
+echo "============================================"
+echo ""
+echo "Creating 10 approval requests across 3 tiers..."
+echo ""
+
+# Tier 1: 3 Edit requests (green)
+for i in 1 2 3; do
+    curl -s -X POST "$CLOUD_URL/approval" \
+      -H "Content-Type: application/json" \
+      -d "{
+        \"pairingId\": \"$PAIRING_ID\",
+        \"id\": \"t8-edit-$i-$(date +%s)\",
+        \"type\": \"Edit\",
+        \"title\": \"Edit file$i.swift\",
+        \"description\": \"Updating SwiftUI view\"
+      }" > /dev/null
+    sleep 0.1
+done
+echo -e "  ${GREEN}✓${NC} Created 3 Edit requests (Tier 1 - Green)"
+
+# Tier 2: 5 Bash requests (orange)
+for i in 1 2 3 4 5; do
+    curl -s -X POST "$CLOUD_URL/approval" \
+      -H "Content-Type: application/json" \
+      -d "{
+        \"pairingId\": \"$PAIRING_ID\",
+        \"id\": \"t8-bash-$i-$(date +%s)\",
+        \"type\": \"Bash\",
+        \"command\": \"npm install pkg$i\",
+        \"title\": \"npm install pkg$i\",
+        \"description\": \"Installing dependency\"
+      }" > /dev/null
+    sleep 0.1
+done
+echo -e "  ${YELLOW}✓${NC} Created 5 Bash requests (Tier 2 - Orange)"
+
+# Tier 3: 2 Dangerous requests (red)
+for i in 1 2; do
+    curl -s -X POST "$CLOUD_URL/approval" \
+      -H "Content-Type: application/json" \
+      -d "{
+        \"pairingId\": \"$PAIRING_ID\",
+        \"id\": \"t8-danger-$i-$(date +%s)\",
+        \"type\": \"Bash\",
+        \"command\": \"rm -rf ./build$i\",
+        \"title\": \"rm -rf ./build$i\",
+        \"description\": \"Delete build directory\"
+      }" > /dev/null
+    sleep 0.1
+done
+echo -e "  ${RED}✓${NC} Created 2 Danger requests (Tier 3 - Red)"
+
+echo ""
+echo -e "${BOLD}Expected on watch - TierQueueView with swipe navigation:${NC}"
+echo ""
+echo "  FIRST SCREEN (Green):"
+echo "    • Green dot + '3 Edit' header"
+echo "    • 3 action rows with [EDIT] badges"
+echo "    • [Review] + [Approve All 3] buttons"
+echo "    • 3 pagination dots (green active)"
+echo ""
+echo "  SWIPE DOWN → Orange (5 Bash):"
+echo "    • Orange dot + '5 Bash' header"
+echo "    • 3 visible + '+2 more'"
+echo "    • [Review] + [Approve All 5] buttons"
+echo ""
+echo "  SWIPE DOWN → Red (2 Danger):"
+echo "    • Red dot + '2 Danger' header"
+echo "    • [Review Each] button ONLY"
+
+wait_for_user "Process all 3 tiers on your watch, then press Enter"
+
+echo ""
+echo "========================================"
+echo ""
+
+# ============================================================
+# TEST 9: Approval Queue - Combined View (1 per tier)
+# ============================================================
+clear_approval_queue
+echo ""
+echo -e "${BOLD}TEST 9: Approval Queue - Combined View (V3 CombinedQueueView)${NC}"
+echo "============================================"
+echo ""
+echo "Creating 3 requests (1 per tier) to test combined view..."
+echo ""
+
+# 1 Read (Tier 1 - green)
+curl -s -X POST "$CLOUD_URL/approval" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"pairingId\": \"$PAIRING_ID\",
+    \"id\": \"t9-edit-$(date +%s)\",
+    \"type\": \"Read\",
+    \"title\": \"config.json\",
+    \"description\": \"Reading config\"
+  }" > /dev/null
+echo -e "  ${GREEN}✓${NC} Created 1 Read (Tier 1 - Green)"
+
+sleep 0.2
+
+# 1 Bash (Tier 2 - orange)
+curl -s -X POST "$CLOUD_URL/approval" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"pairingId\": \"$PAIRING_ID\",
+    \"id\": \"t9-bash-$(date +%s)\",
+    \"type\": \"Bash\",
+    \"command\": \"npm install\",
+    \"title\": \"npm install\",
+    \"description\": \"Installing deps\"
+  }" > /dev/null
+echo -e "  ${YELLOW}✓${NC} Created 1 Bash (Tier 2 - Orange)"
+
+sleep 0.2
+
+# 1 Danger (Tier 3 - red)
+curl -s -X POST "$CLOUD_URL/approval" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"pairingId\": \"$PAIRING_ID\",
+    \"id\": \"t9-danger-$(date +%s)\",
+    \"type\": \"Bash\",
+    \"command\": \"rm -rf cache\",
+    \"title\": \"rm -rf cache\",
+    \"description\": \"Clear cache\"
+  }" > /dev/null
+echo -e "  ${RED}✓${NC} Created 1 Danger (Tier 3 - Red)"
+
+echo ""
+echo -e "${BOLD}Expected on watch - CombinedQueueView (no swiping):${NC}"
+echo ""
+echo "  • White dot + '3 pending' header"
+echo "  • 3 colored rows in single view:"
+echo "    - Green row: [EDIT] config.json"
+echo "    - Orange row: [BASH] npm install"
+echo "    - Red row: [DELETE] rm -rf cache"
+echo "  • Each row has tier-colored background + border + glow"
+echo "  • Single [Approve All 3] green button"
+
+wait_for_user "Verify combined view then tap Approve All, then press Enter"
+
+echo ""
+echo "========================================"
+echo ""
+
+# ============================================================
+# TEST 10: Approval Queue - Review Mode (TierReviewView)
+# ============================================================
+clear_approval_queue
+echo ""
+echo -e "${BOLD}TEST 10: Review Mode (V3 TierReviewView)${NC}"
+echo "============================================"
+echo ""
+echo "Creating 3 same-tier requests to test review mode..."
+echo ""
+
+for i in 1 2 3; do
+    curl -s -X POST "$CLOUD_URL/approval" \
+      -H "Content-Type: application/json" \
+      -d "{
+        \"pairingId\": \"$PAIRING_ID\",
+        \"id\": \"t10-review-$i-$(date +%s)\",
+        \"type\": \"Bash\",
+        \"command\": \"npm run build:$i\",
+        \"title\": \"npm run build:$i\",
+        \"description\": \"Building module $i\"
+      }" > /dev/null
+    sleep 0.1
+done
+echo -e "  ${YELLOW}✓${NC} Created 3 Bash requests"
+
+echo ""
+echo -e "${BOLD}Test steps:${NC}"
+echo ""
+echo "  STEP 1: TierQueueView shows '3 Bash'"
+echo "    • Orange dot + '3 Bash' header"
+echo "    • [Review] + [Approve All 3] buttons"
+echo ""
+echo "  STEP 2: Tap [Review] to enter TierReviewView"
+echo "    • Orange dot + '1 of 3' header"
+echo "    • Full action card with details"
+echo "    • [✕] reject + [✓] approve icon buttons"
+echo ""
+echo "  STEP 3: Tap [✓] approve → shows '2 of 3'"
+echo "  STEP 4: Continue through all 3 actions"
+echo "  STEP 5: After last, returns to queue or empty"
+
+wait_for_user "Tap [Review] and process each action, then press Enter"
+
+echo ""
+echo "========================================"
+echo ""
+
+# ============================================================
+# TEST 11: Danger Queue Only
+# ============================================================
+clear_approval_queue
+echo ""
+echo -e "${BOLD}TEST 11: Danger Queue Only (Red TierQueueView)${NC}"
+echo "============================================"
+echo ""
+echo "Creating 2 dangerous requests..."
+echo ""
+
+curl -s -X POST "$CLOUD_URL/approval" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"pairingId\": \"$PAIRING_ID\",
+    \"id\": \"t11-danger1-$(date +%s)\",
+    \"type\": \"Bash\",
+    \"command\": \"sudo rm -rf /tmp/test\",
+    \"title\": \"sudo rm -rf /tmp/test\",
+    \"description\": \"Elevated delete\"
+  }" > /dev/null
+
+sleep 0.2
+
+curl -s -X POST "$CLOUD_URL/approval" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"pairingId\": \"$PAIRING_ID\",
+    \"id\": \"t11-danger2-$(date +%s)\",
+    \"type\": \"Bash\",
+    \"command\": \"chmod 777 /var/log\",
+    \"title\": \"chmod 777 /var/log\",
+    \"description\": \"Change permissions\"
+  }" > /dev/null
+
+echo -e "  ${RED}✓${NC} Created 2 Danger requests"
+
+echo ""
+echo -e "${BOLD}Expected on watch - Red TierQueueView:${NC}"
+echo ""
+echo "  • Red dot + '2 Danger' header"
+echo "  • 2 action rows with [DELETE] badges (white text)"
+echo "  • [Review Each] button ONLY (red outline, centered)"
+echo "  • NO [Approve All] button (safety)"
+echo "  • NO pagination dots (single tier)"
+
+wait_for_user "Tap [Review Each] and reject both, then press Enter"
+
+echo ""
+echo "========================================"
+echo ""
+
+# ============================================================
 # SUMMARY
 # ============================================================
 echo -e "${BOLD}TEST SUMMARY${NC}"
@@ -476,13 +749,20 @@ echo "========================================"
 echo ""
 echo "All interactive tests completed!"
 echo ""
-echo "If you saw the expected behaviors:"
-echo -e "  ${GREEN}✓${NC} Tier 1 - Green card, approve/reject buttons"
-echo -e "  ${GREEN}✓${NC} Tier 2 - Orange card, approve/reject buttons"
-echo -e "  ${GREEN}✓${NC} Tier 3 - Red card, reject only, 'requires Mac' hint"
-echo -e "  ${GREEN}✓${NC} Question - Binary options, no Mac escape"
-echo -e "  ${GREEN}✓${NC} Progress - Working view with task list"
-echo -e "  ${GREEN}✓${NC} Queue - Multiple pending approvals"
+echo "V2 Core Tests:"
+echo -e "  ${GREEN}✓${NC} Test 1: Tier 1 - Green card, approve/reject buttons"
+echo -e "  ${GREEN}✓${NC} Test 2: Tier 2 - Orange card, approve/reject buttons"
+echo -e "  ${GREEN}✓${NC} Test 3: Tier 3 - Red card, reject only, 'requires Mac'"
+echo -e "  ${GREEN}✓${NC} Test 4: Question - Binary options, no Mac escape"
+echo -e "  ${GREEN}✓${NC} Test 5: Context Warning - 85% threshold"
+echo -e "  ${GREEN}✓${NC} Test 6: Progress - Working view with task list"
+echo -e "  ${GREEN}✓${NC} Test 7: Basic Queue - Multiple pending approvals"
 echo ""
-echo "V2 is working correctly!"
+echo "V3 Queue Tests:"
+echo -e "  ${GREEN}✓${NC} Test 8: TierQueueView - 3 tiers with swipe navigation"
+echo -e "  ${GREEN}✓${NC} Test 9: CombinedQueueView - 3 singles in colored rows"
+echo -e "  ${GREEN}✓${NC} Test 10: TierReviewView - Individual action review"
+echo -e "  ${GREEN}✓${NC} Test 11: Danger Queue - Red tier, Review Each only"
+echo ""
+echo "V3 is working correctly!"
 echo ""

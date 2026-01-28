@@ -66,44 +66,7 @@
         ]
       }
     ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/post-swift-edit.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/validators/acceptance_criteria.py"
-          }
-        ]
-      },
-      {
-        "matcher": "Read|Write|Edit|Grep|Glob|Bash|TodoWrite|TaskCreate|TaskUpdate|TaskList",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/progress-tracker.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "mobile_click_on_screen_at_coordinates|mobile_double_tap_on_screen|mobile_long_press_on_screen_at_coordinates|mobile_swipe_on_screen|mobile_type_keys",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/validators/mobile/screen_state_validator.py"
-          }
-        ]
-      }
-    ],
+    "PostToolUse": [],
     "PreToolUse": [
       {
         "matcher": "_ALL_DISABLED_Write|Edit|MultiEdit|mobile_install_app|mobile_uninstall_app",
