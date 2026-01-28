@@ -5,29 +5,27 @@ import { runStatus } from "./cli/status.js";
 import { runUnpair } from "./cli/unpair.js";
 import { runServe } from "./cli/serve.js";
 import { runCcWatch } from "./cli/cc-watch.js";
+import { isPaired } from "./config/pairing-store.js";
 
 const HELP = `
   Claude Watch - Approve Claude Code actions from your Apple Watch
 
   Usage:
-    npx cc-watch                 Pair with watch and install hook
-    npx cc-watch run             Launch claude with watch approvals
+    npx cc-watch                 Pair (if needed) + launch Claude with watch approvals
     npx cc-watch [command]       Run a specific command
 
   Commands:
-    (default)   Pair (if needed) + install hook + exit
-    run         Launch claude with watch approvals enabled
-    setup       Full setup wizard
+    (default)   Pair (if needed) + install hook + launch Claude
+    run         Launch Claude with watch approvals (skips pairing check)
+    setup       Pair + install hook only (no launch)
     status      Check connection status
     unpair      Remove configuration and hook
     help        Show this help message
 
-  After pairing, use \`npx cc-watch run\` to start a watch-supervised session.
   Other \`claude\` sessions run normally without watch routing.
 
   Examples:
-    npx cc-watch                 # Pair and install hook
-    npx cc-watch run             # Launch claude with watch approvals
+    npx cc-watch                 # Pair and launch Claude
     npx cc-watch status          # Check pairing status
     npx cc-watch unpair          # Remove watch integration
 `;
@@ -42,6 +40,11 @@ async function main(): Promise<void> {
       break;
 
     case "run": {
+      // Guard: must be paired first
+      if (!isPaired()) {
+        console.error("Not paired. Run `npx cc-watch` first to pair with your watch.");
+        process.exit(1);
+      }
       // Launch claude with watch session env var — forwards all extra args
       const claudeArgs = args.slice(1);
       const claude = spawn("claude", claudeArgs, {

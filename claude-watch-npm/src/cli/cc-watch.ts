@@ -1,17 +1,14 @@
 import chalk from "chalk";
 import ora from "ora";
 import prompts from "prompts";
+import { spawn } from "child_process";
 import {
   isPaired,
   readPairingConfig,
   savePairingConfig,
   createPairingConfig,
 } from "../config/pairing-store.js";
-import {
-  isHookConfigured,
-  setupHook,
-  getInstalledHookPath,
-} from "../config/hooks-config.js";
+import { setupHook } from "../config/hooks-config.js";
 import { CloudClient } from "../cloud/client.js";
 
 // Default URLs
@@ -127,8 +124,7 @@ function ensureHook(): void {
 /**
  * Main cc-watch command
  *
- * Flow: pair (if needed) -> install hook -> print Ready -> exit
- * Does NOT spawn Claude. User runs `claude` separately.
+ * Flow: pair (if needed) -> install hook -> launch Claude with watch env var
  */
 export async function runCcWatch(): Promise<void> {
   showHeader();
@@ -182,18 +178,29 @@ export async function runCcWatch(): Promise<void> {
     ensureHook();
   }
 
-  // Done
+  // Launch Claude with watch session env var
   console.log();
-  console.log(chalk.green.bold("  Ready!"));
-  console.log();
-  console.log(chalk.dim("  Start a watch-supervised session:"));
-  console.log(chalk.white("    npx cc-watch run"));
-  console.log();
+  console.log(chalk.green("  Launching Claude with watch approvals..."));
+  console.log(chalk.dim("  Tool calls will route to your watch."));
   console.log(chalk.dim("  Other `claude` sessions run normally without watch routing."));
   console.log();
-  console.log(chalk.dim("  Commands:"));
-  console.log(chalk.dim("    npx cc-watch run      Launch claude with watch approvals"));
-  console.log(chalk.dim("    npx cc-watch status   Check connection"));
-  console.log(chalk.dim("    npx cc-watch unpair   Remove configuration"));
-  console.log();
+
+  return new Promise<void>((resolve) => {
+    const claude = spawn("claude", [], {
+      stdio: "inherit",
+      env: { ...process.env, CLAUDE_WATCH_SESSION_ACTIVE: "1" },
+    });
+
+    claude.on("close", (code) => {
+      resolve();
+      process.exit(code ?? 0);
+    });
+
+    claude.on("error", (err) => {
+      console.error(chalk.red(`  Failed to start claude: ${err.message}`));
+      console.log(chalk.dim("  Is Claude CLI installed? Try: npm install -g @anthropic-ai/claude-code"));
+      resolve();
+      process.exit(1);
+    });
+  });
 }
