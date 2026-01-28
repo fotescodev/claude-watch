@@ -6,7 +6,6 @@ struct EmptyStateView: View {
     @ObservedObject private var service = WatchService.shared
     @ObservedObject private var activityStore = ActivityStore.shared
     @State private var showingPairing = false
-    @State private var showingSettings = false
 
     // Accessibility: High Contrast support
     @Environment(\.colorSchemeContrast) var colorSchemeContrast
@@ -21,79 +20,46 @@ struct EmptyStateView: View {
         }
     }
 
+    /// Whether session has been idle for 5+ minutes (triggers A5 Long Idle state)
+    private var isLongIdle: Bool {
+        activityStore.isIdleFor(minutes: 5)
+    }
+
     /// When paired: show Session Dashboard with activity info
-    /// V3 A3: Fresh Session - Green "Connected" status when no activity yet
+    /// V3 A3: Fresh Session - Gray "Idle" status, "Ready" text
+    /// V3 A5: Long Idle - Gray "Idle" status after 5+ minutes of inactivity
     private var pairedEmptyState: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 12) {
-                    // V3 A3: Status header - "Connected" (green) when fresh session, "Idle" (gray) when has activity
-                    HStack(spacing: 6) {
-                        if activityStore.lastActivity == nil {
-                            // Fresh session: Green dot + "Connected"
-                            ClaudeStateDot(state: .success, size: 6)
-                            Text("Connected")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(ClaudeState.success.color)
-                        } else {
-                            // Has activity: Gray dot + "Idle"
-                            ClaudeStateDot(state: .idle, size: 6)
-                            Text("Idle")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(ClaudeState.idle.color)
-                        }
-                        Spacer()
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
-
-                    // F22: Session Dashboard Content
-                    SessionDashboardContent(activityStore: activityStore)
-
-                    // Bottom action buttons - History + Settings
-                    HStack(spacing: 16) {
-                        NavigationLink(destination: HistoryView()) {
-                            VStack(spacing: 4) {
-                                Image(systemName: "clock.arrow.circlepath")
-                                    .font(.system(size: 16))
-                                Text("History")
-                                    .font(.system(size: 10))
-                            }
-                            .foregroundColor(Claude.textSecondary)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Session history")
-
-                        Button {
-                            WKInterfaceDevice.current().play(.click)
-                            showingSettings = true
-                        } label: {
-                            VStack(spacing: 4) {
-                                Image(systemName: "gearshape")
-                                    .font(.system(size: 16))
-                                Text("Settings")
-                                    .font(.system(size: 10))
-                            }
-                            .foregroundColor(Claude.textSecondary)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Settings")
-                    }
-                    .padding(.top, 4)
-
-                    // Pairing ID (subtle, at bottom)
-                    Text(String(service.pairingId.prefix(8)))
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundColor(Claude.textTertiary)
-                        .padding(.top, 4)
+            VStack(spacing: 8) {
+                // V3: Always "Idle" with gray dot for empty/fresh session
+                HStack(spacing: 6) {
+                    ClaudeStateDot(state: .idle, size: 6)
+                    Text("Idle")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(ClaudeState.idle.color)
+                    Spacer()
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .padding(.horizontal, 12)
+                .padding(.top, 4)
+
+                Spacer(minLength: 8)
+
+                // F22: Session Dashboard Content
+                SessionDashboardContent(activityStore: activityStore)
+
+                Spacer(minLength: 8)
+
+                // V3: Icon-only footer button (history only - settings via long press)
+                NavigationLink(destination: HistoryView()) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 20))
+                        .foregroundColor(Claude.textSecondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Session history")
+                .padding(.bottom, 8)
             }
-            .focusable()
-        }
-        .sheet(isPresented: $showingSettings) {
-            SettingsSheet()
+            .padding(.horizontal, 8)
         }
     }
 
@@ -348,6 +314,7 @@ struct AlwaysOnDisplayView: View {
 
 /// Dynamic content for the Session Dashboard
 /// Shows last activity, session stats, or waiting state
+/// V3 A4: Activity state with Claude icon + last activity card
 struct SessionDashboardContent: View {
     @ObservedObject var activityStore: ActivityStore
 
@@ -356,33 +323,35 @@ struct SessionDashboardContent: View {
     private let refreshTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        VStack(spacing: 8) {
+        ZStack {
             if let lastActivity = activityStore.lastActivity {
-                // Has activity - show last activity card
-                LastActivityCard(event: lastActivity)
+                // V3 A4: Brand glow behind entire content (icon + card)
+                AmbientGlow.brand()
+                    .scaleEffect(0.45)
+                    .offset(y: 20)
 
-                // Session stats row (if available)
-                if let stats = activityStore.currentSessionStats {
-                    SessionStatsRow(tasks: stats.tasks, approvals: stats.approvals)
-                }
+                VStack(spacing: 6) {
+                    // Claude icon 32pt
+                    ClaudeFaceLogo(size: 32)
 
-                // Idle warning (if idle for >5 minutes)
-                if activityStore.isIdleFor(minutes: 5) {
-                    IdleWarningText(minutes: Int((activityStore.timeSinceLastActivity ?? 0) / 60))
+                    // Has activity - show last activity card with stats inside
+                    LastActivityCard(
+                        event: lastActivity,
+                        stats: activityStore.currentSessionStats
+                    )
                 }
             } else {
-                // V3 A3: Fresh session - no activity yet
-                // Shows Claude icon (32x32) with "Waiting for Claude..." text
-                ClaudeFaceLogo(size: 32, animated: true)
+                // V3 A3: Fresh session - Claude icon with brand glow, "Ready" text
+                AmbientGlow.brand()
+                    .scaleEffect(0.5)
+                    .offset(y: 15)
 
-                VStack(spacing: 4) {
-                    Text("Waiting for Claude...")
+                VStack(spacing: 6) {
+                    ClaudeFaceLogo(size: 44)
+
+                    Text("Ready")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(Claude.textPrimary)
-
-                    Text("No activity yet")
-                        .font(.system(size: 11))
-                        .foregroundColor(Claude.textSecondary)
+                        .foregroundColor(Claude.anthropicOrange)
                 }
             }
         }
@@ -394,43 +363,47 @@ struct SessionDashboardContent: View {
 }
 
 /// Card showing the last activity event
+/// V3 A4: Centered layout with large title, time, and stats inside card
+/// Uses gradient fill from design: #ffffff12 top to #ffffff08 bottom
 struct LastActivityCard: View {
     let event: ActivityEvent
+    var stats: (tasks: Int, approvals: Int)?
 
     var body: some View {
-        HStack(spacing: 10) {
-            // Event icon
-            Image(systemName: event.icon)
-                .font(.system(size: 18))
-                .foregroundColor(event.color)
-                .frame(width: 24)
+        VStack(spacing: 6) {
+            // Large centered title (17pt semibold, white)
+            Text(event.truncatedTitle)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
 
-            // Event details
-            VStack(alignment: .leading, spacing: 2) {
-                Text(event.truncatedTitle)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Claude.textPrimary)
-                    .lineLimit(1)
+            // Time ago (13pt, #9A9A9F)
+            Text(event.timeAgoText)
+                .font(.system(size: 13))
+                .foregroundColor(Color(red: 0.604, green: 0.604, blue: 0.624))
 
-                HStack(spacing: 4) {
-                    if let subtitle = event.subtitle {
-                        Text(subtitle)
-                            .font(.system(size: 9))
-                            .foregroundColor(Claude.textTertiary)
-                    }
-
-                    Text(event.timeAgoText)
-                        .font(.system(size: 9))
-                        .foregroundColor(Claude.textTertiary)
-                }
+            // Stats row inside card (11pt medium, #6E6E73)
+            if let stats = stats {
+                Text("\(stats.tasks) task\(stats.tasks == 1 ? "" : "s")  •  \(stats.approvals) approval\(stats.approvals == 1 ? "" : "s")")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(Color(red: 0.431, green: 0.431, blue: 0.451))
             }
-
-            Spacer()
         }
-        .padding(10)
+        .frame(maxWidth: .infinity)
+        .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Claude.surface1)
+            RoundedRectangle(cornerRadius: 16)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.07),  // #ffffff12 ≈ 7%
+                            Color.white.opacity(0.03)   // #ffffff08 ≈ 3%
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
         )
     }
 }
@@ -498,11 +471,14 @@ struct IdleWarningText: View {
 }
 
 #Preview("Last Activity Card") {
-    LastActivityCard(event: ActivityEvent(
-        type: .taskCompleted,
-        title: "Fixed authentication bug",
-        subtitle: "3 files changed"
-    ))
+    LastActivityCard(
+        event: ActivityEvent(
+            type: .taskCompleted,
+            title: "Fixed auth bug",
+            subtitle: nil
+        ),
+        stats: (tasks: 3, approvals: 8)
+    )
     .padding()
 }
 

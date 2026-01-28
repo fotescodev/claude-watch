@@ -117,6 +117,31 @@ public enum Claude {
         static let xl: CGFloat = 24
     }
 
+    // MARK: - Screen Constraints (TABLE STAKES)
+    /// Screen size constraints to ensure views fit on all watch sizes
+    /// RULE: All non-scrollable views MUST fit within these bounds
+    enum Screen {
+        /// Smallest watch viewport height (40mm watch, minus status bar ~170pt usable)
+        static let minViewportHeight: CGFloat = 170
+        /// Safe content height for single-screen views (with margins)
+        static let safeContentHeight: CGFloat = 150
+        /// Maximum recommended card height
+        static let maxCardHeight: CGFloat = 100
+        /// Button row height (button + hint text)
+        static let buttonRowHeight: CGFloat = 50
+        /// Status header height
+        static let headerHeight: CGFloat = 24
+        /// Horizontal safe padding
+        static let horizontalPadding: CGFloat = 12
+        /// Bottom safe area (for button visibility)
+        static let bottomSafeArea: CGFloat = 8
+
+        /// Returns true if content height fits on smallest watch
+        static func fitsOnScreen(_ height: CGFloat) -> Bool {
+            height <= minViewportHeight
+        }
+    }
+
     // MARK: - Radius
     /// Corner radius tokens
     enum Radius {

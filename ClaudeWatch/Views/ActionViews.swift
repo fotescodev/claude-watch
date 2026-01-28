@@ -237,13 +237,11 @@ struct TieredActionCard: View {
                 standardButtons
             }
 
-            // Mac hint for Tier 3
-            if let hint = tier.macHint {
-                Text(hint)
-                    .font(.system(size: 9))
-                    .foregroundColor(Claude.textTertiary)
-                    .multilineTextAlignment(.center)
-            }
+            // V3: Hint text for all tiers
+            Text(tier.hintText)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(Claude.textTertiary)
+                .multilineTextAlignment(.center)
         }
             .padding(10)
             .background(

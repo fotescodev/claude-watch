@@ -2,7 +2,7 @@ import SwiftUI
 import WatchKit
 
 /// Binary question response for F18: AskUserQuestion flow
-/// V2: Shows exactly 2 options - NO "Handle on Mac" escape hatch
+/// V3 E1: StateCard with purple glow, border, question icon inside
 /// Double tap selects the recommended option
 struct QuestionResponseView: View {
     let question: String
@@ -33,78 +33,78 @@ struct QuestionResponseView: View {
                     .frame(width: 8, height: 8)
 
                 Text("Question")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Claude.textSecondary)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(Claude.question)
 
                 Spacer()
             }
             .padding(.horizontal, 12)
             .padding(.top, 4)
 
-            // V3: Question card with icon and text
-            VStack(spacing: 8) {
-                // Question mark icon
-                Image(systemName: "questionmark.circle.fill")
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundColor(Claude.question)
+            Spacer(minLength: 4)
 
-                // Question text - prominent
-                Text(question)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(Claude.textPrimary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity)
-            .background(Claude.surface1)
-            .clipShape(RoundedRectangle(cornerRadius: Claude.Radius.large))
+            // V3 E1: StateCard with purple glow and border
+            StateCard(state: .question, glowOffset: 5, padding: 14) {
+                VStack(alignment: .center, spacing: 10) {
+                    // Question mark icon (24pt bold, purple)
+                    Text("?")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(Claude.question)
+                        .frame(maxWidth: .infinity)
 
-            // V3: Full-width option buttons
-            VStack(spacing: 6) {
-                // Recommended option (Yes)
-                if let recommended = recommendedOption {
-                    Button {
-                        selectOption(recommended)
-                    } label: {
-                        Text(recommended.label)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Claude.question)
-                            .clipShape(RoundedRectangle(cornerRadius: Claude.Radius.button))
+                    // Question text (12pt medium, white, centered)
+                    Text(question)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(3)
+
+                    // V3: Horizontal button row inside card
+                    HStack(spacing: 8) {
+                        // Yes button (purple bg)
+                        if let recommended = recommendedOption {
+                            Button {
+                                selectOption(recommended)
+                            } label: {
+                                Text(recommended.label)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(Claude.question)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isResponding)
+                        }
+
+                        // No button (white 20% bg)
+                        if let alternative = alternativeOption {
+                            Button {
+                                selectOption(alternative)
+                            } label: {
+                                Text(alternative.label)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(Color.white.opacity(0.12))
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isResponding)
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .disabled(isResponding)
-                }
-
-                // Alternative option (No)
-                if let alternative = alternativeOption {
-                    Button {
-                        selectOption(alternative)
-                    } label: {
-                        Text(alternative.label)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(Claude.textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Claude.surface2)
-                            .clipShape(RoundedRectangle(cornerRadius: Claude.Radius.button))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isResponding)
                 }
             }
             .padding(.horizontal, 8)
 
+            Spacer(minLength: 4)
+
             // V3: Handle on Mac hint
-            Text("Handle on Mac")
-                .font(.system(size: 9))
-                .foregroundColor(Claude.textTertiary)
-                .padding(.bottom, 4)
+            Text("Complex? Handle on Mac")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(Color.white.opacity(0.38))
         }
         // Double tap selects recommended option (watchOS 26+)
         .modifier(QuestionDoubleTapModifier(onSelect: {

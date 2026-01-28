@@ -101,38 +101,34 @@ struct DayHeader: View {
 // MARK: - Activity Row
 
 /// A single row in the activity timeline
+/// V3 A6: Timestamp on left, title + subtitle on right
 struct ActivityRow: View {
     let event: ActivityEvent
 
     var body: some View {
-        HStack(spacing: 8) {
-            // Event type icon
-            Image(systemName: event.icon)
-                .font(.system(size: 12))
-                .foregroundColor(event.color)
-                .frame(width: 20)
+        HStack(alignment: .top, spacing: 10) {
+            // V3: Timestamp on LEFT per design spec
+            Text(event.formattedTime)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(Claude.textTertiary)
+                .frame(width: 40, alignment: .leading)
 
             // Event details
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.truncatedTitle)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Claude.textPrimary)
                     .lineLimit(1)
 
                 if let subtitle = event.subtitle {
                     Text(subtitle)
-                        .font(.system(size: 9))
+                        .font(.system(size: 10))
                         .foregroundColor(Claude.textTertiary)
                         .lineLimit(1)
                 }
             }
 
             Spacer()
-
-            // Timestamp
-            Text(event.formattedTime)
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundColor(Claude.textTertiary)
         }
         .padding(.vertical, 4)
     }

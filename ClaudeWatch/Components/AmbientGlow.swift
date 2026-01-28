@@ -16,9 +16,9 @@ struct AmbientGlow: View {
 
     var body: some View {
         Ellipse()
-            .fill(color.opacity(0.18))
-            .frame(width: 100, height: 80)
-            .blur(radius: 35)
+            .fill(color.opacity(0.35))  // V3: Increased opacity for visibility
+            .frame(width: 120, height: 100)  // V3: Larger glow
+            .blur(radius: 40)
     }
 }
 

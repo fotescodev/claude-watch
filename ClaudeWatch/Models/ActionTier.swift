@@ -67,9 +67,9 @@ public enum ActionTier: Int, Comparable, CaseIterable, Codable, Sendable {
     // MARK: - Behavior
 
     /// Whether this tier can be approved from the watch
-    /// Tier 3 (high risk) requires Mac approval for safety
+    /// All tiers can now be approved from watch (user requested)
     public var canApproveFromWatch: Bool {
-        self != .high
+        true
     }
 
     /// What double tap gesture does for this tier
@@ -82,9 +82,18 @@ public enum ActionTier: Int, Comparable, CaseIterable, Codable, Sendable {
         }
     }
 
-    /// Hint text shown for Tier 3 actions
+    /// Hint text shown below action cards (V3 design spec)
+    public var hintText: String {
+        switch self {
+        case .low: return "Double tap to approve"
+        case .medium: return "Review before approve"
+        case .high: return "Approve requires Mac"
+        }
+    }
+
+    /// Legacy property - use hintText instead
     public var macHint: String? {
-        self == .high ? "Approve requires Mac" : nil
+        self == .high ? hintText : nil
     }
 
     // MARK: - Classification

@@ -39,6 +39,8 @@
 		COMP004 /* ActionButtonRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP004 /* ActionButtonRow.swift */; };
 		COMP005 /* TaskChecklist.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP005 /* TaskChecklist.swift */; };
 		COMP006 /* AmbientGlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP006 /* AmbientGlow.swift */; };
+		COMP007 /* StateCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP007 /* StateCard.swift */; };
+		COMP008 /* FloatingSettingsButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP008 /* FloatingSettingsButton.swift */; };
 		CTRL001 /* ApproveControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_CTRL001 /* ApproveControl.swift */; };
 		CTRL002 /* RejectControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_CTRL002 /* RejectControl.swift */; };
 		CTRL003 /* PauseResumeControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_CTRL003 /* PauseResumeControl.swift */; };
@@ -55,6 +57,7 @@
 		VIEW013 /* ContextWarningView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW013 /* ContextWarningView.swift */; };
 		VIEW014 /* ApprovalQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW014 /* ApprovalQueueView.swift */; };
 		VIEW015 /* QuickActionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW015 /* QuickActionsView.swift */; };
+		VIEW017 /* ApprovalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW017 /* ApprovalView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -105,6 +108,8 @@
 		SRC_COMP004 /* ActionButtonRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButtonRow.swift; sourceTree = "<group>"; };
 		SRC_COMP005 /* TaskChecklist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskChecklist.swift; sourceTree = "<group>"; };
 		SRC_COMP006 /* AmbientGlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientGlow.swift; sourceTree = "<group>"; };
+		SRC_COMP007 /* StateCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateCard.swift; sourceTree = "<group>"; };
+		SRC_COMP008 /* FloatingSettingsButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingSettingsButton.swift; sourceTree = "<group>"; };
 		SRC_CTRL001 /* ApproveControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApproveControl.swift; sourceTree = "<group>"; };
 		SRC_CTRL002 /* RejectControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RejectControl.swift; sourceTree = "<group>"; };
 		SRC_CTRL003 /* PauseResumeControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PauseResumeControl.swift; sourceTree = "<group>"; };
@@ -121,6 +126,7 @@
 		SRC_VIEW013 /* ContextWarningView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextWarningView.swift; sourceTree = "<group>"; };
 		SRC_VIEW014 /* ApprovalQueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalQueueView.swift; sourceTree = "<group>"; };
 		SRC_VIEW015 /* QuickActionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionsView.swift; sourceTree = "<group>"; };
+		SRC_VIEW017 /* ApprovalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -227,6 +233,7 @@
 				GRP_COMPONENTS /* Components */,
 				SRC009 /* ActionViews.swift */,
 				SRC_VIEW014 /* ApprovalQueueView.swift */,
+				SRC_VIEW017 /* ApprovalView.swift */,
 				SRC010 /* CommandViews.swift */,
 				SRC006 /* ConsentView.swift */,
 				SRC_VIEW013 /* ContextWarningView.swift */,
@@ -278,11 +285,13 @@ GRP_COMP /* Components */ = {
 			isa = PBXGroup;
 			children = (
 				SRC_COMP006 /* AmbientGlow.swift */,
+				SRC_COMP007 /* StateCard.swift */,
 				SRC_COMP001 /* BreathingAnimation.swift */,
 				SRC_COMP002 /* SwipeActionCard.swift */,
 				SRC_COMP003 /* ActionButtonHandler.swift */,
 				SRC_COMP004 /* ActionButtonRow.swift */,
 				SRC_COMP005 /* TaskChecklist.swift */,
+				SRC_COMP008 /* FloatingSettingsButton.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -402,6 +411,8 @@ GRP_COMP /* Components */ = {
 				COMP004 /* ActionButtonRow.swift in Sources */,
 				COMP005 /* TaskChecklist.swift in Sources */,
 				COMP006 /* AmbientGlow.swift in Sources */,
+				COMP007 /* StateCard.swift in Sources */,
+				COMP008 /* FloatingSettingsButton.swift in Sources */,
 				CTRL001 /* ApproveControl.swift in Sources */,
 				CTRL002 /* RejectControl.swift in Sources */,
 				CTRL003 /* PauseResumeControl.swift in Sources */,
@@ -418,6 +429,7 @@ GRP_COMP /* Components */ = {
 				VIEW013 /* ContextWarningView.swift in Sources */,
 				VIEW014 /* ApprovalQueueView.swift in Sources */,
 				VIEW015 /* QuickActionsView.swift in Sources */,
+				VIEW017 /* ApprovalView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

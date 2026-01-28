@@ -41,7 +41,7 @@ struct UnpairedMainView: View {
     @State private var minimumDelayPassed = false
 
     var body: some View {
-        VStack(spacing: Claude.Spacing.md) {
+        VStack(spacing: 8) {
             // V3: Status indicator - "Unpaired" with gray dot
             HStack(spacing: 6) {
                 Circle()
@@ -52,62 +52,62 @@ struct UnpairedMainView: View {
                     .foregroundStyle(Claude.textSecondary)
                 Spacer()
             }
+            .padding(.top, 4)
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            // V3: Claude icon with ambient glow
+            // V3: Claude icon with brand ambient glow
             ZStack {
-                // Ambient glow behind icon
-                AmbientGlow.idle()
-                    .offset(y: 10)
+                // Brand (orange) ambient glow behind icon - smaller for fit
+                AmbientGlow.brand()
+                    .scaleEffect(0.7)
+                    .offset(y: 8)
 
                 // Claude icon 48×48
                 ClaudeFaceLogo(size: 48)
             }
 
-            Spacer()
+            // V3 A1: "Ready to pair" text below icon
+            Text("Ready to pair")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(Claude.textSecondary)
+
+            Spacer(minLength: 8)
 
             // V3: Single primary button only
-            VStack(spacing: Claude.Spacing.sm) {
-                if service.isAPNsTokenReady && minimumDelayPassed {
-                    Button(action: {
-                        WKInterfaceDevice.current().play(.click)
-                        onPairNow()
-                    }) {
-                        Text("Pair with Code")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(
-                                LinearGradient(
-                                    colors: [Claude.orange, Claude.orangeDark],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    // Waiting for APNs token registration
-                    HStack(spacing: 8) {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                            .tint(Claude.orange)
-                        Text("Preparing...")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Claude.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Claude.surface1)
-                    .clipShape(Capsule())
+            if service.isAPNsTokenReady && minimumDelayPassed {
+                Button(action: {
+                    WKInterfaceDevice.current().play(.click)
+                    onPairNow()
+                }) {
+                    Text("Pair with Code")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.black)  // V3: Black text on orange button
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Claude.anthropicOrange)  // V3: Solid orange, no gradient
+                        .clipShape(Capsule())
                 }
+                .buttonStyle(.plain)
+            } else {
+                // Waiting for APNs token registration
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .tint(Claude.orange)
+                    Text("Preparing...")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Claude.textSecondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(Claude.surface1)
+                .clipShape(Capsule())
             }
         }
-        .padding(Claude.Spacing.md)
-        // V3: Long press for dev options (Local/Demo)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
+        // V3: Long press for quick actions menu
         .onLongPressGesture {
             WKInterfaceDevice.current().play(.click)
             // Show dev options sheet
@@ -235,14 +235,14 @@ struct PairingCodeDisplayView: View {
         }
     }
 
-    /// Creates code display with Anthropic orange per design spec
+    /// Creates code display with WHITE text per design spec
     @ViewBuilder
     private func codeDisplayView(for code: String) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             ForEach(Array(code.enumerated()), id: \.offset) { _, char in
                 Text(String(char))
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(Claude.anthropicOrange)
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)  // V3: White text per design
             }
         }
     }

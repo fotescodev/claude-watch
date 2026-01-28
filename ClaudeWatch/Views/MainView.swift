@@ -67,8 +67,8 @@ struct MainView: View {
                 case .approvalQueue:
                     ApprovalQueueView()
                 case .approval:
-                    // Single approval - use existing ActionQueue
-                    mainContentView
+                    // V3 C1-C3: Single approval with tier-based styling
+                    ApprovalView()
                 case .question:
                     // F18: Binary question response (V2: exactly 2 options)
                     if let question = service.pendingQuestion {
@@ -98,19 +98,7 @@ struct MainView: View {
             .id(currentViewState)  // Force view replacement instead of animation overlap
         }
         .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8), value: currentViewState)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showingSettings = true
-                    WKInterfaceDevice.current().play(.click)
-                } label: {
-                    Image(systemName: connectionIcon)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(connectionColor)
-                }
-                .accessibilityLabel("Settings and connection status")
-            }
-        }
+        // V3: Removed toolbar - Settings accessible via footer button per design spec
         .sheet(isPresented: $showingVoiceInput) {
             VoiceInputSheet()
         }
@@ -157,8 +145,8 @@ struct MainView: View {
                             let isComplete = progress.progress >= 1.0 ||
                                 (progress.totalCount > 0 && progress.completedCount == progress.totalCount)
                             if !isComplete {
+                                // Note: Haptic played by WatchService.sendInterrupt on success
                                 Button {
-                                    WKInterfaceDevice.current().play(.click)
                                     Task {
                                         if service.isSessionInterrupted {
                                             await service.sendInterrupt(action: .resume)

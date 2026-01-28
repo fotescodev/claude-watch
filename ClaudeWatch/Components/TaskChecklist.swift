@@ -19,7 +19,7 @@ enum TaskCheckStatus: String, CaseIterable {
     var icon: String {
         switch self {
         case .done: return "checkmark.circle.fill"
-        case .active: return "circle.inset.filled"
+        case .active: return "arrow.right.circle.fill"  // Distinct filled icon for active
         case .pending: return "circle"
         }
     }

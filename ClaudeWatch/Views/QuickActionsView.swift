@@ -69,6 +69,34 @@ struct QuickActionsView: View {
                     .tint(Claude.info)
                 }
             }
+
+            // Permission Mode
+            Section("Permission Mode") {
+                ForEach(PermissionMode.allCases, id: \.self) { mode in
+                    Button {
+                        setPermissionMode(mode)
+                    } label: {
+                        HStack {
+                            Label(mode.displayName, systemImage: mode.icon)
+                            Spacer()
+                            if service.state.mode == mode {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(Claude.success)
+                            }
+                        }
+                    }
+                    .tint(service.state.mode == mode ? Claude.success : nil)
+                }
+            }
+
+            // App controls
+            Section("App") {
+                NavigationLink {
+                    SettingsSheet()
+                } label: {
+                    Label("Settings", systemImage: "gearshape.fill")
+                }
+            }
         }
         .navigationTitle("Quick Actions")
     }
@@ -134,6 +162,12 @@ struct QuickActionsView: View {
     private func showPairing() {
         WKInterfaceDevice.current().play(.click)
         // This would navigate to pairing view
+        dismiss()
+    }
+
+    private func setPermissionMode(_ mode: PermissionMode) {
+        WKInterfaceDevice.current().play(.click)
+        service.setMode(mode)
         dismiss()
     }
 }

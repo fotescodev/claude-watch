@@ -2,7 +2,7 @@ import SwiftUI
 import WatchKit
 
 /// Context warning view for F16: Context > 75% alert
-/// Shows context usage percentage with appropriate urgency level
+/// V3 E2: StateCard with yellow glow, border, percentage display
 struct ContextWarningView: View {
     let percentage: Int  // 75, 85, or 95
 
@@ -12,74 +12,78 @@ struct ContextWarningView: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
-        VStack(spacing: 12) {
-            // Header with state dot
-            HStack {
+        VStack(spacing: 8) {
+            // V3: Header - "Context" status
+            HStack(spacing: 6) {
                 Circle()
-                    .fill(Claude.warning)
-                    .frame(width: 6, height: 6)
-                Text("Warning")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Claude.warning)
+                    .fill(Claude.context)
+                    .frame(width: 8, height: 8)
+                Text("Context")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(Claude.context)
                 Spacer()
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
+            .padding(.horizontal, 12)
+            .padding(.top, 4)
 
-            // Warning icon - triangle
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 32))
-                .foregroundColor(.yellow)
-                .padding(.top, 4)
+            Spacer(minLength: 4)
 
-            // Title with percentage
-            Text("Context at \(percentage)%")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(Claude.textPrimary)
-
-            // Subtitle
-            Text("Session may compress soon")
-                .font(.system(size: 11))
-                .foregroundColor(Claude.textSecondary)
-
-            // Red progress bar
-            ProgressView(value: Double(percentage) / 100.0)
-                .tint(.red)
-                .padding(.horizontal, 20)
-
-            Spacer()
-
-            // Two buttons: Dismiss + View
-            HStack(spacing: 12) {
-                Button {
-                    dismiss()
-                } label: {
-                    Text("Dismiss")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
+            // V3 E2: StateCard with context/yellow glow and border
+            StateCard(state: .context, glowOffset: 10, padding: 10) {
+                VStack(alignment: .center, spacing: 6) {
+                    // Large percentage display (22pt bold, yellow)
+                    Text("\(percentage)%")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(Claude.context)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Claude.surface2)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
 
-                Button {
-                    view()
-                } label: {
-                    Text("View")
-                        .font(.system(size: 13, weight: .semibold))
+                    // Title (11pt semibold, white)
+                    Text("Context Usage")
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Claude.warning)
-                        .clipShape(Capsule())
+
+                    // Subtitle (10pt, #ffffff99)
+                    Text("Running low on\nconversation context")
+                        .font(.system(size: 10))
+                        .foregroundColor(Color.white.opacity(0.6))
+                        .multilineTextAlignment(.center)
+
+                    // Progress bar (6px height, #ffffff20 bg, yellow fill)
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.white.opacity(0.12))
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Claude.context)
+                                .frame(width: geo.size.width * CGFloat(percentage) / 100.0)
+                        }
+                    }
+                    .frame(height: 6)
+
+                    // OK button (yellow bg, black text, rounded)
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("OK")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(.black)
+                            .frame(width: 67, height: 27)
+                            .background(Claude.context)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(acknowledged)
+                    .padding(.top, 3)
                 }
-                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
-            .disabled(acknowledged)
+            .padding(.horizontal, 8)
+
+            Spacer(minLength: 4)
+
+            // V3: Hint text
+            Text("Summarize to free space")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundColor(Color.white.opacity(0.38))
         }
         .onAppear {
             // Play haptic based on urgency
@@ -97,14 +101,6 @@ struct ContextWarningView: View {
         guard !acknowledged else { return }
         acknowledged = true
         WKInterfaceDevice.current().play(.click)
-        service.acknowledgeContextWarning()
-    }
-
-    private func view() {
-        guard !acknowledged else { return }
-        acknowledged = true
-        WKInterfaceDevice.current().play(.click)
-        // View action - for now just acknowledge (could navigate to details in future)
         service.acknowledgeContextWarning()
     }
 }

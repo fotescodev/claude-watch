@@ -2,7 +2,8 @@ import SwiftUI
 import WatchKit
 
 /// Shows current task progress when Claude is actively working
-/// V3: Uses TaskChecklist component, progress bar with percentage, pause button
+/// V3 B1: Compact card with task checklist, progress bar, pause button
+/// Must fit on screen without scrolling
 struct WorkingView: View {
     @ObservedObject private var service = WatchService.shared
     @State private var pulsePhase: CGFloat = 0
@@ -10,123 +11,133 @@ struct WorkingView: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                // Header with state indicator
-                HStack(spacing: 6) {
-                    ClaudeStateDot(state: .working, size: 6)
-                        .opacity(reduceMotion ? 1.0 : 0.5 + 0.5 * Double(pulsePhase))
+        VStack(spacing: 4) {
+            // Header with state indicator
+            HStack(spacing: 6) {
+                ClaudeStateDot(state: .working, size: 8)
+                    .opacity(reduceMotion ? 1.0 : 0.5 + 0.5 * Double(pulsePhase))
 
-                    Text("Working")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(ClaudeState.working.color)
+                Text("Working")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(ClaudeState.working.color)
 
-                    Spacer()
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 2)
 
-                // Task card with checklist and progress
-                if let progress = service.sessionProgress {
-                    VStack(alignment: .leading, spacing: 10) {
-                        // Task title
-                        if let taskTitle = progress.currentActivity ?? progress.currentTask {
-                            Text(taskTitle)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(Claude.textPrimary)
-                                .lineLimit(2)
-                        } else {
-                            Text("Processing...")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(Claude.textPrimary)
-                        }
+            // V3 B1: StateCard with blue glow (compact)
+            if let progress = service.sessionProgress {
+                StateCard(state: .working, glowOffset: 15, padding: 10) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        // Task title with count
+                        Text("\(progress.completedCount)/\(progress.totalCount) \(progress.currentActivity ?? progress.currentTask ?? "Working...")")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
 
-                        // Task checklist using TaskChecklist component
+                        // Task checklist - max 3 items
                         if !progress.tasks.isEmpty {
-                            TaskChecklist(items: progress.tasks.prefix(4).map { task in
-                                (status: mapTodoStatusToCheckStatus(task.status), text: task.content)
-                            })
+                            VStack(alignment: .leading, spacing: 2) {
+                                ForEach(Array(progress.tasks.prefix(3).enumerated()), id: \.offset) { _, task in
+                                    taskRow(task)
+                                }
+                            }
                         }
 
                         // Progress bar with percentage
-                        VStack(spacing: 4) {
-                            ProgressView(value: progress.progress)
-                                .tint(ClaudeState.working.color)
-
-                            HStack {
-                                Spacer()
-                                Text("\(Int(progress.progress * 100))%")
-                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                    .foregroundColor(Claude.textSecondary)
+                        HStack(spacing: 6) {
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(Color.white.opacity(0.15))
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(ClaudeState.working.color)
+                                        .frame(width: geo.size.width * progress.progress)
+                                }
                             }
+                            .frame(height: 5)
+
+                            Text("\(Int(progress.progress * 100))%")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(ClaudeState.working.color)
                         }
                     }
-                    .padding(12)
-                    .glassEffectCompat(RoundedRectangle(cornerRadius: Claude.Radius.large))
-                } else {
-                    // Fallback when no detailed progress available
-                    VStack(spacing: 8) {
+                }
+                .padding(.horizontal, 8)
+            } else {
+                // Fallback loading state
+                StateCard(state: .working, glowOffset: 15, padding: 10) {
+                    VStack(spacing: 6) {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: ClaudeState.working.color))
-
-                        if !service.state.taskName.isEmpty {
-                            Text(service.state.taskName)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(Claude.textPrimary)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.center)
-                        }
+                        Text("Processing...")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.white)
                     }
-                    .padding(12)
-                    .glassEffectCompat(RoundedRectangle(cornerRadius: Claude.Radius.large))
                 }
-
-                // Pause button (V3 design spec)
-                Button {
-                    WKInterfaceDevice.current().play(.click)
-                    Task {
-                        await service.sendInterrupt(action: .stop)
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "pause.fill")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Pause")
-                            .font(.system(size: 14, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(Claude.warning)
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 20)
-
-                // Hint text
-                Text("Double tap to pause")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(Claude.textTertiary)
-
-                Spacer(minLength: 12)
+                .padding(.horizontal, 8)
             }
+
+            Spacer(minLength: 2)
+
+            // Pause button (compact)
+            // Note: Haptic played by WatchService.sendInterrupt on success
+            Button {
+                Task {
+                    await service.sendInterrupt(action: .stop)
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "pause.fill")
+                        .font(.system(size: 12))
+                    Text("Pause")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(Color.white.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+
+            // Hint text
+            Text("Double tap to pause")
+                .font(.system(size: 9))
+                .foregroundColor(Color(red: 0.431, green: 0.431, blue: 0.451))
         }
-        .focusable()  // Enable Digital Crown scrolling
-        .contentMargins(.top, 8, for: .scrollContent)  // Prevent toolbar overlap when scrolling
         .onAppear {
             startPulse()
         }
     }
 
-    /// Maps TodoStatus to TaskCheckStatus for the TaskChecklist component
-    private func mapTodoStatusToCheckStatus(_ status: TodoItem.TodoStatus) -> TaskCheckStatus {
-        switch status {
-        case .completed:
-            return .done
-        case .inProgress:
-            return .active
-        case .pending:
-            return .pending
+    /// Task row with status indicator (compact)
+    @ViewBuilder
+    private func taskRow(_ task: TodoItem) -> some View {
+        HStack(spacing: 4) {
+            // Status indicator
+            switch task.status {
+            case .completed:
+                Text("✓")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundColor(Claude.success)
+            case .inProgress:
+                Text("●")
+                    .font(.system(size: 7, weight: .semibold))
+                    .foregroundColor(ClaudeState.working.color)
+            case .pending:
+                Text("○")
+                    .font(.system(size: 7))
+                    .foregroundColor(Color(red: 0.431, green: 0.431, blue: 0.451))
+            }
+
+            // Task text
+            Text(task.content)
+                .font(.system(size: 9, weight: task.status == .inProgress ? .medium : .regular))
+                .foregroundColor(task.status == .inProgress ? .white : Color(red: 0.431, green: 0.431, blue: 0.451))
+                .lineLimit(1)
         }
     }
 
@@ -139,10 +150,5 @@ struct WorkingView: View {
 }
 
 #Preview("Working View") {
-    WorkingView()
-}
-
-#Preview("Working View - Expanded") {
-    // Preview with expanded task list
     WorkingView()
 }
