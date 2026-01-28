@@ -114,16 +114,11 @@ async function runPairing(cloudUrl: string): Promise<string | null> {
  * Ensure the hook is installed and registered
  */
 function ensureHook(): void {
-  if (isHookConfigured()) {
-    console.log(chalk.dim(`  Hook: ${chalk.green("installed")}`));
-    return;
-  }
-
-  const hookSpinner = ora("Installing approval hook...").start();
+  // Always copy latest hook file (overwrites existing to pick up updates)
+  const hookSpinner = ora("Updating approval hook...").start();
   const result = setupHook();
   if (result.installed && result.registered) {
-    hookSpinner.succeed("Approval hook installed");
-    console.log(chalk.dim(`  Hook: ${getInstalledHookPath()}`));
+    hookSpinner.succeed("Approval hook up to date");
   } else {
     hookSpinner.warn("Hook installation incomplete - approvals may not work");
   }
