@@ -8,12 +8,19 @@ const HOOKS_DIR = join(CLAUDE_DIR, "hooks");
 const SETTINGS_PATH = join(CLAUDE_DIR, "settings.json");
 const HOOK_FILENAME = "watch-approval-cloud.py";
 
+interface HookEntry {
+  type: string;
+  command: string;
+}
+
+interface HookMatcher {
+  matcher: string;
+  hooks: HookEntry[];
+}
+
 interface ClaudeSettings {
   hooks?: {
-    PreToolUse?: Array<{
-      type: string;
-      command: string;
-    }>;
+    PreToolUse?: HookMatcher[];
     [key: string]: unknown;
   };
   [key: string]: unknown;
@@ -100,6 +107,10 @@ export function installHookScript(): boolean {
 
 /**
  * Register the hook in Claude's settings.json
+ *
+ * Claude Code hooks format requires:
+ * - matcher: regex pattern to match tool names (empty string = all tools)
+ * - hooks: array of hook entries with type and command
  */
 export function registerHook(): boolean {
   const settings = readSettings();
@@ -115,23 +126,27 @@ export function registerHook(): boolean {
     settings.hooks.PreToolUse = [];
   }
 
-  // Check if already registered
+  // Check if already registered (look inside hooks array for our script)
   const existingIndex = settings.hooks.PreToolUse.findIndex(
-    (hook) => hook.command?.includes("watch-approval-cloud.py")
+    (entry) => entry.hooks?.some((h) => h.command?.includes("watch-approval-cloud.py"))
   );
+
+  const hookEntry: HookMatcher = {
+    matcher: "", // Empty string matches ALL tools
+    hooks: [
+      {
+        type: "command",
+        command: hookPath,
+      },
+    ],
+  };
 
   if (existingIndex >= 0) {
     // Update existing entry
-    settings.hooks.PreToolUse[existingIndex] = {
-      type: "command",
-      command: hookPath,
-    };
+    settings.hooks.PreToolUse[existingIndex] = hookEntry;
   } else {
     // Add new entry
-    settings.hooks.PreToolUse.push({
-      type: "command",
-      command: hookPath,
-    });
+    settings.hooks.PreToolUse.push(hookEntry);
   }
 
   writeSettings(settings);
@@ -149,7 +164,7 @@ export function unregisterHook(): boolean {
   }
 
   settings.hooks.PreToolUse = settings.hooks.PreToolUse.filter(
-    (hook) => !hook.command?.includes("watch-approval-cloud.py")
+    (entry) => !entry.hooks?.some((h) => h.command?.includes("watch-approval-cloud.py"))
   );
 
   writeSettings(settings);
@@ -174,7 +189,7 @@ export function isHookConfigured(): boolean {
   }
 
   return settings.hooks.PreToolUse.some(
-    (hook) => hook.command?.includes("watch-approval-cloud.py")
+    (entry) => entry.hooks?.some((h) => h.command?.includes("watch-approval-cloud.py"))
   );
 }
 

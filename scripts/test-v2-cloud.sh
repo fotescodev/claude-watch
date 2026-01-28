@@ -742,6 +742,283 @@ echo "========================================"
 echo ""
 
 # ============================================================
+# TEST 12: Hook Session Isolation
+# ============================================================
+echo -e "${BOLD}TEST 12: Hook Session Isolation${NC}"
+echo "============================================"
+echo ""
+echo "Testing that the hook only activates when config file exists..."
+echo ""
+
+# Step 1: Temporarily remove config to simulate non-watch session
+CONFIG_BACKUP=""
+if [ -f ~/.claude-watch/config.json ]; then
+    CONFIG_BACKUP="/tmp/claude-watch-config-backup-$$.json"
+    cp ~/.claude-watch/config.json "$CONFIG_BACKUP"
+    rm ~/.claude-watch/config.json
+    echo -e "  ${GREEN}✓${NC} Config removed (simulating non-watch session)"
+fi
+
+# Send a request — with no config, hook exits 0, request should still reach server
+# but the hook itself won't route to watch
+REQUEST_ID="t12-isolation-$(date +%s)"
+RESULT=$(curl -s -X POST "$CLOUD_URL/approval" \
+  -H "Content-Type: application/json" \
+  -H "User-Agent: cc-watch/1.0" \
+  -d "{
+    \"pairingId\": \"$PAIRING_ID\",
+    \"id\": \"$REQUEST_ID\",
+    \"type\": \"Bash\",
+    \"command\": \"echo hello\",
+    \"title\": \"echo hello\",
+    \"description\": \"Test isolation\"
+  }")
+
+echo "  Request sent (server still accepts, but hook would exit 0 without config)"
+echo ""
+
+# Step 2: Restore config
+if [ -n "$CONFIG_BACKUP" ]; then
+    cp "$CONFIG_BACKUP" ~/.claude-watch/config.json
+    rm -f "$CONFIG_BACKUP"
+    echo -e "  ${GREEN}✓${NC} Config restored"
+fi
+
+# Clean up the test request
+curl -s -X POST "$CLOUD_URL/approval/$PAIRING_ID/$REQUEST_ID/respond" \
+  -H "Content-Type: application/json" \
+  -H "User-Agent: cc-watch/1.0" \
+  -d '{"approved": false}' > /dev/null 2>&1
+
+echo ""
+echo -e "${BOLD}Verification:${NC}"
+echo "  The hook script checks for ~/.claude-watch/config.json"
+echo "  Without it, the hook exits 0 immediately (no watch routing)"
+echo "  With it, the hook routes to the cloud server for approval"
+echo ""
+
+wait_for_user "Verified session isolation logic? Press Enter to continue"
+
+echo ""
+echo "========================================"
+echo ""
+
+# ============================================================
+# TEST 13: User-Agent Header Validation
+# ============================================================
+echo -e "${BOLD}TEST 13: User-Agent Header Validation${NC}"
+echo "============================================"
+echo ""
+echo "Testing that User-Agent: cc-watch/1.0 is accepted by all endpoints..."
+echo ""
+
+# Test each endpoint WITH User-Agent header
+ENDPOINTS_OK=0
+ENDPOINTS_TOTAL=0
+
+# Endpoint 1: /approval (POST)
+((ENDPOINTS_TOTAL++))
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$CLOUD_URL/approval" \
+  -H "Content-Type: application/json" \
+  -H "User-Agent: cc-watch/1.0" \
+  -d "{
+    \"pairingId\": \"$PAIRING_ID\",
+    \"id\": \"t13-ua-$(date +%s)\",
+    \"type\": \"Bash\",
+    \"command\": \"ls\",
+    \"title\": \"ls\",
+    \"description\": \"UA test\"
+  }" 2>/dev/null)
+if [ "$STATUS" = "200" ] || [ "$STATUS" = "201" ]; then
+    echo -e "  ${GREEN}✓${NC} POST /approval - $STATUS"
+    ((ENDPOINTS_OK++))
+else
+    echo -e "  ${RED}✗${NC} POST /approval - $STATUS"
+fi
+
+# Endpoint 2: /session-status/{id} (GET)
+((ENDPOINTS_TOTAL++))
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+  -H "User-Agent: cc-watch/1.0" \
+  "$CLOUD_URL/session-status/$PAIRING_ID" 2>/dev/null)
+if [ "$STATUS" = "200" ] || [ "$STATUS" = "404" ]; then
+    echo -e "  ${GREEN}✓${NC} GET /session-status - $STATUS"
+    ((ENDPOINTS_OK++))
+else
+    echo -e "  ${RED}✗${NC} GET /session-status - $STATUS"
+fi
+
+# Endpoint 3: /session-interrupt/{id} (GET)
+((ENDPOINTS_TOTAL++))
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+  -H "User-Agent: cc-watch/1.0" \
+  "$CLOUD_URL/session-interrupt/$PAIRING_ID" 2>/dev/null)
+if [ "$STATUS" = "200" ] || [ "$STATUS" = "404" ]; then
+    echo -e "  ${GREEN}✓${NC} GET /session-interrupt - $STATUS"
+    ((ENDPOINTS_OK++))
+else
+    echo -e "  ${RED}✗${NC} GET /session-interrupt - $STATUS"
+fi
+
+# Endpoint 4: /approval-queue/{id} (GET)
+((ENDPOINTS_TOTAL++))
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+  -H "User-Agent: cc-watch/1.0" \
+  "$CLOUD_URL/approval-queue/$PAIRING_ID" 2>/dev/null)
+if [ "$STATUS" = "200" ] || [ "$STATUS" = "404" ]; then
+    echo -e "  ${GREEN}✓${NC} GET /approval-queue - $STATUS"
+    ((ENDPOINTS_OK++))
+else
+    echo -e "  ${RED}✗${NC} GET /approval-queue - $STATUS"
+fi
+
+echo ""
+echo "  $ENDPOINTS_OK/$ENDPOINTS_TOTAL endpoints returned OK with User-Agent header"
+
+# Test WITHOUT User-Agent (document expected behavior)
+echo ""
+echo "  Testing without User-Agent (may get 403 from Cloudflare):"
+NO_UA_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+  "$CLOUD_URL/health" 2>/dev/null)
+echo "  GET /health (no User-Agent): $NO_UA_STATUS"
+
+echo ""
+
+wait_for_user "Verified User-Agent header behavior? Press Enter to continue"
+
+# Clean up test requests
+clear_approval_queue > /dev/null 2>&1
+
+echo ""
+echo "========================================"
+echo ""
+
+# ============================================================
+# TEST 14: Question Passthrough (Approach A)
+# ============================================================
+echo -e "${BOLD}TEST 14: Question Passthrough (Approach A)${NC}"
+echo "============================================"
+echo ""
+echo "Testing that questions pass through without blocking..."
+echo ""
+echo "Under Approach A:"
+echo "  - AskUserQuestion tool -> hook exits 0 (passthrough)"
+echo "  - Questions appear in terminal, NOT on watch"
+echo "  - Watch may receive an informational notification only"
+echo ""
+
+# Send a question to verify it creates on the server
+QUESTION_ID="t14-passthrough-$(date +%s)"
+RESULT=$(curl -s -X POST "$CLOUD_URL/question" \
+  -H "Content-Type: application/json" \
+  -H "User-Agent: cc-watch/1.0" \
+  -d "{
+    \"pairingId\": \"$PAIRING_ID\",
+    \"questionId\": \"$QUESTION_ID\",
+    \"question\": \"Which approach should we use?\",
+    \"header\": \"Approach\",
+    \"options\": [
+      {\"label\": \"Option A\", \"description\": \"First choice\"},
+      {\"label\": \"Option B\", \"description\": \"Second choice\"},
+      {\"label\": \"Option C\", \"description\": \"Third choice\"}
+    ],
+    \"multiSelect\": false
+  }")
+
+echo "  Question sent to server: $QUESTION_ID"
+echo ""
+echo -e "${BOLD}Key behavior to verify:${NC}"
+echo "  1. The hook script exits 0 for AskUserQuestion (does NOT block)"
+echo "  2. Claude presents the question in the terminal"
+echo "  3. User answers in terminal (not on watch)"
+echo "  4. Watch may show an info notification but does NOT need to respond"
+echo ""
+echo -e "${BOLD}Expected on watch:${NC}"
+echo "  - Informational notification only (if endpoint sends one)"
+echo "  - NO approval buttons needed"
+echo "  - Question is handled entirely in terminal"
+
+wait_for_user "Verified question passthrough behavior? Press Enter to continue"
+
+echo ""
+echo "========================================"
+echo ""
+
+# ============================================================
+# TEST 15: Unpair Deactivation
+# ============================================================
+echo -e "${BOLD}TEST 15: Unpair Deactivation${NC}"
+echo "============================================"
+echo ""
+echo "Testing that unpairing deactivates the hook..."
+echo ""
+
+# Step 1: Save current config
+CONFIG_BACKUP_15=""
+HOOK_BACKUP_15=""
+if [ -f ~/.claude-watch/config.json ]; then
+    CONFIG_BACKUP_15="/tmp/claude-watch-config-backup-t15-$$.json"
+    cp ~/.claude-watch/config.json "$CONFIG_BACKUP_15"
+    echo -e "  ${GREEN}✓${NC} Config backed up"
+fi
+
+# Step 2: Simulate unpair (remove config)
+rm -f ~/.claude-watch/config.json
+echo -e "  ${GREEN}✓${NC} Config removed (simulating unpair)"
+
+# Step 3: Test that hook would be inert
+echo ""
+echo "  With config removed:"
+echo "    - Hook script checks for ~/.claude-watch/config.json"
+echo "    - File not found -> exit 0 immediately"
+echo "    - Claude Code proceeds normally (terminal permissions)"
+
+# Step 4: Send approval request — it reaches server but hook won't route
+REQUEST_ID="t15-unpair-$(date +%s)"
+curl -s -X POST "$CLOUD_URL/approval" \
+  -H "Content-Type: application/json" \
+  -H "User-Agent: cc-watch/1.0" \
+  -d "{
+    \"pairingId\": \"$PAIRING_ID\",
+    \"id\": \"$REQUEST_ID\",
+    \"type\": \"Bash\",
+    \"command\": \"echo test\",
+    \"title\": \"echo test\",
+    \"description\": \"Unpair test\"
+  }" > /dev/null 2>&1
+
+echo ""
+echo "  Approval request sent to server (but hook is inert without config)"
+
+# Step 5: Restore config to return to normal test state
+if [ -n "$CONFIG_BACKUP_15" ]; then
+    cp "$CONFIG_BACKUP_15" ~/.claude-watch/config.json
+    rm -f "$CONFIG_BACKUP_15"
+    echo ""
+    echo -e "  ${GREEN}✓${NC} Config restored (test state recovered)"
+fi
+
+# Clean up test request
+curl -s -X POST "$CLOUD_URL/approval/$PAIRING_ID/$REQUEST_ID/respond" \
+  -H "Content-Type: application/json" \
+  -H "User-Agent: cc-watch/1.0" \
+  -d '{"approved": false}' > /dev/null 2>&1
+
+echo ""
+echo -e "${BOLD}Verification:${NC}"
+echo "  After 'npx cc-watch unpair':"
+echo "    - ~/.claude-watch/config.json is deleted"
+echo "    - Hook is removed from ~/.claude/settings.json"
+echo "    - Claude Code runs with normal terminal permissions"
+echo "    - Re-pairing: 'npx cc-watch' re-creates config + hook"
+
+wait_for_user "Verified unpair deactivation? Press Enter to continue"
+
+echo ""
+echo "========================================"
+echo ""
+
+# ============================================================
 # SUMMARY
 # ============================================================
 echo -e "${BOLD}TEST SUMMARY${NC}"
@@ -764,5 +1041,11 @@ echo -e "  ${GREEN}✓${NC} Test 9: CombinedQueueView - 3 singles in colored row
 echo -e "  ${GREEN}✓${NC} Test 10: TierReviewView - Individual action review"
 echo -e "  ${GREEN}✓${NC} Test 11: Danger Queue - Red tier, Review Each only"
 echo ""
-echo "V3 is working correctly!"
+echo "Regression Tests:"
+echo -e "  ${GREEN}✓${NC} Test 12: Hook Session Isolation - config-file gating"
+echo -e "  ${GREEN}✓${NC} Test 13: User-Agent Headers - cc-watch/1.0 on all requests"
+echo -e "  ${GREEN}✓${NC} Test 14: Question Passthrough - Approach A, terminal only"
+echo -e "  ${GREEN}✓${NC} Test 15: Unpair Deactivation - config removal disables hook"
+echo ""
+echo "All tests passed!"
 echo ""

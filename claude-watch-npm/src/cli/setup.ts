@@ -1,7 +1,6 @@
 import chalk from "chalk";
 import ora from "ora";
 import prompts from "prompts";
-import { spawn } from "child_process";
 import {
   savePairingConfig,
   isPaired,
@@ -9,19 +8,11 @@ import {
   createPairingConfig,
 } from "../config/pairing-store.js";
 import {
-  addClaudeWatchServer,
-  isClaudeWatchConfigured,
-  getMCPConfigPath,
-} from "../config/mcp-config.js";
-import {
   setupHook,
   isHookConfigured,
   getInstalledHookPath,
 } from "../config/hooks-config.js";
-import { createLocalPairing } from "../cloud/pairing.js";
 import { CloudClient } from "../cloud/client.js";
-
-type ConnectionMode = "cloud" | "local";
 
 /**
  * Display the header
@@ -36,7 +27,7 @@ function showHeader(): void {
  * Check if already configured
  */
 async function checkExistingConfig(): Promise<boolean> {
-  if (isPaired() && isClaudeWatchConfigured() && isHookConfigured()) {
+  if (isPaired() && isHookConfigured()) {
     const config = readPairingConfig();
     console.log(chalk.yellow("  Already configured!"));
     console.log();
@@ -52,8 +43,12 @@ async function checkExistingConfig(): Promise<boolean> {
     });
 
     if (!response.reconfigure) {
-      // Already paired - offer to start Claude anyway
-      await offerStartClaude();
+      console.log();
+      console.log(chalk.green.bold("  Ready!"));
+      console.log(
+        chalk.dim("  Run `claude` normally. Tool calls route to your watch.")
+      );
+      console.log();
       return false;
     }
   }
@@ -62,79 +57,7 @@ async function checkExistingConfig(): Promise<boolean> {
 }
 
 /**
- * Offer to start Claude Code (used when already paired)
- */
-async function offerStartClaude(): Promise<void> {
-  const response = await prompts({
-    type: "confirm",
-    name: "startClaude",
-    message: "Start Claude Code with watch approvals?",
-    initial: true,
-  });
-
-  if (response.startClaude) {
-    // Ask for project directory
-    const dirResponse = await prompts({
-      type: "text",
-      name: "projectDir",
-      message: "Project directory:",
-      initial: process.cwd(),
-    });
-
-    const projectDir = dirResponse.projectDir || process.cwd();
-
-    console.log();
-    console.log(chalk.cyan(`  Starting Claude Code in ${projectDir}...`));
-    console.log();
-
-    const claude = spawn("claude", [], {
-      stdio: "inherit",
-      shell: true,
-      cwd: projectDir,
-      env: {
-        ...process.env,
-        CLAUDE_WATCH_SESSION_ACTIVE: "1",
-      },
-    });
-
-    claude.on("error", (err) => {
-      console.error(chalk.red(`  Failed to start Claude: ${err.message}`));
-    });
-
-    await new Promise<void>((resolve) => {
-      claude.on("close", () => resolve());
-    });
-  }
-}
-
-/**
- * Ask for connection mode
- */
-async function askConnectionMode(): Promise<ConnectionMode | null> {
-  const response = await prompts({
-    type: "select",
-    name: "mode",
-    message: "How do you want to connect?",
-    choices: [
-      {
-        title: "Cloud Mode (recommended)",
-        description: "Uses cloud relay for easy pairing with your watch",
-        value: "cloud",
-      },
-      {
-        title: "Local Mode",
-        description: "Direct connection (requires same network)",
-        value: "local",
-      },
-    ],
-    initial: 0,
-  });
-
-  return response.mode as ConnectionMode | null;
-}
-
-/**
- * Run cloud pairing flow (NEW: User enters code from watch)
+ * Run cloud pairing flow (user enters code from watch)
  */
 async function runCloudPairing(cloudUrl: string): Promise<string | null> {
   console.log();
@@ -198,42 +121,15 @@ async function runCloudPairing(cloudUrl: string): Promise<string | null> {
 }
 
 /**
- * Run local mode setup
+ * Install and register the PreToolUse hook
  */
-async function runLocalSetup(): Promise<string> {
-  console.log();
-  console.log(chalk.dim("  Local mode uses a direct connection."));
-  console.log(chalk.dim("  Your watch must be on the same network."));
-  console.log();
-
-  const pairingId = createLocalPairing();
-  console.log(`  Generated pairing ID: ${chalk.cyan(pairingId.slice(0, 8) + "...")}`);
-
-  return pairingId;
-}
-
-/**
- * Configure Claude Code (MCP server and PreToolUse hook)
- */
-function configureClaude(): void {
-  // Configure MCP server
-  const mcpSpinner = ora("Configuring MCP server...").start();
-  try {
-    addClaudeWatchServer();
-    mcpSpinner.succeed("MCP server configured");
-    console.log(`  Config: ${chalk.dim(getMCPConfigPath())}`);
-  } catch (error) {
-    mcpSpinner.fail("Failed to configure MCP server");
-    console.error(error);
-  }
-
-  // Install and register PreToolUse hook
+function configureHook(): void {
   const hookSpinner = ora("Installing approval hook...").start();
   try {
     const result = setupHook();
     if (result.installed && result.registered) {
       hookSpinner.succeed("Approval hook installed");
-      console.log(`  Hook:   ${chalk.dim(getInstalledHookPath())}`);
+      console.log(`  Hook: ${chalk.dim(getInstalledHookPath())}`);
     } else if (!result.installed) {
       hookSpinner.fail("Failed to install hook script");
     } else {
@@ -266,75 +162,10 @@ async function verifyCloud(cloudUrl: string): Promise<boolean> {
 }
 
 /**
- * Show completion message and optionally start Claude Code
- */
-async function showComplete(): Promise<void> {
-  console.log();
-  console.log(chalk.green.bold("  Paired!"));
-  console.log();
-  console.log(
-    chalk.dim("  Your watch will buzz when Claude needs approval.")
-  );
-  console.log();
-
-  // Ask if user wants to start Claude Code
-  const response = await prompts({
-    type: "confirm",
-    name: "startClaude",
-    message: "Start Claude Code with watch approvals enabled?",
-    initial: true,
-  });
-
-  if (response.startClaude) {
-    // Ask for project directory
-    const dirResponse = await prompts({
-      type: "text",
-      name: "projectDir",
-      message: "Project directory (or Enter for current):",
-      initial: process.cwd(),
-    });
-
-    const projectDir = dirResponse.projectDir || process.cwd();
-
-    console.log();
-    console.log(chalk.cyan(`  Starting Claude Code in ${projectDir}...`));
-    console.log(chalk.dim("  (All tool calls will require watch approval)"));
-    console.log();
-
-    // Start Claude Code in the specified directory
-    // Set CLAUDE_WATCH_SESSION_ACTIVE=1 so hooks know this is a watch session
-    const claude = spawn("claude", [], {
-      stdio: "inherit",
-      shell: true,
-      cwd: projectDir,
-      env: {
-        ...process.env,
-        CLAUDE_WATCH_SESSION_ACTIVE: "1",
-      },
-    });
-
-    claude.on("error", (err) => {
-      console.error(chalk.red(`  Failed to start Claude: ${err.message}`));
-      console.log();
-      console.log(chalk.dim("  Try running 'claude' manually."));
-    });
-
-    // Wait for Claude to exit
-    await new Promise<void>((resolve) => {
-      claude.on("close", () => resolve());
-    });
-  } else {
-    console.log();
-    console.log(chalk.dim("  Commands:"));
-    console.log(chalk.dim("    claude                    Start Claude Code"));
-    console.log(chalk.dim("    npx claude-watch status   Check connection"));
-    console.log(chalk.dim("    npx claude-watch unpair   Remove configuration"));
-    console.log();
-  }
-}
-
-/**
  * Main setup wizard
+ *
+ * Flow: check existing -> pair via cloud -> install hook -> print Ready -> exit
+ * Does NOT spawn Claude. User runs `claude` separately.
  */
 export async function runSetup(): Promise<void> {
   showHeader();
@@ -345,35 +176,20 @@ export async function runSetup(): Promise<void> {
     return;
   }
 
-  // Ask for connection mode
-  const mode = await askConnectionMode();
-  if (!mode) {
-    console.log(chalk.yellow("  Setup cancelled."));
+  const cloudUrl = "https://claude-watch.fotescodev.workers.dev";
+
+  // Check cloud connectivity first
+  console.log();
+  const cloudConnected = await verifyCloud(cloudUrl);
+  if (!cloudConnected) {
+    console.log();
+    console.log(chalk.red("  Cloud relay unavailable. Cannot pair."));
+    console.log();
     return;
   }
 
-  console.log();
-
-  let pairingId: string | null = null;
-  let cloudUrl = "https://claude-watch.fotescodev.workers.dev";
-
-  if (mode === "cloud") {
-    // Check cloud connectivity first
-    const cloudConnected = await verifyCloud(cloudUrl);
-    if (!cloudConnected) {
-      console.log();
-      console.log(
-        chalk.yellow("  Cloud relay unavailable. Falling back to local mode.")
-      );
-      pairingId = await runLocalSetup();
-    } else {
-      pairingId = await runCloudPairing(cloudUrl);
-    }
-  } else {
-    pairingId = await runLocalSetup();
-    cloudUrl = "http://localhost:8787"; // Local server
-  }
-
+  // Run cloud pairing
+  const pairingId = await runCloudPairing(cloudUrl);
   if (!pairingId) {
     console.log();
     console.log(chalk.red("  Setup failed. Please try again."));
@@ -386,10 +202,19 @@ export async function runSetup(): Promise<void> {
   config.pairingId = pairingId;
   savePairingConfig(config);
 
-  // Configure Claude Code
+  // Install hook
   console.log();
-  configureClaude();
+  configureHook();
 
-  // Show completion and optionally start Claude
-  await showComplete();
+  // Done
+  console.log();
+  console.log(chalk.green.bold("  Ready!"));
+  console.log(
+    chalk.dim("  Run `claude` normally. Tool calls route to your watch.")
+  );
+  console.log();
+  console.log(chalk.dim("  Commands:"));
+  console.log(chalk.dim("    npx cc-watch status   Check connection"));
+  console.log(chalk.dim("    npx cc-watch unpair   Remove configuration"));
+  console.log();
 }
