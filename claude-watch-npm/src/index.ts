@@ -84,7 +84,7 @@ async function main(): Promise<void> {
     case "version":
     case "--version":
     case "-v":
-      console.log("cc-watch v0.1.4");
+      console.log("cc-watch v0.1.5");
       break;
 
     default:
