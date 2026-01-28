@@ -4,8 +4,8 @@
   "description": "Control Claude Code from your Apple Watch - approve actions, track progress, receive notifications",
   "type": "module",
   "bin": {
-    "cc-watch": "./dist/src/index.js",
-    "claude-watch": "./dist/src/index.js"
+    "cc-watch": "dist/src/index.js",
+    "claude-watch": "dist/src/index.js"
   },
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
