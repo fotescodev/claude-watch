@@ -792,9 +792,11 @@ curl -s -X POST "$CLOUD_URL/approval/$PAIRING_ID/$REQUEST_ID/respond" \
 
 echo ""
 echo -e "${BOLD}Verification:${NC}"
-echo "  The hook script checks for ~/.claude-watch/config.json"
-echo "  Without it, the hook exits 0 immediately (no watch routing)"
-echo "  With it, the hook routes to the cloud server for approval"
+echo "  The hook requires BOTH to activate:"
+echo "    1. ~/.claude-watch/config.json exists (paired)"
+echo "    2. CLAUDE_WATCH_SESSION_ACTIVE=1 env var set (opted in)"
+echo "  Without either, the hook exits 0 immediately (no watch routing)"
+echo "  Use 'npx cc-watch run' to launch claude with the env var set"
 echo ""
 
 wait_for_user "Verified session isolation logic? Press Enter to continue"
@@ -1009,7 +1011,7 @@ echo -e "${BOLD}Verification:${NC}"
 echo "  After 'npx cc-watch unpair':"
 echo "    - ~/.claude-watch/config.json is deleted"
 echo "    - Hook is removed from ~/.claude/settings.json"
-echo "    - Claude Code runs with normal terminal permissions"
+echo "    - Even with CLAUDE_WATCH_SESSION_ACTIVE=1, no config = no routing"
 echo "    - Re-pairing: 'npx cc-watch' re-creates config + hook"
 
 wait_for_user "Verified unpair deactivation? Press Enter to continue"

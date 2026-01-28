@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawn } from "child_process";
 import { runSetup } from "./cli/setup.js";
 import { runStatus } from "./cli/status.js";
 import { runUnpair } from "./cli/unpair.js";
@@ -10,19 +11,23 @@ const HELP = `
 
   Usage:
     npx cc-watch                 Pair with watch and install hook
+    npx cc-watch run             Launch claude with watch approvals
     npx cc-watch [command]       Run a specific command
 
   Commands:
     (default)   Pair (if needed) + install hook + exit
+    run         Launch claude with watch approvals enabled
     setup       Full setup wizard
     status      Check connection status
     unpair      Remove configuration and hook
     help        Show this help message
 
-  After setup, run \`claude\` normally. Tool calls route to your watch.
+  After pairing, use \`npx cc-watch run\` to start a watch-supervised session.
+  Other \`claude\` sessions run normally without watch routing.
 
   Examples:
     npx cc-watch                 # Pair and install hook
+    npx cc-watch run             # Launch claude with watch approvals
     npx cc-watch status          # Check pairing status
     npx cc-watch unpair          # Remove watch integration
 `;
@@ -35,6 +40,21 @@ async function main(): Promise<void> {
     case "":
       await runCcWatch();
       break;
+
+    case "run": {
+      // Launch claude with watch session env var — forwards all extra args
+      const claudeArgs = args.slice(1);
+      const claude = spawn("claude", claudeArgs, {
+        stdio: "inherit",
+        env: { ...process.env, CLAUDE_WATCH_SESSION_ACTIVE: "1" },
+      });
+      claude.on("close", (code) => process.exit(code ?? 0));
+      claude.on("error", (err) => {
+        console.error(`Failed to start claude: ${err.message}`);
+        process.exit(1);
+      });
+      return; // don't fall through — wait for claude to exit
+    }
 
     case "setup":
       await runSetup();

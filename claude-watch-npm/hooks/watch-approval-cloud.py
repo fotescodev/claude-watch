@@ -9,9 +9,11 @@ When Claude Code tries to use Bash, Edit, Write, etc., this hook:
 4. Returns allow/deny decision to Claude Code
 
 SESSION ISOLATION:
-- Only runs when ~/.claude-watch/config.json exists
-- Created by `npx cc-watch` when pairing with a watch
-- Other Claude Code sessions (no config file) skip this hook instantly
+- Requires BOTH:
+  1. ~/.claude-watch/config.json exists (paired with a watch)
+  2. CLAUDE_WATCH_SESSION_ACTIVE=1 env var is set (this session opted in)
+- Use `npx cc-watch run` or set the env var manually to opt in
+- Other Claude Code sessions skip this hook instantly
 
 APPROACH A (Ship): Questions (AskUserQuestion) always pass through.
 The watch is a tool approval device only. Questions appear in terminal.
@@ -96,7 +98,9 @@ def http_request(
 
 
 def is_watch_session() -> bool:
-    """Check if this is a watch session by looking for config file."""
+    """Check if this is a watch session: env var opted in AND config file exists."""
+    if os.environ.get("CLAUDE_WATCH_SESSION_ACTIVE") != "1":
+        return False
     return os.path.exists(CONFIG_PATH)
 
 
@@ -379,7 +383,7 @@ def build_description(tool_name: str, tool_input: dict) -> str:
 def main():
     # Fast path: no config file = not a watch session, exit immediately
     if not is_watch_session():
-        log("No config file, exiting (not a watch session)")
+        log("Not a watch session (missing env var or config file)")
         sys.exit(0)
 
     log("Watch session detected")

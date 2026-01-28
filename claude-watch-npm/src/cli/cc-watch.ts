@@ -187,14 +187,17 @@ export async function runCcWatch(): Promise<void> {
     ensureHook();
   }
 
-  // Done — user runs `claude` separately
+  // Done
   console.log();
   console.log(chalk.green.bold("  Ready!"));
-  console.log(
-    chalk.dim("  Run `claude` normally. Tool calls route to your watch.")
-  );
+  console.log();
+  console.log(chalk.dim("  Start a watch-supervised session:"));
+  console.log(chalk.white("    npx cc-watch run"));
+  console.log();
+  console.log(chalk.dim("  Other `claude` sessions run normally without watch routing."));
   console.log();
   console.log(chalk.dim("  Commands:"));
+  console.log(chalk.dim("    npx cc-watch run      Launch claude with watch approvals"));
   console.log(chalk.dim("    npx cc-watch status   Check connection"));
   console.log(chalk.dim("    npx cc-watch unpair   Remove configuration"));
   console.log();
