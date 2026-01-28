@@ -68,7 +68,7 @@ class WatchService: ObservableObject {
 
     // MARK: - Private
     private var webSocket: URLSessionWebSocketTask?
-    private var urlSession: URLSession!
+    private var urlSession: URLSession
     private let sharedDefaults = UserDefaults(suiteName: "group.com.claudewatch")
     private var reconnectTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
@@ -789,6 +789,36 @@ class WatchService: ObservableObject {
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     }
 
+    /// Rejects all pending actions at once.
+    /// Clears all pending actions locally and notifies server to reject all requests.
+    func rejectAll() {
+        if useCloudMode && isPaired {
+            // Cloud mode: reject each pending action via cloud API
+            let actionsToReject = state.pendingActions
+            Task {
+                for action in actionsToReject {
+                    do {
+                        try await respondToCloudRequest(action.id, approved: false)
+                    } catch {
+                        print("Failed to reject \(action.id): \(error)")
+                    }
+                }
+            }
+        } else {
+            // WebSocket mode
+            send(["type": "reject_all"], priority: .high)
+        }
+
+        // Optimistic update - clear all and return to idle
+        state.pendingActions.removeAll()
+        state.status = .idle
+
+        // Clear ALL delivered notifications
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+
+        playHaptic(.failure)
+    }
+
     // MARK: - V2 Session Methods
 
     /// Clears session progress and returns to idle state
@@ -857,15 +887,16 @@ class WatchService: ObservableObject {
         if useCloudMode && isPaired {
             // Cloud mode: use dedicated question response endpoint
             do {
-                let url = URL(string: "\(cloudServerURL)/question/\(questionId)/respond")!
+                guard let url = URL(string: "\(cloudServerURL)/question/\(questionId)") else {
+                    return
+                }
                 var request = URLRequest(url: url)
                 request.httpMethod = "POST"
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
                 let body: [String: Any] = [
                     "pairingId": pairingId,
-                    "accepted": !handleOnMac && answer != nil,
-                    "handleOnMac": handleOnMac
+                    "answer": answer ?? "handle_on_mac"
                 ]
                 request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -979,9 +1010,11 @@ class WatchService: ObservableObject {
     /// Automatically approves pending actions when entering auto-accept mode.
     /// - Parameter mode: The permission mode to activate (normal, autoAccept, or plan)
     func setMode(_ mode: PermissionMode) {
+        print("[MODE] setMode called with: \(mode)")
         // Persist mode locally
         storedMode = mode.rawValue
         state.mode = mode
+        print("[MODE] storedMode now: \(storedMode), state.mode: \(state.mode)")
 
         // Only send to WebSocket if not in cloud mode (cloud mode has no WebSocket)
         if !useCloudMode {
@@ -1195,6 +1228,9 @@ class WatchService: ObservableObject {
     /// - Parameter approved: Whether to approve (true) or reject (false) the request
     /// - Throws: `CloudError.serverError` if the server returns an error status code or the response is invalid
     func respondToCloudRequest(_ requestId: String, approved: Bool) async throws {
+        // Find the action BEFORE removing it (for activity recording)
+        let action = state.pendingActions.first { $0.id == requestId }
+
         guard let url = URL(string: "\(cloudServerURL)/approval/\(requestId)") else {
             throw CloudError.serverError(0)
         }
@@ -1215,6 +1251,15 @@ class WatchService: ObservableObject {
             throw CloudError.serverError((response as? HTTPURLResponse)?.statusCode ?? 0)
         }
 
+        // F22: Record approval in activity store (fixes "Session Ended" not updating)
+        // If no current session, start a new one (activity resumed after session end)
+        if activityStore.currentSessionId == nil {
+            activityStore.recordSessionStarted()
+        }
+        if let action = action {
+            activityStore.recordApproval(type: action.type, title: action.title, approved: approved)
+        }
+
         // Update local state
         state.pendingActions.removeAll { $0.id == requestId }
         if state.pendingActions.isEmpty {
@@ -1230,7 +1275,8 @@ class WatchService: ObservableObject {
         // Clear delivered notifications for this request
         clearDeliveredNotification(for: requestId)
 
-        playHaptic(approved ? .success : .failure)
+        // Note: Haptic feedback is handled by the calling view/intent, not here
+        // to avoid double haptics when views play their own feedback
     }
 
     /// Clear delivered notification for a specific request ID
@@ -1317,23 +1363,34 @@ class WatchService: ObservableObject {
     /// Current interrupt state (true = session paused)
     @Published var isSessionInterrupted: Bool = false
 
+    /// Debounce timestamp for sendInterrupt to prevent double-firing
+    @MainActor private var lastInterruptTime: Date = .distantPast
+
     /// Send interrupt signal to pause or resume Claude Code session.
     /// When stopped, PreToolUse hook will block all tool calls until resume.
     /// - Parameter action: The interrupt action (.stop, .resume, or .clear)
+    @MainActor
     func sendInterrupt(action: InterruptAction) async {
+        // Debounce: ignore calls within 500ms of last call (atomic on MainActor)
+        let now = Date()
+        guard now.timeIntervalSince(lastInterruptTime) > 0.5 else {
+            print("[INTERRUPT] Debounced duplicate call for action: \(action)")
+            return
+        }
+        lastInterruptTime = now
+
         // Demo mode: toggle local state without API call
         if isDemoMode {
-            await MainActor.run {
-                switch action {
-                case .stop:
-                    isSessionInterrupted = true
-                case .resume:
-                    isSessionInterrupted = false
-                case .clear:
-                    isSessionInterrupted = false
-                }
+            switch action {
+            case .stop:
+                isSessionInterrupted = true
+            case .resume:
+                isSessionInterrupted = false
+            case .clear:
+                isSessionInterrupted = false
             }
-            playHaptic(action == .stop ? .stop : .start)
+            // TODO: Fix double haptic bug - muted for now
+            // playHaptic(action == .stop ? .stop : .start)
             return
         }
 
@@ -1358,11 +1415,10 @@ class WatchService: ObservableObject {
                 // Parse response to get interrupt state
                 if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                    let interrupted = json["interrupted"] as? Bool {
-                    await MainActor.run {
-                        self.isSessionInterrupted = interrupted
-                    }
+                    self.isSessionInterrupted = interrupted
                 }
-                playHaptic(action == .stop ? .stop : .start)
+                // TODO: Fix double haptic bug - muted for now
+                // playHaptic(action == .stop ? .stop : .start)
             }
         } catch {
             print("Failed to send interrupt signal: \(error)")
@@ -1391,9 +1447,9 @@ class WatchService: ObservableObject {
                 guard let self = self else { return }
 
                 do {
-                    // Fetch pending requests AND session progress
-                    // Note: Questions are handled via yes/no constraints (Phase 9)
+                    // Fetch pending requests, questions, AND session progress
                     try await self.fetchPendingRequests()
+                    try await self.fetchPendingQuestions()
                     try await self.fetchSessionProgress()
                 } catch {
                     print("[Polling] Error: \(error)")
@@ -1414,7 +1470,9 @@ class WatchService: ObservableObject {
     /// Fetch pending approval requests from cloud queue
     /// Uses new /approval-queue endpoint that doesn't clear on read
     private func fetchPendingRequests() async throws {
-        let url = URL(string: "\(cloudServerURL)/approval-queue/\(pairingId)")!
+        guard let url = URL(string: "\(cloudServerURL)/approval-queue/\(pairingId)") else {
+            return
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
@@ -1432,12 +1490,15 @@ class WatchService: ObservableObject {
 
         // Convert to pending actions
         var newActions: [PendingAction] = []
+        print("[Polling] Received \(requests.count) requests from cloud")
         for req in requests {
             guard let id = req["id"] as? String,
                   let type = req["type"] as? String,
                   let title = req["title"] as? String else {
+                print("[Polling] Skipping invalid request: \(req)")
                 continue
             }
+            print("[Polling] Parsed: \(id) - \(type) - \(title)")
 
             let action = PendingAction(
                 id: id,
@@ -1458,6 +1519,21 @@ class WatchService: ObservableObject {
 
         // Update state on main thread for SwiftUI
         await MainActor.run {
+            // DEFENSIVE: If cloud returns empty but we have recent local actions, preserve them
+            // This prevents accidental clearing due to momentary cloud issues
+            // Only preserve actions added within the last 60 seconds
+            if newActions.isEmpty && !state.pendingActions.isEmpty {
+                let recentActions = state.pendingActions.filter {
+                    Date().timeIntervalSince($0.timestamp) < 60
+                }
+                if !recentActions.isEmpty {
+                    print("[Polling] Cloud empty but \(recentActions.count) recent actions - preserving")
+                    return
+                }
+                // Old actions can be cleared
+                print("[Polling] Cloud empty, clearing \(state.pendingActions.count) stale actions")
+            }
+
             // Merge: keep notification-added actions that aren't in cloud response
             // This prevents race conditions where notification arrives before cloud updates
             let cloudIds = Set(newActions.map { $0.id })
@@ -1465,6 +1541,10 @@ class WatchService: ObservableObject {
 
             // Combine cloud actions with local-only actions
             state.pendingActions = newActions + localOnly
+            print("[Polling] State updated: \(state.pendingActions.count) pending actions")
+            for action in state.pendingActions {
+                print("[Polling]   - \(action.id): \(action.type) '\(action.title)'")
+            }
 
             // AUTO-ACCEPT MODE: Automatically approve all pending actions
             if state.mode == .autoAccept && !state.pendingActions.isEmpty {
@@ -1499,7 +1579,9 @@ class WatchService: ObservableObject {
 
     /// Fetch session progress from cloud server (polling fallback for silent push)
     private func fetchSessionProgress() async throws {
-        let url = URL(string: "\(cloudServerURL)/session-progress/\(pairingId)")!
+        guard let url = URL(string: "\(cloudServerURL)/session-progress/\(pairingId)") else {
+            return
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
@@ -1563,6 +1645,62 @@ class WatchService: ObservableObject {
                     }
                 }
             }
+        }
+    }
+
+    /// Fetch pending questions from cloud queue
+    /// Polls /question-queue endpoint for questions that need answers
+    private func fetchPendingQuestions() async throws {
+        guard let url = URL(string: "\(cloudServerURL)/question-queue/\(pairingId)") else {
+            return
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await urlSession.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            return
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let questions = json["questions"] as? [[String: Any]],
+              let firstQuestion = questions.first else {
+            return
+        }
+
+        // Parse the first pending question
+        guard let questionId = firstQuestion["questionId"] as? String,
+              let questionText = firstQuestion["question"] as? String,
+              let optionsArray = firstQuestion["options"] as? [[String: Any]] else {
+            return
+        }
+
+        // Skip if we already have this question displayed
+        if pendingQuestion?.id == questionId {
+            return
+        }
+
+        let options = optionsArray.compactMap { optDict -> PendingQuestionOption? in
+            guard let label = optDict["label"] as? String else { return nil }
+            return PendingQuestionOption(
+                label: label,
+                description: optDict["description"] as? String
+            )
+        }
+
+        // Use first option as recommended if not specified
+        let recommendedAnswer = (firstQuestion["recommendedAnswer"] as? String) ?? options.first?.label ?? ""
+
+        await MainActor.run {
+            pendingQuestion = PendingQuestion(
+                id: questionId,
+                question: questionText,
+                recommendedAnswer: recommendedAnswer,
+                options: options
+            )
+            playHaptic(.notification)
         }
     }
 
@@ -1710,7 +1848,9 @@ class WatchService: ObservableObject {
     /// Triggers haptic feedback on the Apple Watch.
     /// Provides tactile feedback for user actions and system events.
     /// - Parameter type: The haptic pattern to play (success, failure, notification, click, etc.)
-    func playHaptic(_ type: WKHapticType) {
+    func playHaptic(_ type: WKHapticType, file: String = #file, line: Int = #line, function: String = #function) {
+        let fileName = (file as NSString).lastPathComponent
+        NSLog("[HAPTIC] %@ from %@:%d %@", String(describing: type), fileName, line, function)
         WKInterfaceDevice.current().play(type)
     }
 
@@ -1746,6 +1886,48 @@ class WatchService: ObservableObject {
     }
 
     // MARK: - Demo Mode (for UI testing)
+
+    /// Helper to finalize demo approval setup - respects auto-accept mode
+    private func finalizeDemoApproval() {
+        // Read mode directly from AppStorage to ensure we have the persisted value
+        let currentMode = PermissionMode(rawValue: storedMode) ?? .normal
+        NSLog("[DEMO] finalizeDemoApproval - storedMode: %@, state.mode: %@, pendingCount: %d",
+              storedMode, String(describing: state.mode), state.pendingActions.count)
+
+        // Sync state.mode with storedMode if they differ
+        if state.mode != currentMode {
+            NSLog("[DEMO] Mode mismatch! Syncing state.mode to: %@", storedMode)
+            state.mode = currentMode
+        }
+
+        if currentMode == .autoAccept && !state.pendingActions.isEmpty {
+            NSLog("[DEMO] Auto-approving %d actions", state.pendingActions.count)
+            playHaptic(.success)
+            approveAll()
+        } else {
+            NSLog("[DEMO] Not auto-accepting - showing approval UI")
+            playHaptic(.notification)
+        }
+    }
+
+    /// Helper function to create demo session progress for approval demos
+    /// This ensures users return to Working screen after approval instead of idle
+    private func demoSessionProgress() -> SessionProgress {
+        SessionProgress(
+            currentTask: "Implementing feature",
+            currentActivity: "Waiting for approval",
+            progress: 0.6,
+            completedCount: 3,
+            totalCount: 5,
+            tasks: [
+                TodoItem(content: "Setup project", status: "completed"),
+                TodoItem(content: "Create models", status: "completed"),
+                TodoItem(content: "Add validation", status: "completed"),
+                TodoItem(content: "Update files", status: "in_progress", activeForm: "Updating"),
+                TodoItem(content: "Run tests", status: "pending")
+            ]
+        )
+    }
 
     /// Loads demonstration data for UI testing and preview purposes.
     /// Populates the app with sample task state, pending actions, and simulated connection.
@@ -1815,8 +1997,493 @@ class WatchService: ObservableObject {
                 timestamp: Date().addingTimeInterval(-180)
             ),
         ]
+        finalizeDemoApproval()
+    }
+
+    /// Loads demo state for Context Warning screen (E2)
+    /// Clears other states so context warning is visible
+    func loadDemoContextWarning(percentage: Int = 85) {
+        isDemoMode = true
+        connectionStatus = .connected
+
+        // Clear states that would take priority over context warning
+        state.pendingActions = []
+        pendingQuestion = nil
+        isSessionInterrupted = false
+        sessionProgress = nil
+
+        // Set context warning to trigger E2 screen
+        contextWarning = ContextWarning(
+            percentage: percentage,
+            threshold: percentage
+        )
 
         playHaptic(.notification)
+    }
+
+    /// Loads demo state for Question screen (E1)
+    func loadDemoQuestion() {
+        isDemoMode = true
+        pairingId = "demo-paired"
+        connectionStatus = .connected
+
+        // Clear states that would take priority
+        state.pendingActions = []
+        contextWarning = nil
+        isSessionInterrupted = false
+        sessionProgress = nil
+
+        // Set question to trigger E1 screen
+        pendingQuestion = PendingQuestion(
+            id: "demo-question",
+            question: "Which database should we use?",
+            recommendedAnswer: "PostgreSQL",
+            options: [
+                PendingQuestionOption(label: "PostgreSQL", description: "Recommended for production"),
+                PendingQuestionOption(label: "SQLite", description: "Simpler setup")
+            ]
+        )
+
+        playHaptic(.notification)
+    }
+
+    /// Loads demo state for Success/Done screen (D1)
+    func loadDemoSuccess() {
+        isDemoMode = true
+        connectionStatus = .connected
+
+        // Clear other states
+        state.pendingActions = []
+        contextWarning = nil
+        pendingQuestion = nil
+        isSessionInterrupted = false
+
+        // Set completed session progress
+        sessionProgress = SessionProgress(
+            currentTask: "Auth refactor complete",
+            progress: 1.0,
+            completedCount: 5,
+            totalCount: 5,
+            tasks: [
+                TodoItem(content: "Create models", status: "completed"),
+                TodoItem(content: "Add validation", status: "completed"),
+                TodoItem(content: "Update tests", status: "completed"),
+                TodoItem(content: "Refactor service", status: "completed"),
+                TodoItem(content: "Update docs", status: "completed")
+            ],
+            outcome: "Successfully refactored authentication module"
+        )
+
+        playHaptic(.success)
+    }
+
+    /// Loads demo state for Paused screen (B2)
+    func loadDemoPaused() {
+        isDemoMode = true
+        connectionStatus = .connected
+
+        // Clear other states
+        state.pendingActions = []
+        contextWarning = nil
+        pendingQuestion = nil
+
+        // Set paused state
+        isSessionInterrupted = true
+        sessionProgress = SessionProgress(
+            currentTask: "Refactoring auth module",
+            currentActivity: "Paused",
+            progress: 0.45,
+            completedCount: 2,
+            totalCount: 5,
+            tasks: [
+                TodoItem(content: "Create models", status: "completed"),
+                TodoItem(content: "Add validation", status: "completed"),
+                TodoItem(content: "Update tests", status: "pending"),
+                TodoItem(content: "Refactor service", status: "pending"),
+                TodoItem(content: "Update docs", status: "pending")
+            ]
+        )
+
+        playHaptic(.notification)
+    }
+
+    /// Loads demo state for Working screen (B1)
+    func loadDemoWorking() {
+        isDemoMode = true
+        connectionStatus = .connected
+
+        // Clear other states
+        state.pendingActions = []
+        contextWarning = nil
+        pendingQuestion = nil
+        isSessionInterrupted = false
+
+        // Set working state
+        sessionProgress = SessionProgress(
+            currentTask: "Refactoring auth module",
+            currentActivity: "Running tests",
+            progress: 0.45,
+            completedCount: 2,
+            totalCount: 5,
+            tasks: [
+                TodoItem(content: "Create models", status: "completed"),
+                TodoItem(content: "Add validation", status: "completed"),
+                TodoItem(content: "Update tests", status: "in_progress", activeForm: "Running tests"),
+                TodoItem(content: "Refactor service", status: "pending"),
+                TodoItem(content: "Update docs", status: "pending")
+            ]
+        )
+
+        playHaptic(.notification)
+    }
+
+    /// Loads demo state for Single Approval screen (C1-C3)
+    /// Pass tier to test different risk levels
+    func loadDemoApproval(tier: ActionTier = .low) {
+        isDemoMode = true
+        pairingId = "demo-paired"
+        connectionStatus = .connected
+
+        // Clear other states
+        contextWarning = nil
+        pendingQuestion = nil
+        isSessionInterrupted = false
+
+        // V3: Maintain session progress so user returns to Working after approval
+        sessionProgress = SessionProgress(
+            currentTask: "Implementing feature",
+            currentActivity: "Waiting for approval",
+            progress: 0.6,
+            completedCount: 3,
+            totalCount: 5,
+            tasks: [
+                TodoItem(content: "Setup project", status: "completed"),
+                TodoItem(content: "Create models", status: "completed"),
+                TodoItem(content: "Add validation", status: "completed"),
+                TodoItem(content: "Update files", status: "in_progress", activeForm: "Updating"),
+                TodoItem(content: "Run tests", status: "pending")
+            ]
+        )
+
+        // Create single pending action based on tier
+        let action: PendingAction
+        switch tier {
+        case .low:
+            action = PendingAction(
+                id: "action-1",
+                type: "edit",
+                title: "src/auth.ts",
+                description: "Update JWT validation",
+                filePath: "src/auth.ts",
+                command: nil,
+                timestamp: Date()
+            )
+        case .medium:
+            action = PendingAction(
+                id: "action-1",
+                type: "bash",
+                title: "npm install express",
+                description: "Install dependencies",
+                filePath: nil,
+                command: "npm install express",
+                timestamp: Date()
+            )
+        case .high:
+            action = PendingAction(
+                id: "action-1",
+                type: "bash",
+                title: "rm -rf ./build",
+                description: "Delete build directory",
+                filePath: nil,
+                command: "rm -rf ./build",
+                timestamp: Date()
+            )
+        }
+
+        state.pendingActions = [action]
+        finalizeDemoApproval()
+    }
+
+    /// Loads demo state for Approval Queue screen (multiple pending)
+    /// Matches design spec: 3 Edit, 5 Bash, 2 Danger
+    func loadDemoApprovalQueue() {
+        isDemoMode = true
+        pairingId = "demo-paired"
+        connectionStatus = .connected
+
+        // Clear other states
+        contextWarning = nil
+        pendingQuestion = nil
+        isSessionInterrupted = false
+
+        // V3: Maintain session progress so user returns to Working after approval
+        sessionProgress = SessionProgress(
+            currentTask: "Major refactor",
+            currentActivity: "Waiting for approvals",
+            progress: 0.4,
+            completedCount: 2,
+            totalCount: 5,
+            tasks: [
+                TodoItem(content: "Analyze codebase", status: "completed"),
+                TodoItem(content: "Plan changes", status: "completed"),
+                TodoItem(content: "Apply changes", status: "in_progress", activeForm: "Applying"),
+                TodoItem(content: "Run tests", status: "pending"),
+                TodoItem(content: "Update docs", status: "pending")
+            ]
+        )
+
+        // Create 10 pending actions across all three tiers (3 Edit, 5 Bash, 2 Danger)
+        state.pendingActions = [
+            // Tier 1 (Low) - 3 Edit actions
+            PendingAction(
+                id: "edit-1",
+                type: "edit",
+                title: "src/auth.ts",
+                description: "Update JWT validation",
+                filePath: "src/auth.ts",
+                command: nil,
+                timestamp: Date().addingTimeInterval(-60)
+            ),
+            PendingAction(
+                id: "edit-2",
+                type: "edit",
+                title: "config.json",
+                description: "Update configuration",
+                filePath: "config.json",
+                command: nil,
+                timestamp: Date().addingTimeInterval(-70)
+            ),
+            PendingAction(
+                id: "edit-3",
+                type: "edit",
+                title: "README.md",
+                description: "Update documentation",
+                filePath: "README.md",
+                command: nil,
+                timestamp: Date().addingTimeInterval(-80)
+            ),
+            // Tier 2 (Medium) - 5 Bash actions
+            PendingAction(
+                id: "bash-1",
+                type: "bash",
+                title: "npm build",
+                description: "Build project",
+                filePath: nil,
+                command: "npm run build",
+                timestamp: Date().addingTimeInterval(-90)
+            ),
+            PendingAction(
+                id: "bash-2",
+                type: "bash",
+                title: "git push",
+                description: "Push to remote",
+                filePath: nil,
+                command: "git push",
+                timestamp: Date().addingTimeInterval(-100)
+            ),
+            PendingAction(
+                id: "bash-3",
+                type: "bash",
+                title: "pytest tests/",
+                description: "Run test suite",
+                filePath: nil,
+                command: "pytest tests/",
+                timestamp: Date().addingTimeInterval(-110)
+            ),
+            PendingAction(
+                id: "bash-4",
+                type: "bash",
+                title: "npm install",
+                description: "Install dependencies",
+                filePath: nil,
+                command: "npm install",
+                timestamp: Date().addingTimeInterval(-120)
+            ),
+            PendingAction(
+                id: "bash-5",
+                type: "bash",
+                title: "docker build",
+                description: "Build container",
+                filePath: nil,
+                command: "docker build .",
+                timestamp: Date().addingTimeInterval(-130)
+            ),
+            // Tier 3 (High) - 2 Danger actions
+            PendingAction(
+                id: "danger-1",
+                type: "bash",
+                title: "rm -rf dist/",
+                description: "Remove dist directory",
+                filePath: nil,
+                command: "rm -rf dist/",
+                timestamp: Date().addingTimeInterval(-140)
+            ),
+            PendingAction(
+                id: "danger-2",
+                type: "bash",
+                title: "drop table users",
+                description: "Drop users table",
+                filePath: nil,
+                command: "drop table users",
+                timestamp: Date().addingTimeInterval(-150)
+            ),
+        ]
+        finalizeDemoApproval()
+    }
+
+    /// Queue demo: Single tier with multiple actions (tests bulk approve)
+    func loadDemoQueueSingleTierMultiple() {
+        isDemoMode = true
+        pairingId = "demo-paired"
+        connectionStatus = .connected
+        contextWarning = nil
+        pendingQuestion = nil
+        isSessionInterrupted = false
+        sessionProgress = demoSessionProgress()
+
+        // 3 actions in low tier (Edit)
+        state.pendingActions = [
+            PendingAction(
+                id: "action-1",
+                type: "edit",
+                title: "config.ts",
+                description: "Update configuration",
+                filePath: "config.ts",
+                command: nil,
+                timestamp: Date().addingTimeInterval(-60)
+            ),
+            PendingAction(
+                id: "action-2",
+                type: "edit",
+                title: "utils.ts",
+                description: "Add helper function",
+                filePath: "utils.ts",
+                command: nil,
+                timestamp: Date().addingTimeInterval(-90)
+            ),
+            PendingAction(
+                id: "action-3",
+                type: "read",
+                title: "package.json",
+                description: "Read package info",
+                filePath: "package.json",
+                command: nil,
+                timestamp: Date().addingTimeInterval(-120)
+            ),
+        ]
+        finalizeDemoApproval()
+    }
+
+    /// Queue demo: Single tier with single action (tests single action UI)
+    func loadDemoQueueSingleTierSingle() {
+        isDemoMode = true
+        pairingId = "demo-paired"
+        connectionStatus = .connected
+        contextWarning = nil
+        pendingQuestion = nil
+        isSessionInterrupted = false
+        sessionProgress = demoSessionProgress()
+
+        // 1 action in low tier - but pendingCount >= 2 needed for queue view
+        // So we add 2 actions in same tier to trigger queue, then can approve one
+        state.pendingActions = [
+            PendingAction(
+                id: "action-1",
+                type: "edit",
+                title: "config.ts",
+                description: "Update configuration",
+                filePath: "config.ts",
+                command: nil,
+                timestamp: Date().addingTimeInterval(-60)
+            ),
+            PendingAction(
+                id: "action-2",
+                type: "edit",
+                title: "auth.ts",
+                description: "Fix authentication",
+                filePath: "auth.ts",
+                command: nil,
+                timestamp: Date().addingTimeInterval(-90)
+            ),
+        ]
+        finalizeDemoApproval()
+    }
+
+    /// Queue demo: All singles (1 action per tier - tests combined view)
+    func loadDemoQueueAllSingles() {
+        isDemoMode = true
+        pairingId = "demo-paired"
+        connectionStatus = .connected
+        contextWarning = nil
+        pendingQuestion = nil
+        isSessionInterrupted = false
+        sessionProgress = demoSessionProgress()
+
+        // 1 action in each tier - should show combined view
+        state.pendingActions = [
+            PendingAction(
+                id: "action-1",
+                type: "edit",
+                title: "config.ts",
+                description: "Update configuration",
+                filePath: "config.ts",
+                command: nil,
+                timestamp: Date().addingTimeInterval(-60)
+            ),
+            PendingAction(
+                id: "action-2",
+                type: "bash",
+                title: "npm install",
+                description: "Install dependencies",
+                filePath: nil,
+                command: "npm install",
+                timestamp: Date().addingTimeInterval(-90)
+            ),
+            PendingAction(
+                id: "action-3",
+                type: "bash",
+                title: "rm -rf ./build",
+                description: "Remove build directory",
+                filePath: nil,
+                command: "rm -rf ./build",
+                timestamp: Date().addingTimeInterval(-120)
+            ),
+        ]
+        finalizeDemoApproval()
+    }
+
+    /// Queue demo: Danger tier only (tests "Review Each" button)
+    func loadDemoQueueDangerTier() {
+        isDemoMode = true
+        pairingId = "demo-paired"
+        connectionStatus = .connected
+        contextWarning = nil
+        pendingQuestion = nil
+        isSessionInterrupted = false
+        sessionProgress = demoSessionProgress()
+
+        // 2 dangerous actions
+        state.pendingActions = [
+            PendingAction(
+                id: "action-1",
+                type: "bash",
+                title: "rm -rf ./build",
+                description: "Remove build directory",
+                filePath: nil,
+                command: "rm -rf ./build",
+                timestamp: Date().addingTimeInterval(-60)
+            ),
+            PendingAction(
+                id: "action-2",
+                type: "bash",
+                title: "sudo apt update",
+                description: "Update system packages",
+                filePath: nil,
+                command: "sudo apt update",
+                timestamp: Date().addingTimeInterval(-90)
+            ),
+        ]
+        finalizeDemoApproval()
     }
 }
 

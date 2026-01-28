@@ -122,33 +122,122 @@ struct VoiceInputSheet: View {
 }
 
 // MARK: - Settings Sheet
+/// Simplified single-scroll settings with easy access to demo/testing
 struct SettingsSheet: View {
     @ObservedObject private var service = WatchService.shared
     @Environment(\.dismiss) var dismiss
-    @State private var serverURL: String = ""
     @State private var showingPairing = false
     @State private var showingPrivacy = false
-    @State private var selectedPage = 0
 
     var body: some View {
-        TabView(selection: $selectedPage) {
-            // Page 1: Connection Status
-            connectionPage
-                .tag(0)
+        ScrollView {
+            VStack(spacing: 12) {
+                // MARK: - Status Header (compact)
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 10, height: 10)
 
-            // Page 2: Actions
-            actionsPage
-                .tag(1)
+                    Text(statusText)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
 
-            // Page 3: About (only if needed)
-            aboutPage
-                .tag(2)
+                    Spacer()
+
+                    // Version badge
+                    Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
+                        .font(.system(size: 10))
+                        .foregroundColor(Claude.textTertiary)
+                }
+                .padding(.horizontal, 4)
+
+                // MARK: - Quick Actions
+                if service.isDemoMode {
+                    // Exit Demo button (prominent)
+                    Button {
+                        exitDemo()
+                    } label: {
+                        HStack {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.white)
+                            Text("Exit Demo")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.white)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Claude.danger)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+
+                    // Test Screens Grid
+                    demoTestGrid
+                } else {
+                    // Try Demo (prominent)
+                    Button {
+                        service.loadDemoData()
+                        WKInterfaceDevice.current().play(.click)
+                        dismiss()
+                    } label: {
+                        HStack {
+                            Image(systemName: "play.circle.fill")
+                                .foregroundColor(.black)
+                            Text("Try Demo")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.black)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Claude.warning)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                    .buttonStyle(.plain)
+
+                    // Pair/Unpair
+                    if service.isPaired {
+                        Button {
+                            Task {
+                                await service.endSession()
+                                WKInterfaceDevice.current().play(.success)
+                                dismiss()
+                            }
+                        } label: {
+                            SettingsActionRow(icon: "stop.circle.fill", title: "End Session", color: Claude.danger)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button {
+                            showingPairing = true
+                        } label: {
+                            SettingsActionRow(icon: "link", title: "Pair Now", color: Claude.orange)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                // MARK: - Footer
+                Divider()
+                    .padding(.vertical, 4)
+
+                Button {
+                    showingPrivacy = true
+                } label: {
+                    HStack {
+                        Image(systemName: "hand.raised.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(Claude.textTertiary)
+                        Text("Privacy")
+                            .font(.system(size: 11))
+                            .foregroundColor(Claude.textSecondary)
+                        Spacer()
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(12)
         }
-        .tabViewStyle(.verticalPage)
         .background(Claude.background)
-        .onAppear {
-            serverURL = service.serverURLString
-        }
         .sheet(isPresented: $showingPairing) {
             PairingView(service: service)
         }
@@ -157,216 +246,102 @@ struct SettingsSheet: View {
         }
     }
 
-    // MARK: - Page 1: Connection Status
-    private var connectionPage: some View {
-        VStack(spacing: Claude.Spacing.md) {
-            // Header
+    // MARK: - Demo Test Grid (compact 2-column)
+    private var demoTestGrid: some View {
+        VStack(spacing: 6) {
+            Text("TEST SCREENS")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundColor(Claude.textTertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Row 1: Working, Paused
             HStack(spacing: 6) {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 8, height: 8)
-                Text(service.connectionStatus.displayName)
-                    .font(.claudeFootnote)
-                    .foregroundColor(statusColor)
-                Spacer()
-            }
-
-            // Status card
-            VStack(spacing: Claude.Spacing.sm) {
-                Image(systemName: statusIcon)
-                    .font(.system(size: 28))
-                    .foregroundStyle(statusColor)
-
-                if service.isDemoMode {
-                    Text("Demo Mode")
-                        .font(.claudeHeadline)
-                        .foregroundStyle(Claude.warning)
-                } else if service.isPaired {
-                    Text("Paired")
-                        .font(.claudeHeadline)
-                        .foregroundStyle(Claude.success)
-                    // Show pairingId for debugging
-                    Text(String(service.pairingId.prefix(8)) + "...")
-                        .font(.claudeCaption)
-                        .foregroundStyle(Claude.textTertiary)
-                } else {
-                    Text("Not Paired")
-                        .font(.claudeHeadline)
-                        .foregroundStyle(Claude.textPrimary)
+                demoButton("B1", icon: "play.fill", color: Claude.info) {
+                    service.loadDemoWorking()
+                }
+                demoButton("B2", icon: "pause.fill", color: Claude.idle) {
+                    service.loadDemoPaused()
                 }
             }
-            .padding(Claude.Spacing.md)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: Claude.Radius.medium)
-                    .fill(Claude.surface1)
-            )
 
-            Spacer()
+            // Row 2: Approvals T1, T2, T3
+            HStack(spacing: 6) {
+                demoButton("T1", icon: "hand.raised.fill", color: Claude.success) {
+                    service.loadDemoApproval(tier: .low)
+                }
+                demoButton("T2", icon: "hand.raised.fill", color: Claude.warning) {
+                    service.loadDemoApproval(tier: .medium)
+                }
+                demoButton("T3", icon: "hand.raised.fill", color: Claude.danger) {
+                    service.loadDemoApproval(tier: .high)
+                }
+            }
 
-            // Page indicator hint
-            Text("Swipe for actions")
-                .font(.claudeCaption)
-                .foregroundStyle(Claude.textTertiary)
+            // Row 3: Queues
+            HStack(spacing: 6) {
+                demoButton("Q3", icon: "list.bullet", color: Claude.warning) {
+                    service.loadDemoApprovalQueue()
+                }
+                demoButton("Q1", icon: "list.bullet", color: Claude.success) {
+                    service.loadDemoQueueSingleTierSingle()
+                }
+                demoButton("QD", icon: "list.bullet", color: Claude.danger) {
+                    service.loadDemoQueueDangerTier()
+                }
+            }
+
+            // Row 4: Success, Question, Context
+            HStack(spacing: 6) {
+                demoButton("D1", icon: "checkmark", color: Claude.success) {
+                    service.loadDemoSuccess()
+                }
+                demoButton("E1", icon: "questionmark", color: Claude.question) {
+                    service.loadDemoQuestion()
+                }
+                demoButton("E2", icon: "exclamationmark.triangle.fill", color: Claude.context) {
+                    service.loadDemoContextWarning()
+                }
+            }
         }
-        .padding(Claude.Spacing.md)
     }
 
-    // MARK: - Page 2: Actions
-    private var actionsPage: some View {
-        VStack(spacing: Claude.Spacing.sm) {
-            // Demo Mode Actions
-            if service.isDemoMode {
-                Button {
-                    service.loadDemoData()
-                    WKInterfaceDevice.current().play(.click)
-                    dismiss()
-                } label: {
-                    SettingsActionRow(
-                        icon: "arrow.clockwise",
-                        title: "Reload Demo",
-                        color: Claude.info
-                    )
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    service.isDemoMode = false
-                    service.state = WatchState()
-                    service.sessionProgress = nil  // Clear demo progress
-                    service.pendingQuestion = nil  // Clear demo question
-                    service.contextWarning = nil   // Clear demo warning
-                    service.connectionStatus = .disconnected
-                    service.pairingId = ""
-                    WKInterfaceDevice.current().play(.click)
-                    dismiss()
-                } label: {
-                    SettingsActionRow(
-                        icon: "xmark.circle",
-                        title: "Exit Demo",
-                        color: Claude.orange
-                    )
-                }
-                .buttonStyle(.plain)
-            } else {
-                // Pairing/Unpairing
-                if service.isPaired {
-                    // End Session - signals Mac to stop watch mode
-                    Button {
-                        Task {
-                            await service.endSession()
-                            WKInterfaceDevice.current().play(.success)
-                            dismiss()
-                        }
-                    } label: {
-                        SettingsActionRow(
-                            icon: "stop.circle.fill",
-                            title: "End Session",
-                            color: Claude.danger
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("End watch session and disconnect")
-                } else {
-                    Button {
-                        showingPairing = true
-                    } label: {
-                        SettingsActionRow(
-                            icon: "link",
-                            title: "Pair Now",
-                            color: Claude.orange
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Pair with Claude Code")
-                }
-
-                // Demo mode entry
-                Button {
-                    service.loadDemoData()
-                    WKInterfaceDevice.current().play(.click)
-                    dismiss()
-                } label: {
-                    SettingsActionRow(
-                        icon: "play.circle",
-                        title: "Try Demo",
-                        color: Claude.warning
-                    )
-                }
-                .buttonStyle(.plain)
-            }
-
-            Spacer()
-
-            // Done button
-            Button {
-                dismiss()
-            } label: {
-                Text("Done")
-                    .font(.claudeFootnote)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(Claude.info)
-                    .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Done, close settings")
-        }
-        .padding(Claude.Spacing.md)
-    }
-
-    // MARK: - Page 3: About
-    private var aboutPage: some View {
-        VStack(spacing: Claude.Spacing.sm) {
-            HStack {
-                Text("About")
-                    .font(.claudeHeadline)
-                    .foregroundStyle(Claude.textPrimary)
-                Spacer()
-            }
-
-            // Version
-            HStack {
-                Text("Version")
-                    .font(.claudeFootnote)
+    // MARK: - Compact Demo Button
+    private func demoButton(_ label: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+            WKInterfaceDevice.current().play(.click)
+            dismiss()
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(color)
+                Text(label)
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundColor(Claude.textSecondary)
-                Spacer()
-                Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
-                    .font(.claudeFootnote)
-                    .foregroundColor(Claude.textPrimary)
             }
-            .padding(Claude.Spacing.sm)
-            .background(Claude.surface1, in: RoundedRectangle(cornerRadius: Claude.Radius.small))
-
-            // Privacy
-            Button {
-                showingPrivacy = true
-            } label: {
-                HStack {
-                    Image(systemName: "hand.raised.fill")
-                        .font(.caption)
-                        .foregroundColor(Claude.orange)
-                    Text("Privacy")
-                        .font(.claudeFootnote)
-                        .foregroundColor(Claude.textPrimary)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption2)
-                        .foregroundColor(Claude.textTertiary)
-                }
-                .padding(Claude.Spacing.sm)
-                .background(Claude.surface1, in: RoundedRectangle(cornerRadius: Claude.Radius.small))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Review privacy settings")
-
-            Spacer()
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(color.opacity(0.15))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
-        .padding(Claude.Spacing.md)
+        .buttonStyle(.plain)
+    }
+
+    private func exitDemo() {
+        service.isDemoMode = false
+        service.state = WatchState()
+        service.sessionProgress = nil
+        service.pendingQuestion = nil
+        service.contextWarning = nil
+        service.connectionStatus = .disconnected
+        service.pairingId = ""
+        WKInterfaceDevice.current().play(.click)
+        dismiss()
     }
 
     private var statusColor: Color {
+        if service.isDemoMode { return Claude.warning }
         switch service.connectionStatus {
         case .connected: return Claude.success
         case .connecting, .reconnecting: return Claude.warning
@@ -374,15 +349,10 @@ struct SettingsSheet: View {
         }
     }
 
-    private var statusIcon: String {
-        if service.isDemoMode {
-            return "play.circle.fill"
-        }
-        switch service.connectionStatus {
-        case .connected: return "checkmark.circle.fill"
-        case .connecting, .reconnecting: return "arrow.triangle.2.circlepath"
-        case .disconnected: return "xmark.circle"
-        }
+    private var statusText: String {
+        if service.isDemoMode { return "Demo Mode" }
+        if service.isPaired { return "Paired" }
+        return "Not Paired"
     }
 }
 
