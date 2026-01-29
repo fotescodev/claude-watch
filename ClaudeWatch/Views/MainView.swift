@@ -10,6 +10,7 @@ struct MainView: View {
     @State private var showingSettings = false
     @State private var showingQuickActions = false
     @State private var pulsePhase: CGFloat = 0
+    @State private var demoScreenIndex: Int = 0
 
     // Always-On Display support
     @Environment(\.isLuminanceReduced) var isLuminanceReduced
@@ -79,6 +80,47 @@ struct MainView: View {
             .id(currentViewState)  // Force view replacement instead of animation overlap
         }
         .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8), value: currentViewState)
+        // Demo mode: Navigation buttons (very bottom, minimal size)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if service.isDemoMode {
+                HStack(spacing: 8) {
+                    // << Back
+                    Button {
+                        cycleToPreviousDemoScreen()
+                        WKInterfaceDevice.current().play(.click)
+                    } label: {
+                        Image(systemName: "backward.fill")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.black.opacity(0.8))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Claude.warning.opacity(0.7))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+
+                    // Current label
+                    Text(demoScreenLabel)
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Claude.warning)
+
+                    // >> Next
+                    Button {
+                        cycleToNextDemoScreen()
+                        WKInterfaceDevice.current().play(.click)
+                    } label: {
+                        Image(systemName: "forward.fill")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.black.opacity(0.8))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Claude.warning.opacity(0.7))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
         // V3: Removed toolbar - Settings accessible via footer button per design spec
         .sheet(isPresented: $showingVoiceInput) {
             VoiceInputSheet()
@@ -242,6 +284,47 @@ struct MainView: View {
         withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
             pulsePhase = 1
         }
+    }
+
+    // MARK: - Demo Screen Cycling
+
+    /// Ordered list of demo screens for cycling
+    private var demoScreens: [(label: String, loader: () -> Void)] {
+        [
+            ("B1", { service.loadDemoWorking() }),
+            ("B2", { service.loadDemoPaused() }),
+            ("T1", { service.loadDemoApproval(tier: .low) }),
+            ("T2", { service.loadDemoApproval(tier: .medium) }),
+            ("T3", { service.loadDemoApproval(tier: .high) }),
+            ("Q3", { service.loadDemoApprovalQueue() }),
+            ("D1", { service.loadDemoSuccess() }),
+            ("E1", { service.loadDemoQuestion() }),
+            ("E2", { service.loadDemoContextWarning() }),
+        ]
+    }
+
+    /// Current demo screen label for the >> button
+    private var demoScreenLabel: String {
+        let screens = demoScreens
+        guard !screens.isEmpty else { return "??" }
+        let index = demoScreenIndex % screens.count
+        return screens[index].label
+    }
+
+    /// Cycle to the next demo screen
+    private func cycleToNextDemoScreen() {
+        let screens = demoScreens
+        guard !screens.isEmpty else { return }
+        demoScreenIndex = (demoScreenIndex + 1) % screens.count
+        screens[demoScreenIndex].loader()
+    }
+
+    /// Cycle to the previous demo screen
+    private func cycleToPreviousDemoScreen() {
+        let screens = demoScreens
+        guard !screens.isEmpty else { return }
+        demoScreenIndex = (demoScreenIndex - 1 + screens.count) % screens.count
+        screens[demoScreenIndex].loader()
     }
 }
 
