@@ -122,28 +122,28 @@ struct MainView: View {
                 }
             }
         }
-        // Demo mode: Navigation buttons (very bottom, minimal size)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        // Demo mode: Navigation buttons as overlay (doesn't affect layout)
+        .overlay(alignment: .bottom) {
             if service.isDemoMode {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     // << Back
                     Button {
                         cycleToPreviousDemoScreen()
                         WKInterfaceDevice.current().play(.click)
                     } label: {
                         Image(systemName: "backward.fill")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(.black.opacity(0.8))
-                            .padding(.horizontal, 6)
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(Claude.warning.opacity(0.7))
+                            .background(Claude.warning)
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
 
                     // Current label
                     Text(demoScreenLabel)
-                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .font(.system(size: 7, weight: .bold, design: .monospaced))
                         .foregroundStyle(Claude.warning)
 
                     // >> Next
@@ -152,15 +152,16 @@ struct MainView: View {
                         WKInterfaceDevice.current().play(.click)
                     } label: {
                         Image(systemName: "forward.fill")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(.black.opacity(0.8))
-                            .padding(.horizontal, 6)
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(Claude.warning.opacity(0.7))
+                            .background(Claude.warning)
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
                 }
+                .padding(.bottom, 2)
             }
         }
         // V3: Removed toolbar - Settings accessible via footer button per design spec
