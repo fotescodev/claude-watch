@@ -121,12 +121,12 @@ struct CircularWidgetView: View {
             VStack(spacing: 0) {
                 Image(systemName: entry.pendingCount > 0 ? "hand.raised.fill" : "terminal.fill")
                     .font(.system(size: 14))
-                    .foregroundColor(iconColor.opacity(isLuminanceReduced ? 0.6 : 1.0))
+                    .foregroundStyle(iconColor.opacity(isLuminanceReduced ? 0.6 : 1.0))
 
                 if entry.pendingCount > 0 {
                     Text("\(entry.pendingCount)")
                         .font(.caption2.weight(.bold).monospaced())
-                        .foregroundColor(Claude.warning.opacity(isLuminanceReduced ? 0.6 : 1.0))
+                        .foregroundStyle(Claude.warning.opacity(isLuminanceReduced ? 0.6 : 1.0))
                 }
             }
         }
@@ -153,11 +153,11 @@ struct RectangularWidgetView: View {
             HStack {
                 Image(systemName: "terminal.fill")
                     .font(.caption2)
-                    .foregroundColor(greenColor)
+                    .foregroundStyle(greenColor)
 
                 Text("CLAUDE")
                     .font(.caption2.weight(.bold).monospaced())
-                    .foregroundColor(greenColor)
+                    .foregroundStyle(greenColor)
 
                 Spacer()
 
@@ -172,13 +172,13 @@ struct RectangularWidgetView: View {
             HStack {
                 Text(entry.taskName)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundColor(isLuminanceReduced ? .gray : .white)
+                    .foregroundStyle(isLuminanceReduced ? .gray : .white)
 
                 Spacer()
 
                 Text("\(Int(entry.progress * 100))%")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundColor(greenColor)
+                    .foregroundStyle(greenColor)
             }
 
             // Progress Bar - dimmed in always-on mode
@@ -187,12 +187,12 @@ struct RectangularWidgetView: View {
                     Rectangle()
                         .fill(Claude.idle.opacity(isLuminanceReduced ? 0.15 : 0.3))
                         .frame(height: 3)
-                        .cornerRadius(1.5)
+                        .clipShape(RoundedRectangle(cornerRadius: 1.5))
 
                     Rectangle()
                         .fill(greenColor)
                         .frame(width: geometry.size.width * entry.progress, height: 3)
-                        .cornerRadius(1.5)
+                        .clipShape(RoundedRectangle(cornerRadius: 1.5))
                 }
             }
             .frame(height: 3)
@@ -202,18 +202,18 @@ struct RectangularWidgetView: View {
                 if entry.pendingCount > 0 {
                     Text("\(entry.pendingCount) pending")
                         .font(.caption2.monospaced())
-                        .foregroundColor(orangeColor)
+                        .foregroundStyle(orangeColor)
                 } else {
                     Text("All clear")
                         .font(.caption2.monospaced())
-                        .foregroundColor(greenColor)
+                        .foregroundStyle(greenColor)
                 }
 
                 Spacer()
 
                 Text(entry.model)
                     .font(.caption2.weight(.medium).monospaced())
-                    .foregroundColor(purpleColor)
+                    .foregroundStyle(purpleColor)
             }
         }
         .padding(4)
@@ -249,11 +249,11 @@ struct CornerWidgetView: View {
             VStack(spacing: 0) {
                 Text("\(Int(entry.progress * 100))")
                     .font(.system(size: 16, weight: .bold, design: .monospaced))
-                    .foregroundColor(isLuminanceReduced ? .gray : .white)
+                    .foregroundStyle(isLuminanceReduced ? .gray : .white)
 
                 Text("%")
                     .font(.caption2.monospaced())
-                    .foregroundColor(.gray)
+                    .foregroundStyle(.gray)
             }
         }
     }
@@ -271,15 +271,15 @@ struct InlineWidgetView: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "terminal.fill")
-                .foregroundColor(isLuminanceReduced ? .gray : .white)
+                .foregroundStyle(isLuminanceReduced ? .gray : .white)
 
             Text("\(entry.taskName) \(Int(entry.progress * 100))%")
                 .font(.system(size: 12, design: .monospaced))
-                .foregroundColor(isLuminanceReduced ? .gray : .white)
+                .foregroundStyle(isLuminanceReduced ? .gray : .white)
 
             if entry.pendingCount > 0 {
                 Text("• \(entry.pendingCount)")
-                    .foregroundColor(Claude.warning.opacity(isLuminanceReduced ? 0.5 : 1.0))
+                    .foregroundStyle(Claude.warning.opacity(isLuminanceReduced ? 0.5 : 1.0))
             }
         }
     }

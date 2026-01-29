@@ -69,7 +69,7 @@ struct SwipeActionCard<Content: View>: View {
                 if offset < 0 {
                     Image(systemName: "xmark")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .opacity(min(1.0, Double(-offset) / Double(cardWidth * threshold)))
                         .padding(.leading, 16)
                 }
@@ -80,7 +80,7 @@ struct SwipeActionCard<Content: View>: View {
                 if offset > 0 {
                     Image(systemName: "checkmark")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .opacity(min(1.0, Double(offset) / Double(cardWidth * threshold)))
                         .padding(.trailing, 16)
                 }
@@ -202,11 +202,11 @@ struct SwipeHintView: View {
                 Text("Swipe to approve/reject")
                     .font(.system(size: 9))
             }
-            .foregroundColor(Claude.textTertiary)
+            .foregroundStyle(Claude.textTertiary)
         } else {
             Text("Swipe disabled for dangerous actions")
                 .font(.system(size: 9))
-                .foregroundColor(Claude.danger.opacity(0.7))
+                .foregroundStyle(Claude.danger.opacity(0.7))
         }
     }
 }
@@ -224,7 +224,7 @@ struct SwipeHintView: View {
                 .font(.headline)
             Text("Low Risk")
                 .font(.caption)
-                .foregroundColor(.green)
+                .foregroundStyle(.green)
         }
         .padding()
         .frame(maxWidth: .infinity)
@@ -244,7 +244,7 @@ struct SwipeHintView: View {
                 .font(.headline)
             Text("DANGER - No swipe")
                 .font(.caption)
-                .foregroundColor(.red)
+                .foregroundStyle(.red)
         }
         .padding()
         .frame(maxWidth: .infinity)

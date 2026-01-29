@@ -205,11 +205,11 @@ struct ActionButtonIndicator: View {
         HStack(spacing: 6) {
             Image(systemName: handler.context.icon)
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(handler.context.color)
+                .foregroundStyle(handler.context.color)
 
             Text(actionDescription)
                 .font(.system(size: 9))
-                .foregroundColor(Claude.textTertiary)
+                .foregroundStyle(Claude.textTertiary)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
@@ -240,15 +240,15 @@ struct EmergencyStopAlert: View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.octagon.fill")
                 .font(.system(size: 36))
-                .foregroundColor(Claude.danger)
+                .foregroundStyle(Claude.danger)
 
             Text("Emergency Stop?")
                 .font(.headline)
-                .foregroundColor(Claude.textPrimary)
+                .foregroundStyle(Claude.textPrimary)
 
             Text("This will reject all pending requests and end the session.")
                 .font(.caption)
-                .foregroundColor(Claude.textSecondary)
+                .foregroundStyle(Claude.textSecondary)
                 .multilineTextAlignment(.center)
 
             HStack(spacing: 12) {

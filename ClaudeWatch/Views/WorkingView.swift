@@ -19,7 +19,7 @@ struct WorkingView: View {
 
                 Text("Working")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(ClaudeState.working.color)
+                    .foregroundStyle(ClaudeState.working.color)
 
                 Spacer()
             }
@@ -33,7 +33,7 @@ struct WorkingView: View {
                         // Task title with count
                         Text("\(progress.completedCount)/\(progress.totalCount) \(progress.currentActivity ?? progress.currentTask ?? "Working...")")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .lineLimit(1)
 
                         // Task checklist - max 3 items
@@ -60,7 +60,7 @@ struct WorkingView: View {
 
                             Text("\(Int(progress.progress * 100))%")
                                 .font(.system(size: 9, weight: .semibold))
-                                .foregroundColor(ClaudeState.working.color)
+                                .foregroundStyle(ClaudeState.working.color)
                         }
                     }
                 }
@@ -73,7 +73,7 @@ struct WorkingView: View {
                             .progressViewStyle(CircularProgressViewStyle(tint: ClaudeState.working.color))
                         Text("Processing...")
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                     }
                 }
                 .padding(.horizontal, 8)
@@ -94,7 +94,7 @@ struct WorkingView: View {
                     Text("Pause")
                         .font(.system(size: 13, weight: .medium))
                 }
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .background(Color.white.opacity(0.1))
@@ -106,7 +106,7 @@ struct WorkingView: View {
             // Hint text
             Text("Double tap to pause")
                 .font(.system(size: 9))
-                .foregroundColor(Color(red: 0.431, green: 0.431, blue: 0.451))
+                .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.451))
         }
         .onAppear {
             startPulse()
@@ -122,21 +122,21 @@ struct WorkingView: View {
             case .completed:
                 Text("✓")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(Claude.success)
+                    .foregroundStyle(Claude.success)
             case .inProgress:
                 Text("●")
                     .font(.system(size: 7, weight: .semibold))
-                    .foregroundColor(ClaudeState.working.color)
+                    .foregroundStyle(ClaudeState.working.color)
             case .pending:
                 Text("○")
                     .font(.system(size: 7))
-                    .foregroundColor(Color(red: 0.431, green: 0.431, blue: 0.451))
+                    .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.451))
             }
 
             // Task text
             Text(task.content)
                 .font(.system(size: 9, weight: task.status == .inProgress ? .medium : .regular))
-                .foregroundColor(task.status == .inProgress ? .white : Color(red: 0.431, green: 0.431, blue: 0.451))
+                .foregroundStyle(task.status == .inProgress ? .white : Color(red: 0.431, green: 0.431, blue: 0.451))
                 .lineLimit(1)
         }
     }

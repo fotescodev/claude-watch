@@ -14,11 +14,11 @@ struct ErrorBanner: View {
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.caption.weight(.bold))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
 
                 Text(message)
                     .font(.caption2.weight(.semibold))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .lineLimit(2)
             }
             .padding(.horizontal, 10)
@@ -78,7 +78,7 @@ struct ActionQueue: View {
                 } label: {
                     Text("Approve All (\(approvableCount))")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(Claude.success)
@@ -114,7 +114,7 @@ struct ActionQueue: View {
             if hasHighRiskAction && service.state.pendingActions.count > 1 {
                 Text("Some actions require Mac approval")
                     .font(.system(size: 9))
-                    .foregroundColor(Claude.danger)
+                    .foregroundStyle(Claude.danger)
                     .multilineTextAlignment(.center)
             }
         }
@@ -185,7 +185,7 @@ struct TieredActionCard: View {
 
                     Image(systemName: action.icon)
                         .font(.system(size: iconSize, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .symbolEffect(.bounce, options: .nonRepeating, isActive: !reduceMotion)
                 }
 
@@ -193,7 +193,7 @@ struct TieredActionCard: View {
                     HStack(spacing: 4) {
                         Text(action.title)
                             .font(.claudeHeadline)
-                            .foregroundColor(Claude.textPrimary)
+                            .foregroundStyle(Claude.textPrimary)
                             .lineLimit(1)
 
                         // Tier badge for dangerous actions
@@ -205,12 +205,12 @@ struct TieredActionCard: View {
                     if let path = action.filePath {
                         Text(truncatePath(path))
                             .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(Claude.textSecondary)
+                            .foregroundStyle(Claude.textSecondary)
                             .lineLimit(1)
                     } else if let cmd = action.command {
                         Text(truncateCommand(cmd))
                             .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(Claude.textSecondary)
+                            .foregroundStyle(Claude.textSecondary)
                             .lineLimit(1)
                     }
                 }
@@ -221,7 +221,7 @@ struct TieredActionCard: View {
                 if totalCount > 1 {
                     Text("\(totalCount)")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .frame(width: 22, height: 22)
                         .background(tier.cardColor)
                         .clipShape(Circle())
@@ -240,7 +240,7 @@ struct TieredActionCard: View {
             // V3: Hint text for all tiers
             Text(tier.hintText)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundColor(Claude.textTertiary)
+                .foregroundStyle(Claude.textTertiary)
                 .multilineTextAlignment(.center)
         }
             .padding(10)
@@ -267,7 +267,7 @@ struct TieredActionCard: View {
                     .font(.system(size: 16, weight: .bold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .background(Claude.danger)
                     .clipShape(Capsule())
                     .scaleEffect(rejectPressed && !reduceMotion ? 0.92 : 1.0)
@@ -291,7 +291,7 @@ struct TieredActionCard: View {
                     .font(.system(size: 16, weight: .bold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .background(Claude.success)
                     .clipShape(Capsule())
                     .scaleEffect(approvePressed && !reduceMotion ? 0.92 : 1.0)
@@ -325,7 +325,7 @@ struct TieredActionCard: View {
                     .font(.system(size: 14, weight: .bold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .background(
                         LinearGradient(
                             colors: [Claude.orange, Claude.orangeDark],
@@ -361,7 +361,7 @@ struct TieredActionCard: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .background(Claude.danger)
                     .clipShape(Capsule())
                     .scaleEffect(rejectPressed && !reduceMotion ? 0.92 : 1.0)
@@ -389,7 +389,7 @@ struct TieredActionCard: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .foregroundColor(Claude.textPrimary)
+                    .foregroundStyle(Claude.textPrimary)
                     .background(Claude.surface2)
                     .clipShape(Capsule())
                     .scaleEffect(remindPressed && !reduceMotion ? 0.92 : 1.0)
@@ -554,7 +554,7 @@ struct CompactStatusHeader: View {
             // Status text - show "DANGEROUS" for Tier 3 actions
             Text(statusText)
                 .font(.caption.weight(.semibold))
-                .foregroundColor(hasDangerousAction ? Claude.danger : Claude.textPrimary)
+                .foregroundStyle(hasDangerousAction ? Claude.danger : Claude.textPrimary)
 
             Spacer()
 
@@ -562,7 +562,7 @@ struct CompactStatusHeader: View {
             if pendingCount > 0 {
                 Text("\(pendingCount)")
                     .font(.caption2.weight(.bold))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(highestTierColor)
@@ -680,7 +680,7 @@ struct CompactActionCard: View {
                 // Action info
                 HStack {
                     Image(systemName: action.icon)
-                        .foregroundColor(tier.cardColor)
+                        .foregroundStyle(tier.cardColor)
                     Text(action.title)
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
@@ -692,7 +692,7 @@ struct CompactActionCard: View {
                 if let path = action.filePath {
                     Text(truncatePath(path))
                         .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -740,7 +740,7 @@ struct CompactActionCard: View {
 
                     Text("Approve requires Mac")
                         .font(.system(size: 9))
-                        .foregroundColor(Claude.textTertiary)
+                        .foregroundStyle(Claude.textTertiary)
                 }
             }
             .padding(12)

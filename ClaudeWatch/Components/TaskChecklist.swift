@@ -44,11 +44,11 @@ struct TaskCheckItem: View {
         HStack(spacing: 8) {
             Image(systemName: status.icon)
                 .font(.system(size: 12))
-                .foregroundColor(status.color)
+                .foregroundStyle(status.color)
 
             Text(text)
                 .font(.system(size: 12))
-                .foregroundColor(status == .pending ? Color(white: 0.43) : .white)
+                .foregroundStyle(status == .pending ? Color(white: 0.43) : .white)
                 .lineLimit(1)
         }
     }

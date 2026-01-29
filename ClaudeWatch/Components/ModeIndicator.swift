@@ -48,7 +48,7 @@ struct ModeIndicator: View {
 
             Text(mode.letter)
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundColor(.black)
+                .foregroundStyle(.black)
         }
     }
 

@@ -7,9 +7,6 @@ struct EmptyStateView: View {
     var activityStore = ActivityStore.shared
     @State private var showingPairing = false
 
-    // Accessibility: High Contrast support
-    @Environment(\.colorSchemeContrast) var colorSchemeContrast
-
     var body: some View {
         if service.isPaired {
             // Paired state - show useful status info
@@ -18,11 +15,6 @@ struct EmptyStateView: View {
             // Unpaired state - prompt to pair
             unpairedEmptyState
         }
-    }
-
-    /// Whether session has been idle for 5+ minutes (triggers A5 Long Idle state)
-    private var isLongIdle: Bool {
-        activityStore.isIdleFor(minutes: 5)
     }
 
     /// When paired: show Session Dashboard with activity info
@@ -36,7 +28,7 @@ struct EmptyStateView: View {
                     ClaudeStateDot(state: .idle, size: 6)
                     Text("Idle")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(ClaudeState.idle.color)
+                        .foregroundStyle(ClaudeState.idle.color)
                     Spacer()
                 }
                 .padding(.horizontal, 12)
@@ -53,7 +45,7 @@ struct EmptyStateView: View {
                 NavigationLink(destination: HistoryView()) {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.system(size: 20))
-                        .foregroundColor(Claude.textSecondary)
+                        .foregroundStyle(Claude.textSecondary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Session history")
@@ -75,11 +67,11 @@ struct EmptyStateView: View {
             VStack(spacing: 4) {
                 Text("Claude Code")
                     .font(.headline)
-                    .foregroundColor(Claude.textPrimary)
+                    .foregroundStyle(Claude.textPrimary)
 
                 Text("Watch Companion")
                     .font(.caption)
-                    .foregroundColor(Claude.textSecondary)
+                    .foregroundStyle(Claude.textSecondary)
             }
 
             Spacer()
@@ -101,7 +93,7 @@ struct EmptyStateView: View {
                 } label: {
                     Text("Try Demo")
                         .font(.caption.weight(.semibold))
-                        .foregroundColor(Claude.orange)
+                        .foregroundStyle(Claude.orange)
                 }
                 .buttonStyle(.glassCompat)
                 .accessibilityLabel("Try demo mode")
@@ -111,23 +103,6 @@ struct EmptyStateView: View {
         }
         .sheet(isPresented: $showingPairing) {
             PairingView(service: service)
-        }
-    }
-
-    private var connectionColor: Color {
-        switch service.connectionStatus {
-        case .connected: return Claude.success
-        case .connecting, .reconnecting: return Claude.warning
-        case .disconnected: return Claude.danger
-        }
-    }
-
-    private var connectionText: String {
-        switch service.connectionStatus {
-        case .connected: return "Connected"
-        case .connecting: return "Connecting..."
-        case .reconnecting: return "Reconnecting..."
-        case .disconnected: return "Disconnected"
         }
     }
 }
@@ -143,7 +118,7 @@ struct OfflineStateView: View {
                 ClaudeStateDot(state: .error, size: 6)
                 Text("Error")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(ClaudeState.error.color)
+                    .foregroundStyle(ClaudeState.error.color)
                 Spacer()
             }
             .padding(.horizontal, 12)
@@ -154,17 +129,17 @@ struct OfflineStateView: View {
             // Icon - yellow/orange exclamation triangle per design spec
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 40, weight: .light))
-                .foregroundColor(Claude.warning)
+                .foregroundStyle(Claude.warning)
 
             // Title and subtitle per design spec
             VStack(spacing: 4) {
                 Text("Connection Lost")
                     .font(.headline)
-                    .foregroundColor(Claude.textPrimary)
+                    .foregroundStyle(Claude.textPrimary)
 
                 Text("Unable to reach session")
                     .font(.caption)
-                    .foregroundColor(Claude.textSecondary)
+                    .foregroundStyle(Claude.textSecondary)
             }
 
             Spacer()
@@ -202,15 +177,15 @@ struct ReconnectingView: View {
                     if case .reconnecting(let attempt, let nextRetryIn) = status {
                         Text("Reconnecting...")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundColor(Claude.textPrimary)
+                            .foregroundStyle(Claude.textPrimary)
 
                         Text("Attempt \(attempt) • \(Int(nextRetryIn))s")
                             .font(.caption2)
-                            .foregroundColor(Claude.textSecondary)
+                            .foregroundStyle(Claude.textSecondary)
                     } else {
                         Text("Connecting...")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundColor(Claude.textPrimary)
+                            .foregroundStyle(Claude.textPrimary)
                     }
                 }
 
@@ -250,25 +225,25 @@ struct AlwaysOnDisplayView: View {
 
                 Text(connectionStatus.displayName)
                     .font(.headline)
-                    .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
+                    .foregroundStyle(Claude.textSecondaryContrast(colorSchemeContrast))
             }
 
             // Simplified status display
             VStack(spacing: 8) {
                 Image(systemName: statusIcon)
                     .font(.system(size: statusIconSize, weight: .light))
-                    .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
+                    .foregroundStyle(Claude.textSecondaryContrast(colorSchemeContrast))
                     .contentTransition(.symbolEffect(.replace))
 
                 Text(statusText)
                     .font(.title3)
-                    .foregroundColor(Claude.textPrimary)
+                    .foregroundStyle(Claude.textPrimary)
 
                 // Pending count (if any)
                 if pendingCount > 0 {
                     Text("\(pendingCount) pending")
                         .font(.caption)
-                        .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
+                        .foregroundStyle(Claude.textSecondaryContrast(colorSchemeContrast))
                 }
             }
         }
@@ -350,7 +325,7 @@ struct SessionDashboardContent: View {
 
                         Text("Ready")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(Claude.anthropicOrange)
+                            .foregroundStyle(Claude.anthropicOrange)
                     }
                 }
             }
@@ -370,20 +345,20 @@ struct LastActivityCard: View {
             // Large centered title (17pt semibold, white)
             Text(event.truncatedTitle)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
 
             // Time ago (13pt, #9A9A9F)
             Text(event.timeAgoText)
                 .font(.system(size: 13))
-                .foregroundColor(Color(red: 0.604, green: 0.604, blue: 0.624))
+                .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.624))
 
             // Stats row inside card (11pt medium, #6E6E73)
             if let stats = stats {
                 Text("\(stats.tasks) task\(stats.tasks == 1 ? "" : "s")  •  \(stats.approvals) approval\(stats.approvals == 1 ? "" : "s")")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Color(red: 0.431, green: 0.431, blue: 0.451))
+                    .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.451))
             }
         }
         .frame(maxWidth: .infinity)
@@ -413,23 +388,23 @@ struct SessionStatsRow: View {
         HStack(spacing: 4) {
             Image(systemName: "checklist")
                 .font(.system(size: 10))
-                .foregroundColor(Claude.textTertiary)
+                .foregroundStyle(Claude.textTertiary)
 
             Text("\(tasks) task\(tasks == 1 ? "" : "s")")
                 .font(.system(size: 10))
-                .foregroundColor(Claude.textSecondary)
+                .foregroundStyle(Claude.textSecondary)
 
             Text("•")
                 .font(.system(size: 10))
-                .foregroundColor(Claude.textTertiary)
+                .foregroundStyle(Claude.textTertiary)
 
             Image(systemName: "hand.raised")
                 .font(.system(size: 10))
-                .foregroundColor(Claude.textTertiary)
+                .foregroundStyle(Claude.textTertiary)
 
             Text("\(approvals) approval\(approvals == 1 ? "" : "s")")
                 .font(.system(size: 10))
-                .foregroundColor(Claude.textSecondary)
+                .foregroundStyle(Claude.textSecondary)
         }
     }
 }
@@ -441,7 +416,7 @@ struct IdleWarningText: View {
     var body: some View {
         Text("Session idle for \(minutes) min")
             .font(.system(size: 9))
-            .foregroundColor(Claude.warning)
+            .foregroundStyle(Claude.warning)
     }
 }
 

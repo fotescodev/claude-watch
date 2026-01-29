@@ -18,7 +18,7 @@ struct VoiceInputSheet: View {
             HStack(spacing: 6) {
                 Text("Voice")
                     .font(.claudeHeadline)
-                    .foregroundColor(Claude.textPrimary)
+                    .foregroundStyle(Claude.textPrimary)
 
                 if isRecording {
                     RecordingIndicator(isRecording: true)
@@ -33,7 +33,7 @@ struct VoiceInputSheet: View {
                         .scaleEffect(0.7)
                 } else if showSentConfirmation {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(Claude.success)
+                        .foregroundStyle(Claude.success)
                 }
             }
 
@@ -64,7 +64,7 @@ struct VoiceInputSheet: View {
                     } label: {
                         Text(suggestion)
                             .font(.claudeCaption)
-                            .foregroundColor(Claude.textSecondary)
+                            .foregroundStyle(Claude.textSecondary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .frame(maxWidth: .infinity)
@@ -84,7 +84,7 @@ struct VoiceInputSheet: View {
                 } label: {
                     Text("Cancel")
                         .font(.claudeFootnote)
-                        .foregroundColor(Claude.danger)
+                        .foregroundStyle(Claude.danger)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(Claude.danger.opacity(0.15))
@@ -99,13 +99,13 @@ struct VoiceInputSheet: View {
                         showSentConfirmation = true
                         WKInterfaceDevice.current().play(.success)
                         Task {
-                            try? await Task.sleep(nanoseconds: 1_000_000_000)
+                            try? await Task.sleep(for: .seconds(1))
                             dismiss()
                         }
                     } label: {
                         Text("Send")
                             .font(.claudeFootnote)
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
                             .background(Claude.success)
@@ -140,14 +140,14 @@ struct SettingsSheet: View {
 
                     Text(statusText)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
 
                     Spacer()
 
                     // Version badge
                     Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
                         .font(.system(size: 10))
-                        .foregroundColor(Claude.textTertiary)
+                        .foregroundStyle(Claude.textTertiary)
                 }
                 .padding(.horizontal, 4)
 
@@ -159,10 +159,10 @@ struct SettingsSheet: View {
                     } label: {
                         HStack {
                             Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.white)
+                                .foregroundStyle(.white)
                             Text("Exit Demo")
                                 .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.white)
+                                .foregroundStyle(.white)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -182,10 +182,10 @@ struct SettingsSheet: View {
                     } label: {
                         HStack {
                             Image(systemName: "play.circle.fill")
-                                .foregroundColor(.black)
+                                .foregroundStyle(.black)
                             Text("Try Demo")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.black)
+                                .foregroundStyle(.black)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -226,10 +226,10 @@ struct SettingsSheet: View {
                     HStack {
                         Image(systemName: "hand.raised.fill")
                             .font(.system(size: 10))
-                            .foregroundColor(Claude.textTertiary)
+                            .foregroundStyle(Claude.textTertiary)
                         Text("Privacy")
                             .font(.system(size: 11))
-                            .foregroundColor(Claude.textSecondary)
+                            .foregroundStyle(Claude.textSecondary)
                         Spacer()
                     }
                 }
@@ -251,7 +251,7 @@ struct SettingsSheet: View {
         VStack(spacing: 6) {
             Text("TEST SCREENS")
                 .font(.system(size: 9, weight: .bold))
-                .foregroundColor(Claude.textTertiary)
+                .foregroundStyle(Claude.textTertiary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             // Row 1: Working, Paused
@@ -315,10 +315,10 @@ struct SettingsSheet: View {
             VStack(spacing: 2) {
                 Image(systemName: icon)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(color)
+                    .foregroundStyle(color)
                 Text(label)
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundColor(Claude.textSecondary)
+                    .foregroundStyle(Claude.textSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)

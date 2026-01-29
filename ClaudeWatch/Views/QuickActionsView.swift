@@ -81,7 +81,7 @@ struct QuickActionsView: View {
                             Spacer()
                             if service.state.mode == mode {
                                 Image(systemName: "checkmark")
-                                    .foregroundColor(Claude.success)
+                                    .foregroundStyle(Claude.success)
                             }
                         }
                     }

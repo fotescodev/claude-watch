@@ -12,8 +12,6 @@ struct QuestionResponseView: View {
     var service = WatchService.shared
     @State private var isResponding = false
 
-    @Environment(\.accessibilityReduceMotion) var reduceMotion
-
     /// First option is always recommended
     private var recommendedOption: QuestionOption? {
         options.first
@@ -34,7 +32,7 @@ struct QuestionResponseView: View {
 
                 Text("Question")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Claude.question)
+                    .foregroundStyle(Claude.question)
 
                 Spacer()
             }
@@ -49,13 +47,13 @@ struct QuestionResponseView: View {
                     // Question mark icon (24pt bold, purple)
                     Text("?")
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(Claude.question)
+                        .foregroundStyle(Claude.question)
                         .frame(maxWidth: .infinity)
 
                     // Question text (12pt medium, white, centered)
                     Text(question)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
 
@@ -68,7 +66,7 @@ struct QuestionResponseView: View {
                             } label: {
                                 Text(recommended.label)
                                     .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(.white)
+                                    .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 8)
                                     .background(Claude.question)
@@ -85,7 +83,7 @@ struct QuestionResponseView: View {
                             } label: {
                                 Text(alternative.label)
                                     .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(.white)
+                                    .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 8)
                                     .background(Color.white.opacity(0.12))
@@ -104,7 +102,7 @@ struct QuestionResponseView: View {
             // V3: Handle on Mac hint
             Text("Complex? Handle on Mac")
                 .font(.system(size: 9, weight: .medium))
-                .foregroundColor(Color.white.opacity(0.38))
+                .foregroundStyle(Color.white.opacity(0.38))
         }
         // Double tap selects recommended option (watchOS 26+)
         .modifier(QuestionDoubleTapModifier(onSelect: {

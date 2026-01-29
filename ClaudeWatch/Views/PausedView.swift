@@ -6,8 +6,6 @@ import WatchKit
 struct PausedView: View {
     var service = WatchService.shared
 
-    @Environment(\.accessibilityReduceMotion) var reduceMotion
-
     /// Get task title from session progress
     private var taskTitle: String {
         if let progress = service.sessionProgress {
@@ -27,7 +25,7 @@ struct PausedView: View {
 
                 Text("Paused")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Color(red: 0.557, green: 0.557, blue: 0.576))
+                    .foregroundStyle(Color(red: 0.557, green: 0.557, blue: 0.576))
 
                 Spacer()
             }
@@ -42,7 +40,7 @@ struct PausedView: View {
                     // PAUSED badge (black text on gray bg per design)
                     Text("PAUSED")
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundColor(.black)
+                        .foregroundStyle(.black)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(Color(red: 0.557, green: 0.557, blue: 0.576))
@@ -51,13 +49,13 @@ struct PausedView: View {
                     // Task title with count (15pt semibold)
                     Text(taskTitle)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .lineLimit(1)
 
                     // "Waiting to resume..." subtitle
                     Text("Waiting to resume...")
                         .font(.system(size: 12))
-                        .foregroundColor(Color(red: 0.604, green: 0.604, blue: 0.624)) // #9A9A9F
+                        .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.624)) // #9A9A9F
                 }
             }
             .padding(.horizontal, 8)
@@ -77,7 +75,7 @@ struct PausedView: View {
                     Text("Resume")
                         .font(.system(size: 14, weight: .medium))
                 }
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(Color(red: 0, green: 0.478, blue: 1)) // #007AFF
@@ -90,7 +88,7 @@ struct PausedView: View {
             // Hint text
             Text("Double tap to resume")
                 .font(.system(size: 10))
-                .foregroundColor(Color(red: 0.431, green: 0.431, blue: 0.451)) // #6E6E73
+                .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.451)) // #6E6E73
         }
         // Double tap to resume (watchOS 26+)
         .modifier(DoubleTapShortcutModifier())

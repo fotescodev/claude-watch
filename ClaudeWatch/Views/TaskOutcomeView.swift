@@ -21,7 +21,7 @@ struct TaskOutcomeView: View {
                 ClaudeStateDot(state: .success, size: 8)
                 Text("Complete")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(ClaudeState.success.color)
+                    .foregroundStyle(ClaudeState.success.color)
                 Spacer()
             }
             .padding(.horizontal, 12)
@@ -40,7 +40,7 @@ struct TaskOutcomeView: View {
 
                         Image(systemName: "checkmark")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(ClaudeState.success.color)
+                            .foregroundStyle(ClaudeState.success.color)
                     }
                     .scaleEffect(checkmarkScale)
                     .opacity(checkmarkOpacity)
@@ -48,7 +48,7 @@ struct TaskOutcomeView: View {
                     // Title
                     Text("Tasks Complete")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
 
                     // Task list (inside card)
                     if !completedTasks.isEmpty {
@@ -61,7 +61,7 @@ struct TaskOutcomeView: View {
 
                                     Text(task.content)
                                         .font(.system(size: 10))
-                                        .foregroundColor(Color.white.opacity(0.7))
+                                        .foregroundStyle(Color.white.opacity(0.7))
                                         .lineLimit(1)
                                 }
                             }
@@ -69,7 +69,7 @@ struct TaskOutcomeView: View {
                             if completedTasks.count > 5 {
                                 Text("+\(completedTasks.count - 5) more")
                                     .font(.system(size: 9))
-                                    .foregroundColor(Color.white.opacity(0.5))
+                                    .foregroundStyle(Color.white.opacity(0.5))
                                     .padding(.leading, 11)
                             }
                         }
@@ -88,7 +88,7 @@ struct TaskOutcomeView: View {
             } label: {
                 Text("Dismiss")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(Color.white.opacity(0.1))
@@ -100,7 +100,7 @@ struct TaskOutcomeView: View {
             // Hint text
             Text("Double tap to dismiss")
                 .font(.system(size: 9))
-                .foregroundColor(Color.white.opacity(0.4))
+                .foregroundStyle(Color.white.opacity(0.4))
         }
         .onAppear {
             animateCheckmark()

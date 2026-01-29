@@ -34,15 +34,15 @@ struct HistoryView: View {
 
             Image(systemName: "clock.arrow.circlepath")
                 .font(.system(size: 36, weight: .light))
-                .foregroundColor(Claude.textTertiary)
+                .foregroundStyle(Claude.textTertiary)
 
             Text("No Activity Yet")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(Claude.textPrimary)
+                .foregroundStyle(Claude.textPrimary)
 
             Text("Your session activity will appear here")
                 .font(.system(size: 11))
-                .foregroundColor(Claude.textSecondary)
+                .foregroundStyle(Claude.textSecondary)
                 .multilineTextAlignment(.center)
 
             Spacer()
@@ -79,7 +79,7 @@ struct DayHeader: View {
     var body: some View {
         Text(dayText)
             .font(.system(size: 11, weight: .semibold))
-            .foregroundColor(Claude.textSecondary)
+            .foregroundStyle(Claude.textSecondary)
             .textCase(.uppercase)
     }
 
@@ -110,20 +110,20 @@ struct ActivityRow: View {
             // V3: Timestamp on LEFT per design spec
             Text(event.formattedTime)
                 .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(Claude.textTertiary)
+                .foregroundStyle(Claude.textTertiary)
                 .frame(width: 40, alignment: .leading)
 
             // Event details
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.truncatedTitle)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Claude.textPrimary)
+                    .foregroundStyle(Claude.textPrimary)
                     .lineLimit(1)
 
                 if let subtitle = event.subtitle {
                     Text(subtitle)
                         .font(.system(size: 10))
-                        .foregroundColor(Claude.textTertiary)
+                        .foregroundStyle(Claude.textTertiary)
                         .lineLimit(1)
                 }
             }

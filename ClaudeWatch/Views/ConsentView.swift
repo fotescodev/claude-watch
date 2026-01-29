@@ -65,10 +65,10 @@ struct ConsentPage1Privacy: View {
             }
 
             // Continue button
-            Button(action: {
+            Button {
                 WKInterfaceDevice.current().play(.click)
                 onContinue()
-            }) {
+            } label: {
                 Text("Continue →")
                     .font(.claudeFootnote)
                     .foregroundStyle(Claude.orange)
@@ -117,10 +117,10 @@ struct ConsentPage2Data: View {
             }
 
             // Continue button
-            Button(action: {
+            Button {
                 WKInterfaceDevice.current().play(.click)
                 onContinue()
-            }) {
+            } label: {
                 Text("Continue →")
                     .font(.claudeFootnote)
                     .foregroundStyle(Claude.orange)
@@ -184,10 +184,12 @@ struct ConsentPage3Accept: View {
             }
 
             // Accept button
-            Button(action: onAccept) {
+            Button {
+                onAccept()
+            } label: {
                 Text("Accept")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(Claude.orange)
@@ -214,7 +216,7 @@ struct PrivacyInfoView: View {
                     Text("Privacy")
                         .font(.system(size: 15, weight: .bold))
                 }
-                .foregroundColor(Claude.textPrimary)
+                .foregroundStyle(Claude.textPrimary)
 
                 // Privacy points
                 VStack(spacing: 12) {
@@ -240,10 +242,10 @@ struct PrivacyInfoView: View {
                 // Consent status
                 HStack(spacing: 8) {
                     Image(systemName: hasAcceptedConsent ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .foregroundColor(hasAcceptedConsent ? Claude.success : Claude.orange)
+                        .foregroundStyle(hasAcceptedConsent ? Claude.success : Claude.orange)
                     Text(hasAcceptedConsent ? "Consent given" : "Consent pending")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(hasAcceptedConsent ? Claude.success : Claude.orange)
+                        .foregroundStyle(hasAcceptedConsent ? Claude.success : Claude.orange)
                 }
                 .padding(.top, 8)
 
@@ -255,7 +257,7 @@ struct PrivacyInfoView: View {
                     } label: {
                         Text("Withdraw Consent")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(Claude.orange)
+                            .foregroundStyle(Claude.orange)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                             .background(Claude.orange.opacity(0.15))
@@ -270,7 +272,7 @@ struct PrivacyInfoView: View {
                 } label: {
                     Text("Done")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(Claude.info)
@@ -292,17 +294,17 @@ struct PrivacyInfoView: View {
 
                 Image(systemName: icon)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Claude.orange)
+                    .foregroundStyle(Claude.orange)
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(Claude.textPrimary)
+                    .foregroundStyle(Claude.textPrimary)
 
                 Text(description)
                     .font(.system(size: 11))
-                    .foregroundColor(Claude.textSecondary)
+                    .foregroundStyle(Claude.textSecondary)
             }
 
             Spacer()

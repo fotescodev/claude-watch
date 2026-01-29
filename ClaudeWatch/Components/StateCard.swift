@@ -92,10 +92,10 @@ extension StateCard where Content == EmptyView {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("2/3 Update auth")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                     Text("Working...")
                         .font(.system(size: 10))
-                        .foregroundColor(Color(red: 0.431, green: 0.431, blue: 0.451))
+                        .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.451))
                 }
             }
 
@@ -103,17 +103,17 @@ extension StateCard where Content == EmptyView {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("PAUSED")
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundColor(.black)
+                        .foregroundStyle(.black)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(Color(red: 0.557, green: 0.557, blue: 0.576))
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                     Text("2/3 Update auth")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                     Text("Waiting to resume...")
                         .font(.system(size: 12))
-                        .foregroundColor(Color(red: 0.604, green: 0.604, blue: 0.624))
+                        .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.624))
                 }
             }
 
@@ -121,7 +121,7 @@ extension StateCard where Content == EmptyView {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Task Complete")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                 }
             }
         }

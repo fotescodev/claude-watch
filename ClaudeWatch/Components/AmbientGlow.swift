@@ -42,15 +42,15 @@ extension AmbientGlow {
         VStack(spacing: 40) {
             ZStack {
                 AmbientGlow.success()
-                Text("Success").foregroundColor(.white)
+                Text("Success").foregroundStyle(.white)
             }
             ZStack {
                 AmbientGlow.warning()
-                Text("Warning").foregroundColor(.white)
+                Text("Warning").foregroundStyle(.white)
             }
             ZStack {
                 AmbientGlow.danger()
-                Text("Danger").foregroundColor(.white)
+                Text("Danger").foregroundStyle(.white)
             }
         }
     }

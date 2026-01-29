@@ -34,7 +34,7 @@ struct RecordingIndicator: View {
             if isRecording {
                 Image(systemName: "mic.fill")
                     .font(.system(size: 6, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
             }
         }
         .onChange(of: isRecording) { _, newValue in
@@ -95,7 +95,7 @@ struct RecordingBanner: View {
 
                 Text("Recording...")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.red)
+                    .foregroundStyle(.red)
 
                 Spacer()
             }

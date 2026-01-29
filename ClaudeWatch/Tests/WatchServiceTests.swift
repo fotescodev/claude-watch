@@ -57,7 +57,7 @@ final class WatchServiceTests: XCTestCase {
         service.disconnect()
 
         // Small delay to let async cancellation complete
-        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        try await Task.sleep(for: .milliseconds(100))
 
         // Then: Connection status should be disconnected
         XCTAssertEqual(service.connectionStatus, .disconnected)

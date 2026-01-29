@@ -170,7 +170,7 @@ struct ClaudePrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.body.weight(.bold))
-            .foregroundColor(.white)
+            .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .background(
@@ -325,7 +325,7 @@ private struct GlassButtonLabel: View {
             if isProminent {
                 configuration.label
                     .font(.body.weight(.bold))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(

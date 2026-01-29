@@ -69,19 +69,19 @@ struct UnpairedMainView: View {
             // V3 A1: "Ready to pair" text below icon
             Text("Ready to pair")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(Claude.textSecondary)
+                .foregroundStyle(Claude.textSecondary)
 
             Spacer(minLength: 8)
 
             // V3: Single primary button only
             if service.isAPNsTokenReady && minimumDelayPassed {
-                Button(action: {
+                Button {
                     WKInterfaceDevice.current().play(.click)
                     onPairNow()
-                }) {
+                } label: {
                     Text("Pair with Code")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.black)  // V3: Black text on orange button
+                        .foregroundStyle(.black)  // V3: Black text on orange button
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(Claude.anthropicOrange)  // V3: Solid orange, no gradient
@@ -96,7 +96,7 @@ struct UnpairedMainView: View {
                         .tint(Claude.orange)
                     Text("Preparing...")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Claude.textSecondary)
+                        .foregroundStyle(Claude.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
@@ -114,7 +114,8 @@ struct UnpairedMainView: View {
         }
         .onAppear {
             // Start minimum delay timer (1 second) so user sees "Preparing..." feedback
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1))
                 withAnimation(.easeInOut(duration: 0.3)) {
                     minimumDelayPassed = true
                 }
@@ -129,13 +130,11 @@ struct PairingCodeDisplayView: View {
     let onBack: () -> Void
 
     @State private var code: String?
-    @State private var watchId: String?
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var showSuccess = false
-    @State private var pollingTask: Task<Void, Never>?
     @State private var secondsRemaining: Int = 300  // 5 minutes
-    @State private var countdownTimer: Timer?
+    @State private var pairingTrigger: Bool = false
 
     var body: some View {
         if showSuccess {
@@ -144,11 +143,10 @@ struct PairingCodeDisplayView: View {
             VStack(spacing: Claude.Spacing.sm) {
                 // V3: Header with back arrow + "Pairing" title
                 HStack(spacing: 8) {
-                    Button(action: {
+                    Button {
                         WKInterfaceDevice.current().play(.click)
-                        pollingTask?.cancel()
                         onBack()
-                    }) {
+                    } label: {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(Claude.textSecondary)
@@ -184,10 +182,10 @@ struct PairingCodeDisplayView: View {
                             .foregroundStyle(Claude.danger)
                             .multilineTextAlignment(.center)
 
-                        Button(action: {
+                        Button {
                             WKInterfaceDevice.current().play(.click)
-                            initiatePairing()
-                        }) {
+                            pairingTrigger.toggle()
+                        } label: {
                             HStack(spacing: 4) {
                                 Image(systemName: "arrow.clockwise")
                                 Text("Try Again")
@@ -224,12 +222,8 @@ struct PairingCodeDisplayView: View {
                 }
             }
             .padding(Claude.Spacing.md)
-            .onAppear {
-                initiatePairing()
-            }
-            .onDisappear {
-                pollingTask?.cancel()
-                countdownTimer?.invalidate()
+            .task(id: pairingTrigger) {
+                await initiatePairing()
             }
         }
     }
@@ -241,91 +235,83 @@ struct PairingCodeDisplayView: View {
             ForEach(Array(code.enumerated()), id: \.offset) { _, char in
                 Text(String(char))
                     .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)  // V3: White text per design
+                    .foregroundStyle(.white)  // V3: White text per design
             }
         }
     }
 
-    private func initiatePairing() {
+    private func initiatePairing() async {
         isLoading = true
         errorMessage = nil
         code = nil
-        watchId = nil
         secondsRemaining = 300  // Reset countdown
-        countdownTimer?.invalidate()
 
-        Task {
-            do {
-                let result = try await service.initiatePairing()
-                await MainActor.run {
-                    self.code = result.code
-                    self.watchId = result.watchId
-                    self.isLoading = false
-                    WKInterfaceDevice.current().play(.click)
-                    startPolling(watchId: result.watchId)
-                    startCountdownTimer()
+        do {
+            let result = try await service.initiatePairing()
+            self.code = result.code
+            self.isLoading = false
+            WKInterfaceDevice.current().play(.click)
+
+            // Run countdown and polling concurrently as child tasks;
+            // both are automatically cancelled when the .task is cancelled
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    await runCountdown()
                 }
-            } catch {
-                await MainActor.run {
-                    errorMessage = error.localizedDescription
-                    isLoading = false
-                    WKInterfaceDevice.current().play(.failure)
+                group.addTask {
+                    await pollForPairing(watchId: result.watchId)
                 }
+            }
+        } catch {
+            if !Task.isCancelled {
+                errorMessage = error.localizedDescription
+                isLoading = false
+                WKInterfaceDevice.current().play(.failure)
             }
         }
     }
 
-    private func startCountdownTimer() {
-        countdownTimer?.invalidate()
-        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
-            if secondsRemaining > 0 {
+    private func runCountdown() async {
+        while !Task.isCancelled && secondsRemaining > 0 {
+            try? await Task.sleep(for: .seconds(1))
+            if !Task.isCancelled && secondsRemaining > 0 {
                 secondsRemaining -= 1
-            } else {
-                timer.invalidate()
             }
         }
     }
 
-    private func startPolling(watchId: String) {
-        pollingTask?.cancel()
+    private func pollForPairing(watchId: String) async {
+        // Poll every 2 seconds for up to 5 minutes
+        let maxAttempts = 150 // 5 min / 2 sec
+        var attempt = 0
 
-        pollingTask = Task {
-            // Poll every 2 seconds for up to 5 minutes
-            let maxAttempts = 150 // 5 min / 2 sec
-            var attempt = 0
+        while !Task.isCancelled && attempt < maxAttempts {
+            do {
+                let status = try await service.checkPairingStatus(watchId: watchId)
 
-            while !Task.isCancelled && attempt < maxAttempts {
-                do {
-                    let status = try await service.checkPairingStatus(watchId: watchId)
-
-                    if status.paired, let pairingId = status.pairingId {
-                        await MainActor.run {
-                            service.finishPairing(pairingId: pairingId)
-                            showSuccess = true
-                            WKInterfaceDevice.current().play(.success)
-                        }
-                        return
-                    }
-                } catch {
-                    // Session expired or error
-                    await MainActor.run {
-                        errorMessage = "Code expired. Tap to try again."
-                        WKInterfaceDevice.current().play(.failure)
-                    }
+                if status.paired, let pairingId = status.pairingId {
+                    service.finishPairing(pairingId: pairingId)
+                    showSuccess = true
+                    WKInterfaceDevice.current().play(.success)
                     return
                 }
-
-                try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-                attempt += 1
-            }
-
-            // Timeout
-            if !Task.isCancelled {
-                await MainActor.run {
-                    errorMessage = "Timed out waiting for CLI."
+            } catch {
+                // Session expired or error
+                if !Task.isCancelled {
+                    errorMessage = "Code expired. Tap to try again."
                     WKInterfaceDevice.current().play(.failure)
                 }
+                return
             }
+
+            try? await Task.sleep(for: .seconds(2))
+            attempt += 1
+        }
+
+        // Timeout
+        if !Task.isCancelled {
+            errorMessage = "Timed out waiting for CLI."
+            WKInterfaceDevice.current().play(.failure)
         }
     }
 }

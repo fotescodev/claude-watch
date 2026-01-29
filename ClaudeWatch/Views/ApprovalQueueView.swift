@@ -132,7 +132,7 @@ struct TierQueueView: View {
 
                 Text("\(actions.count) \(tierLabel)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(tierColor)
+                    .foregroundStyle(tierColor)
 
                 Spacer()
             }
@@ -150,7 +150,7 @@ struct TierQueueView: View {
                             // Badge
                             Text(badgeText(for: action))
                                 .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                .foregroundColor(.black)
+                                .foregroundStyle(.black)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 3)
                                 .background(tierColor)
@@ -158,7 +158,7 @@ struct TierQueueView: View {
 
                             Text(action.title)
                                 .font(.system(size: 13))
-                                .foregroundColor(.white)
+                                .foregroundStyle(.white)
                                 .lineLimit(1)
                         }
                     }
@@ -167,7 +167,7 @@ struct TierQueueView: View {
                     if actions.count > 3 {
                         Text("+\(actions.count - 3) more")
                             .font(.system(size: 11))
-                            .foregroundColor(Color.white.opacity(0.5))
+                            .foregroundStyle(Color.white.opacity(0.5))
                     }
                 }
             }
@@ -195,7 +195,7 @@ struct TierQueueView: View {
                 Button { onReview() } label: {
                     Text("Review Each")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Claude.danger)
+                        .foregroundStyle(Claude.danger)
                         .padding(.horizontal, 24)
                         .padding(.vertical, 10)
                         .background(Claude.danger.opacity(0.15))
@@ -212,7 +212,7 @@ struct TierQueueView: View {
                     Button { onReview() } label: {
                         Text("Review")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
                             .background(Color.white.opacity(0.15))
@@ -223,7 +223,7 @@ struct TierQueueView: View {
                     Button { approveAll() } label: {
                         Text("Approve All \(actions.count)")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.black)
+                            .foregroundStyle(.black)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
                             .background(Claude.success)
@@ -241,11 +241,6 @@ struct TierQueueView: View {
     private func approveAll() {
         // Use WatchService.approveAll() which batches state updates atomically
         service.approveAll()
-    }
-
-    private func rejectAll() {
-        // Use WatchService.rejectAll() which batches state updates atomically
-        service.rejectAll()
     }
 }
 
@@ -291,7 +286,7 @@ struct TierReviewView: View {
 
                     Text("\(currentIndex + 1) of \(actions.count)")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(tierColor)
+                        .foregroundStyle(tierColor)
 
                     Spacer()
                 }
@@ -306,7 +301,7 @@ struct TierReviewView: View {
                         // Badge
                         Text(badgeText(for: action))
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundColor(.black)
+                            .foregroundStyle(.black)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
                             .background(tierColor)
@@ -315,14 +310,14 @@ struct TierReviewView: View {
                         // Title
                         Text(action.title)
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .lineLimit(2)
 
                         // Description
                         if !action.description.isEmpty {
                             Text(action.description)
                                 .font(.system(size: 12))
-                                .foregroundColor(Color(red: 0.604, green: 0.604, blue: 0.624))
+                                .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.624))
                                 .lineLimit(2)
                         }
                     }
@@ -336,7 +331,7 @@ struct TierReviewView: View {
                     Button { reject(action) } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .frame(width: 56, height: 44)
                             .background(Color.white.opacity(0.15))
                             .clipShape(RoundedRectangle(cornerRadius: 22))
@@ -346,7 +341,7 @@ struct TierReviewView: View {
                     Button { approve(action) } label: {
                         Image(systemName: "checkmark")
                             .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(.black)
+                            .foregroundStyle(.black)
                             .frame(width: 56, height: 44)
                             .background(Claude.success)
                             .clipShape(RoundedRectangle(cornerRadius: 22))
@@ -359,7 +354,7 @@ struct TierReviewView: View {
             VStack {
                 Text("All reviewed!")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                 Button("Back") { onBack() }
                     .buttonStyle(.plain)
             }
@@ -422,10 +417,10 @@ struct EmptyQueueView: View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.circle")
                 .font(.system(size: 32))
-                .foregroundColor(Claude.success)
+                .foregroundStyle(Claude.success)
             Text("Queue empty")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white)
+                .foregroundStyle(.white)
         }
     }
 }
@@ -490,7 +485,7 @@ struct CombinedQueueView: View {
 
                 Text("\(actions.count) pending")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
 
                 Spacer()
             }
@@ -519,7 +514,7 @@ struct CombinedQueueView: View {
                                 // Badge (design: cornerRadius 4, padding [2,6], fontSize 7)
                                 Text(badgeText(for: action))
                                     .font(.system(size: 7, weight: .bold, design: .monospaced))
-                                    .foregroundColor(badgeTextColor(for: action))
+                                    .foregroundStyle(badgeTextColor(for: action))
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
                                     .background(colorFor(action))
@@ -528,7 +523,7 @@ struct CombinedQueueView: View {
                                 // Title (design: fontSize 11, medium weight)
                                 Text(action.title)
                                     .font(.system(size: 11, weight: .medium))
-                                    .foregroundColor(.white)
+                                    .foregroundStyle(.white)
                                     .lineLimit(1)
 
                                 Spacer()
@@ -536,7 +531,7 @@ struct CombinedQueueView: View {
                                 // Chevron to indicate tappable
                                 Image(systemName: "chevron.right")
                                     .font(.system(size: 10, weight: .semibold))
-                                    .foregroundColor(Color.white.opacity(0.4))
+                                    .foregroundStyle(Color.white.opacity(0.4))
                             }
                             // Design spec: padding [8, 10], cornerRadius 12
                             .padding(.horizontal, 10)
@@ -557,7 +552,7 @@ struct CombinedQueueView: View {
                 if actions.count > 4 {
                     Text("+\(actions.count - 4) more")
                         .font(.system(size: 11))
-                        .foregroundColor(Color.white.opacity(0.5))
+                        .foregroundStyle(Color.white.opacity(0.5))
                 }
             }
             .padding(.horizontal, 8)
@@ -568,7 +563,7 @@ struct CombinedQueueView: View {
             Button { approveAll() } label: {
                 Text("Approve All \(actions.count)")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.black)
+                    .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
                     .background(greenColor)
@@ -630,7 +625,7 @@ struct CombinedActionDetailView: View {
                 Button { onBack() } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(tierColor)
+                        .foregroundStyle(tierColor)
                 }
                 .buttonStyle(.plain)
 
@@ -640,7 +635,7 @@ struct CombinedActionDetailView: View {
 
                 Text(action.tier.displayName)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(tierColor)
+                    .foregroundStyle(tierColor)
 
                 Spacer()
             }
@@ -655,7 +650,7 @@ struct CombinedActionDetailView: View {
                     // Badge
                     Text(badgeText)
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundColor(action.tier == .high ? .white : .black)
+                        .foregroundStyle(action.tier == .high ? .white : .black)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(tierColor)
@@ -664,14 +659,14 @@ struct CombinedActionDetailView: View {
                     // Title
                     Text(action.title)
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .lineLimit(2)
 
                     // Description
                     if !action.description.isEmpty {
                         Text(action.description)
                             .font(.system(size: 12))
-                            .foregroundColor(Color(red: 0.604, green: 0.604, blue: 0.624))
+                            .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.624))
                             .lineLimit(2)
                     }
                 }
@@ -685,7 +680,7 @@ struct CombinedActionDetailView: View {
                 Button { reject() } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
                         .frame(width: 50, height: 40)
                         .background(Color.white.opacity(0.15))
                         .clipShape(RoundedRectangle(cornerRadius: 20))
@@ -695,7 +690,7 @@ struct CombinedActionDetailView: View {
                 Button { approve() } label: {
                     Image(systemName: "checkmark")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.black)
+                        .foregroundStyle(.black)
                         .frame(width: 50, height: 40)
                         .background(greenColor)
                         .clipShape(RoundedRectangle(cornerRadius: 20))

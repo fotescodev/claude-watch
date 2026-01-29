@@ -9,8 +9,6 @@ struct ContextWarningView: View {
     var service = WatchService.shared
     @State private var acknowledged = false
 
-    @Environment(\.accessibilityReduceMotion) var reduceMotion
-
     var body: some View {
         VStack(spacing: 8) {
             // V3: Header - "Context" status
@@ -20,7 +18,7 @@ struct ContextWarningView: View {
                     .frame(width: 8, height: 8)
                 Text("Context")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Claude.context)
+                    .foregroundStyle(Claude.context)
                 Spacer()
             }
             .padding(.horizontal, 12)
@@ -34,18 +32,18 @@ struct ContextWarningView: View {
                     // Large percentage display (22pt bold, yellow)
                     Text("\(percentage)%")
                         .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(Claude.context)
+                        .foregroundStyle(Claude.context)
                         .frame(maxWidth: .infinity)
 
                     // Title (11pt semibold, white)
                     Text("Context Usage")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundStyle(.white)
 
                     // Subtitle (10pt, #ffffff99)
                     Text("Running low on\nconversation context")
                         .font(.system(size: 10))
-                        .foregroundColor(Color.white.opacity(0.6))
+                        .foregroundStyle(Color.white.opacity(0.6))
                         .multilineTextAlignment(.center)
 
                     // Progress bar (6px height, #ffffff20 bg, yellow fill)
@@ -66,7 +64,7 @@ struct ContextWarningView: View {
                     } label: {
                         Text("OK")
                             .font(.system(size: 9, weight: .semibold))
-                            .foregroundColor(.black)
+                            .foregroundStyle(.black)
                             .frame(width: 67, height: 27)
                             .background(Claude.context)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -83,7 +81,7 @@ struct ContextWarningView: View {
             // V3: Hint text
             Text("Summarize to free space")
                 .font(.system(size: 9, weight: .medium))
-                .foregroundColor(Color.white.opacity(0.38))
+                .foregroundStyle(Color.white.opacity(0.38))
         }
         .onAppear {
             // Play haptic based on urgency

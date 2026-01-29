@@ -141,7 +141,7 @@ public struct ClaudeStateIcon: View {
     public var body: some View {
         Image(systemName: state.icon)
             .font(.system(size: size, weight: .semibold))
-            .foregroundColor(state.color)
+            .foregroundStyle(state.color)
             .contentTransition(.symbolEffect(.replace))
             .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: state)
     }
@@ -159,7 +159,7 @@ public struct ClaudeStateIcon: View {
                 Spacer()
                 Text(state.hexColor)
                     .font(.caption.monospaced())
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal)
         }

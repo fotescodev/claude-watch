@@ -62,7 +62,7 @@ struct ApprovalView: View {
 
                 Text("\(pendingCount) pending")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(tierColor)
+                    .foregroundStyle(tierColor)
 
                 Spacer()
             }
@@ -78,7 +78,7 @@ struct ApprovalView: View {
                         // Badge (type indicator)
                         Text(badgeText)
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundColor(.black)
+                            .foregroundStyle(.black)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
                             .background(tierColor)
@@ -87,14 +87,14 @@ struct ApprovalView: View {
                         // Title (filename or command)
                         Text(action.title)
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundStyle(.white)
                             .lineLimit(1)
 
                         // Description (not optional, check if empty)
                         if !action.description.isEmpty {
                             Text(action.description)
                                 .font(.system(size: 12))
-                                .foregroundColor(Color(red: 0.604, green: 0.604, blue: 0.624))
+                                .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.624))
                                 .lineLimit(2)
                         }
                     }
@@ -114,7 +114,7 @@ struct ApprovalView: View {
                         } label: {
                             Text("Approve")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(action.tier == .high ? .white : .black)
+                                .foregroundStyle(action.tier == .high ? .white : .black)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                                 .background(
@@ -141,7 +141,7 @@ struct ApprovalView: View {
                         } label: {
                             Text("Reject")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.white)
+                                .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                                 .background(Claude.danger)
@@ -154,7 +154,7 @@ struct ApprovalView: View {
                     // Hint text
                     Text(action.tier == .high ? "Dangerous - handle on Mac" : "Double tap to approve")
                         .font(.system(size: 10))
-                        .foregroundColor(Color(red: 0.431, green: 0.431, blue: 0.451))
+                        .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.451))
                 }
             }
         }

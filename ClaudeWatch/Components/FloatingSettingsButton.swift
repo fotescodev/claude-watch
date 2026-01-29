@@ -14,7 +14,7 @@ struct FloatingSettingsButton: View {
                 NavigationLink(destination: SettingsSheet()) {
                     Image(systemName: "gearshape.fill")
                         .font(.system(size: 16))
-                        .foregroundColor(Color.white.opacity(0.5))
+                        .foregroundStyle(Color.white.opacity(0.5))
                 }
                 .buttonStyle(.plain)
                 .padding(.bottom, 4)

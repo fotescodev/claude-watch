@@ -11,30 +11,11 @@ struct MainView: View {
     @State private var showingQuickActions = false
     @State private var pulsePhase: CGFloat = 0
 
-    // Liquid Glass morphing namespace (watchOS 26+)
-    @Namespace private var glassNamespace
-
     // Always-On Display support
     @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
     // Accessibility: Reduce Motion support
     @Environment(\.accessibilityReduceMotion) var reduceMotion
-
-    // Accessibility: High Contrast support
-    @Environment(\.colorSchemeContrast) var colorSchemeContrast
-
-    // Dynamic Type support
-    @Environment(\.dynamicTypeSize) var dynamicTypeSize
-    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 12
-
-    /// Derive the current Claude state from service state
-    private var claudeState: ClaudeState {
-        ClaudeState.derive(
-            pendingCount: service.state.pendingActions.count,
-            sessionStatus: service.state.status,
-            hasProgress: service.sessionProgress != nil
-        )
-    }
 
     var body: some View {
         ZStack {
@@ -142,9 +123,7 @@ struct MainView: View {
                     HStack(spacing: 8) {
                         // Pause/Resume button (only when session active and not complete)
                         if let progress = service.sessionProgress {
-                            let isComplete = progress.progress >= 1.0 ||
-                                (progress.totalCount > 0 && progress.completedCount == progress.totalCount)
-                            if !isComplete {
+                            if !progress.isComplete {
                                 // Note: Haptic played by WatchService.sendInterrupt on success
                                 Button {
                                     Task {
@@ -157,7 +136,7 @@ struct MainView: View {
                                 } label: {
                                     Image(systemName: service.isSessionInterrupted ? "play.fill" : "pause.fill")
                                         .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(.white)
+                                        .foregroundStyle(.white)
                                         .frame(width: 32, height: 32)
                                         .background(service.isSessionInterrupted ? Claude.success : Claude.danger)
                                         .clipShape(Circle())
@@ -184,18 +163,6 @@ struct MainView: View {
     private func glassEffectContainerCompat<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         if #available(watchOS 26.0, *) {
             GlassEffectContainer(spacing: 12) {
-                content()
-            }
-        } else {
-            content()
-        }
-    }
-
-    /// Wraps state views in GlassEffectContainer for morphing transitions (watchOS 26+)
-    @ViewBuilder
-    private func glassEffectContainerForMorphing<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        if #available(watchOS 26.0, *) {
-            GlassEffectContainer {
                 content()
             }
         } else {
@@ -270,23 +237,6 @@ struct MainView: View {
         case empty, main
     }
 
-    private var connectionIcon: String {
-        switch service.connectionStatus {
-        case .connected: return "link.circle.fill"
-        case .connecting: return "antenna.radiowaves.left.and.right"
-        case .reconnecting: return "arrow.clockwise.circle"
-        case .disconnected: return "link.badge.plus"
-        }
-    }
-
-    private var connectionColor: Color {
-        switch service.connectionStatus {
-        case .connected: return Claude.success
-        case .connecting, .reconnecting: return Claude.warning
-        case .disconnected: return Claude.danger
-        }
-    }
-
     private func startPulse() {
         guard !reduceMotion else { return }
         withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
@@ -316,13 +266,13 @@ struct StatusHeader: View {
                 if !service.state.taskName.isEmpty {
                     Text(service.state.taskName)
                         .font(.claudeHeadline)
-                        .foregroundColor(Claude.textPrimary)
+                        .foregroundStyle(Claude.textPrimary)
                         .lineLimit(2)
                         .multilineTextAlignment(.center)
                 } else {
                     Text(idleMessage)
                         .font(.claudeHeadline)
-                        .foregroundColor(Claude.textPrimary)
+                        .foregroundStyle(Claude.textPrimary)
                         .multilineTextAlignment(.center)
                 }
 
@@ -334,7 +284,7 @@ struct StatusHeader: View {
 
                         Text("\(Int(service.state.progress * 100))%")
                             .font(.system(size: 11, weight: .medium, design: .monospaced))
-                            .foregroundColor(Claude.textSecondary)
+                            .foregroundStyle(Claude.textSecondary)
                     }
                 }
             }
@@ -349,7 +299,7 @@ struct StatusHeader: View {
 
                     Text(statusText)
                         .font(.claudeFootnote)
-                        .foregroundColor(Claude.textSecondaryContrast(colorSchemeContrast))
+                        .foregroundStyle(Claude.textSecondaryContrast(colorSchemeContrast))
                 }
             }
         }
@@ -362,7 +312,7 @@ struct StatusHeader: View {
     /// Optimized spacing to fit within watch bezel
     @ViewBuilder
     private func sessionProgressView(_ progress: SessionProgress) -> some View {
-        let isComplete = progress.progress >= 1.0 || (progress.totalCount > 0 && progress.completedCount == progress.totalCount)
+        let isComplete = progress.isComplete
 
         VStack(spacing: 4) {
             // Current task label + activity
@@ -371,7 +321,7 @@ struct StatusHeader: View {
                 if !isComplete {
                     Text("CURRENT TASK")
                         .font(.system(size: 7, weight: .medium))
-                        .foregroundColor(Claude.textTertiary)
+                        .foregroundStyle(Claude.textTertiary)
                         .tracking(0.5)
                 }
 
@@ -386,16 +336,16 @@ struct StatusHeader: View {
                     if isComplete {
                         Text("Complete")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(Claude.success)
+                            .foregroundStyle(Claude.success)
                     } else if let activity = progress.currentActivity ?? progress.currentTask {
                         Text(activity)
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(Claude.textPrimary)
+                            .foregroundStyle(Claude.textPrimary)
                             .lineLimit(1)
                     } else {
                         Text("Working...")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(Claude.textPrimary)
+                            .foregroundStyle(Claude.textPrimary)
                     }
                 }
             }
@@ -408,11 +358,11 @@ struct StatusHeader: View {
                         HStack(spacing: 4) {
                             Text(task.status.icon)
                                 .font(.system(size: 8))
-                                .foregroundColor(task.status.color)
+                                .foregroundStyle(task.status.color)
 
                             Text(task.content)
                                 .font(.system(size: 9))
-                                .foregroundColor(task.status == .completed ? Claude.textSecondary : Claude.textPrimary)
+                                .foregroundStyle(task.status == .completed ? Claude.textSecondary : Claude.textPrimary)
                                 .lineLimit(1)
                         }
                     }
@@ -421,7 +371,7 @@ struct StatusHeader: View {
                     if progress.tasks.count > 3 {
                         Text("+\(progress.tasks.count - 3) more")
                             .font(.system(size: 8, weight: .regular))
-                            .foregroundColor(Claude.textSecondary)
+                            .foregroundStyle(Claude.textSecondary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -434,7 +384,7 @@ struct StatusHeader: View {
 
                 Text("\(progress.completedCount)/\(progress.totalCount)")
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundColor(Claude.textSecondary)
+                    .foregroundStyle(Claude.textSecondary)
             }
 
         }
@@ -458,8 +408,7 @@ struct StatusHeader: View {
     private var statusText: String {
         // Override status text when showing session progress
         if let progress = service.sessionProgress {
-            let isComplete = progress.progress >= 1.0 || (progress.totalCount > 0 && progress.completedCount == progress.totalCount)
-            return isComplete ? "Complete" : "Working"
+            return progress.isComplete ? "Complete" : "Working"
         }
 
         switch service.state.status {
@@ -474,8 +423,7 @@ struct StatusHeader: View {
     private var statusColor: Color {
         // Override status color when showing session progress
         if let progress = service.sessionProgress {
-            let isComplete = progress.progress >= 1.0 || (progress.totalCount > 0 && progress.completedCount == progress.totalCount)
-            return isComplete ? Claude.success : Claude.orange
+            return progress.isComplete ? Claude.success : Claude.orange
         }
 
         switch service.state.status {

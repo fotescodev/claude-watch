@@ -38,7 +38,9 @@ struct ActionButtonRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // Yes button - primary action (green)
-            Button(action: onYes) {
+            Button {
+                onYes()
+            } label: {
                 Text(yesLabel)
                     .font(.system(size: 14, weight: .semibold))
                     .frame(maxWidth: .infinity)
@@ -48,7 +50,9 @@ struct ActionButtonRow: View {
             .tint(Claude.success)
 
             // No button - secondary action (bordered)
-            Button(action: onNo) {
+            Button {
+                onNo()
+            } label: {
                 Text(noLabel)
                     .font(.system(size: 14, weight: .semibold))
                     .frame(maxWidth: .infinity)

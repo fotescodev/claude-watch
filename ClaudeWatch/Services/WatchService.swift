@@ -193,7 +193,7 @@ class WatchService {
                     return
                 }
 
-                try? await Task.sleep(nanoseconds: 5_000_000_000) // Check every 5 seconds
+                try? await Task.sleep(for: .seconds(5)) // Check every 5 seconds
             }
         }
         #endif
@@ -304,7 +304,7 @@ class WatchService {
 
         // Start handshake timeout - if no message received, fail
         handshakeTimeoutTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(self?.handshakeTimeout ?? 10.0) * 1_000_000_000)
+            try? await Task.sleep(for: .seconds(self?.handshakeTimeout ?? 10.0))
             guard let self = self, !Task.isCancelled else { return }
             if !self.hasCompletedHandshake {
                 self.handleError(.handshakeTimeout)
@@ -543,7 +543,7 @@ class WatchService {
         connectionStatus = .reconnecting(attempt: reconnectAttempt, nextRetryIn: delay)
 
         reconnectTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            try? await Task.sleep(for: .seconds(delay))
             guard let self = self, !Task.isCancelled else { return }
             // Double-check network is still available before attempting
             guard self.isNetworkAvailable else { return }
@@ -609,7 +609,7 @@ class WatchService {
 
                 // Only ping if connected
                 guard self.connectionStatus.isConnected else {
-                    try? await Task.sleep(nanoseconds: UInt64(self.pingInterval * 1_000_000_000))
+                    try? await Task.sleep(for: .seconds(self.pingInterval))
                     continue
                 }
 
@@ -625,7 +625,7 @@ class WatchService {
 
                 // Schedule pong timeout check
                 self.pongTimeoutTask = Task { [weak self] in
-                    try? await Task.sleep(nanoseconds: UInt64((self?.pongTimeout ?? 10.0) * 1_000_000_000))
+                    try? await Task.sleep(for: .seconds(self?.pongTimeout ?? 10.0))
                     guard let self = self, !Task.isCancelled else { return }
                     if let lastPong = self.lastPongTime,
                        Date().timeIntervalSince(lastPong) > self.pongTimeout {
@@ -633,7 +633,7 @@ class WatchService {
                     }
                 }
 
-                try? await Task.sleep(nanoseconds: UInt64(self.pingInterval * 1_000_000_000))
+                try? await Task.sleep(for: .seconds(self.pingInterval))
             }
         }
     }
@@ -1482,7 +1482,7 @@ class WatchService {
                     logger.error("Polling error: \(error)")
                 }
 
-                try? await Task.sleep(nanoseconds: UInt64(self.pollingInterval * 1_000_000_000))
+                try? await Task.sleep(for: .seconds(self.pollingInterval))
             }
         }
     }
@@ -1594,8 +1594,7 @@ class WatchService {
             // Clear stale session progress
             // Use shorter timeout (10s) for completed tasks, longer (60s) for in-progress
             if let lastUpdate = lastProgressUpdate, let progress = sessionProgress {
-                let isComplete = progress.progress >= 1.0 || (progress.totalCount > 0 && progress.completedCount == progress.totalCount)
-                let threshold = isComplete ? completeStaleThreshold : progressStaleThreshold
+                let threshold = progress.isComplete ? completeStaleThreshold : progressStaleThreshold
                 if Date().timeIntervalSince(lastUpdate) > threshold {
                     sessionProgress = nil
                     lastProgressUpdate = nil
@@ -1734,13 +1733,9 @@ class WatchService {
     /// Apply batched progress update to UI
     /// Called by ActivityBatcher after 2-second window
     private func applyBatchedProgress(_ progress: SessionProgress) {
-        // Check if session is complete
-        let isComplete = progress.progress >= 1.0 ||
-            (progress.totalCount > 0 && progress.completedCount == progress.totalCount)
-
         // If already archived and getting more complete data, ignore it
         // This prevents cycling between views when server still has old data
-        if hasArchivedCurrentSession && isComplete {
+        if hasArchivedCurrentSession && progress.isComplete {
             return
         }
 
@@ -1770,7 +1765,7 @@ class WatchService {
         sessionProgress = progress
         lastProgressUpdate = Date()
 
-        if isComplete && !hasArchivedCurrentSession {
+        if progress.isComplete && !hasArchivedCurrentSession {
             // F22: Record session end
             activityStore.recordSessionEnded()
 
@@ -1797,13 +1792,13 @@ class WatchService {
 
             // Schedule clear after brief display
             clearProgressTask = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: UInt64(completeStaleThreshold * 1_000_000_000))
+                try? await Task.sleep(for: .seconds(completeStaleThreshold))
                 guard !Task.isCancelled else { return }
                 sessionProgress = nil
                 lastProgressUpdate = nil
                 sessionStartTime = nil
             }
-        } else if !isComplete {
+        } else if !progress.isComplete {
             // Cancel clear if we get new non-complete progress
             clearProgressTask?.cancel()
             clearProgressTask = nil

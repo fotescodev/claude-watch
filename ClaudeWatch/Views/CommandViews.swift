@@ -30,17 +30,17 @@ struct CommandGrid: View {
                 HStack(spacing: 8) {
                     Image(systemName: "waveform")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundColor(Claude.info)
+                        .foregroundStyle(Claude.info)
 
                     Text("Voice Command")
                         .font(.footnote.weight(.semibold))
-                        .foregroundColor(Claude.textPrimary)
+                        .foregroundStyle(Claude.textPrimary)
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
                         .font(.caption2.weight(.semibold))
-                        .foregroundColor(Claude.textTertiary)
+                        .foregroundStyle(Claude.textTertiary)
                 }
                 .padding(12)
                 .glassEffectCompat(RoundedRectangle(cornerRadius: 14))
@@ -77,11 +77,11 @@ struct CommandButton: View {
             VStack(spacing: 4) {
                 Image(systemName: icon)
                     .font(.system(size: iconSize, weight: .semibold))
-                    .foregroundColor(Claude.orange)
+                    .foregroundStyle(Claude.orange)
 
                 Text(label)
                     .font(.caption2.weight(.semibold))
-                    .foregroundColor(Claude.textSecondary)
+                    .foregroundStyle(Claude.textSecondary)
             }
             .frame(maxWidth: .infinity)
             .frame(minHeight: buttonHeight)
@@ -131,19 +131,19 @@ struct ModeSelector: View {
 
                     Image(systemName: service.state.mode.icon)
                         .font(.system(size: modeIconSize, weight: .bold))
-                        .foregroundColor(modeColor)
+                        .foregroundStyle(modeColor)
                 }
 
                 Text(service.state.mode.displayName)
                     .font(.claudeFootnote)
-                    .foregroundColor(modeColor)
+                    .foregroundStyle(modeColor)
 
                 Spacer()
 
                 // Next mode hint
                 Image(systemName: "chevron.right")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(Claude.textTertiary)
+                    .foregroundStyle(Claude.textTertiary)
             }
             .padding(8)
             .background(
@@ -211,17 +211,17 @@ struct CompactModeSelector: View {
             HStack {
                 Image(systemName: modeIcon)
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(modeColor)
+                    .foregroundStyle(modeColor)
 
                 Text(service.state.mode.displayName)
                     .font(.caption.weight(.bold))
-                    .foregroundColor(modeColor)
+                    .foregroundStyle(modeColor)
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
                     .font(.caption2)
-                    .foregroundColor(Claude.textTertiary)
+                    .foregroundStyle(Claude.textTertiary)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)

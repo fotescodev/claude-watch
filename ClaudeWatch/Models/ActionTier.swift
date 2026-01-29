@@ -250,7 +250,7 @@ public struct TierBadge: View {
             Text(tier.shortName)
                 .font(.system(size: 9, weight: .bold))
         }
-        .foregroundColor(.white)
+        .foregroundStyle(.white)
         .padding(.horizontal, compact ? 6 : 8)
         .padding(.vertical, 3)
         .background(tier.cardColor)
@@ -271,7 +271,7 @@ public struct TierBadge: View {
                     .font(.caption)
                 Text("Can approve: \(tier.canApproveFromWatch ? "Yes" : "No")")
                     .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal)
         }
