@@ -16,17 +16,7 @@ struct TaskOutcomeView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            // V3: Header - "Complete" with green dot
-            HStack(spacing: 6) {
-                ClaudeStateDot(state: .success, size: 8)
-                Text("Complete")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(ClaudeState.success.color)
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 4)
-
+            // Note: Status header handled by MainView toolbar
             Spacer(minLength: 4)
 
             // V3 D1: StateCard containing checkmark + title + task list

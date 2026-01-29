@@ -18,13 +18,38 @@ struct MainView: View {
     // Accessibility: Reduce Motion support
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
-    var body: some View {
-        ZStack {
-            Claude.background.ignoresSafeArea()
+    /// Status info for centralized status bar
+    private var currentStatusInfo: (text: String, color: Color)? {
+        switch currentViewState {
+        case .working:
+            return ("Working", ClaudeState.working.color)
+        case .paused:
+            return ("Paused", Color(red: 0.557, green: 0.557, blue: 0.576))
+        case .question:
+            return ("Question", Claude.question)
+        case .contextWarning:
+            return ("Warning", Claude.warning)
+        case .pairing:
+            return ("Unpaired", Claude.idle)
+        case .offline:
+            return ("Offline", Claude.danger)
+        case .reconnecting:
+            return ("Connecting", Claude.warning)
+        case .success:
+            return ("Complete", Claude.success)
+        default:
+            return nil  // approvalQueue, approval, empty, main, alwaysOn handle their own
+        }
+    }
 
-            // V2 State-driven content
-            Group {
-                switch currentViewState {
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Claude.background.ignoresSafeArea()
+
+                // V2 State-driven content
+                Group {
+                    switch currentViewState {
                 case .alwaysOn:
                     AlwaysOnDisplayView(
                         connectionStatus: service.connectionStatus,
@@ -78,8 +103,25 @@ struct MainView: View {
                 }
             }
             .id(currentViewState)  // Force view replacement instead of animation overlap
+            }
+            .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8), value: currentViewState)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if let statusInfo = currentStatusInfo {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(statusInfo.color)
+                                .frame(width: 6, height: 6)
+                            Text(statusInfo.text)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(statusInfo.color)
+                                .lineLimit(1)
+                                .fixedSize()
+                        }
+                    }
+                }
+            }
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8), value: currentViewState)
         // Demo mode: Navigation buttons (very bottom, minimal size)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if service.isDemoMode {
