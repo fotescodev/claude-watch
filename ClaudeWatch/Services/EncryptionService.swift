@@ -2,7 +2,7 @@ import Foundation
 import CryptoKit
 import os
 
-private let logger = Logger(subsystem: "com.edgeoftrust.claudewatch", category: "Encryption")
+private let logger = Logger(subsystem: "com.edgeoftrust.remmy", category: "Encryption")
 
 /// E2E Encryption Service for secure communication with CLI
 /// Uses Curve25519 key exchange + ChaChaPoly symmetric encryption
@@ -15,8 +15,8 @@ final class EncryptionService {
     private var sharedSecret: SharedSecret?
 
     // Storage keys
-    private let privateKeyStorageKey = "com.claudewatch.encryption.privateKey"
-    private let peerPublicKeyStorageKey = "com.claudewatch.encryption.peerPublicKey"
+    private let privateKeyStorageKey = "com.remmy.encryption.privateKey"
+    private let peerPublicKeyStorageKey = "com.remmy.encryption.peerPublicKey"
 
     private init() {
         loadKeys()

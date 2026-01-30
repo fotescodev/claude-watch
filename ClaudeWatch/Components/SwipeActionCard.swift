@@ -1,6 +1,6 @@
 //
 //  SwipeActionCard.swift
-//  ClaudeWatch
+//  Remmy
 //
 //  V2: Swipe gesture for approve/reject
 //  Swipe right = approve (green), swipe left = reject (red)

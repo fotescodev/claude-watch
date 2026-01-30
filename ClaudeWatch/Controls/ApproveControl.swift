@@ -1,15 +1,15 @@
 import SwiftUI
 import WidgetKit
 
-/// Control Center button to approve the next pending Claude action
+/// Control Center button to approve the next pending Remmy action
 /// Appears in Control Center on watchOS 26+
 @available(watchOS 26.0, *)
 struct ApproveControl: ControlWidget {
-    static let kind = "com.claudewatch.approve"
+    static let kind = "com.remmy.approve"
 
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: Self.kind) {
-            ControlWidgetButton(action: ApproveClaudeIntent()) {
+            ControlWidgetButton(action: ApproveRemmyIntent()) {
                 Label {
                     Text("Approve")
                 } icon: {
@@ -17,8 +17,7 @@ struct ApproveControl: ControlWidget {
                 }
             }
         }
-        .displayName("Approve Claude")
-        .description("Approve the next pending Claude action")
+        .displayName("Approve Remmy")
+        .description("Approve the next pending Remmy action")
     }
 }
-

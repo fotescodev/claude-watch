@@ -4,6 +4,7 @@ import WatchKit
 /// Binary question response for F18: AskUserQuestion flow
 /// V3 E1: StateCard with purple glow, border, question icon inside
 /// Double tap selects the recommended option
+/// Uses ScreenShell for consistent layout
 struct QuestionResponseView: View {
     let question: String
     let options: [QuestionOption]
@@ -23,24 +24,7 @@ struct QuestionResponseView: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            // V3: Question header with purple dot
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(Claude.question)
-                    .frame(width: 8, height: 8)
-
-                Text("Question")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Claude.question)
-
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 4)
-
-            Spacer(minLength: 4)
-
+        ScreenShell {
             // V3 E1: StateCard with purple glow and border
             StateCard(state: .question, glowOffset: 5, padding: 14) {
                 VStack(alignment: .center, spacing: 10) {
@@ -95,14 +79,11 @@ struct QuestionResponseView: View {
                     }
                 }
             }
-            .padding(.horizontal, 8)
-
-            Spacer(minLength: 4)
-
+        } action: {
+            EmptyView()
+        } hint: {
             // V3: Handle on Mac hint
-            Text("Complex? Handle on Mac")
-                .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.38))
+            ScreenHint("Complex? Handle on Mac")
         }
         // Double tap selects recommended option (watchOS 26+)
         .modifier(QuestionDoubleTapModifier(onSelect: {

@@ -1,6 +1,6 @@
 //
 //  ActionButtonRow.swift
-//  ClaudeWatch
+//  Remmy
 //
 //  V2: Standardized Yes/No button pair for binary decisions
 //  Used in QuestionResponseView for quick approve/reject responses

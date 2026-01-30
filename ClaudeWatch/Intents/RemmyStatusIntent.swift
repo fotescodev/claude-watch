@@ -1,12 +1,12 @@
 import AppIntents
 import SwiftUI
 
-/// App Intent for checking Claude's current status
-/// Voice: "Hey Siri, what's Claude doing?"
+/// App Intent for checking Remmy's current status
+/// Voice: "Hey Siri, what's Remmy doing?"
 @available(watchOS 26.0, *)
-struct ClaudeStatusIntent: AppIntent {
-    static var title: LocalizedStringResource = "Claude Status"
-    static var description = IntentDescription("Check what Claude is currently doing")
+struct RemmyStatusIntent: AppIntent {
+    static var title: LocalizedStringResource = "Remmy Status"
+    static var description = IntentDescription("Check what Remmy is currently doing")
 
     /// Don't open app - just speak the status
     static var openAppWhenRun: Bool = false
@@ -18,7 +18,7 @@ struct ClaudeStatusIntent: AppIntent {
 
         // Check connection
         guard service.isPaired else {
-            return .result(dialog: "Claude Watch is not paired")
+            return .result(dialog: "Remmy is not paired")
         }
 
         // Build status message
@@ -40,21 +40,21 @@ struct ClaudeStatusIntent: AppIntent {
             } else if let activity = progress.currentActivity ?? progress.currentTask {
                 return .result(dialog: "Working on: \(activity)")
             } else {
-                return .result(dialog: "Claude is working")
+                return .result(dialog: "Remmy is working")
             }
         }
 
         // Idle state
         switch service.state.status {
         case .idle:
-            return .result(dialog: "Claude is ready and listening")
+            return .result(dialog: "Remmy is ready and listening")
         case .running:
             if let taskName = service.state.taskName.isEmpty ? nil : service.state.taskName {
                 return .result(dialog: "Working on: \(taskName)")
             }
-            return .result(dialog: "Claude is working")
+            return .result(dialog: "Remmy is working")
         case .waiting:
-            return .result(dialog: "Claude is waiting for input")
+            return .result(dialog: "Remmy is waiting for input")
         case .completed:
             return .result(dialog: "Task completed")
         case .failed:

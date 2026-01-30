@@ -1,6 +1,6 @@
 //
 //  ActionTier.swift
-//  ClaudeWatch
+//  Remmy
 //
 //  Tiered risk classification for approval requests
 //  V2: Safety-first design with Tier 3 requiring Mac approval

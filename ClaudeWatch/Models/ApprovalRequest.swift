@@ -1,6 +1,6 @@
 //
 //  ApprovalRequest.swift
-//  ClaudeWatch
+//  Remmy
 //
 //  Type-safe structured parsing for incoming Claude Code actions
 //  using Foundation Models' @Generable macro

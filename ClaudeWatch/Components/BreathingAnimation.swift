@@ -1,6 +1,6 @@
 //
 //  BreathingAnimation.swift
-//  ClaudeWatch
+//  Remmy
 //
 //  V2: Idle state breathing animation
 //  3s ease-in-out cycle, respects Reduce Motion

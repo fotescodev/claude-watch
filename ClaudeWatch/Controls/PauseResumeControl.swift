@@ -2,11 +2,11 @@ import SwiftUI
 import WidgetKit
 import AppIntents
 
-/// Control Center toggle to pause/resume Claude session
+/// Control Center toggle to pause/resume Remmy session
 /// Shows current state and toggles on tap
 @available(watchOS 26.0, *)
 struct PauseResumeControl: ControlWidget {
-    static let kind = "com.claudewatch.pause-resume"
+    static let kind = "com.remmy.pause-resume"
 
     var body: some ControlWidgetConfiguration {
         AppIntentControlConfiguration(
@@ -24,8 +24,8 @@ struct PauseResumeControl: ControlWidget {
                 }
             }
         }
-        .displayName("Pause Claude")
-        .description("Pause or resume Claude session")
+        .displayName("Pause Remmy")
+        .description("Pause or resume Remmy session")
     }
 }
 
@@ -52,7 +52,7 @@ struct PauseResumeConfiguration: ControlConfigurationIntent {
 /// Intent that toggles the pause state
 @available(watchOS 26.0, *)
 struct TogglePauseIntent: SetValueIntent {
-    static var title: LocalizedStringResource = "Toggle Claude Pause"
+    static var title: LocalizedStringResource = "Toggle Remmy Pause"
 
     @Parameter(title: "Paused")
     var value: Bool

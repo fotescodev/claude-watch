@@ -2,18 +2,18 @@ import SwiftUI
 import WidgetKit
 import AppIntents
 
-/// Control Center button showing Claude status
+/// Control Center button showing Remmy status
 /// Opens the app when tapped
 @available(watchOS 26.0, *)
 struct StatusControl: ControlWidget {
-    static let kind = "com.claudewatch.status"
+    static let kind = "com.remmy.status"
 
     var body: some ControlWidgetConfiguration {
         AppIntentControlConfiguration(
             kind: Self.kind,
             provider: StatusValueProvider()
         ) { status in
-            ControlWidgetButton(action: OpenClaudeIntent()) {
+            ControlWidgetButton(action: OpenRemmyIntent()) {
                 Label {
                     Text(status.displayText)
                 } icon: {
@@ -22,44 +22,44 @@ struct StatusControl: ControlWidget {
             }
             .tint(status.tintColor)
         }
-        .displayName("Claude Status")
-        .description("See Claude status and open app")
+        .displayName("Remmy Status")
+        .description("See Remmy status and open app")
     }
 }
 
 /// Status value for the control widget
-struct ClaudeControlStatus {
+struct RemmyControlStatus {
     let displayText: String
     let icon: String
     let tintColor: Color
 
-    static let disconnected = ClaudeControlStatus(
+    static let disconnected = RemmyControlStatus(
         displayText: "Offline",
         icon: "link.badge.plus",
         tintColor: .gray
     )
 
-    static let idle = ClaudeControlStatus(
+    static let idle = RemmyControlStatus(
         displayText: "Ready",
         icon: "circle",
         tintColor: .gray
     )
 
-    static let working = ClaudeControlStatus(
+    static let working = RemmyControlStatus(
         displayText: "Working",
         icon: "circle.dotted.circle",
         tintColor: .blue
     )
 
-    static func pending(_ count: Int) -> ClaudeControlStatus {
-        ClaudeControlStatus(
+    static func pending(_ count: Int) -> RemmyControlStatus {
+        RemmyControlStatus(
             displayText: count == 1 ? "1 Pending" : "\(count) Pending",
             icon: "hand.raised.fill",
             tintColor: .orange
         )
     }
 
-    static let paused = ClaudeControlStatus(
+    static let paused = RemmyControlStatus(
         displayText: "Paused",
         icon: "pause.circle.fill",
         tintColor: .yellow
@@ -69,11 +69,11 @@ struct ClaudeControlStatus {
 /// Provides the current status for the control
 @available(watchOS 26.0, *)
 struct StatusValueProvider: AppIntentControlValueProvider {
-    func previewValue(configuration: StatusConfiguration) -> ClaudeControlStatus {
+    func previewValue(configuration: StatusConfiguration) -> RemmyControlStatus {
         .idle
     }
 
-    func currentValue(configuration: StatusConfiguration) async throws -> ClaudeControlStatus {
+    func currentValue(configuration: StatusConfiguration) async throws -> RemmyControlStatus {
         await MainActor.run {
             let service = WatchService.shared
 
@@ -109,14 +109,13 @@ struct StatusConfiguration: ControlConfigurationIntent {
     static var title: LocalizedStringResource = "Status Configuration"
 }
 
-/// Intent that opens the Claude Watch app
+/// Intent that opens the Remmy app
 @available(watchOS 26.0, *)
-struct OpenClaudeIntent: AppIntent {
-    static var title: LocalizedStringResource = "Open Claude Watch"
+struct OpenRemmyIntent: AppIntent {
+    static var title: LocalizedStringResource = "Open Remmy"
     static var openAppWhenRun: Bool = true
 
     func perform() async throws -> some IntentResult {
         .result()
     }
 }
-

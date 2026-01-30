@@ -1,6 +1,6 @@
 //
 //  ModeIndicator.swift
-//  ClaudeWatch
+//  Remmy
 //
 //  V3: Agent mode indicator component for status bar
 //  Shows current operating mode (Normal/Plan/Auto)

@@ -9,9 +9,9 @@ import os
 import FoundationModels
 #endif
 
-private let logger = Logger(subsystem: "com.edgeoftrust.claudewatch", category: "WatchService")
+private let logger = Logger(subsystem: "com.edgeoftrust.remmy", category: "WatchService")
 
-/// Main service for communicating with Claude Watch MCP Server
+/// Main service for communicating with Remmy MCP Server
 /// Uses WebSocket for real-time updates, with REST fallback
 @MainActor
 @Observable
@@ -82,7 +82,7 @@ class WatchService {
     // MARK: - Private
     private var webSocket: URLSessionWebSocketTask?
     private var urlSession: URLSession
-    private let sharedDefaults = UserDefaults(suiteName: "group.com.claudewatch")
+    private let sharedDefaults = UserDefaults(suiteName: "group.com.remmy")
     private var reconnectTask: Task<Void, Never>?
     private var pingTask: Task<Void, Never>?
     private var handshakeTimeoutTask: Task<Void, Never>?
@@ -560,7 +560,7 @@ class WatchService {
                 self?.handleNetworkPathUpdate(path)
             }
         }
-        pathMonitor?.start(queue: DispatchQueue(label: "com.claudewatch.network-monitor"))
+        pathMonitor?.start(queue: DispatchQueue(label: "com.remmy.network-monitor"))
     }
 
     /// Cancels network path monitoring.
@@ -1884,7 +1884,7 @@ class WatchService {
         sharedDefaults?.set(state.model, forKey: "model")
         sharedDefaults?.set(connectionStatus == .connected, forKey: "isConnected")
 
-        WidgetCenter.shared.reloadTimelines(ofKind: "ClaudeWatchWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "RemmyWidget")
     }
 
     // MARK: - Push Token Registration

@@ -1,6 +1,6 @@
 //
 //  ActionButtonHandler.swift
-//  ClaudeWatch
+//  Remmy
 //
 //  V2: Context-aware Action Button mapping
 //  Single press: Context-dependent action

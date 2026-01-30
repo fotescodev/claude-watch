@@ -41,17 +41,7 @@ struct UnpairedMainView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            // V3: Status indicator - "Unpaired" with gray dot
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(Claude.idle)
-                    .frame(width: 8, height: 8)
-                Text("Unpaired")
-                    .font(.claudeFootnote)
-                    .foregroundStyle(Claude.textSecondary)
-                Spacer()
-            }
-            .padding(.top, 4)
+            // Note: Status header handled by MainView toolbar
 
             Spacer(minLength: 8)
 

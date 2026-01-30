@@ -1,7 +1,7 @@
 import SwiftUI
 
 // MARK: - Claude State (V3 8-State Model)
-/// The eight visual states for Claude Watch V3
+/// The eight visual states for Remmy V3
 /// Each state has a distinct color for immediate recognition
 public enum ClaudeState: String, CaseIterable, Codable, Sendable {
     /// Idle - Gray (#8E8E93) - Listening, no activity

@@ -3,6 +3,7 @@ import WatchKit
 
 /// Context warning view for F16: Context > 75% alert
 /// V3 E2: StateCard with yellow glow, border, percentage display
+/// Uses ScreenShell for consistent layout
 struct ContextWarningView: View {
     let percentage: Int  // 75, 85, or 95
 
@@ -10,22 +11,7 @@ struct ContextWarningView: View {
     @State private var acknowledged = false
 
     var body: some View {
-        VStack(spacing: 8) {
-            // V3: Header - "Context" status
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(Claude.context)
-                    .frame(width: 8, height: 8)
-                Text("Context")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Claude.context)
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 4)
-
-            Spacer(minLength: 4)
-
+        ScreenShell {
             // V3 E2: StateCard with context/yellow glow and border
             StateCard(state: .context, glowOffset: 10, padding: 10) {
                 VStack(alignment: .center, spacing: 6) {
@@ -74,14 +60,11 @@ struct ContextWarningView: View {
                     .padding(.top, 3)
                 }
             }
-            .padding(.horizontal, 8)
-
-            Spacer(minLength: 4)
-
+        } action: {
+            EmptyView()
+        } hint: {
             // V3: Hint text
-            Text("Summarize to free space")
-                .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.38))
+            ScreenHint("Summarize to free space")
         }
         .onAppear {
             // Play haptic based on urgency

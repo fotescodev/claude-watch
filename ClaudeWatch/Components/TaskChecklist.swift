@@ -1,6 +1,6 @@
 //
 //  TaskChecklist.swift
-//  ClaudeWatch
+//  Remmy
 //
 //  V2: Task progress display component
 //  Shows done/active/pending items for WorkingView and PausedView

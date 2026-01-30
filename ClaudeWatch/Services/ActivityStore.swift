@@ -1,6 +1,6 @@
 //
 //  ActivityStore.swift
-//  ClaudeWatch
+//  Remmy
 //
 //  F22: Session Activity Dashboard
 //  Event recording, persistence, and query service
@@ -10,7 +10,7 @@ import Foundation
 import SwiftUI
 import os
 
-private let logger = Logger(subsystem: "com.edgeoftrust.claudewatch", category: "ActivityStore")
+private let logger = Logger(subsystem: "com.edgeoftrust.remmy", category: "ActivityStore")
 
 // MARK: - Activity Store
 
@@ -44,7 +44,7 @@ class ActivityStore {
     private let storageKey = "activity_events"
 
     /// App group for shared storage
-    private let sharedDefaults = UserDefaults(suiteName: "group.com.claudewatch")
+    private let sharedDefaults = UserDefaults(suiteName: "group.com.remmy")
 
     // MARK: - Initialization
 

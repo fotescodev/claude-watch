@@ -47,64 +47,62 @@ struct MainView: View {
             ZStack {
                 Claude.background.ignoresSafeArea()
 
-                // V2 State-driven content
-                Group {
+                // V2 State-driven content with coordinated transitions (replaces .id() racing pattern)
+                ScreenContainer(state: currentViewState) {
                     switch currentViewState {
-                case .alwaysOn:
-                    AlwaysOnDisplayView(
-                        connectionStatus: service.connectionStatus,
-                        pendingCount: service.state.pendingActions.count,
-                        status: service.state.status
-                    )
-                case .pairing:
-                    PairingView(service: service)
-                case .offline:
-                    OfflineStateView()
-                case .reconnecting:
-                    VStack {
-                        ReconnectingView(status: service.connectionStatus)
-                        Spacer()
-                    }
-                case .paused:
-                    PausedView()
-                case .success:
-                    TaskOutcomeView()
-                case .working:
-                    WorkingView()
-                case .approvalQueue:
-                    ApprovalQueueView()
-                case .approval:
-                    // V3 C1-C3: Single approval with tier-based styling
-                    ApprovalView()
-                case .question:
-                    // F18: Binary question response (V2: exactly 2 options)
-                    if let question = service.pendingQuestion {
-                        QuestionResponseView(
-                            question: question.question,
-                            options: question.options.map { opt in
-                                QuestionOption(label: opt.label, description: opt.description)
-                            },
-                            questionId: question.id
+                    case .alwaysOn:
+                        AlwaysOnDisplayView(
+                            connectionStatus: service.connectionStatus,
+                            pendingCount: service.state.pendingActions.count,
+                            status: service.state.status
                         )
-                    } else {
+                    case .pairing:
+                        PairingView(service: service)
+                    case .offline:
+                        OfflineStateView()
+                    case .reconnecting:
+                        VStack {
+                            ReconnectingView(status: service.connectionStatus)
+                            Spacer()
+                        }
+                    case .paused:
+                        PausedView()
+                    case .success:
+                        TaskOutcomeView()
+                    case .working:
+                        WorkingView()
+                    case .approvalQueue:
+                        ApprovalQueueView()
+                    case .approval:
+                        // V3 C1-C3: Single approval with tier-based styling
+                        ApprovalView()
+                    case .question:
+                        // F18: Binary question response (V2: exactly 2 options)
+                        if let question = service.pendingQuestion {
+                            QuestionResponseView(
+                                question: question.question,
+                                options: question.options.map { opt in
+                                    QuestionOption(label: opt.label, description: opt.description)
+                                },
+                                questionId: question.id
+                            )
+                        } else {
+                            mainContentView
+                        }
+                    case .contextWarning:
+                        // F16: Context warning
+                        if let warning = service.contextWarning {
+                            ContextWarningView(percentage: warning.percentage)
+                        } else {
+                            mainContentView
+                        }
+                    case .empty:
+                        EmptyStateView()
+                    case .main:
                         mainContentView
                     }
-                case .contextWarning:
-                    // F16: Context warning
-                    if let warning = service.contextWarning {
-                        ContextWarningView(percentage: warning.percentage)
-                    } else {
-                        mainContentView
-                    }
-                case .empty:
-                    EmptyStateView()
-                case .main:
-                    mainContentView
                 }
             }
-            .id(currentViewState)  // Force view replacement instead of animation overlap
-            }
-            .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8), value: currentViewState)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if let statusInfo = currentStatusInfo {

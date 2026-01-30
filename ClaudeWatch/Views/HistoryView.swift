@@ -1,6 +1,6 @@
 //
 //  HistoryView.swift
-//  ClaudeWatch
+//  Remmy
 //
 //  F22: Session Activity Dashboard
 //  Timeline view showing activity history grouped by day

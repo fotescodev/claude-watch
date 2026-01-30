@@ -1,7 +1,7 @@
 import SwiftUI
 
 // MARK: - Claude Design System V2
-/// Centralized design tokens for Claude Watch app
+/// Centralized design tokens for Remmy app
 /// Hybrid color strategy: Anthropic brand + Apple semantic colors
 /// All colors, materials, spacing, and animations in one place
 public enum Claude {
@@ -139,6 +139,22 @@ public enum Claude {
         /// Returns true if content height fits on smallest watch
         static func fitsOnScreen(_ height: CGFloat) -> Bool {
             height <= minViewportHeight
+        }
+
+        // MARK: - ScreenShell Layout Constants
+        /// Unified spacing constants for ScreenShell layout system
+        /// These ensure consistent spacing across all screens
+        enum Shell {
+            /// Root spacing between major sections: 6pt
+            static let rootSpacing: CGFloat = 6
+            /// Card horizontal padding: 8pt
+            static let cardHorizontalPadding: CGFloat = 8
+            /// Button horizontal padding: 16pt
+            static let buttonHorizontalPadding: CGFloat = 16
+            /// Top padding above card: 4pt
+            static let topPadding: CGFloat = 4
+            /// Bottom padding below hint: 8pt
+            static let bottomPadding: CGFloat = 8
         }
     }
 

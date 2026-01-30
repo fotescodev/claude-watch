@@ -2,6 +2,7 @@ import SwiftUI
 import WatchKit
 
 /// V3 D1: Task completion screen with checkmark, title, and task summary inside StateCard
+/// Uses ScreenShell for consistent layout
 struct TaskOutcomeView: View {
     var service = WatchService.shared
     @State private var checkmarkScale: CGFloat = 0.5
@@ -15,10 +16,7 @@ struct TaskOutcomeView: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            // Note: Status header handled by MainView toolbar
-            Spacer(minLength: 4)
-
+        ScreenShell {
             // V3 D1: StateCard containing checkmark + title + task list
             StateCard(state: .success, glowOffset: 10, padding: 14) {
                 VStack(spacing: 10) {
@@ -67,10 +65,7 @@ struct TaskOutcomeView: View {
                     }
                 }
             }
-            .padding(.horizontal, 8)
-
-            Spacer(minLength: 4)
-
+        } action: {
             // V3: Dismiss button (subtle, inside footer area)
             Button {
                 WKInterfaceDevice.current().play(.click)
@@ -85,12 +80,8 @@ struct TaskOutcomeView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 18))
             }
             .buttonStyle(.plain)
-            .padding(.horizontal, 16)
-
-            // Hint text
-            Text("Double tap to dismiss")
-                .font(.system(size: 9))
-                .foregroundStyle(Color.white.opacity(0.4))
+        } hint: {
+            ScreenHint("Double tap to dismiss")
         }
         .onAppear {
             animateCheckmark()

@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Claude</string>
+	<string>Remmy</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -36,9 +36,9 @@
 		</dict>
 	</dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Claude Watch needs microphone access for voice input prompts.</string>
+	<string>Remmy needs microphone access for voice input prompts.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Claude Watch uses speech recognition to transcribe voice commands.</string>
+	<string>Remmy uses speech recognition to transcribe voice commands.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

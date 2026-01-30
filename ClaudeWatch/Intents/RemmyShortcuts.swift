@@ -1,13 +1,13 @@
 import AppIntents
 
-/// Provider for Claude Watch shortcuts
+/// Provider for Remmy shortcuts
 /// Makes intents discoverable in the Shortcuts app and Siri
 @available(watchOS 26.0, *)
-struct ClaudeShortcuts: AppShortcutsProvider {
+struct RemmyShortcuts: AppShortcutsProvider {
     /// Shortcuts exposed to the system
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
-            intent: ApproveClaudeIntent(),
+            intent: ApproveRemmyIntent(),
             phrases: [
                 "Approve \(.applicationName)",
                 "Approve \(.applicationName)'s request",
@@ -20,7 +20,7 @@ struct ClaudeShortcuts: AppShortcutsProvider {
         )
 
         AppShortcut(
-            intent: RejectClaudeIntent(),
+            intent: RejectRemmyIntent(),
             phrases: [
                 "Reject \(.applicationName)",
                 "Reject \(.applicationName)'s request",
@@ -33,7 +33,7 @@ struct ClaudeShortcuts: AppShortcutsProvider {
         )
 
         AppShortcut(
-            intent: ClaudeStatusIntent(),
+            intent: RemmyStatusIntent(),
             phrases: [
                 "What's \(.applicationName) doing",
                 "What is \(.applicationName) doing",
@@ -46,7 +46,7 @@ struct ClaudeShortcuts: AppShortcutsProvider {
         )
 
         AppShortcut(
-            intent: PauseClaudeIntent(),
+            intent: PauseRemmyIntent(),
             phrases: [
                 "Pause \(.applicationName)",
                 "Stop \(.applicationName)",
@@ -57,7 +57,7 @@ struct ClaudeShortcuts: AppShortcutsProvider {
         )
 
         AppShortcut(
-            intent: ResumeClaudeIntent(),
+            intent: ResumeRemmyIntent(),
             phrases: [
                 "Resume \(.applicationName)",
                 "Continue \(.applicationName)",

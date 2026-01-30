@@ -1,6 +1,6 @@
 //
 //  ActivityEvent.swift
-//  ClaudeWatch
+//  Remmy
 //
 //  F22: Session Activity Dashboard
 //  Activity event model for tracking session events

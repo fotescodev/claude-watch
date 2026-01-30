@@ -24,50 +24,89 @@ struct ApprovalQueueView: View {
         actionsByTier.contains { $0.actions.count >= 2 }
     }
 
+    /// Current tier for toolbar display
+    private var currentTier: ActionTier? {
+        guard !actionsByTier.isEmpty else { return nil }
+        if actionsByTier.count == 1 {
+            return actionsByTier[0].tier
+        }
+        let index = min(selectedTierIndex, actionsByTier.count - 1)
+        return actionsByTier[index].tier
+    }
+
+    /// Current action count for toolbar
+    private var currentActionCount: Int {
+        guard let tier = currentTier else { return 0 }
+        return actionsByTier.first { $0.tier == tier }?.actions.count ?? 0
+    }
+
+    /// Tier color for toolbar
+    private func tierColor(_ tier: ActionTier) -> Color {
+        switch tier {
+        case .low: return Claude.success
+        case .medium: return Claude.warning
+        case .high: return Claude.danger
+        }
+    }
+
+    /// Tier label for toolbar
+    private func tierLabel(_ tier: ActionTier) -> String {
+        switch tier {
+        case .low: return "Edit"
+        case .medium: return "Bash"
+        case .high: return "Danger"
+        }
+    }
+
     var body: some View {
-        if showingReview, let tier = reviewTier {
-            // Review mode - show individual actions
-            let actions = actionsByTier.first { $0.tier == tier }?.actions ?? []
-            TierReviewView(
-                tier: tier,
-                actions: actions,
-                onBack: { showingReview = false }
-            )
-        } else if actionsByTier.isEmpty {
-            // No pending actions
-            EmptyQueueView()
-        } else if !hasMultiActionTier {
-            // All tiers have only 1 action - show combined list (no point swiping for singles)
-            CombinedQueueView(actions: service.state.pendingActions)
-        } else if actionsByTier.count == 1 {
-            // Single tier with 2+ actions - show tier view directly
-            TierQueueView(
-                tier: actionsByTier[0].tier,
-                actions: actionsByTier[0].actions,
-                onReview: {
-                    reviewTier = actionsByTier[0].tier
-                    showingReview = true
-                },
-                showSwipeHint: false
-            )
-        } else {
-            // Multiple tiers with at least one having 2+ actions - swipe navigation
-            let activeTiers = actionsByTier.map { $0.tier }
-            TabView(selection: $selectedTierIndex) {
-                ForEach(Array(actionsByTier.enumerated()), id: \.element.tier) { index, group in
-                    TierQueueView(
-                        tier: group.tier,
-                        actions: group.actions,
-                        activeTiers: activeTiers,
-                        onReview: {
-                            reviewTier = group.tier
-                            showingReview = true
-                        }
+        Group {
+            if showingReview, let tier = reviewTier {
+                    // Review mode - show individual actions
+                    let actions = actionsByTier.first { $0.tier == tier }?.actions ?? []
+                    TierReviewView(
+                        tier: tier,
+                        actions: actions,
+                        onBack: { showingReview = false }
                     )
-                    .tag(index)
+                } else if actionsByTier.isEmpty {
+                    // No pending actions
+                    EmptyQueueView()
+                } else if !hasMultiActionTier {
+                    // All tiers have only 1 action - show combined list (no point swiping for singles)
+                    CombinedQueueView(actions: service.state.pendingActions)
+                } else if actionsByTier.count == 1 {
+                    // Single tier with 2+ actions - show tier view directly
+                    TierQueueView(
+                        tier: actionsByTier[0].tier,
+                        actions: actionsByTier[0].actions,
+                        onReview: {
+                            reviewTier = actionsByTier[0].tier
+                            showingReview = true
+                        },
+                        showSwipeHint: false,
+                        showHeader: true  // View handles its own status
+                    )
+                } else {
+                    // Multiple tiers with at least one having 2+ actions - swipe navigation
+                    let activeTiers = actionsByTier.map { $0.tier }
+                    TabView(selection: $selectedTierIndex) {
+                        ForEach(Array(actionsByTier.enumerated()), id: \.element.tier) { index, group in
+                            TierQueueView(
+                                tier: group.tier,
+                                actions: group.actions,
+                                activeTiers: activeTiers,
+                                onReview: {
+                                    reviewTier = group.tier
+                                    showingReview = true
+                                },
+                                insideTabView: true,
+                                showHeader: true  // View handles its own status
+                            )
+                            .tag(index)
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .never))  // Horizontal swipe, custom dots
                 }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))  // Horizontal swipe, custom dots
         }
     }
 }
@@ -80,6 +119,8 @@ struct TierQueueView: View {
     var activeTiers: [ActionTier] = []  // Only show dots for these tiers
     let onReview: () -> Void
     var showSwipeHint: Bool = true  // Only show when multiple tiers exist
+    var insideTabView: Bool = false  // When true, TabView handles safe area
+    var showHeader: Bool = true  // When false, parent handles status via toolbar
 
     var service = WatchService.shared
 
@@ -124,20 +165,22 @@ struct TierQueueView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            // Header
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(tierColor)
-                    .frame(width: 8, height: 8)
+            // Header - only show if not handled by parent toolbar
+            if showHeader {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(tierColor)
+                        .frame(width: 8, height: 8)
 
-                Text("\(actions.count) \(tierLabel)")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(tierColor)
+                    Text("\(actions.count) \(tierLabel)")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(tierColor)
 
-                Spacer()
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, insideTabView ? 0 : 4)
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 4)
 
             Spacer(minLength: 2)
 

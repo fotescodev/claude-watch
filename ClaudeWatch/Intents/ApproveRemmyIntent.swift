@@ -1,13 +1,13 @@
 import AppIntents
 import SwiftUI
 
-/// App Intent for approving the next pending Claude action
-/// Voice: "Hey Siri, approve Claude"
+/// App Intent for approving the next pending Remmy action
+/// Voice: "Hey Siri, approve Remmy"
 /// Control Center: Approve button
 @available(watchOS 26.0, *)
-struct ApproveClaudeIntent: AppIntent {
-    static var title: LocalizedStringResource = "Approve Claude"
-    static var description = IntentDescription("Approve the next pending Claude action")
+struct ApproveRemmyIntent: AppIntent {
+    static var title: LocalizedStringResource = "Approve Remmy"
+    static var description = IntentDescription("Approve the next pending Remmy action")
 
     /// Show in Shortcuts app
     static var openAppWhenRun: Bool = false
@@ -41,8 +41,8 @@ struct ApproveClaudeIntent: AppIntent {
 
 /// Shortcut phrases for Siri discoverability
 @available(watchOS 26.0, *)
-extension ApproveClaudeIntent {
+extension ApproveRemmyIntent {
     static var parameterSummary: some ParameterSummary {
-        Summary("Approve Claude's pending action")
+        Summary("Approve Remmy's pending action")
     }
 }

@@ -28,7 +28,7 @@ struct ClaudeEntry: TimelineEntry {
 
 // MARK: - Provider (with RelevanceKit support for Smart Stack)
 struct ClaudeProvider: TimelineProvider {
-    private let defaults = UserDefaults(suiteName: "group.com.claudewatch")
+    private let defaults = UserDefaults(suiteName: "group.com.remmy")
 
     func placeholder(in context: Context) -> ClaudeEntry {
         ClaudeEntry(
@@ -286,16 +286,16 @@ struct InlineWidgetView: View {
 }
 
 // MARK: - Widget Definition
-struct ClaudeWatchWidgets: Widget {
-    let kind: String = "ClaudeWatchWidget"
+struct RemmyWidgets: Widget {
+    let kind: String = "RemmyWidget"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: ClaudeProvider()) { entry in
             ClaudeWidgetEntryView(entry: entry)
                 .containerBackground(.black, for: .widget)
         }
-        .configurationDisplayName("Claude Code")
-        .description("Monitor your Claude Code session")
+        .configurationDisplayName("Remmy")
+        .description("Monitor your coding session")
         .supportedFamilies([
             .accessoryCircular,
             .accessoryRectangular,
@@ -306,7 +306,7 @@ struct ClaudeWatchWidgets: Widget {
 }
 
 #Preview(as: .accessoryRectangular) {
-    ClaudeWatchWidgets()
+    RemmyWidgets()
 } timeline: {
     ClaudeEntry(date: .now, taskName: "REFACTOR", progress: 0.6, pendingCount: 3, model: "OPUS", isConnected: true)
     ClaudeEntry(date: .now, taskName: "BUILD", progress: 0.9, pendingCount: 0, model: "OPUS", isConnected: true)

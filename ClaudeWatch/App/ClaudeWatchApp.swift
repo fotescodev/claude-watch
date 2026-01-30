@@ -3,10 +3,10 @@ import WatchKit
 import UserNotifications
 import os
 
-private let logger = Logger(subsystem: "com.edgeoftrust.claudewatch", category: "App")
+private let logger = Logger(subsystem: "com.edgeoftrust.remmy", category: "App")
 
 @main
-struct ClaudeWatchApp: App {
+struct RemmyApp: App {
     @WKApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @AppStorage("hasAcceptedConsent") private var hasAcceptedConsent = false
 

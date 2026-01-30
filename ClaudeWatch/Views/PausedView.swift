@@ -3,6 +3,7 @@ import WatchKit
 
 /// Shows paused state when user has interrupted the session
 /// V3 B2: Simple card with PAUSED badge, title, subtitle - no checklist
+/// Uses ScreenShell for consistent layout
 struct PausedView: View {
     var service = WatchService.shared
 
@@ -16,24 +17,7 @@ struct PausedView: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            // Header with gray "Paused" status
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(Color(red: 0.557, green: 0.557, blue: 0.576)) // #8E8E93
-                    .frame(width: 8, height: 8)
-
-                Text("Paused")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color(red: 0.557, green: 0.557, blue: 0.576))
-
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 4)
-
-            Spacer(minLength: 4)
-
+        ScreenShell {
             // V3 B2: StateCard with gray glow
             StateCard(state: .idle, glowOffset: 25) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -58,37 +42,16 @@ struct PausedView: View {
                         .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.624)) // #9A9A9F
                 }
             }
-            .padding(.horizontal, 8)
-
-            Spacer(minLength: 4)
-
+        } action: {
             // Resume button (solid blue per design)
-            // Note: Haptic played by WatchService.sendInterrupt on success
-            Button {
+            ScreenActionButton("Resume", icon: "play.fill", color: Claude.info) {
                 Task {
                     await service.sendInterrupt(action: .resume)
                 }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 14))
-                    Text("Resume")
-                        .font(.system(size: 14, weight: .medium))
-                }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color(red: 0, green: 0.478, blue: 1)) // #007AFF
-                .clipShape(RoundedRectangle(cornerRadius: 20))
             }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 16)
             .accessibilityLabel("Resume session")
-
-            // Hint text
-            Text("Double tap to resume")
-                .font(.system(size: 10))
-                .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.451)) // #6E6E73
+        } hint: {
+            ScreenHint("Double tap to resume")
         }
         // Double tap to resume (watchOS 26+)
         .modifier(DoubleTapShortcutModifier())

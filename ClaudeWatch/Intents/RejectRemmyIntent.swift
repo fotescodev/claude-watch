@@ -1,13 +1,13 @@
 import AppIntents
 import SwiftUI
 
-/// App Intent for rejecting the next pending Claude action
-/// Voice: "Hey Siri, reject Claude's request"
+/// App Intent for rejecting the next pending Remmy action
+/// Voice: "Hey Siri, reject Remmy's request"
 /// Control Center: Reject button
 @available(watchOS 26.0, *)
-struct RejectClaudeIntent: AppIntent {
-    static var title: LocalizedStringResource = "Reject Claude"
-    static var description = IntentDescription("Reject the next pending Claude action")
+struct RejectRemmyIntent: AppIntent {
+    static var title: LocalizedStringResource = "Reject Remmy"
+    static var description = IntentDescription("Reject the next pending Remmy action")
 
     /// Show in Shortcuts app
     static var openAppWhenRun: Bool = false

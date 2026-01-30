@@ -3,17 +3,13 @@ import WatchKit
 
 /// Shows current task progress when Claude is actively working
 /// V3 B1: Compact card with task checklist, progress bar, pause button
-/// Must fit on screen without scrolling
+/// Uses ScreenShell for consistent layout
 struct WorkingView: View {
     var service = WatchService.shared
-    @State private var pulsePhase: CGFloat = 0
-
-    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     var body: some View {
-        VStack(spacing: 4) {
-            // V3 B1: StateCard with blue glow (compact)
-            // Note: Status header is now handled by MainView toolbar
+        ScreenShell {
+            // Card content
             if let progress = service.sessionProgress {
                 StateCard(state: .working, glowOffset: 15, padding: 12) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -51,7 +47,6 @@ struct WorkingView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 8)
             } else {
                 // Fallback loading state
                 StateCard(state: .working, glowOffset: 15, padding: 10) {
@@ -63,34 +58,14 @@ struct WorkingView: View {
                             .foregroundStyle(.white)
                     }
                 }
-                .padding(.horizontal, 8)
             }
-
-            Spacer(minLength: 4)
-
+        } action: {
             // Pause button - minimal, secondary prominence
-            // Note: Haptic played by WatchService.sendInterrupt on success
-            Button {
+            ScreenSecondaryButton("Pause", icon: "pause.fill") {
                 Task {
                     await service.sendInterrupt(action: .stop)
                 }
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "pause.fill")
-                        .font(.system(size: 10))
-                    Text("Pause")
-                        .font(.system(size: 11, weight: .medium))
-                }
-                .foregroundStyle(.white.opacity(0.7))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 6)
-                .background(Color.white.opacity(0.08))
-                .clipShape(Capsule())
             }
-            .buttonStyle(.plain)
-        }
-        .onAppear {
-            startPulse()
         }
     }
 
@@ -119,13 +94,6 @@ struct WorkingView: View {
                 .font(.system(size: 11, weight: task.status == .inProgress ? .medium : .regular))
                 .foregroundStyle(task.status == .inProgress ? .white : Color(red: 0.431, green: 0.431, blue: 0.451))
                 .lineLimit(1)
-        }
-    }
-
-    private func startPulse() {
-        guard !reduceMotion else { return }
-        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-            pulsePhase = 1
         }
     }
 }

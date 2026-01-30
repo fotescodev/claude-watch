@@ -1,12 +1,12 @@
 import AppIntents
 import SwiftUI
 
-/// App Intent for pausing the Claude session
-/// Voice: "Hey Siri, pause Claude"
+/// App Intent for pausing the Remmy session
+/// Voice: "Hey Siri, pause Remmy"
 @available(watchOS 26.0, *)
-struct PauseClaudeIntent: AppIntent {
-    static var title: LocalizedStringResource = "Pause Claude"
-    static var description = IntentDescription("Pause the current Claude session")
+struct PauseRemmyIntent: AppIntent {
+    static var title: LocalizedStringResource = "Pause Remmy"
+    static var description = IntentDescription("Pause the current Remmy session")
 
     static var openAppWhenRun: Bool = false
 
@@ -15,27 +15,27 @@ struct PauseClaudeIntent: AppIntent {
         let service = WatchService.shared
 
         guard service.isPaired else {
-            return .result(dialog: "Claude Watch is not paired")
+            return .result(dialog: "Remmy is not paired")
         }
 
         // Check if already paused
         if service.isSessionInterrupted {
-            return .result(dialog: "Claude is already paused")
+            return .result(dialog: "Remmy is already paused")
         }
 
         // Send pause signal
         await service.sendInterrupt(action: .stop)
 
-        return .result(dialog: "Claude paused")
+        return .result(dialog: "Remmy paused")
     }
 }
 
-/// App Intent for resuming the Claude session
-/// Voice: "Hey Siri, resume Claude"
+/// App Intent for resuming the Remmy session
+/// Voice: "Hey Siri, resume Remmy"
 @available(watchOS 26.0, *)
-struct ResumeClaudeIntent: AppIntent {
-    static var title: LocalizedStringResource = "Resume Claude"
-    static var description = IntentDescription("Resume the paused Claude session")
+struct ResumeRemmyIntent: AppIntent {
+    static var title: LocalizedStringResource = "Resume Remmy"
+    static var description = IntentDescription("Resume the paused Remmy session")
 
     static var openAppWhenRun: Bool = false
 
@@ -44,17 +44,17 @@ struct ResumeClaudeIntent: AppIntent {
         let service = WatchService.shared
 
         guard service.isPaired else {
-            return .result(dialog: "Claude Watch is not paired")
+            return .result(dialog: "Remmy is not paired")
         }
 
         // Check if already running
         if !service.isSessionInterrupted {
-            return .result(dialog: "Claude is already running")
+            return .result(dialog: "Remmy is already running")
         }
 
         // Send resume signal
         await service.sendInterrupt(action: .resume)
 
-        return .result(dialog: "Claude resumed")
+        return .result(dialog: "Remmy resumed")
     }
 }
