@@ -113,3 +113,19 @@ logs/security/
 happy-reference/
 happy-cli-reference/
 happy-server-reference/
+
+# Pencil design files
+*.pen
+
+# AI tool configs (editor-specific)
+.agent/
+.agents/
+.codex/
+.cursor/
+.gemini/
+.opencode/
+.windsurf/
+
+# Claude session state (ephemeral)
+.claude/hook-state/
+.claude/logs/
