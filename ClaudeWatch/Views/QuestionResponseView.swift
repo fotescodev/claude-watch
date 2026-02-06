@@ -54,7 +54,7 @@ struct QuestionResponseView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 8)
                                     .background(Claude.question)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .clipShape(RoundedRectangle(cornerRadius: Claude.Radius.medium))
                             }
                             .buttonStyle(.plain)
                             .disabled(isResponding)
@@ -71,7 +71,7 @@ struct QuestionResponseView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 8)
                                     .background(Claude.fill2)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .clipShape(RoundedRectangle(cornerRadius: Claude.Radius.medium))
                             }
                             .buttonStyle(.plain)
                             .disabled(isResponding)

@@ -53,25 +53,8 @@ struct ApprovalView: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            // V3: Header with tier-colored dot and pending count
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(tierColor)
-                    .frame(width: 8, height: 8)
-
-                Text("\(pendingCount) pending")
-                    .font(.claudeFootnoteMedium)
-                    .foregroundStyle(tierColor)
-
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 4)
-
-            Spacer(minLength: 4)
-
-            // V3: StateCard with tier-colored glow and border
+        ScreenShell {
+            // V3: StateCard with tier-colored glow and border (toolbar handles status)
             if let action = action {
                 StateCard(state: tierState, glowOffset: 10, padding: 14) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -99,63 +82,56 @@ struct ApprovalView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 8)
             }
-
-            Spacer(minLength: 4)
-
+        } action: {
             // V3: Button row OUTSIDE card
             if let action = action {
-                VStack(spacing: 8) {
-                    HStack(spacing: 8) {
-                        // Approve button (green gradient, or red for dangerous)
-                        Button {
-                            approve(action)
-                        } label: {
-                            Text("Approve")
-                                .font(.claudeBodyMedium)
-                                .foregroundStyle(action.tier == .high ? .white : .black)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(
-                                    action.tier == .high
-                                        ? AnyShapeStyle(Claude.danger.opacity(0.3))
-                                        : AnyShapeStyle(LinearGradient(
-                                            colors: [Color(red: 0.29, green: 0.87, blue: 0.50), Claude.success],
-                                            startPoint: .top,
-                                            endPoint: .bottom
-                                        ))
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: 20))
-                                .overlay(
-                                    action.tier == .high
-                                        ? RoundedRectangle(cornerRadius: 20).stroke(Claude.danger, lineWidth: 1)
-                                        : nil
-                                )
-                        }
-                        .buttonStyle(.plain)
-
-                        // Reject button (red)
-                        Button {
-                            reject(action)
-                        } label: {
-                            Text("Reject")
-                                .font(.claudeBodyMedium)
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(Claude.danger)
-                                .clipShape(RoundedRectangle(cornerRadius: 20))
-                        }
-                        .buttonStyle(.plain)
+                HStack(spacing: 8) {
+                    // Approve button (green gradient, or red for dangerous)
+                    Button {
+                        approve(action)
+                    } label: {
+                        Text("Approve")
+                            .font(.claudeBodyMedium)
+                            .foregroundStyle(action.tier == .high ? .white : .black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(
+                                action.tier == .high
+                                    ? AnyShapeStyle(Claude.danger.opacity(0.3))
+                                    : AnyShapeStyle(LinearGradient(
+                                        colors: [Color(red: 0.29, green: 0.87, blue: 0.50), Claude.success],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    ))
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 20))
+                            .overlay(
+                                action.tier == .high
+                                    ? RoundedRectangle(cornerRadius: 20).stroke(Claude.danger, lineWidth: 1)
+                                    : nil
+                            )
                     }
-                    .padding(.horizontal, 16)
+                    .buttonStyle(.plain)
 
-                    // Hint text
-                    Text(action.tier == .high ? "Dangerous - handle on Mac" : "Double tap to approve")
-                        .font(.claudeMicro)
-                        .foregroundStyle(Claude.textDisabled)
+                    // Reject button (red)
+                    Button {
+                        reject(action)
+                    } label: {
+                        Text("Reject")
+                            .font(.claudeBodyMedium)
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Claude.danger)
+                            .clipShape(RoundedRectangle(cornerRadius: 20))
+                    }
+                    .buttonStyle(.plain)
                 }
+            }
+        } hint: {
+            if let action = action {
+                ScreenHint(action.tier == .high ? "Dangerous - handle on Mac" : "Double tap to approve")
             }
         }
         // Double tap to approve (Tier 1-2 only)

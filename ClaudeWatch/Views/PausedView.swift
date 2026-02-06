@@ -7,49 +7,49 @@ import WatchKit
 struct PausedView: View {
     var service = WatchService.shared
 
-    /// Get task title from session progress
+    /// Get task title from session progress (prefer task name over activity which may echo "Paused")
     private var taskTitle: String {
         if let progress = service.sessionProgress {
-            let activity = progress.currentActivity ?? progress.currentTask ?? "Task"
-            return "\(progress.completedCount)/\(progress.totalCount) \(activity)"
+            let task = progress.currentTask ?? progress.currentActivity ?? "Task"
+            return "\(progress.completedCount)/\(progress.totalCount) \(task)"
         }
         return "Session paused"
     }
 
+    /// Convert session tasks to checklist items (max 4)
+    private var checklistItems: [(status: TaskCheckStatus, text: String)] {
+        guard let progress = service.sessionProgress, !progress.tasks.isEmpty else { return [] }
+        return progress.tasks.prefix(4).map { task in
+            let status: TaskCheckStatus = switch task.status {
+            case .completed: .done
+            case .inProgress: .active
+            case .pending: .pending
+            }
+            return (status: status, text: task.content)
+        }
+    }
+
     var body: some View {
         ScreenShell {
-            // V3 B2: StateCard with gray glow
+            // V3 B2: StateCard with gray glow (toolbar already shows "● Paused")
             StateCard(state: .idle, glowOffset: 25) {
                 VStack(alignment: .leading, spacing: 8) {
-                    // PAUSED badge (black text on gray bg per design)
-                    Text("PAUSED")
-                        .font(.claudeMicroMono)
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Claude.idle)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-
-                    // Task title with count (15pt semibold)
+                    // Task title with count
                     Text(taskTitle)
                         .font(.claudeHeadline)
                         .foregroundStyle(.white)
-                        .lineLimit(1)
+                        .lineLimit(2)
 
-                    // "Waiting to resume..." subtitle
-                    Text("Waiting to resume...")
-                        .font(.claudeCaption)
-                        .foregroundStyle(Claude.textMuted)
+                    // Task checklist when available, otherwise subtitle
+                    if !checklistItems.isEmpty {
+                        TaskChecklist(items: checklistItems)
+                    } else {
+                        Text("Waiting to resume...")
+                            .font(.claudeCaption)
+                            .foregroundStyle(Claude.textMuted)
+                    }
                 }
             }
-        } action: {
-            // Resume button (solid blue per design)
-            ScreenActionButton("Resume", icon: "play.fill", color: Claude.info) {
-                Task {
-                    await service.sendInterrupt(action: .resume)
-                }
-            }
-            .accessibilityLabel("Resume session")
         } hint: {
             ScreenHint("Double tap to resume")
         }

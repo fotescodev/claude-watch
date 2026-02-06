@@ -653,31 +653,7 @@ struct CombinedActionDetailView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            // Header with back button
-            HStack(spacing: 6) {
-                Button { onBack() } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.claudeCaptionBold)
-                        .foregroundStyle(tierColor)
-                }
-                .buttonStyle(.plain)
-
-                Circle()
-                    .fill(tierColor)
-                    .frame(width: 8, height: 8)
-
-                Text(action.tier.displayName)
-                    .font(.claudeFootnoteMedium)
-                    .foregroundStyle(tierColor)
-
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 4)
-
-            Spacer(minLength: 2)
-
-            // Action card
+            // Action card (toolbar handles back + status)
             StateCard(state: tierState, glowOffset: 10, padding: 12) {
                 VStack(alignment: .leading, spacing: 6) {
                     // Badge
@@ -729,6 +705,27 @@ struct CombinedActionDetailView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 20))
                 }
                 .buttonStyle(.plain)
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                HStack(spacing: 4) {
+                    Button { onBack() } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Back to queue")
+
+                    Circle()
+                        .fill(Claude.warning)
+                        .frame(width: 6, height: 6)
+                    Text("\(service.state.pendingActions.count) pending")
+                        .font(.claudeFootnoteMedium)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(Claude.warning)
             }
         }
     }
