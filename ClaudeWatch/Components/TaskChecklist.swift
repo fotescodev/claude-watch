@@ -43,11 +43,11 @@ struct TaskCheckItem: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: status.icon)
-                .font(.system(size: 12))
+                .font(.claudeCaption)
                 .foregroundStyle(status.color)
 
             Text(text)
-                .font(.system(size: 12))
+                .font(.claudeCaption)
                 .foregroundStyle(status == .pending ? Color(white: 0.43) : .white)
                 .lineLimit(1)
         }

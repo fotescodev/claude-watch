@@ -111,8 +111,8 @@ struct ScreenHint: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 9, weight: .medium))
-            .foregroundStyle(Color.white.opacity(0.38))
+            .font(.claudeNano)
+            .foregroundStyle(Claude.textHint)
     }
 }
 
@@ -145,10 +145,10 @@ struct ScreenActionButton: View {
             HStack(spacing: 8) {
                 if let icon = icon {
                     Image(systemName: icon)
-                        .font(.system(size: 14))
+                        .font(.claudeBody)
                 }
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.claudeBodyMedium)
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
@@ -187,15 +187,15 @@ struct ScreenSecondaryButton: View {
             HStack(spacing: 4) {
                 if let icon = icon {
                     Image(systemName: icon)
-                        .font(.system(size: 10))
+                        .font(.claudeMicro)
                 }
                 Text(title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.claudeFootnoteMedium)
             }
-            .foregroundStyle(.white.opacity(0.7))
+            .foregroundStyle(Claude.textSecondary)
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
-            .background(Color.white.opacity(0.08))
+            .background(Claude.fill1)
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)

@@ -58,7 +58,7 @@ struct UnpairedMainView: View {
 
             // V3 A1: "Ready to pair" text below icon
             Text("Ready to pair")
-                .font(.system(size: 14, weight: .medium))
+                .font(.claudeBodyMedium)
                 .foregroundStyle(Claude.textSecondary)
 
             Spacer(minLength: 8)
@@ -70,7 +70,7 @@ struct UnpairedMainView: View {
                     onPairNow()
                 } label: {
                     Text("Pair with Code")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.claudeBodyMedium)
                         .foregroundStyle(.black)  // V3: Black text on orange button
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -85,7 +85,7 @@ struct UnpairedMainView: View {
                         .scaleEffect(0.8)
                         .tint(Claude.orange)
                     Text("Preparing...")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.claudeBodyMedium)
                         .foregroundStyle(Claude.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -138,7 +138,7 @@ struct PairingCodeDisplayView: View {
                         onBack()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.claudeBodyMedium)
                             .foregroundStyle(Claude.textSecondary)
                     }
                     .buttonStyle(.plain)
@@ -207,7 +207,7 @@ struct PairingCodeDisplayView: View {
 
                     // Code expires countdown
                     Text("Expires in \(secondsRemaining / 60):\(String(format: "%02d", secondsRemaining % 60))")
-                        .font(.system(size: 11))
+                        .font(.claudeFootnote)
                         .foregroundStyle(Claude.textTertiary)
                 }
             }
@@ -318,7 +318,7 @@ struct ConnectedSuccessView: View {
                     .fill(Claude.success.opacity(0.2))
                     .frame(width: 50, height: 50)
                 Image(systemName: "checkmark")
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.claudeHero)
                     .foregroundStyle(Claude.success)
             }
 
@@ -337,7 +337,7 @@ struct ConnectedSuccessView: View {
             // Pro tip
             HStack(spacing: 6) {
                 Image(systemName: "lightbulb.fill")
-                    .font(.system(size: 12))
+                    .font(.claudeCaption)
                     .foregroundStyle(Claude.warning)
                 Text("Raise wrist to approve")
                     .font(.claudeFootnote)

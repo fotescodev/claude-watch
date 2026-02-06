@@ -30,13 +30,13 @@ struct QuestionResponseView: View {
                 VStack(alignment: .center, spacing: 10) {
                     // Question mark icon (24pt bold, purple)
                     Text("?")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.claudeHero)
                         .foregroundStyle(Claude.question)
                         .frame(maxWidth: .infinity)
 
                     // Question text (12pt medium, white, centered)
                     Text(question)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.claudeCaptionMedium)
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
@@ -49,7 +49,7 @@ struct QuestionResponseView: View {
                                 selectOption(recommended)
                             } label: {
                                 Text(recommended.label)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.claudeFootnoteBold)
                                     .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 8)
@@ -66,11 +66,11 @@ struct QuestionResponseView: View {
                                 selectOption(alternative)
                             } label: {
                                 Text(alternative.label)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.claudeFootnoteBold)
                                     .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 8)
-                                    .background(Color.white.opacity(0.12))
+                                    .background(Claude.fill2)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
                             .buttonStyle(.plain)

@@ -77,7 +77,7 @@ struct ActionQueue: View {
                     showApproveAllConfirmation = true
                 } label: {
                     Text("Approve All (\(approvableCount))")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.claudeCaptionBold)
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -113,7 +113,7 @@ struct ActionQueue: View {
             // Warning if Tier 3 present with multiple actions
             if hasHighRiskAction && service.state.pendingActions.count > 1 {
                 Text("Some actions require Mac approval")
-                    .font(.system(size: 9))
+                    .font(.claudeNano)
                     .foregroundStyle(Claude.danger)
                     .multilineTextAlignment(.center)
             }
@@ -204,12 +204,12 @@ struct TieredActionCard: View {
 
                     if let path = action.filePath {
                         Text(truncatePath(path))
-                            .font(.system(size: 10, design: .monospaced))
+                            .font(.claudeMonoSmall)
                             .foregroundStyle(Claude.textSecondary)
                             .lineLimit(1)
                     } else if let cmd = action.command {
                         Text(truncateCommand(cmd))
-                            .font(.system(size: 10, design: .monospaced))
+                            .font(.claudeMonoSmall)
                             .foregroundStyle(Claude.textSecondary)
                             .lineLimit(1)
                     }
@@ -220,7 +220,7 @@ struct TieredActionCard: View {
                 // Show count badge if more than 1 action
                 if totalCount > 1 {
                     Text("\(totalCount)")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.claudeFootnoteBold)
                         .foregroundStyle(.white)
                         .frame(width: 22, height: 22)
                         .background(tier.cardColor)
@@ -239,7 +239,7 @@ struct TieredActionCard: View {
 
             // V3: Hint text for all tiers
             Text(tier.hintText)
-                .font(.system(size: 10, weight: .medium))
+                .font(.claudeMicroMedium)
                 .foregroundStyle(Claude.textTertiary)
                 .multilineTextAlignment(.center)
         }
@@ -264,7 +264,7 @@ struct TieredActionCard: View {
                 rejectAction()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.claudeTitle)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .foregroundStyle(.white)
@@ -288,7 +288,7 @@ struct TieredActionCard: View {
                 approveAction()
             } label: {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.claudeTitle)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .foregroundStyle(.white)
@@ -322,7 +322,7 @@ struct TieredActionCard: View {
                 reviewOnMac()
             } label: {
                 Text("Review on Mac")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.claudeBodyMedium)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .foregroundStyle(.white)
@@ -355,9 +355,9 @@ struct TieredActionCard: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.claudeCaptionBold)
                         Text("Reject")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.claudeFootnoteBold)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -383,9 +383,9 @@ struct TieredActionCard: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "clock")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.claudeFootnoteBold)
                         Text("Remind")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.claudeFootnoteBold)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -739,7 +739,7 @@ struct CompactActionCard: View {
                     .sensoryFeedback(.error, trigger: didReject)
 
                     Text("Approve requires Mac")
-                        .font(.system(size: 9))
+                        .font(.claudeNano)
                         .foregroundStyle(Claude.textTertiary)
                 }
             }

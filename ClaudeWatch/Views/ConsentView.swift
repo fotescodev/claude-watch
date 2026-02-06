@@ -40,7 +40,7 @@ struct ConsentPage1Privacy: View {
                     .fill(Claude.orange.opacity(0.2))
                     .frame(width: 44, height: 44)
                 Image(systemName: "lock.fill")
-                    .font(.system(size: 20))
+                    .font(.claudeIconButton)
                     .foregroundStyle(Claude.orange)
             }
 
@@ -159,7 +159,7 @@ struct ConsentPage3Accept: View {
                     .fill(Claude.success.opacity(0.2))
                     .frame(width: 44, height: 44)
                 Image(systemName: "checkmark")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.claudeIconButton)
                     .foregroundStyle(Claude.success)
             }
 
@@ -188,7 +188,7 @@ struct ConsentPage3Accept: View {
                 onAccept()
             } label: {
                 Text("Accept")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.claudeBodyMedium)
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -212,7 +212,7 @@ struct PrivacyInfoView: View {
                 // Header
                 HStack {
                     Image(systemName: "hand.raised.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.claudeBodyMedium)
                     Text("Privacy")
                         .font(.system(size: 15, weight: .bold))
                 }
@@ -244,7 +244,7 @@ struct PrivacyInfoView: View {
                     Image(systemName: hasAcceptedConsent ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .foregroundStyle(hasAcceptedConsent ? Claude.success : Claude.orange)
                     Text(hasAcceptedConsent ? "Consent given" : "Consent pending")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.claudeCaptionBold)
                         .foregroundStyle(hasAcceptedConsent ? Claude.success : Claude.orange)
                 }
                 .padding(.top, 8)
@@ -256,7 +256,7 @@ struct PrivacyInfoView: View {
                         WKInterfaceDevice.current().play(.click)
                     } label: {
                         Text("Withdraw Consent")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.claudeSubheadline)
                             .foregroundStyle(Claude.orange)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
@@ -271,7 +271,7 @@ struct PrivacyInfoView: View {
                     dismiss()
                 } label: {
                     Text("Done")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.claudeSubheadline)
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -293,17 +293,17 @@ struct PrivacyInfoView: View {
                     .frame(width: 32, height: 32)
 
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.claudeBodyMedium)
                     .foregroundStyle(Claude.orange)
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.claudeSubheadline)
                     .foregroundStyle(Claude.textPrimary)
 
                 Text(description)
-                    .font(.system(size: 11))
+                    .font(.claudeFootnote)
                     .foregroundStyle(Claude.textSecondary)
             }
 

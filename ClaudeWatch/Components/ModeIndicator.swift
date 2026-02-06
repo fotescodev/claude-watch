@@ -47,7 +47,7 @@ struct ModeIndicator: View {
                 .frame(width: 18, height: 18)
 
             Text(mode.letter)
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .font(.claudeMicroMono)
                 .foregroundStyle(.black)
         }
     }

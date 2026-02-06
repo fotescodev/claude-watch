@@ -24,7 +24,7 @@ struct MainView: View {
         case .working:
             return ("Working", ClaudeState.working.color)
         case .paused:
-            return ("Paused", Color(red: 0.557, green: 0.557, blue: 0.576))
+            return ("Paused", Claude.idle)
         case .question:
             return ("Question", Claude.question)
         case .contextWarning:
@@ -111,7 +111,7 @@ struct MainView: View {
                                 .fill(statusInfo.color)
                                 .frame(width: 6, height: 6)
                             Text(statusInfo.text)
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.claudeMicroMedium)
                                 .foregroundStyle(statusInfo.color)
                                 .lineLimit(1)
                                 .fixedSize()
@@ -130,7 +130,7 @@ struct MainView: View {
                         WKInterfaceDevice.current().play(.click)
                     } label: {
                         Image(systemName: "backward.fill")
-                            .font(.system(size: 7, weight: .bold))
+                            .font(.claudeNanoBold)
                             .foregroundStyle(.black)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
@@ -141,7 +141,7 @@ struct MainView: View {
 
                     // Current label
                     Text(demoScreenLabel)
-                        .font(.system(size: 7, weight: .bold, design: .monospaced))
+                        .font(.claudeMonoTiny)
                         .foregroundStyle(Claude.warning)
 
                     // >> Next
@@ -150,7 +150,7 @@ struct MainView: View {
                         WKInterfaceDevice.current().play(.click)
                     } label: {
                         Image(systemName: "forward.fill")
-                            .font(.system(size: 7, weight: .bold))
+                            .font(.claudeNanoBold)
                             .foregroundStyle(.black)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
@@ -218,7 +218,7 @@ struct MainView: View {
                                     }
                                 } label: {
                                     Image(systemName: service.isSessionInterrupted ? "play.fill" : "pause.fill")
-                                        .font(.system(size: 12, weight: .semibold))
+                                        .font(.claudeCaptionBold)
                                         .foregroundStyle(.white)
                                         .frame(width: 32, height: 32)
                                         .background(service.isSessionInterrupted ? Claude.success : Claude.danger)
@@ -459,16 +459,16 @@ struct StatusHeader: View {
                     // Show completion state, current activity, or working status
                     if isComplete {
                         Text("Complete")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.claudeCaptionBold)
                             .foregroundStyle(Claude.success)
                     } else if let activity = progress.currentActivity ?? progress.currentTask {
                         Text(activity)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.claudeCaptionBold)
                             .foregroundStyle(Claude.textPrimary)
                             .lineLimit(1)
                     } else {
                         Text("Working...")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.claudeCaptionBold)
                             .foregroundStyle(Claude.textPrimary)
                     }
                 }
@@ -485,7 +485,7 @@ struct StatusHeader: View {
                                 .foregroundStyle(task.status.color)
 
                             Text(task.content)
-                                .font(.system(size: 9))
+                                .font(.claudeNano)
                                 .foregroundStyle(task.status == .completed ? Claude.textSecondary : Claude.textPrimary)
                                 .lineLimit(1)
                         }

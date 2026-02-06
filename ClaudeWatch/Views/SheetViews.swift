@@ -139,14 +139,14 @@ struct SettingsSheet: View {
                         .frame(width: 10, height: 10)
 
                     Text(statusText)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.claudeSubheadline)
                         .foregroundStyle(.white)
 
                     Spacer()
 
                     // Version badge
                     Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
-                        .font(.system(size: 10))
+                        .font(.claudeMicro)
                         .foregroundStyle(Claude.textTertiary)
                 }
                 .padding(.horizontal, 4)
@@ -161,7 +161,7 @@ struct SettingsSheet: View {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundStyle(.white)
                             Text("Exit Demo")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.claudeSubheadline)
                                 .foregroundStyle(.white)
                         }
                         .frame(maxWidth: .infinity)
@@ -184,7 +184,7 @@ struct SettingsSheet: View {
                             Image(systemName: "play.circle.fill")
                                 .foregroundStyle(.black)
                             Text("Try Demo")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.claudeBodyMedium)
                                 .foregroundStyle(.black)
                         }
                         .frame(maxWidth: .infinity)
@@ -225,10 +225,10 @@ struct SettingsSheet: View {
                 } label: {
                     HStack {
                         Image(systemName: "hand.raised.fill")
-                            .font(.system(size: 10))
+                            .font(.claudeMicro)
                             .foregroundStyle(Claude.textTertiary)
                         Text("Privacy")
-                            .font(.system(size: 11))
+                            .font(.claudeFootnote)
                             .foregroundStyle(Claude.textSecondary)
                         Spacer()
                     }
@@ -250,7 +250,7 @@ struct SettingsSheet: View {
     private var demoTestGrid: some View {
         VStack(spacing: 6) {
             Text("TEST SCREENS")
-                .font(.system(size: 9, weight: .bold))
+                .font(.claudeNanoBold)
                 .foregroundStyle(Claude.textTertiary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -314,10 +314,10 @@ struct SettingsSheet: View {
         } label: {
             VStack(spacing: 2) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.claudeCaptionBold)
                     .foregroundStyle(color)
                 Text(label)
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .font(.claudeMonoTiny)
                     .foregroundStyle(Claude.textSecondary)
             }
             .frame(maxWidth: .infinity)

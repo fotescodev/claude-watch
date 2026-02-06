@@ -33,15 +33,15 @@ struct HistoryView: View {
             Spacer()
 
             Image(systemName: "clock.arrow.circlepath")
-                .font(.system(size: 36, weight: .light))
+                .font(.claudeIconLarge)
                 .foregroundStyle(Claude.textTertiary)
 
             Text("No Activity Yet")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.claudeBodyMedium)
                 .foregroundStyle(Claude.textPrimary)
 
             Text("Your session activity will appear here")
-                .font(.system(size: 11))
+                .font(.claudeFootnote)
                 .foregroundStyle(Claude.textSecondary)
                 .multilineTextAlignment(.center)
 
@@ -78,7 +78,7 @@ struct DayHeader: View {
 
     var body: some View {
         Text(dayText)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.claudeFootnoteBold)
             .foregroundStyle(Claude.textSecondary)
             .textCase(.uppercase)
     }
@@ -116,13 +116,13 @@ struct ActivityRow: View {
             // Event details
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.truncatedTitle)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.claudeCaptionMedium)
                     .foregroundStyle(Claude.textPrimary)
                     .lineLimit(1)
 
                 if let subtitle = event.subtitle {
                     Text(subtitle)
-                        .font(.system(size: 10))
+                        .font(.claudeMicro)
                         .foregroundStyle(Claude.textTertiary)
                         .lineLimit(1)
                 }

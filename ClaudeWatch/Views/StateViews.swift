@@ -27,7 +27,7 @@ struct EmptyStateView: View {
                 HStack(spacing: 6) {
                     ClaudeStateDot(state: .idle, size: 6)
                     Text("Idle")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.claudeCaptionBold)
                         .foregroundStyle(ClaudeState.idle.color)
                     Spacer()
                 }
@@ -44,7 +44,7 @@ struct EmptyStateView: View {
                 // V3: Icon-only footer button (history only - settings via long press)
                 NavigationLink(destination: HistoryView()) {
                     Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 20))
+                        .font(.claudeIconButton)
                         .foregroundStyle(Claude.textSecondary)
                 }
                 .buttonStyle(.plain)
@@ -117,7 +117,7 @@ struct OfflineStateView: View {
             HStack(spacing: 6) {
                 ClaudeStateDot(state: .error, size: 6)
                 Text("Error")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.claudeCaptionBold)
                     .foregroundStyle(ClaudeState.error.color)
                 Spacer()
             }
@@ -128,7 +128,7 @@ struct OfflineStateView: View {
 
             // Icon - yellow/orange exclamation triangle per design spec
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 40, weight: .light))
+                .font(.claudeIconDisplay)
                 .foregroundStyle(Claude.warning)
 
             // Title and subtitle per design spec
@@ -324,7 +324,7 @@ struct SessionDashboardContent: View {
                         ClaudeFaceLogo(size: 44)
 
                         Text("Ready")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.claudeHeadline)
                             .foregroundStyle(Claude.anthropicOrange)
                     }
                 }
@@ -344,21 +344,21 @@ struct LastActivityCard: View {
         VStack(spacing: 6) {
             // Large centered title (17pt semibold, white)
             Text(event.truncatedTitle)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.claudeTitle)
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
 
             // Time ago (13pt, #9A9A9F)
             Text(event.timeAgoText)
-                .font(.system(size: 13))
-                .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.624))
+                .font(.claudeSubheadline)
+                .foregroundStyle(Claude.textMuted)
 
             // Stats row inside card (11pt medium, #6E6E73)
             if let stats = stats {
                 Text("\(stats.tasks) task\(stats.tasks == 1 ? "" : "s")  •  \(stats.approvals) approval\(stats.approvals == 1 ? "" : "s")")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.451))
+                    .font(.claudeFootnoteMedium)
+                    .foregroundStyle(Claude.textDisabled)
             }
         }
         .frame(maxWidth: .infinity)
@@ -387,23 +387,23 @@ struct SessionStatsRow: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "checklist")
-                .font(.system(size: 10))
+                .font(.claudeMicro)
                 .foregroundStyle(Claude.textTertiary)
 
             Text("\(tasks) task\(tasks == 1 ? "" : "s")")
-                .font(.system(size: 10))
+                .font(.claudeMicro)
                 .foregroundStyle(Claude.textSecondary)
 
             Text("•")
-                .font(.system(size: 10))
+                .font(.claudeMicro)
                 .foregroundStyle(Claude.textTertiary)
 
             Image(systemName: "hand.raised")
-                .font(.system(size: 10))
+                .font(.claudeMicro)
                 .foregroundStyle(Claude.textTertiary)
 
             Text("\(approvals) approval\(approvals == 1 ? "" : "s")")
-                .font(.system(size: 10))
+                .font(.claudeMicro)
                 .foregroundStyle(Claude.textSecondary)
         }
     }
@@ -415,7 +415,7 @@ struct IdleWarningText: View {
 
     var body: some View {
         Text("Session idle for \(minutes) min")
-            .font(.system(size: 9))
+            .font(.claudeNano)
             .foregroundStyle(Claude.warning)
     }
 }

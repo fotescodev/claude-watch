@@ -13,8 +13,8 @@ struct FloatingSettingsButton: View {
                 Spacer()
                 NavigationLink(destination: SettingsSheet()) {
                     Image(systemName: "gearshape.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(Color.white.opacity(0.5))
+                        .font(.claudeTitle)
+                        .foregroundStyle(Claude.textMuted)
                 }
                 .buttonStyle(.plain)
                 .padding(.bottom, 4)

@@ -68,7 +68,7 @@ struct SwipeActionCard<Content: View>: View {
                 // Reject icon (left)
                 if offset < 0 {
                     Image(systemName: "xmark")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.claudeIconButton)
                         .foregroundStyle(.white)
                         .opacity(min(1.0, Double(-offset) / Double(cardWidth * threshold)))
                         .padding(.leading, 16)
@@ -79,7 +79,7 @@ struct SwipeActionCard<Content: View>: View {
                 // Approve icon (right)
                 if offset > 0 {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.claudeIconButton)
                         .foregroundStyle(.white)
                         .opacity(min(1.0, Double(offset) / Double(cardWidth * threshold)))
                         .padding(.trailing, 16)
@@ -198,14 +198,14 @@ struct SwipeHintView: View {
         if tier.canApproveFromWatch {
             HStack(spacing: 8) {
                 Image(systemName: "arrow.left.arrow.right")
-                    .font(.system(size: 10))
+                    .font(.claudeMicro)
                 Text("Swipe to approve/reject")
-                    .font(.system(size: 9))
+                    .font(.claudeNano)
             }
             .foregroundStyle(Claude.textTertiary)
         } else {
             Text("Swipe disabled for dangerous actions")
-                .font(.system(size: 9))
+                .font(.claudeNano)
                 .foregroundStyle(Claude.danger.opacity(0.7))
         }
     }
