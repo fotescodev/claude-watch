@@ -61,7 +61,7 @@ struct ApprovalView: View {
                     .frame(width: 8, height: 8)
 
                 Text("\(pendingCount) pending")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.claudeFootnoteMedium)
                     .foregroundStyle(tierColor)
 
                 Spacer()
@@ -77,7 +77,7 @@ struct ApprovalView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         // Badge (type indicator)
                         Text(badgeText)
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .font(.claudeMicroMono)
                             .foregroundStyle(.black)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
@@ -86,15 +86,15 @@ struct ApprovalView: View {
 
                         // Title (filename or command)
                         Text(action.title)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.claudeHeadline)
                             .foregroundStyle(.white)
                             .lineLimit(1)
 
                         // Description (not optional, check if empty)
                         if !action.description.isEmpty {
                             Text(action.description)
-                                .font(.system(size: 12))
-                                .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.624))
+                                .font(.claudeCaption)
+                                .foregroundStyle(Claude.textMuted)
                                 .lineLimit(2)
                         }
                     }
@@ -113,7 +113,7 @@ struct ApprovalView: View {
                             approve(action)
                         } label: {
                             Text("Approve")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.claudeBodyMedium)
                                 .foregroundStyle(action.tier == .high ? .white : .black)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
@@ -140,7 +140,7 @@ struct ApprovalView: View {
                             reject(action)
                         } label: {
                             Text("Reject")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.claudeBodyMedium)
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
@@ -153,8 +153,8 @@ struct ApprovalView: View {
 
                     // Hint text
                     Text(action.tier == .high ? "Dangerous - handle on Mac" : "Double tap to approve")
-                        .font(.system(size: 10))
-                        .foregroundStyle(Color(red: 0.431, green: 0.431, blue: 0.451))
+                        .font(.claudeMicro)
+                        .foregroundStyle(Claude.textDisabled)
                 }
             }
         }

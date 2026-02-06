@@ -42,7 +42,7 @@ struct ActionButtonRow: View {
                 onYes()
             } label: {
                 Text(yesLabel)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.claudeBodyMedium)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
             }
@@ -54,7 +54,7 @@ struct ActionButtonRow: View {
                 onNo()
             } label: {
                 Text(noLabel)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.claudeBodyMedium)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
             }

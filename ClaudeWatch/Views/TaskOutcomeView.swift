@@ -27,7 +27,7 @@ struct TaskOutcomeView: View {
                             .frame(width: 36, height: 36)
 
                         Image(systemName: "checkmark")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.claudeLargeTitle)
                             .foregroundStyle(ClaudeState.success.color)
                     }
                     .scaleEffect(checkmarkScale)
@@ -35,7 +35,7 @@ struct TaskOutcomeView: View {
 
                     // Title
                     Text("Tasks Complete")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.claudeBodyMedium)
                         .foregroundStyle(.white)
 
                     // Task list (inside card)
@@ -48,16 +48,16 @@ struct TaskOutcomeView: View {
                                         .frame(width: 5, height: 5)
 
                                     Text(task.content)
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(Color.white.opacity(0.7))
+                                        .font(.claudeMicro)
+                                        .foregroundStyle(Claude.textSecondary)
                                         .lineLimit(1)
                                 }
                             }
 
                             if completedTasks.count > 5 {
                                 Text("+\(completedTasks.count - 5) more")
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(Color.white.opacity(0.5))
+                                    .font(.claudeNano)
+                                    .foregroundStyle(Claude.textMuted)
                                     .padding(.leading, 11)
                             }
                         }
@@ -72,11 +72,11 @@ struct TaskOutcomeView: View {
                 service.clearSessionProgress()
             } label: {
                 Text("Dismiss")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.claudeSubheadline)
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(Color.white.opacity(0.1))
+                    .background(Claude.fill2)
                     .clipShape(RoundedRectangle(cornerRadius: 18))
             }
             .buttonStyle(.plain)

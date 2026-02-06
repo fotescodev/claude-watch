@@ -23,23 +23,23 @@ struct PausedView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     // PAUSED badge (black text on gray bg per design)
                     Text("PAUSED")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .font(.claudeMicroMono)
                         .foregroundStyle(.black)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
-                        .background(Color(red: 0.557, green: 0.557, blue: 0.576))
+                        .background(Claude.idle)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
 
                     // Task title with count (15pt semibold)
                     Text(taskTitle)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.claudeHeadline)
                         .foregroundStyle(.white)
                         .lineLimit(1)
 
                     // "Waiting to resume..." subtitle
                     Text("Waiting to resume...")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.624)) // #9A9A9F
+                        .font(.claudeCaption)
+                        .foregroundStyle(Claude.textMuted)
                 }
             }
         } action: {

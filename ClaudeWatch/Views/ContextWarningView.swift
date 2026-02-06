@@ -23,20 +23,20 @@ struct ContextWarningView: View {
 
                     // Title (11pt semibold, white)
                     Text("Context Usage")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.claudeFootnoteBold)
                         .foregroundStyle(.white)
 
                     // Subtitle (10pt, #ffffff99)
                     Text("Running low on\nconversation context")
-                        .font(.system(size: 10))
-                        .foregroundStyle(Color.white.opacity(0.6))
+                        .font(.claudeMicro)
+                        .foregroundStyle(Claude.textSecondary)
                         .multilineTextAlignment(.center)
 
                     // Progress bar (6px height, #ffffff20 bg, yellow fill)
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 3)
-                                .fill(Color.white.opacity(0.12))
+                                .fill(Claude.fill2)
                             RoundedRectangle(cornerRadius: 3)
                                 .fill(Claude.context)
                                 .frame(width: geo.size.width * CGFloat(percentage) / 100.0)
@@ -49,7 +49,7 @@ struct ContextWarningView: View {
                         dismiss()
                     } label: {
                         Text("OK")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.claudeNano)
                             .foregroundStyle(.black)
                             .frame(width: 67, height: 27)
                             .background(Claude.context)

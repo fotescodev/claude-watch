@@ -173,7 +173,7 @@ struct TierQueueView: View {
                         .frame(width: 8, height: 8)
 
                     Text("\(actions.count) \(tierLabel)")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.claudeFootnoteMedium)
                         .foregroundStyle(tierColor)
 
                     Spacer()
@@ -192,7 +192,7 @@ struct TierQueueView: View {
                         HStack(spacing: 8) {
                             // Badge
                             Text(badgeText(for: action))
-                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .font(.claudeMonoTiny)
                                 .foregroundStyle(.black)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 3)
@@ -200,7 +200,7 @@ struct TierQueueView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
 
                             Text(action.title)
-                                .font(.system(size: 13))
+                                .font(.claudeSubheadline)
                                 .foregroundStyle(.white)
                                 .lineLimit(1)
                         }
@@ -209,8 +209,8 @@ struct TierQueueView: View {
                     // Overflow indicator
                     if actions.count > 3 {
                         Text("+\(actions.count - 3) more")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color.white.opacity(0.5))
+                            .font(.claudeFootnote)
+                            .foregroundStyle(Claude.textMuted)
                     }
                 }
             }
@@ -237,7 +237,7 @@ struct TierQueueView: View {
                 // Danger tier - must review each (centered)
                 Button { onReview() } label: {
                     Text("Review Each")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.claudeBodyMedium)
                         .foregroundStyle(Claude.danger)
                         .padding(.horizontal, 24)
                         .padding(.vertical, 10)
@@ -254,18 +254,18 @@ struct TierQueueView: View {
                 HStack(spacing: 8) {
                     Button { onReview() } label: {
                         Text("Review")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.claudeSubheadline)
                             .foregroundStyle(.white)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
-                            .background(Color.white.opacity(0.15))
+                            .background(Claude.fill3)
                             .clipShape(RoundedRectangle(cornerRadius: 20))
                     }
                     .buttonStyle(.plain)
 
                     Button { approveAll() } label: {
                         Text("Approve All \(actions.count)")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.claudeSubheadline)
                             .foregroundStyle(.black)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
@@ -328,7 +328,7 @@ struct TierReviewView: View {
                         .frame(width: 8, height: 8)
 
                     Text("\(currentIndex + 1) of \(actions.count)")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.claudeFootnoteMedium)
                         .foregroundStyle(tierColor)
 
                     Spacer()
@@ -343,7 +343,7 @@ struct TierReviewView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         // Badge
                         Text(badgeText(for: action))
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .font(.claudeMicroMono)
                             .foregroundStyle(.black)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
@@ -352,15 +352,15 @@ struct TierReviewView: View {
 
                         // Title
                         Text(action.title)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.claudeTitle)
                             .foregroundStyle(.white)
                             .lineLimit(2)
 
                         // Description
                         if !action.description.isEmpty {
                             Text(action.description)
-                                .font(.system(size: 12))
-                                .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.624))
+                                .font(.claudeCaption)
+                                .foregroundStyle(Claude.textMuted)
                                 .lineLimit(2)
                         }
                     }
@@ -373,17 +373,17 @@ struct TierReviewView: View {
                 HStack(spacing: 16) {
                     Button { reject(action) } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.claudeIconButton)
                             .foregroundStyle(.white)
                             .frame(width: 56, height: 44)
-                            .background(Color.white.opacity(0.15))
+                            .background(Claude.fill3)
                             .clipShape(RoundedRectangle(cornerRadius: 22))
                     }
                     .buttonStyle(.plain)
 
                     Button { approve(action) } label: {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.claudeIconButton)
                             .foregroundStyle(.black)
                             .frame(width: 56, height: 44)
                             .background(Claude.success)
@@ -396,7 +396,7 @@ struct TierReviewView: View {
             // No more actions in this tier
             VStack {
                 Text("All reviewed!")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.claudeBodyMedium)
                     .foregroundStyle(.white)
                 Button("Back") { onBack() }
                     .buttonStyle(.plain)
@@ -459,10 +459,10 @@ struct EmptyQueueView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.circle")
-                .font(.system(size: 32))
+                .font(.claudeHero)
                 .foregroundStyle(Claude.success)
             Text("Queue empty")
-                .font(.system(size: 14, weight: .medium))
+                .font(.claudeBodyMedium)
                 .foregroundStyle(.white)
         }
     }
@@ -476,11 +476,6 @@ struct CombinedQueueView: View {
     var service = WatchService.shared
     @State private var selectedAction: PendingAction?
 
-    // Design spec colors (from Pencil MCP)
-    private let greenColor = Color(red: 0.204, green: 0.780, blue: 0.349)  // #34C759
-    private let orangeColor = Color(red: 1.0, green: 0.584, blue: 0.0)     // #FF9500
-    private let redColor = Color(red: 1.0, green: 0.231, blue: 0.188)      // #FF3B30
-
     /// Badge text for action type
     private func badgeText(for action: PendingAction) -> String {
         switch action.type.lowercased() {
@@ -491,12 +486,12 @@ struct CombinedQueueView: View {
         }
     }
 
-    /// Color for action tier (design spec colors)
+    /// Color for action tier (design system tokens)
     private func colorFor(_ action: PendingAction) -> Color {
         switch action.tier {
-        case .low: return greenColor
-        case .medium: return orangeColor
-        case .high: return redColor
+        case .low: return Claude.success
+        case .medium: return Claude.warning
+        case .high: return Claude.danger
         }
     }
 
@@ -527,7 +522,7 @@ struct CombinedQueueView: View {
                     .frame(width: 8, height: 8)
 
                 Text("\(actions.count) pending")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.claudeFootnoteMedium)
                     .foregroundStyle(.white)
 
                 Spacer()
@@ -556,7 +551,7 @@ struct CombinedQueueView: View {
                             HStack(spacing: 8) {
                                 // Badge (design: cornerRadius 4, padding [2,6], fontSize 7)
                                 Text(badgeText(for: action))
-                                    .font(.system(size: 7, weight: .bold, design: .monospaced))
+                                    .font(.claudeMonoTiny)
                                     .foregroundStyle(badgeTextColor(for: action))
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
@@ -565,7 +560,7 @@ struct CombinedQueueView: View {
 
                                 // Title (design: fontSize 11, medium weight)
                                 Text(action.title)
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(.claudeFootnoteMedium)
                                     .foregroundStyle(.white)
                                     .lineLimit(1)
 
@@ -573,8 +568,8 @@ struct CombinedQueueView: View {
 
                                 // Chevron to indicate tappable
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundStyle(Color.white.opacity(0.4))
+                                    .font(.claudeMicroSemibold)
+                                    .foregroundStyle(Claude.textTertiary)
                             }
                             // Design spec: padding [8, 10], cornerRadius 12
                             .padding(.horizontal, 10)
@@ -594,8 +589,8 @@ struct CombinedQueueView: View {
 
                 if actions.count > 4 {
                     Text("+\(actions.count - 4) more")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color.white.opacity(0.5))
+                        .font(.claudeFootnote)
+                        .foregroundStyle(Claude.textMuted)
                 }
             }
             .padding(.horizontal, 8)
@@ -605,11 +600,11 @@ struct CombinedQueueView: View {
             // Approve All button (design: cornerRadius 16, padding [8,12], fontSize 13)
             Button { approveAll() } label: {
                 Text("Approve All \(actions.count)")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.claudeSubheadline)
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(greenColor)
+                    .background(Claude.success)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
             }
             .buttonStyle(.plain)
@@ -631,16 +626,11 @@ struct CombinedActionDetailView: View {
 
     var service = WatchService.shared
 
-    // Design spec colors
-    private let greenColor = Color(red: 0.204, green: 0.780, blue: 0.349)
-    private let orangeColor = Color(red: 1.0, green: 0.584, blue: 0.0)
-    private let redColor = Color(red: 1.0, green: 0.231, blue: 0.188)
-
     private var tierColor: Color {
         switch action.tier {
-        case .low: return greenColor
-        case .medium: return orangeColor
-        case .high: return redColor
+        case .low: return Claude.success
+        case .medium: return Claude.warning
+        case .high: return Claude.danger
         }
     }
 
@@ -667,7 +657,7 @@ struct CombinedActionDetailView: View {
             HStack(spacing: 6) {
                 Button { onBack() } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.claudeCaptionBold)
                         .foregroundStyle(tierColor)
                 }
                 .buttonStyle(.plain)
@@ -677,7 +667,7 @@ struct CombinedActionDetailView: View {
                     .frame(width: 8, height: 8)
 
                 Text(action.tier.displayName)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.claudeFootnoteMedium)
                     .foregroundStyle(tierColor)
 
                 Spacer()
@@ -692,7 +682,7 @@ struct CombinedActionDetailView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     // Badge
                     Text(badgeText)
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .font(.claudeMicroMono)
                         .foregroundStyle(action.tier == .high ? .white : .black)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
@@ -701,15 +691,15 @@ struct CombinedActionDetailView: View {
 
                     // Title
                     Text(action.title)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.claudeTitle)
                         .foregroundStyle(.white)
                         .lineLimit(2)
 
                     // Description
                     if !action.description.isEmpty {
                         Text(action.description)
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color(red: 0.604, green: 0.604, blue: 0.624))
+                            .font(.claudeCaption)
+                            .foregroundStyle(Claude.textMuted)
                             .lineLimit(2)
                     }
                 }
@@ -722,20 +712,20 @@ struct CombinedActionDetailView: View {
             HStack(spacing: 12) {
                 Button { reject() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.claudeLargeTitle)
                         .foregroundStyle(.white)
                         .frame(width: 50, height: 40)
-                        .background(Color.white.opacity(0.15))
+                        .background(Claude.fill3)
                         .clipShape(RoundedRectangle(cornerRadius: 20))
                 }
                 .buttonStyle(.plain)
 
                 Button { approve() } label: {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.claudeLargeTitle)
                         .foregroundStyle(.black)
                         .frame(width: 50, height: 40)
-                        .background(greenColor)
+                        .background(Claude.success)
                         .clipShape(RoundedRectangle(cornerRadius: 20))
                 }
                 .buttonStyle(.plain)

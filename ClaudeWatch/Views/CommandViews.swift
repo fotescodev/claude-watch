@@ -142,7 +142,7 @@ struct ModeSelector: View {
 
                 // Next mode hint
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.claudeNano)
                     .foregroundStyle(Claude.textTertiary)
             }
             .padding(8)

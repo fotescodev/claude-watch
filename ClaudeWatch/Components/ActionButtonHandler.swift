@@ -204,11 +204,11 @@ struct ActionButtonIndicator: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: handler.context.icon)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.claudeMicroSemibold)
                 .foregroundStyle(handler.context.color)
 
             Text(actionDescription)
-                .font(.system(size: 9))
+                .font(.claudeNano)
                 .foregroundStyle(Claude.textTertiary)
         }
         .padding(.horizontal, 8)
