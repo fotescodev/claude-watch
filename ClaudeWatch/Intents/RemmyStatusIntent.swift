@@ -26,8 +26,10 @@ struct RemmyStatusIntent: AppIntent {
 
         if pendingCount > 0 {
             if pendingCount == 1 {
-                let action = service.state.pendingActions.first!
-                return .result(dialog: "1 action pending: \(action.title)")
+                if let action = service.state.pendingActions.first {
+                    return .result(dialog: "1 action pending: \(action.title)")
+                }
+                return .result(dialog: "1 action pending")
             } else {
                 return .result(dialog: "\(pendingCount) actions pending for approval")
             }

@@ -171,6 +171,7 @@ struct TierQueueView: View {
                     Circle()
                         .fill(tierColor)
                         .frame(width: 8, height: 8)
+                        .accessibilityHidden(true)
 
                     Text("\(actions.count) \(tierLabel)")
                         .font(.claudeFootnoteMedium)
@@ -230,6 +231,7 @@ struct TierQueueView: View {
                     }
                 }
                 .padding(.bottom, 4)
+                .accessibilityHidden(true)
             }
 
             // Buttons
@@ -249,6 +251,7 @@ struct TierQueueView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Review each action")
             } else {
                 // Safe tiers - Review (left) + Approve All (right)
                 HStack(spacing: 8) {
@@ -262,6 +265,7 @@ struct TierQueueView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 20))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Review actions")
 
                     Button { approveAll() } label: {
                         Text("Approve All \(actions.count)")
@@ -273,6 +277,7 @@ struct TierQueueView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 20))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Approve all \(actions.count) actions")
                 }
             }
         }
@@ -326,6 +331,7 @@ struct TierReviewView: View {
                     Circle()
                         .fill(tierColor)
                         .frame(width: 8, height: 8)
+                        .accessibilityHidden(true)
 
                     Text("\(currentIndex + 1) of \(actions.count)")
                         .font(.claudeFootnoteMedium)
@@ -380,6 +386,7 @@ struct TierReviewView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 22))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Reject action")
 
                     Button { approve(action) } label: {
                         Image(systemName: "checkmark")
@@ -390,6 +397,7 @@ struct TierReviewView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 22))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Approve action")
                 }
             }
         } else {
@@ -400,6 +408,7 @@ struct TierReviewView: View {
                     .foregroundStyle(.white)
                 Button("Back") { onBack() }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Back to queue")
             }
         }
     }
@@ -520,6 +529,7 @@ struct CombinedQueueView: View {
                 Circle()
                     .fill(Color.white)
                     .frame(width: 8, height: 8)
+                    .accessibilityHidden(true)
 
                 Text("\(actions.count) pending")
                     .font(.claudeFootnoteMedium)
@@ -546,6 +556,7 @@ struct CombinedQueueView: View {
                                 .blur(radius: 20)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                                 .offset(x: 10)
+                                .accessibilityHidden(true)
 
                             // Row content
                             HStack(spacing: 8) {
@@ -585,6 +596,7 @@ struct CombinedQueueView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("\(badgeText(for: action)): \(action.title)")
                 }
 
                 if actions.count > 4 {
@@ -608,6 +620,7 @@ struct CombinedQueueView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Approve all \(actions.count) actions")
             .padding(.horizontal, 16)
         }
     }
@@ -695,6 +708,7 @@ struct CombinedActionDetailView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 20))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Reject action")
 
                 Button { approve() } label: {
                     Image(systemName: "checkmark")
@@ -705,6 +719,7 @@ struct CombinedActionDetailView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 20))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Approve action")
             }
         }
         .toolbar {
@@ -720,6 +735,7 @@ struct CombinedActionDetailView: View {
                     Circle()
                         .fill(Claude.warning)
                         .frame(width: 6, height: 6)
+                        .accessibilityHidden(true)
                     Text("\(service.state.pendingActions.count) pending")
                         .font(.claudeFootnoteMedium)
                         .lineLimit(1)

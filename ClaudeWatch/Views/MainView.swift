@@ -10,7 +10,9 @@ struct MainView: View {
     @State private var showingSettings = false
     @State private var showingQuickActions = false
     @State private var pulsePhase: CGFloat = 0
+    #if DEBUG
     @State private var demoScreenIndex: Int = 0
+    #endif
 
     // Always-On Display support
     @Environment(\.isLuminanceReduced) var isLuminanceReduced
@@ -120,6 +122,7 @@ struct MainView: View {
                 }
             }
         }
+        #if DEBUG
         // Demo mode: Navigation buttons as overlay (doesn't affect layout)
         .overlay(alignment: .bottom) {
             if service.isDemoMode {
@@ -162,6 +165,7 @@ struct MainView: View {
                 .padding(.bottom, 2)
             }
         }
+        #endif
         // V3: Removed toolbar - Settings accessible via footer button per design spec
         .sheet(isPresented: $showingVoiceInput) {
             VoiceInputSheet()
@@ -175,7 +179,12 @@ struct MainView: View {
             }
         }
         .onAppear {
-            if !service.isDemoMode {
+            #if DEBUG
+            let skipConnect = service.isDemoMode
+            #else
+            let skipConnect = false
+            #endif
+            if !skipConnect {
                 if service.useCloudMode {
                     // Cloud mode - start polling if paired
                     if service.isPaired {
@@ -255,12 +264,18 @@ struct MainView: View {
 
     /// Current view state for animation tracking (V2 state-driven)
     private var currentViewState: ViewState {
+        #if DEBUG
+        let inDemoMode = service.isDemoMode
+        #else
+        let inDemoMode = false
+        #endif
+
         // System states take priority
         if isLuminanceReduced {
             return .alwaysOn
-        } else if service.useCloudMode && !service.isPaired && !service.isDemoMode {
+        } else if service.useCloudMode && !service.isPaired && !inDemoMode {
             return .pairing
-        } else if service.connectionStatus == .disconnected && !service.isDemoMode {
+        } else if service.connectionStatus == .disconnected && !inDemoMode {
             return .offline
         } else if case .reconnecting = service.connectionStatus {
             return .reconnecting
@@ -327,6 +342,7 @@ struct MainView: View {
         }
     }
 
+    #if DEBUG
     // MARK: - Demo Screen Cycling
 
     /// Ordered list of demo screens for cycling
@@ -367,6 +383,7 @@ struct MainView: View {
         demoScreenIndex = (demoScreenIndex - 1 + screens.count) % screens.count
         screens[demoScreenIndex].loader()
     }
+    #endif
 }
 
 // MARK: - Status Header

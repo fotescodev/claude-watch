@@ -64,8 +64,18 @@ class WatchService {
     var cloudServerURL: String = UserDefaults.standard.string(forKey: "cloudServerURL") ?? "https://claude-watch.fotescodev.workers.dev" {
         didSet { UserDefaults.standard.set(cloudServerURL, forKey: "cloudServerURL") }
     }
-    var pairingId: String = UserDefaults.standard.string(forKey: "pairingId") ?? "" {
-        didSet { UserDefaults.standard.set(pairingId, forKey: "pairingId") }
+    var pairingId: String = {
+        // Migrate from UserDefaults to Keychain on first access
+        KeychainHelper.migrateString(userDefaultsKey: "pairingId", keychainKey: "com.remmy.pairingId")
+        return KeychainHelper.loadString(key: "com.remmy.pairingId") ?? ""
+    }() {
+        didSet {
+            if pairingId.isEmpty {
+                KeychainHelper.delete(key: "com.remmy.pairingId")
+            } else {
+                KeychainHelper.saveString(key: "com.remmy.pairingId", value: pairingId)
+            }
+        }
     }
     var useCloudMode: Bool = UserDefaults.standard.object(forKey: "useCloudMode") as? Bool ?? true {
         didSet { UserDefaults.standard.set(useCloudMode, forKey: "useCloudMode") }
@@ -105,13 +115,23 @@ class WatchService {
 
     // MARK: - Cloud Mode Polling
     private var pollingTask: Task<Void, Never>?
-    private let pollingInterval: TimeInterval = 2.0
+    /// Base polling interval — adaptive polling adjusts this based on app state
+    private let pollingIntervalActive: TimeInterval = 5.0
+    private let pollingIntervalIdle: TimeInterval = 15.0
 
     // MARK: - Auto-clear Complete State
     private var clearProgressTask: Task<Void, Never>?
 
     // MARK: - Activity Batching
     private var activityBatcher: ActivityBatcher?
+
+    // MARK: - Complication Throttle
+    private var lastComplicationUpdate: Date?
+    private let complicationUpdateMinInterval: TimeInterval = 30.0
+    private var lastComplicationState: ComplicationSnapshot?
+
+    // MARK: - App Activity State (for adaptive polling)
+    private var isAppInForeground: Bool = true
 
     // MARK: - Demo Mode
     var isDemoMode: Bool = UserDefaults.standard.bool(forKey: "demoMode") {
@@ -209,6 +229,8 @@ class WatchService {
     /// Handles app transition to active state.
     /// Resets reconnection backoff and initiates connection (polling in cloud mode, WebSocket otherwise).
     func handleAppDidBecomeActive() {
+        isAppInForeground = true
+
         // Don't try to connect in demo mode
         guard !isDemoMode else { return }
 
@@ -253,6 +275,8 @@ class WatchService {
     /// Handles app entering background state.
     /// Stops polling in cloud mode to conserve battery, or sends final state request in WebSocket mode.
     func handleAppDidEnterBackground() {
+        isAppInForeground = false
+
         // Flush any pending batched updates before backgrounding
         activityBatcher?.flushNow()
 
@@ -1112,7 +1136,9 @@ class WatchService {
     /// Returns the code to display and a watchId for polling
     /// Also generates encryption keypair and sends public key for E2E encryption (COMP3C)
     func initiatePairing() async throws -> (code: String, watchId: String) {
-        let url = URL(string: "\(cloudServerURL)/pair/initiate")!
+        guard let url = URL(string: "\(cloudServerURL)/pair/initiate") else {
+            throw CloudError.invalidResponse
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1156,7 +1182,9 @@ class WatchService {
     /// Check pairing status - watch polls until CLI completes pairing
     /// Returns paired status, pairingId, and CLI's public key for E2E encryption (COMP3C)
     func checkPairingStatus(watchId: String) async throws -> (paired: Bool, pairingId: String?, cliPublicKey: String?) {
-        let url = URL(string: "\(cloudServerURL)/pair/status/\(watchId)")!
+        guard let url = URL(string: "\(cloudServerURL)/pair/status/\(watchId)") else {
+            throw CloudError.invalidResponse
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
@@ -1207,7 +1235,9 @@ class WatchService {
     /// New flow: Watch shows code → CLI enters code → use initiatePairing() + checkPairingStatus() instead.
     @available(*, deprecated, message: "Use initiatePairing() + checkPairingStatus() instead. Watch now DISPLAYS code, CLI enters it.")
     func completePairing(code: String) async throws {
-        let url = URL(string: "\(cloudServerURL)/pair/complete")!
+        guard let url = URL(string: "\(cloudServerURL)/pair/complete") else {
+            throw CloudError.invalidResponse
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1355,7 +1385,10 @@ class WatchService {
         // Signal the cloud server that this session is ending
         // The Mac-side hooks will detect this and stop waiting for watch approval
         do {
-            let url = URL(string: "\(cloudServerURL)/session-end")!
+            guard let url = URL(string: "\(cloudServerURL)/session-end") else {
+                logger.error("Invalid session-end URL")
+                return
+            }
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1424,7 +1457,10 @@ class WatchService {
         guard isPaired else { return }
 
         do {
-            let url = URL(string: "\(cloudServerURL)/session-interrupt")!
+            guard let url = URL(string: "\(cloudServerURL)/session-interrupt") else {
+                logger.error("Invalid session-interrupt URL")
+                return
+            }
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1482,9 +1518,20 @@ class WatchService {
                     logger.error("Polling error: \(error)")
                 }
 
-                try? await Task.sleep(for: .seconds(self.pollingInterval))
+                let interval = self.currentPollingInterval
+                try? await Task.sleep(for: .seconds(interval))
             }
         }
+    }
+
+    /// Returns the adaptive polling interval based on current app/session state.
+    /// - Active session (pending actions or active task): 5s
+    /// - Connected but idle: 15s
+    private var currentPollingInterval: TimeInterval {
+        let hasPendingWork = !state.pendingActions.isEmpty
+            || pendingQuestion != nil
+            || sessionProgress != nil
+        return hasPendingWork ? pollingIntervalActive : pollingIntervalIdle
     }
 
     /// Stops the active polling task.
@@ -1878,12 +1925,32 @@ class WatchService {
 
     // MARK: - Complication Data
     private func updateComplicationData() {
-        sharedDefaults?.set(state.pendingActions.count, forKey: "pendingCount")
-        sharedDefaults?.set(state.progress, forKey: "progress")
-        sharedDefaults?.set(state.taskName, forKey: "taskName")
-        sharedDefaults?.set(state.model, forKey: "model")
-        sharedDefaults?.set(connectionStatus == .connected, forKey: "isConnected")
+        let snapshot = ComplicationSnapshot(
+            pendingCount: state.pendingActions.count,
+            progress: state.progress,
+            taskName: state.taskName,
+            model: state.model,
+            isConnected: connectionStatus == .connected
+        )
 
+        // Always write shared defaults so complications read fresh data
+        sharedDefaults?.set(snapshot.pendingCount, forKey: "pendingCount")
+        sharedDefaults?.set(snapshot.progress, forKey: "progress")
+        sharedDefaults?.set(snapshot.taskName, forKey: "taskName")
+        sharedDefaults?.set(snapshot.model, forKey: "model")
+        sharedDefaults?.set(snapshot.isConnected, forKey: "isConnected")
+
+        // Throttle reloadTimelines: only reload if state changed AND enough time has passed
+        guard snapshot != lastComplicationState else { return }
+
+        let now = Date()
+        if let lastUpdate = lastComplicationUpdate,
+           now.timeIntervalSince(lastUpdate) < complicationUpdateMinInterval {
+            return
+        }
+
+        lastComplicationState = snapshot
+        lastComplicationUpdate = now
         WidgetCenter.shared.reloadTimelines(ofKind: "RemmyWidget")
     }
 
@@ -2510,6 +2577,15 @@ class WatchService {
 }
 
 // MARK: - Data Models
+
+/// Snapshot of complication-relevant state for change detection
+private struct ComplicationSnapshot: Equatable {
+    let pendingCount: Int
+    let progress: Double
+    let taskName: String
+    let model: String
+    let isConnected: Bool
+}
 
 struct WatchState {
     var taskName: String = ""

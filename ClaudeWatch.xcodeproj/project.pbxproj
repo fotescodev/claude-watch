@@ -13,6 +13,7 @@
 		RES001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = RES_ASSETS /* Assets.xcassets */; };
 		SVC001 /* WatchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC011 /* WatchService.swift */; };
 		SVC_ENC001 /* EncryptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_ENC001 /* EncryptionService.swift */; };
+		SVC_KEY001 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_KEY001 /* KeychainHelper.swift */; };
 		TEST001 /* ReconnectionConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC001 /* ReconnectionConfigTests.swift */; };
 		TEST002 /* ConnectionStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC002 /* ConnectionStatusTests.swift */; };
 		TEST003 /* WebSocketErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC003 /* WebSocketErrorTests.swift */; };
@@ -88,6 +89,7 @@
 		SRC007 /* RecordingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingIndicator.swift; sourceTree = "<group>"; };
 		SRC011 /* WatchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchService.swift; sourceTree = "<group>"; };
 		SRC_ENC001 /* EncryptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptionService.swift; sourceTree = "<group>"; };
+		SRC_KEY001 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
 		SRC014 /* ComplicationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationViews.swift; sourceTree = "<group>"; };
 		TEST_SRC001 /* ReconnectionConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconnectionConfigTests.swift; sourceTree = "<group>"; };
 		TEST_SRC002 /* ConnectionStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatusTests.swift; sourceTree = "<group>"; };
@@ -209,6 +211,7 @@
 			children = (
 				SRC_SVC002 /* ActivityStore.swift */,
 				SRC_ENC001 /* EncryptionService.swift */,
+				SRC_KEY001 /* KeychainHelper.swift */,
 				SRC011 /* WatchService.swift */,
 			);
 			path = Services;
@@ -407,6 +410,7 @@ GRP_COMP /* Components */ = {
 				VIEW008 /* SheetViews.swift in Sources */,
 				SVC001 /* WatchService.swift in Sources */,
 				SVC_ENC001 /* EncryptionService.swift in Sources */,
+				SVC_KEY001 /* KeychainHelper.swift in Sources */,
 				CMP002 /* ComplicationViews.swift in Sources */,
 				MODEL001 /* ApprovalRequest.swift in Sources */,
 				MODEL002 /* ClaudeState.swift in Sources */,
@@ -532,9 +536,8 @@ GRP_COMP /* Components */ = {
 				DEVELOPMENT_TEAM = 98R5RJKR5F;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ClaudeWatch/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Claude;
+				INFOPLIST_KEY_CFBundleDisplayName = Remmy;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.anthropic.claudecode;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -543,7 +546,7 @@ GRP_COMP /* Components */ = {
 				PRODUCT_BUNDLE_IDENTIFIER = com.edgeoftrust.remmy;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
@@ -630,9 +633,8 @@ GRP_COMP /* Components */ = {
 				DEVELOPMENT_TEAM = 98R5RJKR5F;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ClaudeWatch/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Claude;
+				INFOPLIST_KEY_CFBundleDisplayName = Remmy;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.anthropic.claudecode;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -641,7 +643,7 @@ GRP_COMP /* Components */ = {
 				PRODUCT_BUNDLE_IDENTIFIER = com.edgeoftrust.remmy;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
+				SKIP_INSTALL = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;

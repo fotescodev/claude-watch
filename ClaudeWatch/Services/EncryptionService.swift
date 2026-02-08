@@ -125,6 +125,9 @@ final class EncryptionService {
         peerPublicKey = nil
         sharedSecret = nil
 
+        KeychainHelper.delete(key: privateKeyStorageKey)
+        KeychainHelper.delete(key: peerPublicKeyStorageKey)
+        // Clean up any leftover UserDefaults values from before migration
         UserDefaults.standard.removeObject(forKey: privateKeyStorageKey)
         UserDefaults.standard.removeObject(forKey: peerPublicKeyStorageKey)
 
@@ -134,14 +137,18 @@ final class EncryptionService {
     // MARK: - Persistence
 
     private func loadKeys() {
-        // Load private key
-        if let privateKeyBase64 = UserDefaults.standard.string(forKey: privateKeyStorageKey),
+        // Migrate from UserDefaults to Keychain on first access
+        KeychainHelper.migrateString(userDefaultsKey: privateKeyStorageKey, keychainKey: privateKeyStorageKey)
+        KeychainHelper.migrateString(userDefaultsKey: peerPublicKeyStorageKey, keychainKey: peerPublicKeyStorageKey)
+
+        // Load private key from Keychain
+        if let privateKeyBase64 = KeychainHelper.loadString(key: privateKeyStorageKey),
            let privateKeyData = Data(base64Encoded: privateKeyBase64) {
             privateKey = try? Curve25519.KeyAgreement.PrivateKey(rawRepresentation: privateKeyData)
         }
 
-        // Load peer public key
-        if let peerKeyBase64 = UserDefaults.standard.string(forKey: peerPublicKeyStorageKey),
+        // Load peer public key from Keychain
+        if let peerKeyBase64 = KeychainHelper.loadString(key: peerPublicKeyStorageKey),
            let peerKeyData = Data(base64Encoded: peerKeyBase64) {
             peerPublicKey = try? Curve25519.KeyAgreement.PublicKey(rawRepresentation: peerKeyData)
 
@@ -155,11 +162,11 @@ final class EncryptionService {
     private func savePrivateKey() {
         guard let privateKey = privateKey else { return }
         let base64 = privateKey.rawRepresentation.base64EncodedString()
-        UserDefaults.standard.set(base64, forKey: privateKeyStorageKey)
+        KeychainHelper.saveString(key: privateKeyStorageKey, value: base64)
     }
 
     private func savePeerPublicKey(_ base64: String) {
-        UserDefaults.standard.set(base64, forKey: peerPublicKeyStorageKey)
+        KeychainHelper.saveString(key: peerPublicKeyStorageKey, value: base64)
     }
 }
 

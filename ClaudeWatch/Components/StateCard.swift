@@ -69,6 +69,7 @@ struct CardGlow: View {
             .fill(color.opacity(0.30))
             .frame(width: 100, height: 80)
             .blur(radius: 35)
+            .accessibilityHidden(true)
     }
 }
 

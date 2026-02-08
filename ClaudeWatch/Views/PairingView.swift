@@ -18,10 +18,6 @@ struct PairingView: View {
                     onLocalMode: {
                         service.useCloudMode = false
                         service.connect()
-                    },
-                    onDemoMode: {
-                        service.isDemoMode = true
-                        service.loadDemoData()
                     }
                 )
             }
@@ -34,7 +30,9 @@ struct UnpairedMainView: View {
     var service = WatchService.shared
     let onPairNow: () -> Void
     let onLocalMode: () -> Void
-    let onDemoMode: () -> Void
+    #if DEBUG
+    var onDemoMode: (() -> Void)?
+    #endif
 
     // Ensure "Preparing..." is shown for at least 1 second so user sees feedback
     @State private var minimumDelayPassed = false
@@ -55,6 +53,7 @@ struct UnpairedMainView: View {
                 // Claude icon 48×48
                 ClaudeFaceLogo(size: 48)
             }
+            .accessibilityHidden(true)
 
             // V3 A1: "Ready to pair" text below icon
             Text("Ready to pair")
@@ -78,6 +77,7 @@ struct UnpairedMainView: View {
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Pair with Mac")
             } else {
                 // Waiting for APNs token registration
                 HStack(spacing: 8) {
@@ -96,12 +96,13 @@ struct UnpairedMainView: View {
         }
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
-        // V3: Long press for quick actions menu
+        #if DEBUG
+        // Long press for demo mode (debug only)
         .onLongPressGesture {
             WKInterfaceDevice.current().play(.click)
-            // Show dev options sheet
-            onDemoMode()
+            onDemoMode?()
         }
+        #endif
         .onAppear {
             // Start minimum delay timer (1 second) so user sees "Preparing..." feedback
             Task { @MainActor in
@@ -142,6 +143,7 @@ struct PairingCodeDisplayView: View {
                             .foregroundStyle(Claude.textSecondary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Back")
 
                     Text("Pairing")
                         .font(.claudeHeadline)
@@ -184,6 +186,7 @@ struct PairingCodeDisplayView: View {
                             .foregroundStyle(Claude.orange)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Retry pairing")
                     }
                     Spacer()
                 } else if let code = code {
@@ -321,6 +324,7 @@ struct ConnectedSuccessView: View {
                     .font(.claudeHero)
                     .foregroundStyle(Claude.success)
             }
+            .accessibilityHidden(true)
 
             // Title
             Text("Connected!")
@@ -356,7 +360,7 @@ struct ConnectedSuccessView: View {
 }
 
 #Preview("Unpaired Main") {
-    UnpairedMainView(onPairNow: {}, onLocalMode: {}, onDemoMode: {})
+    UnpairedMainView(onPairNow: {}, onLocalMode: {})
 }
 
 #Preview("Code Display") {

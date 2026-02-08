@@ -19,6 +19,7 @@ struct AmbientGlow: View {
             .fill(color.opacity(0.35))  // V3: Increased opacity for visibility
             .frame(width: 120, height: 100)  // V3: Larger glow
             .blur(radius: 40)
+            .accessibilityHidden(true)
     }
 }
 

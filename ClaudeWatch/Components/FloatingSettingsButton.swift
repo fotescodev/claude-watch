@@ -17,6 +17,7 @@ struct FloatingSettingsButton: View {
                         .foregroundStyle(Claude.textMuted)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Settings")
                 .padding(.bottom, 4)
             }
         }

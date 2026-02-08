@@ -66,6 +66,7 @@ struct WorkingView: View {
                     await service.sendInterrupt(action: .stop)
                 }
             }
+            .accessibilityLabel("Pause task")
         }
     }
 
@@ -73,20 +74,23 @@ struct WorkingView: View {
     @ViewBuilder
     private func taskRow(_ task: TodoItem) -> some View {
         HStack(spacing: 5) {
-            // Status indicator
+            // Status indicator (hidden individually; row has combined label)
             switch task.status {
             case .completed:
                 Text("✓")
                     .font(.claudeFootnoteBold)
                     .foregroundStyle(Claude.success)
+                    .accessibilityHidden(true)
             case .inProgress:
                 Text("●")
                     .font(.claudeNano)
                     .foregroundStyle(ClaudeState.working.color)
+                    .accessibilityHidden(true)
             case .pending:
                 Text("○")
                     .font(.claudeNano)
                     .foregroundStyle(Claude.textDisabled)
+                    .accessibilityHidden(true)
             }
 
             // Task text - larger for glanceability

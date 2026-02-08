@@ -137,6 +137,7 @@ struct SettingsSheet: View {
                     Circle()
                         .fill(statusColor)
                         .frame(width: 10, height: 10)
+                        .accessibilityHidden(true)
 
                     Text(statusText)
                         .font(.claudeSubheadline)
@@ -152,6 +153,7 @@ struct SettingsSheet: View {
                 .padding(.horizontal, 4)
 
                 // MARK: - Quick Actions
+                #if DEBUG
                 if service.isDemoMode {
                     // Exit Demo button (prominent)
                     Button {
@@ -170,11 +172,12 @@ struct SettingsSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Exit demo mode")
 
                     // Test Screens Grid
                     demoTestGrid
                 } else {
-                    // Try Demo (prominent)
+                    // Try Demo button
                     Button {
                         service.loadDemoData()
                         WKInterfaceDevice.current().play(.click)
@@ -193,27 +196,31 @@ struct SettingsSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Try demo mode")
+                }
+                #endif
 
-                    // Pair/Unpair
-                    if service.isPaired {
-                        Button {
-                            Task {
-                                await service.endSession()
-                                WKInterfaceDevice.current().play(.success)
-                                dismiss()
-                            }
-                        } label: {
-                            SettingsActionRow(icon: "stop.circle.fill", title: "End Session", color: Claude.danger)
+                // Pair/Unpair
+                if service.isPaired {
+                    Button {
+                        Task {
+                            await service.endSession()
+                            WKInterfaceDevice.current().play(.success)
+                            dismiss()
                         }
-                        .buttonStyle(.plain)
-                    } else {
-                        Button {
-                            showingPairing = true
-                        } label: {
-                            SettingsActionRow(icon: "link", title: "Pair Now", color: Claude.orange)
-                        }
-                        .buttonStyle(.plain)
+                    } label: {
+                        SettingsActionRow(icon: "stop.circle.fill", title: "End Session", color: Claude.danger)
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("End session")
+                } else {
+                    Button {
+                        showingPairing = true
+                    } label: {
+                        SettingsActionRow(icon: "link", title: "Pair Now", color: Claude.orange)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Pair with Mac")
                 }
 
                 // MARK: - Footer
@@ -234,6 +241,7 @@ struct SettingsSheet: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Privacy settings")
             }
             .padding(12)
         }
@@ -246,6 +254,7 @@ struct SettingsSheet: View {
         }
     }
 
+    #if DEBUG
     // MARK: - Demo Test Grid (compact 2-column)
     private var demoTestGrid: some View {
         VStack(spacing: 6) {
@@ -326,6 +335,7 @@ struct SettingsSheet: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Demo: \(label)")
     }
 
     private func exitDemo() {
@@ -339,9 +349,12 @@ struct SettingsSheet: View {
         WKInterfaceDevice.current().play(.click)
         dismiss()
     }
+    #endif
 
     private var statusColor: Color {
+        #if DEBUG
         if service.isDemoMode { return Claude.warning }
+        #endif
         switch service.connectionStatus {
         case .connected: return Claude.success
         case .connecting, .reconnecting: return Claude.warning
@@ -350,7 +363,9 @@ struct SettingsSheet: View {
     }
 
     private var statusText: String {
+        #if DEBUG
         if service.isDemoMode { return "Demo Mode" }
+        #endif
         if service.isPaired { return "Paired" }
         return "Not Paired"
     }

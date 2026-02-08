@@ -88,6 +88,7 @@ struct EmptyStateView: View {
                 .buttonStyle(.glassProminentCompat)
                 .accessibilityLabel("Pair with Claude Code")
 
+                #if DEBUG
                 Button {
                     service.loadDemoData()
                 } label: {
@@ -97,6 +98,7 @@ struct EmptyStateView: View {
                 }
                 .buttonStyle(.glassCompat)
                 .accessibilityLabel("Try demo mode")
+                #endif
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 8)

@@ -43,6 +43,7 @@ struct ConsentPage1Privacy: View {
                     .font(.claudeIconButton)
                     .foregroundStyle(Claude.orange)
             }
+            .accessibilityHidden(true)
 
             // Title
             Text("Privacy First")
@@ -63,6 +64,7 @@ struct ConsentPage1Privacy: View {
                 Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
                 Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
             }
+            .accessibilityHidden(true)
 
             // Continue button
             Button {
@@ -74,6 +76,7 @@ struct ConsentPage1Privacy: View {
                     .foregroundStyle(Claude.orange)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Continue")
         }
         .padding(Claude.Spacing.md)
     }
@@ -94,6 +97,7 @@ struct ConsentPage2Data: View {
                     .font(.system(size: 18))
                     .foregroundStyle(Claude.info)
             }
+            .accessibilityHidden(true)
 
             // Title
             Text("Data Handling")
@@ -115,6 +119,7 @@ struct ConsentPage2Data: View {
                 Circle().fill(Claude.orange).frame(width: 5, height: 5)
                 Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
             }
+            .accessibilityHidden(true)
 
             // Continue button
             Button {
@@ -126,6 +131,7 @@ struct ConsentPage2Data: View {
                     .foregroundStyle(Claude.orange)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Continue")
         }
         .padding(Claude.Spacing.md)
     }
@@ -140,6 +146,7 @@ struct DataBullet: View {
             Circle()
                 .fill(Claude.success)
                 .frame(width: 6, height: 6)
+                .accessibilityHidden(true)
             Text(text)
                 .font(.claudeCaption)
                 .foregroundStyle(Claude.textSecondary)
@@ -162,6 +169,7 @@ struct ConsentPage3Accept: View {
                     .font(.claudeIconButton)
                     .foregroundStyle(Claude.success)
             }
+            .accessibilityHidden(true)
 
             // Title
             Text("Ready to Start")
@@ -182,6 +190,7 @@ struct ConsentPage3Accept: View {
                 Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
                 Circle().fill(Claude.orange).frame(width: 5, height: 5)
             }
+            .accessibilityHidden(true)
 
             // Accept button
             Button {
@@ -196,6 +205,7 @@ struct ConsentPage3Accept: View {
                     .clipShape(Capsule())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Accept terms")
         }
         .padding(Claude.Spacing.md)
     }
@@ -264,6 +274,7 @@ struct PrivacyInfoView: View {
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Withdraw consent")
                 }
 
                 // Done button
@@ -279,6 +290,7 @@ struct PrivacyInfoView: View {
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Done")
             }
             .padding()
         }
