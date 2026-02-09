@@ -1,4 +1,4 @@
-# CC Watch
+# Remmy
 
 Approve Claude Code actions from your Apple Watch.
 

@@ -1,14 +1,14 @@
-# CC Watch Privacy Policy
+# Remmy Privacy Policy
 
 **Last updated: January 21, 2026**
 
 ## Overview
 
-CC Watch is a watchOS companion app for Claude Code that enables developers to approve code changes from their Apple Watch. We are committed to protecting your privacy and being transparent about our data practices.
+Remmy is a watchOS companion app for Claude Code that enables developers to approve code changes from their Apple Watch. We are committed to protecting your privacy and being transparent about our data practices.
 
 ## Information We Collect
 
-CC Watch collects minimal information required for the app to function:
+Remmy collects minimal information required for the app to function:
 
 | Data Type | Purpose | Storage |
 |-----------|---------|---------|
@@ -47,7 +47,7 @@ Only your paired devices (Mac and Apple Watch) have the decryption keys.
 
 ## Third-Party Services
 
-CC Watch uses the following third-party services:
+Remmy uses the following third-party services:
 
 - **Apple Push Notification service (APNs)**: For delivering notifications to your watch
 - **Cloudflare Workers**: For secure relay between your Mac and watch
@@ -64,7 +64,7 @@ You can:
 
 ## Children's Privacy
 
-CC Watch is not intended for use by children under 13. We do not knowingly collect data from children.
+Remmy is not intended for use by children under 13. We do not knowingly collect data from children.
 
 ## Changes to This Policy
 
@@ -78,4 +78,4 @@ For privacy questions or concerns, please open an issue on our GitHub repository
 
 ---
 
-*CC Watch is an independent project and is not affiliated with Anthropic.*
+*Remmy is an independent project and is not affiliated with Anthropic.*

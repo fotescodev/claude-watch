@@ -20,7 +20,7 @@ created: 2026-01-15
 
 ## Overview
 
-This document captures the results of a comprehensive live testing session that validated the complete Claude Watch approval workflow. The testing covered push notification delivery to watchOS simulator, cloud server integration, user approval/rejection flows, and the PreToolUse hook that orchestrates the entire approval system.
+This document captures the results of a comprehensive live testing session that validated the complete Remmy approval workflow. The testing covered push notification delivery to watchOS simulator, cloud server integration, user approval/rejection flows, and the PreToolUse hook that orchestrates the entire approval system.
 
 ## Testing Scope
 
@@ -28,7 +28,7 @@ This document captures the results of a comprehensive live testing session that 
 - Launched Apple Watch Series 11 (46mm) simulator
 - Tested native push notification delivery mechanism
 - Method: Direct `xcrun simctl push` command to simulator with JSON payload
-- Bundle ID: `com.edgeoftrust.claudewatch`
+- Bundle ID: `com.edgeoftrust.remmy`
 
 ### 2. Cloud Server Request/Response Flow
 - POST `/pair` endpoint for pairing initiation
@@ -53,7 +53,7 @@ This document captures the results of a comprehensive live testing session that 
 Notifications were successfully delivered to the Apple Watch Series 11 (46mm) simulator using the `xcrun simctl push` command:
 
 ```bash
-xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch payload.json
+xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy payload.json
 ```
 
 **Evidence:**
@@ -238,4 +238,4 @@ Created → Pending → (User responds) → Approved/Rejected → respondedAt ti
 
 ## Conclusion
 
-The live testing session successfully validated the complete Claude Watch approval workflow. All core functionality—push notification delivery, cloud server integration, user actions, and MCP hook integration—is operational and ready for integration with Claude Code's PreToolUse hook system. The workflow enables developers to approve or reject code changes directly from their Apple Watch while using Claude Code.
+The live testing session successfully validated the complete Remmy approval workflow. All core functionality—push notification delivery, cloud server integration, user actions, and MCP hook integration—is operational and ready for integration with Claude Code's PreToolUse hook system. The workflow enables developers to approve or reject code changes directly from their Apple Watch while using Claude Code.

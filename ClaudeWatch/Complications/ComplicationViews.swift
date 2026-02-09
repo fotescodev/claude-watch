@@ -2,7 +2,7 @@ import SwiftUI
 import WidgetKit
 
 // MARK: - Widget Entry
-struct ClaudeEntry: TimelineEntry {
+struct RemmyEntry: TimelineEntry {
     let date: Date
     let taskName: String
     let progress: Double
@@ -27,13 +27,13 @@ struct ClaudeEntry: TimelineEntry {
 }
 
 // MARK: - Provider (with RelevanceKit support for Smart Stack)
-struct ClaudeProvider: TimelineProvider {
+struct RemmyProvider: TimelineProvider {
     private let defaults = UserDefaults(suiteName: "group.com.remmy")
 
-    func placeholder(in context: Context) -> ClaudeEntry {
-        ClaudeEntry(
+    func placeholder(in context: Context) -> RemmyEntry {
+        RemmyEntry(
             date: .now,
-            taskName: "Claude",
+            taskName: "Remmy",
             progress: 0.5,
             pendingCount: 0,
             model: "opus",
@@ -41,11 +41,11 @@ struct ClaudeProvider: TimelineProvider {
         )
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (ClaudeEntry) -> Void) {
+    func getSnapshot(in context: Context, completion: @escaping (RemmyEntry) -> Void) {
         completion(currentEntry())
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<ClaudeEntry>) -> Void) {
+    func getTimeline(in context: Context, completion: @escaping (Timeline<RemmyEntry>) -> Void) {
         let entry = currentEntry()
 
         // Dynamic refresh based on activity level
@@ -68,10 +68,10 @@ struct ClaudeProvider: TimelineProvider {
         completion(timeline)
     }
 
-    private func currentEntry() -> ClaudeEntry {
-        ClaudeEntry(
+    private func currentEntry() -> RemmyEntry {
+        RemmyEntry(
             date: .now,
-            taskName: defaults?.string(forKey: "taskName") ?? "Claude",
+            taskName: defaults?.string(forKey: "taskName") ?? "Remmy",
             progress: defaults?.double(forKey: "progress") ?? 0,
             pendingCount: defaults?.integer(forKey: "pendingCount") ?? 0,
             model: defaults?.string(forKey: "model") ?? "opus",
@@ -81,8 +81,8 @@ struct ClaudeProvider: TimelineProvider {
 }
 
 // MARK: - Widget Views
-struct ClaudeWidgetEntryView: View {
-    var entry: ClaudeProvider.Entry
+struct RemmyWidgetEntryView: View {
+    var entry: RemmyProvider.Entry
     @Environment(\.widgetFamily) var family
 
     var body: some View {
@@ -103,7 +103,7 @@ struct ClaudeWidgetEntryView: View {
 
 // MARK: - Circular Widget
 struct CircularWidgetView: View {
-    let entry: ClaudeEntry
+    let entry: RemmyEntry
     @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
     var body: some View {
@@ -144,7 +144,7 @@ struct CircularWidgetView: View {
 
 // MARK: - Rectangular Widget
 struct RectangularWidgetView: View {
-    let entry: ClaudeEntry
+    let entry: RemmyEntry
     @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
     var body: some View {
@@ -155,7 +155,7 @@ struct RectangularWidgetView: View {
                     .font(.caption2)
                     .foregroundStyle(greenColor)
 
-                Text("CLAUDE")
+                Text("REMMY")
                     .font(.caption2.weight(.bold).monospaced())
                     .foregroundStyle(greenColor)
 
@@ -235,7 +235,7 @@ struct RectangularWidgetView: View {
 
 // MARK: - Corner Widget
 struct CornerWidgetView: View {
-    let entry: ClaudeEntry
+    let entry: RemmyEntry
     @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
     var body: some View {
@@ -265,7 +265,7 @@ struct CornerWidgetView: View {
 
 // MARK: - Inline Widget
 struct InlineWidgetView: View {
-    let entry: ClaudeEntry
+    let entry: RemmyEntry
     @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
     var body: some View {
@@ -290,8 +290,8 @@ struct RemmyWidgets: Widget {
     let kind: String = "RemmyWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: ClaudeProvider()) { entry in
-            ClaudeWidgetEntryView(entry: entry)
+        StaticConfiguration(kind: kind, provider: RemmyProvider()) { entry in
+            RemmyWidgetEntryView(entry: entry)
                 .containerBackground(.black, for: .widget)
         }
         .configurationDisplayName("Remmy")
@@ -308,6 +308,6 @@ struct RemmyWidgets: Widget {
 #Preview(as: .accessoryRectangular) {
     RemmyWidgets()
 } timeline: {
-    ClaudeEntry(date: .now, taskName: "REFACTOR", progress: 0.6, pendingCount: 3, model: "OPUS", isConnected: true)
-    ClaudeEntry(date: .now, taskName: "BUILD", progress: 0.9, pendingCount: 0, model: "OPUS", isConnected: true)
+    RemmyEntry(date: .now, taskName: "REFACTOR", progress: 0.6, pendingCount: 3, model: "OPUS", isConnected: true)
+    RemmyEntry(date: .now, taskName: "BUILD", progress: 0.9, pendingCount: 0, model: "OPUS", isConnected: true)
 }

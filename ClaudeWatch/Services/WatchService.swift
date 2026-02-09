@@ -429,7 +429,7 @@ class WatchService {
                 handlePongReceived()
 
             case "notification":
-                let title = json["title"] as? String ?? "Claude"
+                let title = json["title"] as? String ?? "Remmy"
                 let message = json["message"] as? String ?? ""
                 showLocalNotification(title: title, message: message)
 

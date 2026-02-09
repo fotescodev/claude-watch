@@ -1,5 +1,5 @@
 ---
-title: Claude Watch Simulator Live Testing - End-to-End Approval Flow
+title: Remmy Simulator Live Testing - End-to-End Approval Flow
 slug: simulator-live-testing-guide
 category: testing-guides
 component: claude-watch-integration
@@ -14,9 +14,9 @@ tags:
 created: 2026-01-15
 ---
 
-# Claude Watch Simulator Live Testing Guide
+# Remmy Simulator Live Testing Guide
 
-Complete guide for testing the Claude Watch approval flow on the watchOS simulator, including push notifications, cloud server integration, and PreToolUse hook.
+Complete guide for testing the Remmy approval flow on the watchOS simulator, including push notifications, cloud server integration, and PreToolUse hook.
 
 ## What We Tested
 
@@ -66,10 +66,10 @@ xcrun simctl install "Apple Watch Series 11 (46mm)" "$APP_PATH"
 
 ```bash
 # Enable cloud mode (required - simulator can't use localhost WebSocket)
-xcrun simctl spawn "$DEVICE_ID" defaults write com.edgeoftrust.claudewatch useCloudMode -bool true
+xcrun simctl spawn "$DEVICE_ID" defaults write com.edgeoftrust.remmy useCloudMode -bool true
 
 # Set pairing ID (get from cloud server first)
-xcrun simctl spawn "$DEVICE_ID" defaults write com.edgeoftrust.claudewatch pairingId -string "YOUR_PAIRING_ID"
+xcrun simctl spawn "$DEVICE_ID" defaults write com.edgeoftrust.remmy pairingId -string "YOUR_PAIRING_ID"
 ```
 
 ### 5. Create Pairing on Cloud Server
@@ -88,7 +88,7 @@ curl -s -X POST https://claude-watch.fotescodev.workers.dev/pair/complete \
 ### 6. Launch App
 
 ```bash
-xcrun simctl launch "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch
+xcrun simctl launch "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy
 ```
 
 ## Testing Procedure
@@ -114,7 +114,7 @@ cat > /tmp/test-notif.json << 'EOF'
 EOF
 
 # Send to simulator
-xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch /tmp/test-notif.json
+xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy /tmp/test-notif.json
 ```
 
 **Expected**: Notification appears on watch simulator.
@@ -142,7 +142,7 @@ cat > /tmp/approval-test.json << EOF
   "requestId": "$REQUEST_ID"
 }
 EOF
-xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch /tmp/approval-test.json
+xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy /tmp/approval-test.json
 
 # Poll for response (after approving on watch)
 curl -s https://claude-watch.fotescodev.workers.dev/request/$REQUEST_ID | jq .
@@ -182,13 +182,13 @@ echo '{"tool_name": "Bash", "tool_input": {"command": "echo test"}}' | \
 **Solution**: Use cloud mode. The watchOS simulator has network limitations and cannot reliably connect to the host machine's localhost.
 
 ```bash
-xcrun simctl spawn "$DEVICE_ID" defaults write com.edgeoftrust.claudewatch useCloudMode -bool true
+xcrun simctl spawn "$DEVICE_ID" defaults write com.edgeoftrust.remmy useCloudMode -bool true
 ```
 
 ### Notifications Not Appearing
 
 **Checklist**:
-1. Bundle ID matches: `com.edgeoftrust.claudewatch`
+1. Bundle ID matches: `com.edgeoftrust.remmy`
 2. App is installed on simulator
 3. JSON payload is valid
 4. Simulator is booted
@@ -207,11 +207,11 @@ xcrun simctl listapps "Apple Watch Series 11 (46mm)" | grep claudewatch
 
 ```bash
 # Check current settings
-xcrun simctl spawn "$DEVICE_ID" defaults read com.edgeoftrust.claudewatch
+xcrun simctl spawn "$DEVICE_ID" defaults read com.edgeoftrust.remmy
 
 # Force restart
-xcrun simctl terminate "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch
-xcrun simctl launch "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch
+xcrun simctl terminate "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy
+xcrun simctl launch "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy
 ```
 
 ## Quick Reference Commands
@@ -260,7 +260,7 @@ Live testing on 2026-01-15 confirmed:
 3. **Approve/Reject works** - Watch responses correctly recorded on cloud server
 4. **Hook integration works** - PreToolUse hook successfully orchestrates the full flow
 
-The Claude Watch approval system is **fully functional** for simulator testing.
+The Remmy approval system is **fully functional** for simulator testing.
 
 ## Related Files
 

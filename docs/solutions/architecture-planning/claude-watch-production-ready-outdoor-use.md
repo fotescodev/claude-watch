@@ -1,5 +1,5 @@
 ---
-title: "Production-Ready Claude Watch: Outdoor Wearable Approval Workflow"
+title: "Production-Ready Remmy: Outdoor Wearable Approval Workflow"
 created: 2026-01-18
 category: architecture-planning
 tags:
@@ -40,11 +40,11 @@ related_files:
   - docs/APPSTORE-ROADMAP.md
 ---
 
-# Production-Ready Claude Watch: Outdoor Wearable Approval Workflow
+# Production-Ready Remmy: Outdoor Wearable Approval Workflow
 
 ## Problem Statement
 
-The user wants to use Claude Watch on their **physical Apple Watch outdoors** while Claude Code runs on their laptop. The current implementation has critical gaps that prevent this workflow.
+The user wants to use Remmy on their **physical Apple Watch outdoors** while Claude Code runs on their laptop. The current implementation has critical gaps that prevent this workflow.
 
 ## Current State Assessment
 

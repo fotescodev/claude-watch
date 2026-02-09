@@ -1,6 +1,6 @@
-# Claude Watch Connection Troubleshooting Guide
+# Remmy Connection Troubleshooting Guide
 
-A comprehensive guide for diagnosing and resolving connection issues in Claude Watch, covering both Cloud Mode (polling) and WebSocket Mode (direct connection).
+A comprehensive guide for diagnosing and resolving connection issues in Remmy, covering both Cloud Mode (polling) and WebSocket Mode (direct connection).
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ A comprehensive guide for diagnosing and resolving connection issues in Claude W
 
 ## Overview
 
-Claude Watch supports two connection modes:
+Remmy supports two connection modes:
 
 - **Cloud Mode (Default)**: Polling-based connection via Cloudflare Workers relay
 - **WebSocket Mode**: Direct local connection with ping/pong heartbeat
@@ -51,7 +51,7 @@ Before troubleshooting, verify you have:
 
 ### General Requirements
 - watchOS 10.0+ installed
-- Claude Watch app installed and running
+- Remmy app installed and running
 - Network connectivity (Wi-Fi or cellular)
 - Notification permissions granted
 
@@ -494,7 +494,7 @@ private let pongTimeout: TimeInterval = 20.0   // Expect pong within 20s
 #### Solution 5.1: Reset Connection State
 
 **Steps:**
-1. Open Claude Watch Settings
+1. Open Remmy Settings
 2. Toggle "Use Cloud Mode" OFF then ON (or vice versa)
 3. Wait 5 seconds
 4. Attempt reconnection
@@ -527,9 +527,9 @@ curl https://claude-watch.fotescodev.workers.dev/health
 #### Solution 5.3: Force Reset App State
 
 **Steps:**
-1. Force quit Claude Watch:
+1. Force quit Remmy:
    - Press Digital Crown + Side Button
-   - Swipe left on Claude Watch
+   - Swipe left on Remmy
    - Tap X to close
 2. Wait 10 seconds
 3. Relaunch app
@@ -553,7 +553,7 @@ curl https://claude-watch.fotescodev.workers.dev/health
 
 **Steps:**
 1. Raise wrist to wake watch
-2. Open Claude Watch app (tap icon or complication)
+2. Open Remmy app (tap icon or complication)
 3. Verify status shows "CONNECTED"
 4. Polling resumes automatically
 
@@ -611,7 +611,7 @@ curl https://claude-watch.fotescodev.workers.dev/requests/YOUR_PAIRING_ID
 
 **Steps:**
 1. On iPhone → Watch app
-2. Notifications → Claude Watch
+2. Notifications → Remmy
 3. Verify "Allow Notifications" is ON
 4. Verify notification style is set (e.g., "Banners")
 
@@ -625,18 +625,18 @@ curl https://claude-watch.fotescodev.workers.dev/requests/YOUR_PAIRING_ID
 2. On iPhone:
    - Settings → Focus
    - Verify Do Not Disturb is OFF
-   - Or add Claude Watch to allowed apps
+   - Or add Remmy to allowed apps
 
 #### Solution 7.3: Re-register APNs Token
 
 **Steps:**
-1. Force quit Claude Watch
+1. Force quit Remmy
 2. Restart Apple Watch:
    - Press and hold Side Button
    - Drag "Power Off" slider
    - Wait 30 seconds
    - Press Side Button to restart
-3. Launch Claude Watch
+3. Launch Remmy
 4. Accept notification permission prompt (if shown)
 5. APNs token re-registered automatically
 
@@ -740,7 +740,7 @@ connect()  // Immediate reconnection attempt
 #### Solution 9.2: Use Complications for Quick Access
 
 **Steps:**
-1. Add Claude Watch complication to watch face
+1. Add Remmy complication to watch face
 2. Tap complication to launch app instantly
 3. Connection resumes immediately
 
@@ -754,7 +754,7 @@ connect()  // Immediate reconnection attempt
 **Steps:**
 1. iPhone → Watch app
 2. General → Background App Refresh
-3. Enable for Claude Watch
+3. Enable for Remmy
 
 **Note:** watchOS still suspends apps aggressively. This provides minimal benefit but worth enabling.
 
@@ -782,7 +782,7 @@ xcrun simctl boot "Apple Watch Series 11 (46mm)"
 
 # Enable cloud mode
 DEVICE_ID="YOUR_DEVICE_UUID"
-BUNDLE_ID="com.edgeoftrust.claudewatch"
+BUNDLE_ID="com.edgeoftrust.remmy"
 
 xcrun simctl spawn "$DEVICE_ID" defaults write "$BUNDLE_ID" useCloudMode -bool true
 
@@ -909,7 +909,7 @@ xcrun simctl spawn "$DEVICE_ID" defaults write "$BUNDLE_ID" serverURL -string "w
 
 2. **System Logs** (for debugging):
    ```bash
-   # Stream logs for Claude Watch process
+   # Stream logs for Remmy process
    log stream --predicate 'process == "ClaudeWatch"' --level debug
    ```
 
@@ -1102,4 +1102,4 @@ If issues persist after following this guide:
 
 **Last Updated:** 2026-01-19
 **Last Reviewed:** 2026-01-19 (Verified accuracy after 73 commits - all technical specs, error types, and troubleshooting scenarios remain valid)
-**Applies to:** Claude Watch v1.0+, watchOS 10.0+
+**Applies to:** Remmy v1.0+, watchOS 10.0+

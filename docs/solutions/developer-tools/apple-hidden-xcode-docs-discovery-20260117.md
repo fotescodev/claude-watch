@@ -184,7 +184,7 @@ When solving iOS 26+ problems:
 ## Impact
 
 This discovery enables:
-- **FM1-FM2 tasks**: Foundation Models integration for Claude Watch
+- **FM1-FM2 tasks**: Foundation Models integration for Remmy
 - **LG1-LG2 tasks**: Liquid Glass UI adoption
 - **Ralph automation**: Can now implement iOS 26 features autonomously
 

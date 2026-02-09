@@ -406,4 +406,4 @@ APNs Testing:
 ---
 
 *Last updated: 2026-01-19*
-*Created from lessons learned during Claude Watch TestFlight preparation*
+*Created from lessons learned during Remmy TestFlight preparation*

@@ -2,13 +2,13 @@
 
 **Status:** Reference Documentation
 **Created:** 2026-01-17
-**Target:** Claude Watch v1.0+
+**Target:** Remmy v1.0+
 
 ---
 
 ## Overview
 
-This document defines the complete design system for Claude Watch, a watchOS application built with SwiftUI. The design system ensures visual consistency, accessibility, and alignment with Apple's Human Interface Guidelines for watchOS.
+This document defines the complete design system for Remmy, a watchOS application built with SwiftUI. The design system ensures visual consistency, accessibility, and alignment with Apple's Human Interface Guidelines for watchOS.
 
 **Design Principles:**
 - **Glanceable**: Information accessible within 2-3 seconds
@@ -22,7 +22,7 @@ This document defines the complete design system for Claude Watch, a watchOS app
 
 ### Primary & Accent Colors
 
-Claude Watch uses **orange** as its primary brand color, representing the Claude identity with high visibility on the watch face.
+Remmy uses **orange** as its primary brand color, representing the Claude identity with high visibility on the watch face.
 
 | Token | RGB Values | Hex | Use Case |
 |-------|-----------|-----|----------|
@@ -162,7 +162,7 @@ Text("Tap to refresh")
 
 ### Dark Mode Strategy
 
-Claude Watch is **dark-mode only** by design, optimized for watchOS OLED displays:
+Remmy is **dark-mode only** by design, optimized for watchOS OLED displays:
 - Pure black (`#000000`) background for OLED power efficiency
 - No light mode variant (watchOS apps are typically dark by default)
 - All colors pre-optimized for dark backgrounds
@@ -210,7 +210,7 @@ Circle()
 
 ### Font System
 
-Claude Watch uses **San Francisco** (SF Pro) exclusively, Apple's system font optimized for watchOS legibility at small sizes and various viewing distances.
+Remmy uses **San Francisco** (SF Pro) exclusively, Apple's system font optimized for watchOS legibility at small sizes and various viewing distances.
 
 **Font Scale:**
 
@@ -363,7 +363,7 @@ if dynamicTypeSize >= .accessibility1 {
 
 ### Padding Scale
 
-Consistent spacing creates rhythm, visual hierarchy, and breathing room on the small watch screen. Claude Watch uses a **4px base unit** with multiples for predictable layout.
+Consistent spacing creates rhythm, visual hierarchy, and breathing room on the small watch screen. Remmy uses a **4px base unit** with multiples for predictable layout.
 
 **Spacing System:**
 
@@ -596,13 +596,13 @@ RoundedRectangle(cornerRadius: 8)
 
 ## Animation & Interaction Patterns
 
-Claude Watch uses **physics-based animations** and **tactile interaction patterns** to create a natural, responsive user experience on the watch. All animations are optimized for watchOS performance and battery efficiency.
+Remmy uses **physics-based animations** and **tactile interaction patterns** to create a natural, responsive user experience on the watch. All animations are optimized for watchOS performance and battery efficiency.
 
 ---
 
 ### Spring Animations
 
-Spring animations provide natural, physics-based motion that feels organic and responsive. Claude Watch defines three standard spring types as `Animation` extensions.
+Spring animations provide natural, physics-based motion that feels organic and responsive. Remmy defines three standard spring types as `Animation` extensions.
 
 #### Spring Animation Types
 
@@ -1270,7 +1270,7 @@ ZStack {
 
 ### Component Tree
 
-Claude Watch follows a hierarchical component architecture with clear separation of concerns. The main view conditionally renders different state-specific views, while shared components handle reusable UI patterns.
+Remmy follows a hierarchical component architecture with clear separation of concerns. The main view conditionally renders different state-specific views, while shared components handle reusable UI patterns.
 
 ```
 MainView (Root Container)
@@ -1937,13 +1937,13 @@ Button { showingSheet = true } label: { Text("Open") }
 
 ## Accessibility
 
-Claude Watch follows **Accessibility First** design principles, ensuring all users can interact with the app regardless of visual ability, motor skills, or environmental conditions. This section provides comprehensive guidelines for VoiceOver, Dynamic Type, Always-On Display, and Haptic Feedback.
+Remmy follows **Accessibility First** design principles, ensuring all users can interact with the app regardless of visual ability, motor skills, or environmental conditions. This section provides comprehensive guidelines for VoiceOver, Dynamic Type, Always-On Display, and Haptic Feedback.
 
 ---
 
 ### VoiceOver Support
 
-VoiceOver is Apple's screen reader technology that enables visually impaired users to navigate apps through audio descriptions. Every interactive element in Claude Watch must be accessible to VoiceOver users.
+VoiceOver is Apple's screen reader technology that enables visually impaired users to navigate apps through audio descriptions. Every interactive element in Remmy must be accessible to VoiceOver users.
 
 #### Core Principles
 
@@ -2279,7 +2279,7 @@ var body: some View {
 
 ### Always-On Display (AOD) Patterns
 
-When the Apple Watch enters Always-On Display mode, the screen dims to conserve battery and reduce burn-in. Claude Watch detects this state and adapts the UI accordingly.
+When the Apple Watch enters Always-On Display mode, the screen dims to conserve battery and reduce burn-in. Remmy detects this state and adapts the UI accordingly.
 
 #### Core Principles
 
@@ -2714,7 +2714,7 @@ Before shipping any feature, verify:
 
 ## Contribution Guidelines
 
-This section provides a comprehensive checklist and requirements for creating new SwiftUI components in Claude Watch. Follow these guidelines to ensure consistency, accessibility, and maintainability across the codebase.
+This section provides a comprehensive checklist and requirements for creating new SwiftUI components in Remmy. Follow these guidelines to ensure consistency, accessibility, and maintainability across the codebase.
 
 **Target Audience:** Developers contributing new UI components or modifying existing views.
 
@@ -3281,7 +3281,7 @@ struct MyComponent: View {
 
 ## Mode-Specific Colors
 
-Claude Watch has three permission modes, each with distinct colors.
+Remmy has three permission modes, each with distinct colors.
 
 | Mode | Primary Color | Background | Use Case |
 |------|--------------|------------|----------|
@@ -3557,4 +3557,4 @@ All color tokens are centralized in the `Claude` enum, making it easy to:
 ---
 
 **Last Updated:** 2026-01-17
-**Maintained By:** Claude Watch Team
+**Maintained By:** Remmy Team

@@ -30,7 +30,7 @@ _None documented yet_
 
 ## By Component
 
-### ClaudeWatch (watchOS App)
+### Remmy (watchOS App)
 - [Silent push not updating UI](integration-issues/watchos-silent-push-ui-update.md) - `willPresent` vs `didReceiveRemoteNotification`
 - [Multi-session conflicts](integration-issues/multi-session-progress-conflicts.md) - Session isolation, stale progress, empty states
 

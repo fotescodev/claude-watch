@@ -1,10 +1,10 @@
-# Claude Watch APNs Setup Guide
+# Remmy APNs Setup Guide
 
-A comprehensive guide for configuring Apple Push Notification service (APNs) with Claude Watch's Cloudflare Worker.
+A comprehensive guide for configuring Apple Push Notification service (APNs) with Remmy's Cloudflare Worker.
 
 ## Overview
 
-Apple Push Notification service (APNs) enables Claude Watch to instantly notify you on your Apple Watch when Claude Code needs approval for file edits, bash commands, or other tool usage. Without APNs, the watch app must continuously poll the server for new requests, which drains battery and introduces latency.
+Apple Push Notification service (APNs) enables Remmy to instantly notify you on your Apple Watch when Claude Code needs approval for file edits, bash commands, or other tool usage. Without APNs, the watch app must continuously poll the server for new requests, which drains battery and introduces latency.
 
 **Why APNs is Required:**
 - **Instant Notifications**: Receive approval requests within 1-2 seconds
@@ -12,7 +12,7 @@ Apple Push Notification service (APNs) enables Claude Watch to instantly notify 
 - **Wakes Watch Screen**: Notifications appear even when the watch is asleep
 - **Actionable Alerts**: Approve/reject directly from the notification without opening the app
 
-The Claude Watch Cloudflare Worker (located at `MCPServer/worker/src/index.js`) includes a complete APNs implementation that uses JWT authentication to send push notifications to paired Apple Watch devices.
+The Remmy Cloudflare Worker (located at `MCPServer/worker/src/index.js`) includes a complete APNs implementation that uses JWT authentication to send push notifications to paired Apple Watch devices.
 
 ---
 
@@ -29,7 +29,7 @@ Before configuring APNs, ensure you have:
   npm install -g wrangler
   wrangler login
   ```
-- **Claude Watch Cloudflare Worker** deployed
+- **Remmy Cloudflare Worker** deployed
   - Located in `MCPServer/worker/`
   - Worker URL format: `https://<worker-name>.<your-subdomain>.workers.dev`
 
@@ -61,7 +61,7 @@ APNs uses token-based authentication with a `.p8` private key file. This is more
 
 2. **Create New Key**
    - Click the **"+"** button (top-left, next to "Keys")
-   - Enter key name: **"Claude Watch APNs"** (or any descriptive name)
+   - Enter key name: **"Remmy APNs"** (or any descriptive name)
    - Check the box for **"Apple Push Notifications service (APNs)"**
    - Click **"Continue"**
 
@@ -101,7 +101,7 @@ The Cloudflare Worker requires four environment variables to send APNs notificat
 | `APNS_KEY_ID` | The 10-character Key ID from Apple | `AB12CD34EF` |
 | `APNS_TEAM_ID` | Your Apple Developer Team ID | `TEAM123456` |
 | `APNS_PRIVATE_KEY` | Base64-encoded `.p8` file contents | `LS0tLS1CRUdJT...` |
-| `APNS_BUNDLE_ID` | App bundle identifier (already set in `wrangler.toml`) | `com.edgeoftrust.claudewatch` |
+| `APNS_BUNDLE_ID` | App bundle identifier (already set in `wrangler.toml`) | `com.edgeoftrust.remmy` |
 
 ### Step 2: Configure Secrets Using Wrangler
 
@@ -190,7 +190,7 @@ cat wrangler.toml | grep APNS_BUNDLE_ID
 
 Expected output:
 ```toml
-APNS_BUNDLE_ID = "com.edgeoftrust.claudewatch"
+APNS_BUNDLE_ID = "com.edgeoftrust.remmy"
 ```
 
 If this doesn't match your app's bundle ID (found in Xcode project settings), update it in `wrangler.toml`.
@@ -296,8 +296,8 @@ APNs cannot be tested with simulators - you must use a physical Apple Watch.
 
 #### A. Pair Your Watch
 
-1. Build and install Claude Watch on your physical Apple Watch (via Xcode)
-2. Open the Claude Watch app
+1. Build and install Remmy on your physical Apple Watch (via Xcode)
+2. Open the Remmy app
 3. Tap **"Pair with Claude Code"**
 4. Generate a pairing code from your worker:
 
@@ -423,7 +423,7 @@ Expected response:
 
 4. **Notification Permissions Not Granted**
    - Watch app may not have notification permissions
-   - Solution: Check Settings > Notifications > Claude Watch on paired iPhone
+   - Solution: Check Settings > Notifications > Remmy on paired iPhone
 
 ### Issue 2: `apnsSent: false` in Response
 
@@ -578,7 +578,7 @@ curl https://claude-watch.<your-subdomain>.workers.dev/request/REQUEST_ID
 | `APNS_KEY_ID` | `wrangler secret` | `AB12CD34EF` | Yes |
 | `APNS_TEAM_ID` | `wrangler secret` | `TEAM123456` | Yes |
 | `APNS_PRIVATE_KEY` | `wrangler secret` | `LS0tLS1CR...` (base64) | Yes |
-| `APNS_BUNDLE_ID` | `wrangler.toml` | `com.edgeoftrust.claudewatch` | Yes |
+| `APNS_BUNDLE_ID` | `wrangler.toml` | `com.edgeoftrust.remmy` | Yes |
 | `APNS_SANDBOX` | `wrangler.toml` | `"true"` or `"false"` | Yes |
 
 ### APNs Endpoints
@@ -610,7 +610,7 @@ curl https://claude-watch.<your-subdomain>.workers.dev/request/REQUEST_ID
    - Add to `.gitignore`: `*.p8`
 
 2. **Limit Key Permissions**
-   - Create a dedicated APNs key for Claude Watch
+   - Create a dedicated APNs key for Remmy
    - Don't reuse keys across multiple apps
    - Only enable "Apple Push Notifications service (APNs)" permission
 
@@ -706,7 +706,7 @@ After completing APNs setup:
 - **Token-Based Authentication**: https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/establishing_a_token-based_connection_to_apns
 - **Cloudflare Workers**: https://developers.cloudflare.com/workers/
 - **Wrangler CLI**: https://developers.cloudflare.com/workers/wrangler/
-- **Claude Watch Repository**: Current repository
+- **Remmy Repository**: Current repository
 
 ---
 

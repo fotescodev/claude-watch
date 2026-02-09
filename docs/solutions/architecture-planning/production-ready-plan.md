@@ -1,8 +1,8 @@
-# Production-Ready Claude Watch: Comprehensive Plan
+# Production-Ready Remmy: Comprehensive Plan
 
 ## Problem Statement
 
-The user wants to use Claude Watch on their **physical Apple Watch outdoors** while Claude Code runs on their laptop. The current implementation has critical gaps that prevent this workflow.
+The user wants to use Remmy on their **physical Apple Watch outdoors** while Claude Code runs on their laptop. The current implementation has critical gaps that prevent this workflow.
 
 ## Current State Assessment
 

@@ -101,7 +101,7 @@ struct BreathingCircle: View {
                 isBreathing = true
             }
         }
-        .accessibilityLabel("Claude is idle and ready")
+        .accessibilityLabel("Remmy is idle and ready")
     }
 }
 
@@ -132,7 +132,7 @@ struct ClaudeFaceLogo: View {
                     isBreathing = true
                 }
             }
-            .accessibilityLabel("Claude logo")
+            .accessibilityLabel("Remmy logo")
     }
 }
 

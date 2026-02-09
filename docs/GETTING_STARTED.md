@@ -1,4 +1,4 @@
-# Getting Started with Claude Watch
+# Getting Started with Remmy
 
 Approve Claude Code changes from your Apple Watch.
 
@@ -66,7 +66,7 @@ xcrun simctl install "Apple Watch Series 11 (46mm)" /path/to/ClaudeWatch.app
 Simulators cannot reach localhost. You must use cloud mode:
 
 ```bash
-BUNDLE_ID="com.edgeoftrust.claudewatch"
+BUNDLE_ID="com.edgeoftrust.remmy"
 
 # Enable cloud mode
 xcrun simctl spawn "$DEVICE_ID" defaults write "$BUNDLE_ID" useCloudMode -bool true
@@ -78,7 +78,7 @@ xcrun simctl spawn "$DEVICE_ID" defaults write "$BUNDLE_ID" pairingId -string "Y
 #### 5. Launch the App
 
 ```bash
-xcrun simctl launch "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch
+xcrun simctl launch "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy
 ```
 
 ### Quick Reference Commands
@@ -91,7 +91,7 @@ xcrun simctl list devices | grep "Apple Watch"
 xcrun simctl shutdown all
 
 # Send test notification
-xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch payload.json
+xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy payload.json
 
 # View logs
 log stream --predicate 'process == "ClaudeWatch"' --level debug
@@ -117,7 +117,7 @@ Push notifications require Apple Push Notification service (APNs) credentials.
 
 1. Go to [Apple Developer Portal](https://developer.apple.com/account/resources/authkeys/list)
 2. Click "+" to create new key
-3. Name it "Claude Watch APNs"
+3. Name it "Remmy APNs"
 4. Check "Apple Push Notifications service (APNs)"
 5. Download the `.p8` file (can only download ONCE)
 6. Note your Key ID (10 characters)
@@ -194,7 +194,7 @@ Then redeploy: `npx wrangler deploy`
 
 #### Notifications not appearing
 
-1. Check permissions: iPhone → Watch app → Notifications → Claude Watch
+1. Check permissions: iPhone → Watch app → Notifications → Remmy
 2. Verify Do Not Disturb is OFF
 3. Test APNs: Check `apnsSent: true` in API response
 

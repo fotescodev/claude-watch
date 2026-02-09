@@ -1,4 +1,4 @@
-# Claude Watch: User Journey Documentation
+# Remmy: User Journey Documentation
 
 > **Version**: 1.0
 > **Last Updated**: January 2026
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-Claude Watch enables developers to approve or reject Claude Code's tool use requests directly from their Apple Watch. This document outlines the complete user journey from pairing through daily use, with design rationale for each interaction.
+Remmy enables developers to approve or reject Claude Code's tool use requests directly from their Apple Watch. This document outlines the complete user journey from pairing through daily use, with design rationale for each interaction.
 
 ---
 

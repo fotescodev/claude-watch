@@ -1,6 +1,6 @@
-# Claude Watch Simulator Testing Guide
+# Remmy Simulator Testing Guide
 
-A comprehensive guide for setting up and troubleshooting watchOS simulator testing for Claude Watch.
+A comprehensive guide for setting up and troubleshooting watchOS simulator testing for Remmy.
 
 ## Prerequisites
 
@@ -9,7 +9,7 @@ Before starting simulator testing, ensure you have:
 - **Xcode Command Line Tools** installed: `xcode-select --install`
 - **watchOS SDK** available (included with Xcode)
 - **Apple Watch simulator** available in Xcode
-- **Claude Watch app** built and ready for installation
+- **Remmy app** built and ready for installation
 - **Cloud server** running and accessible (for cloud mode testing)
 - **Valid pairing ID** from cloud server for simulator device registration
 
@@ -59,7 +59,7 @@ DEVICE_ID=$(xcrun simctl list devices | grep "Apple Watch Series 11" | grep -oE 
 echo $DEVICE_ID
 ```
 
-### Step 3: Install the Claude Watch App
+### Step 3: Install the Remmy App
 
 Build the app and obtain the app bundle path (typically in your Xcode build folder):
 
@@ -86,7 +86,7 @@ Cloud mode allows the simulator to connect to your cloud server instead of tryin
 
 ```bash
 DEVICE_ID="YOUR_DEVICE_UUID_HERE"
-BUNDLE_ID="com.edgeoftrust.claudewatch"
+BUNDLE_ID="com.edgeoftrust.remmy"
 
 xcrun simctl spawn "$DEVICE_ID" defaults write "$BUNDLE_ID" useCloudMode -bool true
 ```
@@ -97,7 +97,7 @@ Obtain a pairing ID from your cloud server, then configure it:
 
 ```bash
 DEVICE_ID="YOUR_DEVICE_UUID_HERE"
-BUNDLE_ID="com.edgeoftrust.claudewatch"
+BUNDLE_ID="com.edgeoftrust.remmy"
 PAIRING_ID="your-pairing-id-from-server"
 
 xcrun simctl spawn "$DEVICE_ID" defaults write "$BUNDLE_ID" pairingId -string "$PAIRING_ID"
@@ -107,7 +107,7 @@ xcrun simctl spawn "$DEVICE_ID" defaults write "$BUNDLE_ID" pairingId -string "$
 
 ```bash
 DEVICE_ID="YOUR_DEVICE_UUID_HERE"
-BUNDLE_ID="com.edgeoftrust.claudewatch"
+BUNDLE_ID="com.edgeoftrust.remmy"
 
 # Check cloud mode setting
 xcrun simctl spawn "$DEVICE_ID" defaults read "$BUNDLE_ID" useCloudMode
@@ -134,11 +134,11 @@ ping -c 1 your-server-address
 
 ### Step 6: Launch the App
 
-Launch Claude Watch on the simulator:
+Launch Remmy on the simulator:
 
 ```bash
 DEVICE_NAME="Apple Watch Series 11 (46mm)"
-BUNDLE_ID="com.edgeoftrust.claudewatch"
+BUNDLE_ID="com.edgeoftrust.remmy"
 
 xcrun simctl launch "$DEVICE_NAME" "$BUNDLE_ID"
 ```
@@ -149,7 +149,7 @@ Check app status and view logs:
 
 ```bash
 DEVICE_NAME="Apple Watch Series 11 (46mm)"
-BUNDLE_ID="com.edgeoftrust.claudewatch"
+BUNDLE_ID="com.edgeoftrust.remmy"
 
 # List running apps
 xcrun simctl listapps "$DEVICE_NAME" | grep -i claude
@@ -186,7 +186,7 @@ log stream --predicate 'process == "CloudWatch"' --level debug
 ```bash
 # Verify cloud mode is enabled
 DEVICE_ID="YOUR_DEVICE_UUID"
-BUNDLE_ID="com.edgeoftrust.claudewatch"
+BUNDLE_ID="com.edgeoftrust.remmy"
 xcrun simctl spawn "$DEVICE_ID" defaults read "$BUNDLE_ID" useCloudMode
 ```
 
@@ -211,7 +211,7 @@ xcrun simctl spawn "$DEVICE_ID" defaults read "$BUNDLE_ID" useCloudMode
 2. **Reinstall App**
    ```bash
    DEVICE_NAME="Apple Watch Series 11 (46mm)"
-   BUNDLE_ID="com.edgeoftrust.claudewatch"
+   BUNDLE_ID="com.edgeoftrust.remmy"
 
    # Uninstall
    xcrun simctl uninstall "$DEVICE_NAME" "$BUNDLE_ID"
@@ -231,7 +231,7 @@ xcrun simctl spawn "$DEVICE_ID" defaults read "$BUNDLE_ID" useCloudMode
 4. **Send Test Notification**
    ```bash
    DEVICE_NAME="Apple Watch Series 11 (46mm)"
-   BUNDLE_ID="com.edgeoftrust.claudewatch"
+   BUNDLE_ID="com.edgeoftrust.remmy"
 
    # Create payload.json with proper format
    cat > /tmp/notification_payload.json << 'EOF'
@@ -262,7 +262,7 @@ xcrun simctl spawn "$DEVICE_ID" defaults read "$BUNDLE_ID" useCloudMode
 1. **Verify Cloud Configuration**
    ```bash
    DEVICE_ID="YOUR_DEVICE_UUID"
-   BUNDLE_ID="com.edgeoftrust.claudewatch"
+   BUNDLE_ID="com.edgeoftrust.remmy"
 
    # Check both settings
    xcrun simctl spawn "$DEVICE_ID" defaults read "$BUNDLE_ID" useCloudMode
@@ -272,7 +272,7 @@ xcrun simctl spawn "$DEVICE_ID" defaults read "$BUNDLE_ID" useCloudMode
 2. **Restart the App**
    ```bash
    DEVICE_NAME="Apple Watch Series 11 (46mm)"
-   BUNDLE_ID="com.edgeoftrust.claudewatch"
+   BUNDLE_ID="com.edgeoftrust.remmy"
 
    # Terminate
    xcrun simctl terminate "$DEVICE_NAME" "$BUNDLE_ID"
@@ -342,7 +342,7 @@ open -a Simulator
 2. **Reset App Defaults**
    ```bash
    DEVICE_ID="YOUR_DEVICE_UUID"
-   BUNDLE_ID="com.edgeoftrust.claudewatch"
+   BUNDLE_ID="com.edgeoftrust.remmy"
 
    # Delete all app preferences
    xcrun simctl spawn "$DEVICE_ID" defaults delete "$BUNDLE_ID"
@@ -355,7 +355,7 @@ open -a Simulator
 3. **Reinstall App**
    ```bash
    DEVICE_NAME="Apple Watch Series 11 (46mm)"
-   BUNDLE_ID="com.edgeoftrust.claudewatch"
+   BUNDLE_ID="com.edgeoftrust.remmy"
 
    xcrun simctl uninstall "$DEVICE_NAME" "$BUNDLE_ID"
    xcrun simctl install "$DEVICE_NAME" "$APP_PATH"
@@ -391,39 +391,39 @@ xcrun simctl list devices | grep "Apple Watch Series 11" | grep -oE '[A-F0-9]{8}
 xcrun simctl install "Apple Watch Series 11 (46mm)" path/to/CloudWatch.app
 
 # Uninstall app
-xcrun simctl uninstall "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch
+xcrun simctl uninstall "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy
 
 # List installed apps
 xcrun simctl listapps "Apple Watch Series 11 (46mm)"
 
 # Launch app
-xcrun simctl launch "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch
+xcrun simctl launch "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy
 
 # Terminate app
-xcrun simctl terminate "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch
+xcrun simctl terminate "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy
 ```
 
 ### Configuration Management
 
 ```bash
 # Set defaults (example: enable cloud mode)
-xcrun simctl spawn DEVICE_UUID defaults write com.edgeoftrust.claudewatch useCloudMode -bool true
+xcrun simctl spawn DEVICE_UUID defaults write com.edgeoftrust.remmy useCloudMode -bool true
 
 # Set string value (example: pairing ID)
-xcrun simctl spawn DEVICE_UUID defaults write com.edgeoftrust.claudewatch pairingId -string "your-pairing-id"
+xcrun simctl spawn DEVICE_UUID defaults write com.edgeoftrust.remmy pairingId -string "your-pairing-id"
 
 # Read defaults
-xcrun simctl spawn DEVICE_UUID defaults read com.edgeoftrust.claudewatch
+xcrun simctl spawn DEVICE_UUID defaults read com.edgeoftrust.remmy
 
 # Delete all defaults for app
-xcrun simctl spawn DEVICE_UUID defaults delete com.edgeoftrust.claudewatch
+xcrun simctl spawn DEVICE_UUID defaults delete com.edgeoftrust.remmy
 ```
 
 ### Notifications & Testing
 
 ```bash
 # Send notification to app
-xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch payload.json
+xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy payload.json
 
 # Create sample payload
 cat > payload.json << 'EOF'
@@ -450,7 +450,7 @@ log stream --predicate 'process == "CloudWatch"' --device-id=DEVICE_UUID --level
 log show --last 1h --process CloudWatch
 
 # Capture console output
-xcrun simctl launch "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch 2>&1
+xcrun simctl launch "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy 2>&1
 ```
 
 ---
@@ -464,7 +464,7 @@ Use this script to automate the entire setup process:
 
 # Configuration
 DEVICE_NAME="Apple Watch Series 11 (46mm)"
-BUNDLE_ID="com.edgeoftrust.claudewatch"
+BUNDLE_ID="com.edgeoftrust.remmy"
 APP_PATH="path/to/your/CloudWatch.app"
 PAIRING_ID="your-pairing-id-from-server"
 SERVER_URL="https://your-server-address"
@@ -475,7 +475,7 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}Starting Claude Watch Simulator Setup${NC}"
+echo -e "${YELLOW}Starting Remmy Simulator Setup${NC}"
 
 # Step 1: Boot simulator
 echo -e "${YELLOW}Step 1: Booting simulator...${NC}"
@@ -518,7 +518,7 @@ echo -e "${YELLOW}Step 6: Launching app...${NC}"
 xcrun simctl launch "$DEVICE_NAME" "$BUNDLE_ID"
 sleep 3
 
-echo -e "${GREEN}Setup complete! Claude Watch is running on the simulator.${NC}"
+echo -e "${GREEN}Setup complete! Remmy is running on the simulator.${NC}"
 echo -e "${GREEN}Device UUID: $DEVICE_UUID${NC}"
 echo -e "${GREEN}Bundle ID: $BUNDLE_ID${NC}"
 echo -e "${YELLOW}Check the simulator window for the app${NC}"
@@ -559,7 +559,7 @@ echo -e "${YELLOW}Check the simulator window for the app${NC}"
 - [Apple Simulator Documentation](https://developer.apple.com/documentation/xcode/running_your_app_in_the_simulator)
 - [watchOS Development Guide](https://developer.apple.com/watchos/)
 - [xcrun simctl Reference](https://developer.apple.com/library/archive/documentation/Utilities/Conceptual/MobileDeviceManagementProgrammingGuide/3-MDM_Protocol/MDM_Protocol.html)
-- Claude Watch Project Documentation
+- Remmy Project Documentation
 
 ---
 

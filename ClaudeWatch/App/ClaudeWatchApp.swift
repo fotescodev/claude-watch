@@ -62,9 +62,9 @@ class AppDelegate: NSObject, WKApplicationDelegate {
             options: [.foreground]
         )
 
-        // Claude action category (for pending actions)
+        // Remmy action category (for pending actions)
         let actionCategory = UNNotificationCategory(
-            identifier: "CLAUDE_ACTION",
+            identifier: "REMMY_ACTION",
             actions: [approveAction, rejectAction, approveAllAction],
             intentIdentifiers: [],
             options: [.customDismissAction]

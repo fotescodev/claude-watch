@@ -29,7 +29,7 @@ tags:
 
 ## Problem
 
-Claude Watch hooks were intercepting tool calls from **all** Claude Code sessions, not just those launched via `npx cc-watch`. This caused:
+Remmy hooks were intercepting tool calls from **all** Claude Code sessions, not just those launched via `npx cc-watch`. This caused:
 
 1. Normal `claude` terminal sessions to unexpectedly wait for watch approval
 2. No way to disconnect the watch mid-session

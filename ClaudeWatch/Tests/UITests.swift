@@ -1,6 +1,6 @@
 import XCTest
 
-/// UI Tests for Claude Watch critical user flows
+/// UI Tests for Remmy critical user flows
 /// Tests consent flow, connection status, approval/rejection, and settings navigation
 final class UITests: XCTestCase {
     var app: XCUIApplication!
@@ -26,8 +26,8 @@ final class UITests: XCTestCase {
         app.launch()
 
         // Verify consent view elements are displayed
-        let welcomeText = app.staticTexts["Welcome to Claude Watch"]
-        XCTAssertTrue(welcomeText.waitForExistence(timeout: 5), "Welcome text should be visible")
+        let welcomeText = app.staticTexts["Privacy First"]
+        XCTAssertTrue(welcomeText.waitForExistence(timeout: 5), "Privacy First text should be visible")
 
         // Verify consent pages exist
         let aiProcessingText = app.staticTexts["AI Processing"]
@@ -49,7 +49,7 @@ final class UITests: XCTestCase {
             // Wait for consent view to disappear
             let expectation = XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "exists == false"),
-                object: app.staticTexts["Welcome to Claude Watch"]
+                object: app.staticTexts["Privacy First"]
             )
             let result = XCTWaiter().wait(for: [expectation], timeout: 5)
             XCTAssertEqual(result, .completed, "Consent view should disappear after accepting")

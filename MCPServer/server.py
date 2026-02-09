@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Claude Watch MCP Server
+Remmy MCP Server
 
 An MCP server that bridges Claude Code to your Apple Watch.
 Provides real-time updates via WebSocket and push notifications via APNs.
@@ -34,7 +34,7 @@ from pathlib import Path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("claude-watch")
+logger = logging.getLogger("remmy")
 
 # Try imports for full functionality
 try:
@@ -322,11 +322,11 @@ class APNsSender:
         payload = {
             "aps": {
                 "alert": {
-                    "title": f"Claude: {action.type.value.replace('_', ' ').title()}",
+                    "title": f"Remmy: {action.type.value.replace('_', ' ').title()}",
                     "subtitle": action.title,
                     "body": action.description[:100],
                 },
-                "category": "CLAUDE_ACTION",
+                "category": "REMMY_ACTION",
                 "sound": "default",
                 "interruption-level": "time-sensitive",
             },
@@ -354,7 +354,7 @@ class APNsSender:
         payload = {
             "aps": {
                 "alert": {
-                    "title": "Claude",
+                    "title": "Remmy",
                     "body": response[:200] + ("..." if len(response) > 200 else ""),
                 },
                 "sound": "default",
@@ -526,7 +526,7 @@ class MCPServer:
                 "id": msg_id,
                 "result": {
                     "protocolVersion": "2024-11-05",
-                    "serverInfo": {"name": "claude-watch", "version": "1.0.0"},
+                    "serverInfo": {"name": "remmy", "version": "1.0.0"},
                     "capabilities": {"tools": {}},
                 }
             }
@@ -860,14 +860,14 @@ def create_rest_app(watch_manager: WatchConnectionManager) -> web.Application:
 async def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="Claude Watch MCP Server")
+    parser = argparse.ArgumentParser(description="Remmy MCP Server")
     parser.add_argument("--standalone", action="store_true", help="Run in standalone mode (not as MCP)")
     parser.add_argument("--port", type=int, default=8787, help="WebSocket/HTTP port")
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
     parser.add_argument("--apns-key", help="Path to APNs key file")
     parser.add_argument("--apns-key-id", help="APNs key ID")
     parser.add_argument("--apns-team-id", help="Apple Team ID")
-    parser.add_argument("--bundle-id", default="com.example.claudewatch", help="App bundle ID")
+    parser.add_argument("--bundle-id", default="com.edgeoftrust.remmy", help="App bundle ID")
     args = parser.parse_args()
 
     # Initialize watch manager
@@ -915,7 +915,7 @@ async def main():
         if tasks:
             print(f"""
 ╔══════════════════════════════════════════════════════════════╗
-║                 Claude Watch Server                          ║
+║                    Remmy Server                              ║
 ╠══════════════════════════════════════════════════════════════╣
 ║  WebSocket:  ws://{args.host}:{args.port:<5}                           ║
 ║  REST API:   http://{args.host}:{args.port + 1:<5}                          ║

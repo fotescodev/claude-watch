@@ -26,7 +26,7 @@ tags:
 
 ## Problem
 
-Three interconnected issues when using Claude Watch with multiple Claude Code sessions:
+Three interconnected issues when using Remmy with multiple Claude Code sessions:
 
 ### 1. Session Isolation
 When running Ralph (autonomous task runner) inside a Claude Code session with watch hooks enabled, Ralph's `TodoWrite` calls send progress updates to the watch, overwriting the user's interactive session progress.

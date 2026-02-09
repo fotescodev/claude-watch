@@ -160,7 +160,7 @@ cat > /tmp/progress-test.json << 'EOF'
 EOF
 
 # Send to simulator
-xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.claudewatch /tmp/progress-test.json
+xcrun simctl push "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy /tmp/progress-test.json
 ```
 
 **Note:** For simulator testing, use notifications with an `alert` payload. Pure silent notifications (`content-available` only) may not be delivered reliably in the simulator.

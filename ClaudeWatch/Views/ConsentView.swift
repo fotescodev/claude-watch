@@ -233,7 +233,7 @@ struct PrivacyInfoView: View {
                     privacyRow(
                         icon: "lock.fill",
                         title: "Privacy First",
-                        description: "Secure connection to Claude"
+                        description: "Secure, encrypted connection"
                     )
 
                     privacyRow(
