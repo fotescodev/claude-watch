@@ -153,6 +153,99 @@ Watch: Polls /pair/status/:watchId → {paired: true, pairingId}
 
 ---
 
+## Phase 11: --sdk-url Migration (In Progress)
+
+> **Status**: In Progress (started 2026-02-11)
+> **Branch**: `claude/investigate-websocket-terminal-utUEt`
+> **Spec**: `.claude/plans/sdk-url-agent-execution-spec.md`
+
+### New Architecture
+
+The `--sdk-url` migration replaces the hook-based data channel with a direct NDJSON-over-WebSocket connection between the Claude CLI and a local Python bridge server. The bridge replaces all four hooks (approval, question, progress, context) with a single real-time control channel.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         CLAUDE WATCH SYSTEM (Phase 11)                          │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   MAC (Developer Machine)                                                       │
+│   ├── Claude Code CLI                                                           │
+│   │   └── --sdk-url ws://localhost:8787/ws/cli/{session_id}                     │
+│   │       Sends: NDJSON messages (system, assistant, result, control_request)    │
+│   │       Receives: control_response (approve/deny with updatedInput)           │
+│   │                                                                             │
+│   ├── Bridge Server (MCPServer/bridge/) ← NEW                                  │
+│   │   ├── NDJSON WebSocket ← Claude CLI connection                              │
+│   │   ├── Permission handler (can_use_tool → approve/deny)                      │
+│   │   ├── Question handler (AskUserQuestion → recommended answer)               │
+│   │   ├── Progress tracker (tool_progress, TodoWrite, context %)                │
+│   │   ├── CLI launcher (spawns claude --sdk-url, manages lifecycle)             │
+│   │   └── REST API (same contract as current cloud worker)                      │
+│   │                                                                             │
+│   └── cc-watch CLI (claude-watch-npm/)                                          │
+│       ├── Pairing flow → POST /pair/complete (unchanged)                        │
+│       └── Launches bridge server (replaces env var spawning)                    │
+│                                                                                 │
+│   CLOUDFLARE WORKER (claude-watch-cloud/) — REDUCED ROLE                        │
+│   ├── /pair/* → Pairing handshake (unchanged)                                   │
+│   └── Relay: Bridge → Cloud → Watch (approval/progress/question data)           │
+│       (Cloud worker becomes a thin relay; bridge is the source of truth)        │
+│                                                                                 │
+│   APPLE WATCH (ClaudeWatch/) — UNCHANGED FOR MVP                                │
+│   ├── WatchService.swift → Polls cloud (same endpoints, same contract)          │
+│   ├── Views/ → MainView, PairingView, ProgressView (no changes)                │
+│   └── Complications/ → Watch face widgets (no changes)                          │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### What Changes
+
+| Component | Before (Hooks) | After (--sdk-url) |
+|-----------|----------------|-------------------|
+| **Approval flow** | `watch-approval-cloud.py` hook -> cloud -> watch polls | `can_use_tool` WebSocket msg -> bridge -> cloud -> watch polls |
+| **Question handling** | `question-handler.py` hook (broken for multi-option) | `AskUserQuestion` via `can_use_tool` + `updatedInput` response |
+| **Progress tracking** | `progress-tracker.py` PostToolUse hook | Native `tool_progress` + `assistant` message parsing |
+| **Context warnings** | `context-warning.py` hook (estimated) | `result.modelUsage` (exact token counts) |
+| **Session isolation** | `CLAUDE_WATCH_SESSION_ACTIVE=1` env var | Inherent: only `--sdk-url` sessions connect to bridge |
+| **Interrupt/pause** | Hook polls `/session-interrupt` endpoint | Direct `control_request { subtype: "interrupt" }` |
+
+### What Stays the Same
+
+- Cloud pairing flow (watch initiates with code, CLI completes)
+- Watch UI (views, complications, notification categories)
+- APNs push notifications (delivery mechanism unchanged)
+- E2E encryption (for cloud relay leg)
+- Watch input constraints (approve/reject only)
+
+### New Files: MCPServer/bridge/
+
+| File | Purpose |
+|------|---------|
+| `__init__.py` | Package init |
+| `types.py` | Dataclasses for all NDJSON message types |
+| `session.py` | Per-session state (model, tools, cost, pending permissions, todos) |
+| `ndjson_server.py` | WebSocket server accepting CLI connections |
+| `permissions.py` | `can_use_tool` handler + `control_response` construction |
+| `questions.py` | `AskUserQuestion` parsing + recommendation extraction |
+| `progress.py` | TodoWrite + tool_progress + context % tracking |
+| `launcher.py` | CLI process spawning with `--sdk-url`, lifecycle management |
+| `api.py` | REST API matching current cloud worker contract (zero watch changes) |
+| `main.py` | Entrypoint wiring everything together |
+
+### Data Flow Changes
+
+| Flow | New Direction | Files Involved |
+|------|--------------|----------------|
+| **Approval** | CLI -> Bridge (WebSocket) -> Cloud -> Watch -> Cloud -> Bridge -> CLI | `bridge/permissions.py` -> `index.ts` -> `WatchService.swift` |
+| **Question** | CLI -> Bridge (parse + recommend) -> Cloud -> Watch -> Cloud -> Bridge (updatedInput) -> CLI | `bridge/questions.py` -> `index.ts` -> `WatchService.swift` |
+| **Progress** | CLI -> Bridge (native messages) -> Cloud -> Watch | `bridge/progress.py` -> `index.ts` -> `WatchService.swift` |
+| **Interrupt** | Watch -> Cloud -> Bridge -> CLI (instant) | `WatchService.swift` -> `index.ts` -> `bridge/permissions.py` |
+
+For full details, see `.claude/plans/sdk-url-agent-execution-spec.md`.
+
+---
+
 ## Learnings Log
 
 > Undocumented patterns discovered during development. Add new entries with date.
@@ -185,4 +278,4 @@ Watch: Polls /pair/status/:watchId → {paired: true, pairingId}
 
 ---
 
-*Last updated: 2026-01-23*
+*Last updated: 2026-02-11*
