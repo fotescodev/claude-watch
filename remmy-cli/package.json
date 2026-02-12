@@ -16,7 +16,10 @@
   "scripts": {
     "dev": "bun run src/cli.ts",
     "build": "bun run scripts/build.ts",
-    "test": "bun test",
+    "test": "bun test src/ui/ src/lib/ src/cli.test.ts && bun test src/commands/",
+    "test:lib": "bun test src/ui/ src/lib/ src/cli.test.ts",
+    "test:commands": "bun test src/commands/",
+    "test:all": "bun test src/ui/ src/lib/ src/cli.test.ts && bun test src/commands/",
     "test:watch": "bun test --watch",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "bun run build && bun test && bun run typecheck"
