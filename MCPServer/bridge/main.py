@@ -61,6 +61,7 @@ class Bridge:
         self._ndjson = NDJSONServer(host="0.0.0.0", port=port)
         self._launcher: Any = None  # CLILauncher, set if --launch mode
         self._api: Any = None  # BridgeAPI instance, set if aiohttp available
+        self._http_runner: Any = None  # aiohttp AppRunner, for cleanup
 
         # Wire NDJSON handlers
         self._ndjson.on_connect(self._on_cli_connect)
@@ -295,9 +296,10 @@ class Bridge:
             app = self._api.create_app()
             runner = web.AppRunner(app)
             await runner.setup()
+            self._http_runner = runner
             # Run HTTP on port+1 to avoid conflict with WebSocket
             http_port = self.port + 1
-            site = web.TCPSite(runner, "0.0.0.0", http_port)
+            site = web.TCPSite(runner, "0.0.0.0", http_port, reuse_address=True)
             await site.start()
             logger.info("HTTP API listening on http://0.0.0.0:%d", http_port)
         except ImportError:
@@ -335,6 +337,9 @@ class Bridge:
         """Stop everything gracefully."""
         if self._launcher:
             await self._launcher.kill_all()
+        if self._http_runner:
+            await self._http_runner.cleanup()
+            self._http_runner = None
         await self._ndjson.stop()
 
 

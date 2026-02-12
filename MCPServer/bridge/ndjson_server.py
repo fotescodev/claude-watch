@@ -214,6 +214,7 @@ class NDJSONServer:
             self.port,
             ping_interval=10,
             ping_timeout=10,
+            reuse_address=True,
         )
         logger.info(
             "NDJSON server listening on ws://%s:%d", self.host, self.port

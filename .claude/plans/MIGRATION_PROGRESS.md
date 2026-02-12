@@ -3,7 +3,7 @@
 > **Branch**: `claude/investigate-websocket-terminal-utUEt`
 > **Spec**: `.claude/plans/sdk-url-agent-execution-spec.md`
 > **Plan**: `.claude/plans/sdk-url-migration-plan.md`
-> **Last updated**: 2026-02-11
+> **Last updated**: 2026-02-12
 
 ## Workstream A: Bridge Server
 - [x] A1: NDJSON WebSocket Server — DONE (229 lines, 11 tests)
@@ -15,8 +15,8 @@
 - [x] A7: Watch-Facing REST API — DONE (466 lines, 34 tests)
 - [x] A8: Bridge Entrypoint — DONE (391 lines, 34 tests)
 
-## Workstream B: cc-watch CLI
-- [ ] B1: Launch Bridge + CLI — PENDING
+## Workstream B: Remmy CLI
+- [x] B1: Launch Bridge + CLI — DONE (9 tasks, 129 tests, ~4,600 lines)
 - [ ] B2: Cloud Worker Relay — PENDING
 
 ## Workstream C: Watch App
@@ -24,12 +24,12 @@
 - [ ] C2: Direct WebSocket (Post-MVP) — PENDING
 
 ## Workstream D: Integration Tests
-- [ ] D1: End-to-End Approval Flow — PENDING
-- [ ] D2: End-to-End Question Flow — PENDING
-- [ ] D3: End-to-End Progress Flow — PENDING
-- [ ] D4: End-to-End Interrupt Flow — PENDING
-- [ ] D5: CLI Launcher Integration — PENDING
-- [ ] D6: Regression Test Against Current Watch API Contract — PENDING
+- [x] D1: End-to-End Approval Flow — DONE (11 tests)
+- [x] D2: End-to-End Question Flow — DONE (5 tests)
+- [x] D3: End-to-End Progress Flow — DONE (4 tests)
+- [x] D4: End-to-End Interrupt Flow — DONE (6 tests)
+- [x] D5: CLI Launcher Integration — DONE (15 tests)
+- [x] D6: Regression Test Against Current Watch API Contract — DONE (41 tests)
 
 ## Workstream E: New Capabilities
 - [ ] E1: Permission Learning ("Always Allow" Button) — PENDING
