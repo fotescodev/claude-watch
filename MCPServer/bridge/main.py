@@ -93,7 +93,12 @@ class Bridge:
     # ------------------------------------------------------------------
 
     async def _on_cli_connect(self, session_id: str, websocket: Any) -> None:
-        """Called when CLI connects via WebSocket."""
+        """Called when CLI connects via WebSocket.
+
+        If a ``pairing_id`` was configured and the API is active, the session
+        is auto-registered so that watch-facing REST endpoints resolve
+        immediately — no ``--launch`` mode required.
+        """
         session = Session(session_id)
         self._sessions[session_id] = session
         session.cli_socket = websocket
@@ -101,6 +106,16 @@ class Bridge:
 
         if self._launcher:
             self._launcher.mark_connected(session_id)
+
+        # Auto-register with REST API so watch endpoints work even when
+        # the CLI was launched externally (e.g. by remmy-watch CLI).
+        if self._api and self.pairing_id:
+            self._api.register_session(self.pairing_id, session_id, session)
+            logger.info(
+                "Auto-registered session %s for pairing %s",
+                session_id,
+                self.pairing_id,
+            )
 
     async def _on_cli_disconnect(self, session_id: str) -> None:
         """Called when CLI WebSocket disconnects."""

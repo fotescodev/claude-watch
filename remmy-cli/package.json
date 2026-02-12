@@ -1,0 +1,55 @@
+{
+  "name": "remmy-watch",
+  "version": "0.1.0",
+  "description": "Approve Claude Code changes from your Apple Watch",
+  "type": "module",
+  "bin": {
+    "remmy": "./dist/cli.mjs"
+  },
+  "main": "./dist/cli.mjs",
+  "files": [
+    "dist",
+    "bridge",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build": "bun run scripts/build.ts",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build && bun test && bun run typecheck"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "anthropic",
+    "apple-watch",
+    "watchos",
+    "wearable",
+    "ai",
+    "code-review",
+    "developer-tools",
+    "cli",
+    "remmy"
+  ],
+  "author": "fotescodev",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fotescodev/remmy-watch.git",
+    "directory": "remmy-cli"
+  },
+  "bugs": {
+    "url": "https://github.com/fotescodev/remmy-watch/issues"
+  },
+  "homepage": "https://remmy.watch"
+}

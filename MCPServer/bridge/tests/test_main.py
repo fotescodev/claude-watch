@@ -750,3 +750,36 @@ class TestOnCliConnect:
         await bridge._on_cli_connect(session_id, mock_ws)
 
         assert session_id in bridge.sessions
+
+    @pytest.mark.asyncio
+    async def test_auto_registers_with_api_when_pairing_id_set(self) -> None:
+        """When API is active and pairing_id is set, _on_cli_connect
+        auto-registers the session so watch endpoints work without --launch."""
+        bridge = Bridge(port=8787, pairing_id="PAIR-AUTO")
+
+        mock_api = MagicMock()
+        bridge._api = mock_api
+
+        session_id = "auto-reg-session"
+        mock_ws = MagicMock()
+        await bridge._on_cli_connect(session_id, mock_ws)
+
+        mock_api.register_session.assert_called_once()
+        call_args = mock_api.register_session.call_args[0]
+        assert call_args[0] == "PAIR-AUTO"
+        assert call_args[1] == session_id
+        # Third arg is the Session object
+        assert call_args[2] is bridge.sessions[session_id]
+
+    @pytest.mark.asyncio
+    async def test_no_auto_register_without_api(self) -> None:
+        """When API is not active, _on_cli_connect skips registration."""
+        bridge = Bridge(port=8787, pairing_id="PAIR-NOAPI")
+        assert bridge._api is None
+
+        session_id = "no-api-session"
+        mock_ws = MagicMock()
+        # Should not raise
+        await bridge._on_cli_connect(session_id, mock_ws)
+
+        assert session_id in bridge.sessions
