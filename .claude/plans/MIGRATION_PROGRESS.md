@@ -90,3 +90,5 @@ WEEK 5: Cleanup
 | `2198da5` | research: analyze --sdk-url WebSocket protocol | Research/analysis |
 | `8183c66` | plan: comprehensive --sdk-url migration with feature parity matrix | Planning |
 | `d6d354d` | spec: agent-executable --sdk-url migration with AC and tests | Spec (all tasks) |
+| `970ab13` | feat(bridge): implement A1-A5 — NDJSON server, types, permissions, questions, progress | A1-A5 (Wave 1) |
+| `fc687c7` | feat(bridge): implement A6-A8 — CLI launcher, REST API, bridge entrypoint | A6-A8 (Wave 2) |
