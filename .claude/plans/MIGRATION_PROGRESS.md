@@ -17,7 +17,7 @@
 
 ## Workstream B: Remmy CLI
 - [x] B1: Launch Bridge + CLI — DONE (9 tasks, 129 tests, ~4,600 lines)
-- [ ] B2: Cloud Worker Relay — PENDING
+- [x] B2: Cloud Worker Relay — DONE (cloud_client.py + main.py integration, 46 tests)
 
 ## Workstream C: Watch App
 - [ ] C1: Zero Changes for MVP — PENDING
