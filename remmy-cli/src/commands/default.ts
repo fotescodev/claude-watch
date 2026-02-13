@@ -108,7 +108,11 @@ async function unpairedFlow(): Promise<void> {
  * Shared launch logic: start bridge, register SIGINT, launch Claude, cleanup.
  */
 async function launchAndRun(pairingId: string): Promise<void> {
-  const bridge = await launchBridge({ pairingId, port: 8787 });
+  const bridge = await launchBridge({
+    pairingId,
+    port: 8787,
+    cloudUrl: getCloudUrl(),
+  });
 
   // Handle Ctrl+C — stop bridge gracefully
   const onSigint = async () => {

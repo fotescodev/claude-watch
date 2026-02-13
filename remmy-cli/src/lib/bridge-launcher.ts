@@ -17,6 +17,7 @@ export interface BridgeOptions {
   port?: number; // Default 8787
   verbose?: boolean;
   pythonPath?: string; // Override python binary (for testing)
+  cloudUrl?: string; // Cloud worker URL for relay sync
 }
 
 export interface BridgeProcess {
@@ -192,6 +193,10 @@ export async function launchBridge(opts: BridgeOptions): Promise<BridgeProcess> 
     "--pairing-id",
     opts.pairingId,
   ];
+
+  if (opts.cloudUrl) {
+    args.push("--cloud-url", opts.cloudUrl);
+  }
 
   if (opts.verbose) {
     args.push("--verbose");

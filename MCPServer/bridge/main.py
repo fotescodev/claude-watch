@@ -4,11 +4,13 @@ Bridge server main entrypoint.
 Wires together:
 - NDJSONServer (WebSocket for CLI)
 - BridgeAPI (HTTP for watch) [optional, requires aiohttp]
+- CloudClient (cloud relay sync) [optional, requires cloud_url]
 - CLILauncher (process management)
 - Message handlers (route CLI messages to appropriate handlers)
 
 Usage:
     python -m MCPServer.bridge --port 8787 --pairing-id PAIR-123
+    python -m MCPServer.bridge --port 8787 --pairing-id PAIR-123 --cloud-url https://remmy.watch
     python -m MCPServer.bridge --port 8787 --pairing-id PAIR-123 --launch --cwd /path/to/project
 """
 from __future__ import annotations
@@ -25,8 +27,12 @@ from MCPServer.bridge.ndjson_server import NDJSONServer
 from MCPServer.bridge.session import Session
 from MCPServer.bridge.types import parse_cli_message
 from MCPServer.bridge.permissions import handle_can_use_tool, approve_permission, deny_permission
-from MCPServer.bridge.questions import is_ask_user_question
-from MCPServer.bridge.progress import update_session_progress
+from MCPServer.bridge.questions import (
+    build_approve_response,
+    build_deny_response,
+    is_ask_user_question,
+)
+from MCPServer.bridge.progress import session_to_watch_progress, update_session_progress
 
 logger = logging.getLogger("bridge")
 
@@ -53,15 +59,25 @@ class Bridge:
                                                    +--> Progress tracking
     """
 
-    def __init__(self, port: int = 8787, pairing_id: str | None = None) -> None:
+    def __init__(
+        self,
+        port: int = 8787,
+        pairing_id: str | None = None,
+        cloud_url: str | None = None,
+    ) -> None:
         self.port = port
         self.pairing_id = pairing_id or str(uuid.uuid4())
+        self.cloud_url = cloud_url
 
         self._sessions: dict[str, Session] = {}  # session_id -> Session
         self._ndjson = NDJSONServer(host="0.0.0.0", port=port)
         self._launcher: Any = None  # CLILauncher, set if --launch mode
         self._api: Any = None  # BridgeAPI instance, set if aiohttp available
         self._http_runner: Any = None  # aiohttp AppRunner, for cleanup
+        self._cloud_client: Any = None  # CloudClient, set if cloud_url provided
+        self._cloud_poll_task: asyncio.Task | None = None
+        self._cloud_poll_running = False
+        self._last_progress_push: float = 0.0  # monotonic time of last push
 
         # Wire NDJSON handlers
         self._ndjson.on_connect(self._on_cli_connect)
@@ -171,7 +187,11 @@ class Bridge:
             return
         session.status = "running"
         session.message_history.append({"type": "assistant", "data": msg})
+        old_tasks = list(session.todo_tasks)
         update_session_progress(session, msg)
+        # Push to cloud immediately if todo list changed
+        if session.todo_tasks != old_tasks:
+            await self._cloud_push_progress(session)
 
     async def _handle_result(self, session_id: str, msg: dict) -> None:
         """Handle result messages (query completion)."""
@@ -182,6 +202,8 @@ class Bridge:
         session.update_from_result(parsed)
         session.message_history.append({"type": "result", "data": msg})
         update_session_progress(session, msg)
+        # Always push progress on result (session complete)
+        await self._cloud_push_progress(session)
 
     async def _handle_control_request(self, session_id: str, msg: dict) -> None:
         """Handle control requests (permission prompts from CLI).
@@ -190,6 +212,7 @@ class Bridge:
         - In auto-accept mode: immediately sends the allow response back.
         - In normal mode: queues the permission for watch polling.
         - AskUserQuestion tool calls are logged distinctly.
+        - If cloud sync is active, pushes the request to the cloud worker.
         """
         session = self._sessions.get(session_id)
         if not session:
@@ -207,10 +230,12 @@ class Bridge:
                 tool_name = perm.tool_name
                 if is_ask_user_question(tool_name):
                     logger.info("Question pending: %s", perm.request_id)
+                    await self._cloud_push_question(perm)
                 else:
                     logger.info(
                         "Permission pending: %s (%s)", tool_name, perm.request_id
                     )
+                    await self._cloud_push_approval(perm)
 
     async def _handle_stream_event(self, session_id: str, msg: dict) -> None:
         """Handle stream events (real-time token streaming, post-MVP)."""
@@ -222,6 +247,7 @@ class Bridge:
         session = self._sessions.get(session_id)
         if session:
             update_session_progress(session, msg)
+            await self._cloud_push_progress_debounced(session)
 
     async def _handle_tool_use_summary(self, session_id: str, msg: dict) -> None:
         """Handle tool_use_summary messages (post-MVP forwarding)."""
@@ -230,6 +256,124 @@ class Bridge:
     async def _handle_auth_status(self, session_id: str, msg: dict) -> None:
         """Handle auth_status messages (post-MVP forwarding)."""
         pass  # Can be forwarded to watch in future
+
+    # ------------------------------------------------------------------
+    # Cloud sync helpers
+    # ------------------------------------------------------------------
+
+    async def _cloud_push_approval(self, perm: Any) -> None:
+        """Push a tool approval to the cloud worker (fire-and-forget)."""
+        if not self._cloud_client or not self._cloud_client.is_enabled:
+            return
+        try:
+            await self._cloud_client.push_approval(
+                perm.request_id, perm.tool_name, perm.input
+            )
+        except Exception as exc:
+            logger.debug("Cloud push approval failed: %s", exc)
+
+    async def _cloud_push_question(self, perm: Any) -> None:
+        """Push an AskUserQuestion to the cloud worker (fire-and-forget)."""
+        if not self._cloud_client or not self._cloud_client.is_enabled:
+            return
+        try:
+            await self._cloud_client.push_question(
+                perm.request_id, perm.input
+            )
+        except Exception as exc:
+            logger.debug("Cloud push question failed: %s", exc)
+
+    async def _cloud_push_progress(self, session: Session) -> None:
+        """Push session progress to cloud immediately."""
+        if not self._cloud_client or not self._cloud_client.is_enabled:
+            return
+        try:
+            progress = session_to_watch_progress(session)
+            await self._cloud_client.push_progress(progress)
+            self._last_progress_push = asyncio.get_event_loop().time()
+        except Exception as exc:
+            logger.debug("Cloud push progress failed: %s", exc)
+
+    async def _cloud_push_progress_debounced(self, session: Session) -> None:
+        """Push progress to cloud at most every 5 seconds."""
+        if not self._cloud_client or not self._cloud_client.is_enabled:
+            return
+        now = asyncio.get_event_loop().time()
+        if now - self._last_progress_push < 5.0:
+            return
+        await self._cloud_push_progress(session)
+
+    async def _cloud_poll_loop(self) -> None:
+        """Background loop: poll cloud for watch responses.
+
+        Checks for:
+        - Approval decisions (approved/rejected)
+        - Question answers
+        - Interrupt state changes (stop/resume from watch)
+        - Session-end from watch
+        """
+        assert self._cloud_client is not None
+        interval = self._cloud_client.poll_interval
+
+        while self._cloud_poll_running:
+            try:
+                await self._cloud_poll_once()
+            except Exception as exc:
+                logger.debug("Cloud poll error: %s", exc)
+            await asyncio.sleep(interval)
+
+    async def _cloud_poll_once(self) -> None:
+        """Single cloud poll iteration for all active sessions."""
+        assert self._cloud_client is not None
+
+        for session_id, session in list(self._sessions.items()):
+            # Poll pending permissions
+            for req_id in list(session.pending_permissions.keys()):
+                perm = session.pending_permissions.get(req_id)
+                if not perm:
+                    continue
+
+                if is_ask_user_question(perm.tool_name):
+                    result = await self._cloud_client.poll_question_status(req_id)
+                    if result and result.get("status") == "answered":
+                        # Accept with recommended answer
+                        resp = build_approve_response(req_id, perm.input)
+                        session.resolve_permission(req_id)
+                        await self._ndjson.send_to_cli(session_id, resp)
+                        logger.info("Cloud: question %s answered", req_id)
+                else:
+                    status = await self._cloud_client.poll_approval_status(req_id)
+                    if status == "approved":
+                        resp = approve_permission(session, req_id)
+                        if resp:
+                            await self._ndjson.send_to_cli(session_id, resp)
+                            logger.info("Cloud: approval %s approved", req_id)
+                    elif status == "rejected":
+                        resp = deny_permission(session, req_id)
+                        if resp:
+                            await self._ndjson.send_to_cli(session_id, resp)
+                            logger.info("Cloud: approval %s rejected", req_id)
+
+        # Poll interrupt state
+        interrupt = await self._cloud_client.poll_interrupt_state()
+        if interrupt.get("interrupted") and interrupt.get("action") == "stop":
+            # Find active session and send interrupt
+            for session_id in self._sessions:
+                interrupt_msg: dict[str, Any] = {
+                    "type": "control_request",
+                    "request_id": str(uuid.uuid4()),
+                    "request": {"subtype": "interrupt"},
+                }
+                await self._ndjson.send_to_cli(session_id, interrupt_msg)
+                logger.info("Cloud: interrupt stop received")
+                break  # only interrupt the first active session
+
+        # Poll session-end
+        if not await self._cloud_client.poll_session_active():
+            logger.info("Cloud: session ended by watch")
+            # Stop the CLI launcher if running
+            if self._launcher:
+                await self._launcher.kill_all()
 
     # ------------------------------------------------------------------
     # Outbound control
@@ -322,6 +466,16 @@ class Bridge:
                     self.pairing_id, info.session_id, session
                 )
 
+        # Start cloud sync if cloud_url was provided
+        if self.cloud_url:
+            from MCPServer.bridge.cloud_client import CloudClient
+
+            self._cloud_client = CloudClient(self.cloud_url, self.pairing_id)
+            await self._cloud_client.start()
+            self._cloud_poll_running = True
+            self._cloud_poll_task = asyncio.ensure_future(self._cloud_poll_loop())
+            logger.info("Cloud sync enabled: %s", self.cloud_url)
+
         logger.info("Bridge ready. pairing_id=%s", self.pairing_id)
         logger.info(
             "  CLI WebSocket: ws://localhost:%d/ws/cli/{session_id}", self.port
@@ -332,9 +486,24 @@ class Bridge:
                 self.port + 1,
                 self.pairing_id,
             )
+        if self._cloud_client:
+            logger.info("  Cloud relay:   %s", self.cloud_url)
 
     async def stop(self) -> None:
         """Stop everything gracefully."""
+        # Stop cloud sync
+        self._cloud_poll_running = False
+        if self._cloud_poll_task:
+            self._cloud_poll_task.cancel()
+            try:
+                await self._cloud_poll_task
+            except (asyncio.CancelledError, Exception):
+                pass
+            self._cloud_poll_task = None
+        if self._cloud_client:
+            await self._cloud_client.stop()
+            self._cloud_client = None
+        # Stop launcher, HTTP, and WebSocket
         if self._launcher:
             await self._launcher.kill_all()
         if self._http_runner:
@@ -357,6 +526,12 @@ def main() -> None:
         type=str,
         default=None,
         help="Pairing ID for watch API routing",
+    )
+    parser.add_argument(
+        "--cloud-url",
+        type=str,
+        default=None,
+        help="Cloud worker URL for relay sync (e.g. https://remmy.watch)",
     )
     parser.add_argument(
         "--launch",
@@ -387,7 +562,11 @@ def main() -> None:
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
     )
 
-    bridge = Bridge(port=args.port, pairing_id=args.pairing_id)
+    bridge = Bridge(
+        port=args.port,
+        pairing_id=args.pairing_id,
+        cloud_url=args.cloud_url,
+    )
 
     loop = asyncio.new_event_loop()
     try:

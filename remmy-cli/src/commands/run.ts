@@ -13,6 +13,7 @@
 import { Spinner } from "../ui/spinner.ts";
 import { dim, red } from "../ui/colors.ts";
 import { readConfig, isPaired } from "../lib/config.ts";
+import { getCloudUrl } from "../lib/cloud-client.ts";
 import { launchBridge, stopBridge } from "../lib/bridge-launcher.ts";
 import { launchClaude } from "../lib/claude-launcher.ts";
 import type { BridgeProcess } from "../lib/bridge-launcher.ts";
@@ -34,7 +35,11 @@ export async function runRun(extraArgs?: string[]): Promise<void> {
   spinner.start("Starting bridge server...");
 
   try {
-    bridge = await launchBridge({ pairingId: config.pairingId, port: 8787 });
+    bridge = await launchBridge({
+      pairingId: config.pairingId,
+      port: 8787,
+      cloudUrl: getCloudUrl(),
+    });
     spinner.succeed(`Bridge running on port ${bridge.port}`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
