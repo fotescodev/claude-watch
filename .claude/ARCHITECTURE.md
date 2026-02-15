@@ -6,34 +6,40 @@
 
 ---
 
-## System Components
+## System Components (Primary Architecture)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              CLAUDE WATCH SYSTEM                                │
+│                         CLAUDE WATCH SYSTEM (Bridge)                            │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │   MAC (Developer Machine)                                                       │
-│   ├── Claude Code (agent runtime)                                               │
-│   │   ├── PreToolUse hooks → approval requests                                  │
-│   │   ├── PostToolUse hooks → progress updates + mobile validation              │
-│   │   ├── SessionStart hooks → context injection                                │
-│   │   └── Mobile-MCP tools → iOS Simulator automation                           │
+│   ├── Claude Code CLI                                                           │
+│   │   └── --sdk-url ws://localhost:8787/ws/cli/{session_id}                     │
+│   │       Sends: NDJSON messages (system, assistant, result, control_request)    │
+│   │       Receives: control_response (approve/deny with updatedInput)           │
 │   │                                                                             │
-│   └── cc-watch CLI (claude-watch-npm/)                                          │
+│   ├── Bridge Server (MCPServer/bridge/)                                        │
+│   │   ├── NDJSON WebSocket ← Claude CLI connection                              │
+│   │   ├── Permission handler (can_use_tool → approve/deny)                      │
+│   │   ├── Question handler (AskUserQuestion → recommended answer)               │
+│   │   ├── Progress tracker (tool_progress, TodoWrite, context %)                │
+│   │   ├── CLI launcher (spawns claude --sdk-url, manages lifecycle)             │
+│   │   └── REST API (same contract as current cloud worker)                      │
+│   │                                                                             │
+│   └── remmy-cli (TypeScript CLI)                                                │
 │       ├── Pairing flow → POST /pair/complete                                    │
-│       └── Spawns Claude with CLAUDE_WATCH_SESSION_ACTIVE=1                      │
+│       └── Launches bridge server (replaces env var spawning)                    │
 │                                                                                 │
-│   CLOUDFLARE WORKER (claude-watch-cloud/)                                       │
-│   ├── /pair/* → Pairing handshake (watch initiates, CLI completes)              │
-│   ├── /approval/* → Tool approval requests + responses                          │
-│   ├── /session-progress/* → Progress updates from TodoWrite hook                │
-│   └── APNs → Push notifications to watch (instant alerts)                       │
+│   CLOUDFLARE WORKER (claude-watch-cloud/) — REDUCED ROLE                        │
+│   ├── /pair/* → Pairing handshake (unchanged)                                   │
+│   └── Relay: Bridge → Cloud → Watch (approval/progress/question data)           │
+│       (Cloud worker becomes a thin relay; bridge is the source of truth)        │
 │                                                                                 │
-│   APPLE WATCH (ClaudeWatch/)                                                    │
-│   ├── WatchService.swift → Polls cloud, sends responses, manages state          │
-│   ├── Views/ → MainView (approvals), PairingView (setup), ProgressView          │
-│   └── Complications/ → Watch face widgets for quick access                      │
+│   APPLE WATCH (ClaudeWatch/) — UNCHANGED FOR MVP                                │
+│   ├── WatchService.swift → Polls cloud (same endpoints, same contract)          │
+│   ├── Views/ → MainView, PairingView, ProgressView (no changes)                │
+│   └── Complications/ → Watch face widgets (no changes)                          │
 │                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -44,9 +50,10 @@
 
 | Flow | Direction | Files Involved |
 |------|-----------|----------------|
-| **Pairing** | Watch → Cloud → CLI | `WatchService.swift` → `index.ts` → `cc-watch.ts` |
-| **Approval** | Hook → Cloud → Watch → Cloud → Hook | `watch-approval-cloud.py` → `index.ts` → `WatchService.swift` |
-| **Progress** | Hook → Cloud → Watch | `progress-tracker.py` → `index.ts` → `WatchService.swift` |
+| **Pairing** | Watch → Cloud → CLI | `WatchService.swift` → `index.ts` → `remmy-cli` |
+| **Approval** | CLI → Bridge → Cloud → Watch → Cloud → Bridge → CLI | `bridge/permissions.py` → `index.ts` → `WatchService.swift` |
+| **Question** | CLI → Bridge (parse + recommend) → Cloud → Watch → Cloud → Bridge (updatedInput) → CLI | `bridge/questions.py` → `index.ts` → `WatchService.swift` |
+| **Progress** | CLI → Bridge (native messages) → Cloud → Watch | `bridge/progress.py` → `index.ts` → `WatchService.swift` |
 | **Mobile Test** | Agent → Simulator → Validator | `mobile_*` tools → iOS Simulator → `screen_state_validator.py` |
 
 ### Key File Locations
@@ -55,10 +62,9 @@
 |-----------|------|---------|
 | **Watch App** | `ClaudeWatch/` | SwiftUI watchOS app |
 | **Watch Service** | `ClaudeWatch/Services/WatchService.swift` | All cloud API calls, polling, state |
-| **Cloud Worker** | `claude-watch-cloud/src/index.ts` | Cloudflare Worker (message router) |
-| **CLI** | `claude-watch-npm/src/cli/cc-watch.ts` | Pairing + Claude launcher |
-| **Approval Hook** | `.claude/hooks/watch-approval-cloud.py` | PreToolUse → sends approvals |
-| **Progress Hook** | `.claude/hooks/progress-tracker.py` | PostToolUse → sends progress |
+| **Bridge Server** | `MCPServer/bridge/main.py` | NDJSON WebSocket + REST API (primary) |
+| **Cloud Worker** | `claude-watch-cloud/src/index.ts` | Cloudflare Worker (thin relay) |
+| **CLI** | `remmy-cli/src/cli/` | Pairing + bridge launcher |
 | **Mobile Validator** | `.claude/hooks/validators/mobile/screen_state_validator.py` | PostToolUse → validates UI state |
 
 ---
@@ -103,10 +109,10 @@ Answer these questions FIRST:
 - Watch polls every 2 seconds when app is in foreground
 
 ### Session Isolation
-- `CLAUDE_WATCH_SESSION_ACTIVE=1` gates watch mode
-- Set by `cc-watch` when spawning Claude
-- Hooks exit early (code 0) if not set
-- Multiple Claude sessions can run, only cc-watch sessions use watch
+- Bridge architecture: only `--sdk-url` sessions connect to bridge (inherent isolation)
+- Legacy hook architecture: `CLAUDE_WATCH_SESSION_ACTIVE=1` gates watch mode
+- Set by `remmy-cli` when spawning Claude
+- Multiple Claude sessions can run, only remmy-cli sessions use watch
 
 ---
 
@@ -134,8 +140,8 @@ When something doesn't work:
 ### Environment Variables
 | Variable | Purpose | Set By |
 |----------|---------|--------|
-| `CLAUDE_WATCH_SESSION_ACTIVE` | Gates watch mode | cc-watch |
-| `CLAUDE_WATCH_PAIRING_ID` | Current pairing | cc-watch or ~/.claude-watch-pairing |
+| `CLAUDE_WATCH_SESSION_ACTIVE` | Gates watch mode (legacy) | remmy-cli |
+| `CLAUDE_WATCH_PAIRING_ID` | Current pairing | remmy-cli or ~/.claude-watch-pairing |
 | `CLAUDE_WATCH_DEBUG` | Verbose logging | User |
 
 ### Cloud Server
@@ -146,63 +152,54 @@ When something doesn't work:
 ```
 Watch: POST /pair/initiate → receives code "ABC123"
 Watch: Displays code to user
-CLI:   User runs `npx cc-watch`, enters code
+CLI:   User runs `remmy-cli`, enters code
 CLI:   POST /pair/complete {code: "ABC123"}
 Watch: Polls /pair/status/:watchId → {paired: true, pairingId}
 ```
 
 ---
 
-## Phase 11: --sdk-url Migration (In Progress)
+## Legacy Architecture (Hook-Based)
 
-> **Status**: In Progress (started 2026-02-11)
-> **Branch**: `claude/investigate-websocket-terminal-utUEt`
-> **Spec**: `.claude/plans/sdk-url-agent-execution-spec.md`
+> **Status**: Deprecated - replaced by bridge architecture (Feb 2026)
+> **Reason**: Hook-based approach had limitations with multi-option questions and exact token tracking
 
-### New Architecture
-
-The `--sdk-url` migration replaces the hook-based data channel with a direct NDJSON-over-WebSocket connection between the Claude CLI and a local Python bridge server. The bridge replaces all four hooks (approval, question, progress, context) with a single real-time control channel.
+The original architecture used PreToolUse/PostToolUse hooks to intercept Claude's behavior:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                         CLAUDE WATCH SYSTEM (Phase 11)                          │
+│                      CLAUDE WATCH SYSTEM (Legacy Hooks)                         │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │   MAC (Developer Machine)                                                       │
-│   ├── Claude Code CLI                                                           │
-│   │   └── --sdk-url ws://localhost:8787/ws/cli/{session_id}                     │
-│   │       Sends: NDJSON messages (system, assistant, result, control_request)    │
-│   │       Receives: control_response (approve/deny with updatedInput)           │
+│   ├── Claude Code (agent runtime)                                               │
+│   │   ├── PreToolUse hooks → approval requests                                  │
+│   │   ├── PostToolUse hooks → progress updates + mobile validation              │
+│   │   ├── SessionStart hooks → context injection                                │
+│   │   └── Mobile-MCP tools → iOS Simulator automation                           │
 │   │                                                                             │
-│   ├── Bridge Server (MCPServer/bridge/) ← NEW                                  │
-│   │   ├── NDJSON WebSocket ← Claude CLI connection                              │
-│   │   ├── Permission handler (can_use_tool → approve/deny)                      │
-│   │   ├── Question handler (AskUserQuestion → recommended answer)               │
-│   │   ├── Progress tracker (tool_progress, TodoWrite, context %)                │
-│   │   ├── CLI launcher (spawns claude --sdk-url, manages lifecycle)             │
-│   │   └── REST API (same contract as current cloud worker)                      │
-│   │                                                                             │
-│   └── cc-watch CLI (claude-watch-npm/)                                          │
-│       ├── Pairing flow → POST /pair/complete (unchanged)                        │
-│       └── Launches bridge server (replaces env var spawning)                    │
+│   └── remmy-cli (TypeScript CLI)                                                │
+│       ├── Pairing flow → POST /pair/complete                                    │
+│       └── Spawns Claude with CLAUDE_WATCH_SESSION_ACTIVE=1                      │
 │                                                                                 │
-│   CLOUDFLARE WORKER (claude-watch-cloud/) — REDUCED ROLE                        │
-│   ├── /pair/* → Pairing handshake (unchanged)                                   │
-│   └── Relay: Bridge → Cloud → Watch (approval/progress/question data)           │
-│       (Cloud worker becomes a thin relay; bridge is the source of truth)        │
+│   CLOUDFLARE WORKER (claude-watch-cloud/)                                       │
+│   ├── /pair/* → Pairing handshake (watch initiates, CLI completes)              │
+│   ├── /approval/* → Tool approval requests + responses                          │
+│   ├── /session-progress/* → Progress updates from TodoWrite hook                │
+│   └── APNs → Push notifications to watch (instant alerts)                       │
 │                                                                                 │
-│   APPLE WATCH (ClaudeWatch/) — UNCHANGED FOR MVP                                │
-│   ├── WatchService.swift → Polls cloud (same endpoints, same contract)          │
-│   ├── Views/ → MainView, PairingView, ProgressView (no changes)                │
-│   └── Complications/ → Watch face widgets (no changes)                          │
+│   APPLE WATCH (ClaudeWatch/)                                                    │
+│   ├── WatchService.swift → Polls cloud, sends responses, manages state          │
+│   ├── Views/ → MainView (approvals), PairingView (setup), ProgressView          │
+│   └── Complications/ → Watch face widgets for quick access                      │
 │                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### What Changes
+### Bridge Architecture Benefits
 
-| Component | Before (Hooks) | After (--sdk-url) |
-|-----------|----------------|-------------------|
+| Capability | Hook-Based (Legacy) | Bridge-Based (Current) |
+|-----------|---------------------|------------------------|
 | **Approval flow** | `watch-approval-cloud.py` hook -> cloud -> watch polls | `can_use_tool` WebSocket msg -> bridge -> cloud -> watch polls |
 | **Question handling** | `question-handler.py` hook (broken for multi-option) | `AskUserQuestion` via `can_use_tool` + `updatedInput` response |
 | **Progress tracking** | `progress-tracker.py` PostToolUse hook | Native `tool_progress` + `assistant` message parsing |
@@ -210,15 +207,7 @@ The `--sdk-url` migration replaces the hook-based data channel with a direct NDJ
 | **Session isolation** | `CLAUDE_WATCH_SESSION_ACTIVE=1` env var | Inherent: only `--sdk-url` sessions connect to bridge |
 | **Interrupt/pause** | Hook polls `/session-interrupt` endpoint | Direct `control_request { subtype: "interrupt" }` |
 
-### What Stays the Same
-
-- Cloud pairing flow (watch initiates with code, CLI completes)
-- Watch UI (views, complications, notification categories)
-- APNs push notifications (delivery mechanism unchanged)
-- E2E encryption (for cloud relay leg)
-- Watch input constraints (approve/reject only)
-
-### New Files: MCPServer/bridge/
+### Bridge Server Files: MCPServer/bridge/
 
 | File | Purpose |
 |------|---------|
@@ -231,18 +220,10 @@ The `--sdk-url` migration replaces the hook-based data channel with a direct NDJ
 | `progress.py` | TodoWrite + tool_progress + context % tracking |
 | `launcher.py` | CLI process spawning with `--sdk-url`, lifecycle management |
 | `api.py` | REST API matching current cloud worker contract (zero watch changes) |
+| `cloud_client.py` | Cloud worker relay client |
 | `main.py` | Entrypoint wiring everything together |
 
-### Data Flow Changes
-
-| Flow | New Direction | Files Involved |
-|------|--------------|----------------|
-| **Approval** | CLI -> Bridge (WebSocket) -> Cloud -> Watch -> Cloud -> Bridge -> CLI | `bridge/permissions.py` -> `index.ts` -> `WatchService.swift` |
-| **Question** | CLI -> Bridge (parse + recommend) -> Cloud -> Watch -> Cloud -> Bridge (updatedInput) -> CLI | `bridge/questions.py` -> `index.ts` -> `WatchService.swift` |
-| **Progress** | CLI -> Bridge (native messages) -> Cloud -> Watch | `bridge/progress.py` -> `index.ts` -> `WatchService.swift` |
-| **Interrupt** | Watch -> Cloud -> Bridge -> CLI (instant) | `WatchService.swift` -> `index.ts` -> `bridge/permissions.py` |
-
-For full details, see `.claude/plans/sdk-url-agent-execution-spec.md`.
+For full migration details, see `.claude/plans/MIGRATION_PROGRESS.md`.
 
 ---
 

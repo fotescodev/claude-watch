@@ -9,7 +9,7 @@ Diagnose and fix watchOS build errors:
 
 1. Run a clean build to get fresh errors:
    ```bash
-   xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm)' clean build 2>&1
+   xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)' clean build 2>&1
    ```
 
 2. Parse the build output for errors and warnings

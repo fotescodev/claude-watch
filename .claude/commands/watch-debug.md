@@ -1,11 +1,11 @@
 ---
-description: Debug watch integration - diagnose issues and log bugs for Ralph
+description: Debug watch integration - diagnose connectivity and approval issues
 allowed-tools: Bash(*), Read, Edit, Write
 ---
 
 # Watch Debug Session
 
-Diagnose Claude Watch integration issues and log bugs/tasks for Ralph.
+Diagnose Claude Watch integration issues. Log findings to `.claude/plans/REVIEW_FINDINGS.md` or `docs/solutions/`.
 
 ## Learnings from Debug Sessions
 
@@ -117,25 +117,9 @@ echo "CLI pairingId prefix: $(cat ~/.claude-watch-pairing | cut -c1-8)"
 
 **If different → Log BUG:** "Watch has stale pairingId after re-pairing"
 
-## Logging Issues to Ralph
+## Logging Issues
 
-When an issue is found, add to `.claude/ralph/tasks.yaml`:
-
-```yaml
-- id: "BUG-xxx"
-  title: "<Issue title>"
-  description: |
-    <What was observed>
-    <Root cause if known>
-    <Steps to reproduce>
-  priority: high
-  parallel_group: 1
-  completed: false
-  tags:
-    - bug
-    - watch-integration
-  commit_template: "fix(watch): <description>"
-```
+When an issue is found, document it in `.claude/plans/REVIEW_FINDINGS.md` or create a solution doc in `docs/solutions/`.
 
 ## Quick Fix Commands
 
@@ -196,6 +180,6 @@ A healthy watch integration has ALL of these:
 ## After Running Diagnostics
 
 1. Fix any issues found using Quick Fix Commands
-2. Log remaining bugs to Ralph tasks.yaml
+2. Log remaining bugs to REVIEW_FINDINGS.md
 3. Restart Claude Code session (hooks load at start)
 4. Re-run diagnostics to verify fixes

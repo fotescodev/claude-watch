@@ -29,7 +29,7 @@ tags:
 
 ## Problem
 
-Remmy hooks were intercepting tool calls from **all** Claude Code sessions, not just those launched via `npx cc-watch`. This caused:
+Remmy hooks were intercepting tool calls from **all** Claude Code sessions, not just those launched via `npx remmy-cli` (formerly `cc-watch`). This caused:
 
 1. Normal `claude` terminal sessions to unexpectedly wait for watch approval
 2. No way to disconnect the watch mid-session
@@ -45,7 +45,7 @@ Three-part isolation mechanism:
 
 ### 1. Session Isolation via Environment Variable
 
-`cc-watch` sets `CLAUDE_WATCH_SESSION_ACTIVE=1` when spawning Claude. Hooks check this first:
+`remmy-cli` (formerly `cc-watch`) sets `CLAUDE_WATCH_SESSION_ACTIVE=1` when spawning Claude. Hooks check this first:
 
 ```python
 # .claude/hooks/watch-approval-cloud.py
@@ -55,7 +55,7 @@ def main():
 ```
 
 ```typescript
-// claude-watch-npm/src/cli/setup.ts
+// remmy-cli/src/cli/setup.ts (formerly claude-watch-npm)
 const claude = spawn("claude", [], {
   env: {
     ...process.env,
@@ -97,7 +97,7 @@ if (sessionEnded) {
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  npx cc-watch                    │  claude (normal)        │
+│  npx remmy-cli                   │  claude (normal)        │
 │  ─────────────────               │  ──────────────────     │
 │  CLAUDE_WATCH_SESSION_ACTIVE=1   │  (no env var)           │
 │  → Watch mode ON                 │  → Terminal mode only   │
@@ -128,5 +128,5 @@ CLAUDE_WATCH_SESSION_ACTIVE=1 echo '{"tool_name": "Bash"}' | python .claude/hook
 
 ## Related
 
-- cc-watch npm package: `npx cc-watch@0.1.2`
+- remmy-cli npm package (formerly `cc-watch`): `npx remmy-cli`
 - Cloudflare Worker: claude-watch.fotescodev.workers.dev

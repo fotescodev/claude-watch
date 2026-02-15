@@ -7,9 +7,88 @@
 
 ## System Architecture
 
+### Current (Phase 11: Bridge Architecture)
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              CLAUDE WATCH SYSTEM                                │
+│                         CLAUDE WATCH SYSTEM (Phase 11)                          │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   ┌─────────────────┐      ┌──────────────────────┐      ┌─────────────────┐   │
+│   │   MAC (CLI)     │      │   BRIDGE SERVER      │      │  CLOUD WORKER   │   │
+│   │                 │      │   (Python)           │      │  (Cloudflare)   │   │
+│   │  ┌───────────┐  │      │                      │      │                 │   │
+│   │  │ remmy-cli │──┼──┐   │  ┌────────────────┐  │      │  ┌───────────┐  │   │
+│   │  │           │  │  │   │  │ NDJSON Server  │  │      │  │  /pair/*  │  │   │
+│   │  └───────────┘  │  │   │  │  (port 8787)   │  │      │  └───────────┘  │   │
+│   │                 │  │   │  └────────────────┘  │      │        ▲        │   │
+│   │  ┌───────────┐  │  │   │          │           │      │        │        │   │
+│   │  │  claude   │──┼──┼──▶│  ┌────────▼────────┐ │      │  ┌─────┴─────┐  │   │
+│   │  │ --sdk-url │  │  │   │  │ Permission      │ │      │  │  /session-│  │   │
+│   │  │  ws://... │  │  │   │  │ Handler         │◀┼──┐   │  │  progress │  │   │
+│   │  └───────────┘  │  │   │  └─────────────────┘ │  │   │  └───────────┘  │   │
+│   │                 │  │   │  ┌─────────────────┐ │  │   │                 │   │
+│   │                 │  │   │  │ Question        │ │  │   │  ┌───────────┐  │   │
+│   │                 │  │   │  │ Handler         │ │  │   │  │ /approval │  │   │
+│   │                 │  │   │  └─────────────────┘ │  │   │  └───────────┘  │   │
+│   │                 │  │   │  ┌─────────────────┐ │  │   │                 │   │
+│   │                 │  │   │  │ Progress        │─┼──┘   │  ┌───────────┐  │   │
+│   │                 │  │   │  │ Tracker         │ │      │  │ /question │  │   │
+│   │                 │  │   │  └─────────────────┘ │      │  └───────────┘  │   │
+│   │                 │  │   │          │           │      │        ▲        │   │
+│   │                 │  └──▶│  ┌───────▼────────┐  │      │        │        │   │
+│   │                 │      │  │ REST API       │──┼──────┼────────┘        │   │
+│   │                 │      │  │ (port 8788)    │  │      │  (relay)        │   │
+│   │                 │      │  └────────────────┘  │      │                 │   │
+│   └─────────────────┘      └──────────┬───────────┘      └─────────┬───────┘   │
+│                                       │                            │           │
+│                                       │                            │           │
+│                                       │      ┌─────────────────┐   │           │
+│                                       │      │  APPLE WATCH    │   │           │
+│                                       │      │                 │   │           │
+│                                       │      │  ┌───────────┐  │   │           │
+│                                       └─────▶│  │ MainView  │  │◀──┘           │
+│                                              │  │ Actions   │  │               │
+│                                              │  │ Progress  │  │               │
+│                                              │  └───────────┘  │               │
+│                                              └─────────────────┘               │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Changes in Phase 11:**
+- `remmy-cli` launches bridge server + Claude CLI with `--sdk-url ws://localhost:8787/ws/cli/{session_id}`
+- Bridge receives NDJSON messages over WebSocket (permissions, questions, progress)
+- Bridge exposes REST API (port 8788) matching cloud worker contract — **zero watch changes**
+- Cloud worker becomes a relay between bridge and watch (for MVP)
+- Watch continues polling cloud worker (same endpoints, same payloads)
+
+---
+
+## Bridge REST API (Port 8788)
+
+The bridge server exposes a REST API that **exactly matches** the cloud worker contract, enabling zero watch changes for MVP.
+
+| Endpoint | Method | Source | Purpose | Response | Tests |
+|----------|--------|--------|---------|----------|-------|
+| `GET /state` | GET | Watch | Current session state | `{model, cwd, tools, costUsd, numTurns, contextPct, isCompacting, currentActivity}` | `test_api.py` |
+| `GET /permissions` | GET | Watch | Pending permission requests | `{permissions:[{id, toolName, input, description, timestamp}]}` | `test_api.py` |
+| `POST /permissions/{id}/resolve` | POST | Watch | Approve/reject permission | `{pairingId, approved, updatedInput?}` → `{success:true}` | `test_e2e_approval.py` |
+| `GET /questions` | GET | Watch | Pending questions | `{questions:[{id, question, options, multiSelect, header}]}` | `test_api.py` |
+| `POST /questions/{id}/resolve` | POST | Watch | Answer question | `{selectedIndices?[], skipped?}` → `{success:true}` | `test_e2e_question.py` |
+| `POST /interrupt` | POST | Watch | Send interrupt signal | `{action: 'pause'|'resume'|'stop'}` → `{success:true}` | `test_e2e_interrupt.py` |
+| `GET /progress` | GET | Watch | Current task progress | `{currentTask, progress, completedCount, totalCount, tasks:[]}` | `test_e2e_progress.py` |
+
+**Test Coverage**: 34/34 unit tests + 82 E2E tests (379 total passing as of 2026-02-15)
+
+---
+
+### Legacy (Hook-Based Architecture)
+
+> **Status**: Still functional but deprecated. Bridge architecture (Phase 11) is the future.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    LEGACY SYSTEM (Hook-Based — Deprecated)                      │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │   ┌─────────────────┐      ┌──────────────────────┐      ┌─────────────────┐   │
@@ -152,14 +231,61 @@ TEST COVERAGE: NONE - No E2E test exists for this flow!
 FILE LOCATIONS:
   - Watch: WatchService.swift:843-925 (initiatePairing, checkPairingStatus)
   - Cloud: index.ts:158-262 (/pair/initiate, /pair/status, /pair/complete)
-  - CLI: cc-watch.ts:159-218 (runPairing → POST /pair/complete)
+  - CLI (legacy): cc-watch.ts:159-218 (runPairing → POST /pair/complete)
+  - CLI (current): remmy-cli/src/commands/setup.ts (pairing flow)
 ```
 
-### Flow 2: Tool Approval
+### Flow 2a: Tool Approval (Bridge Architecture - Current)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│ APPROVAL FLOW (Bash/Edit/Write tools)                                           │
+│ APPROVAL FLOW (Bridge Architecture)                                             │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   CLAUDE CLI                      BRIDGE                          WATCH         │
+│     │                               │                              │            │
+│  1. │──control_request─────────────▶│                              │            │
+│     │  (can_use_tool: Bash)         │                              │            │
+│     │  via WebSocket (port 8787)    │                              │            │
+│     │                               │                              │            │
+│  2. │                               │──POST to cloud relay────────▶│            │
+│     │                               │  (approval data)             │            │
+│     │                               │                              │            │
+│  3. │                               │◀─GET /permissions────────────│            │
+│     │                               │──{permissions:[...]}─────────▶│            │
+│     │                               │         (polling)            │            │
+│     │                               │                              │            │
+│  4. │                               │◀─POST /permissions/:id/resolve│           │
+│     │                               │  {approved:true}             │            │
+│     │                               │──{success:true}──────────────▶│            │
+│     │                               │                              │            │
+│  5. │◀─control_response─────────────│                              │            │
+│     │  {behavior:"allow"}           │                              │            │
+│     │  via WebSocket                │                              │            │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+TEST COVERAGE:
+  - test_e2e_approval.py: E2E flow (control_request → cloud relay → watch approval → control_response)
+  - test_permissions.py: Unit tests for permission handler
+
+FILE LOCATIONS:
+  - Bridge: MCPServer/bridge/permissions.py (can_use_tool handler, approve/deny logic)
+  - Bridge: MCPServer/bridge/api.py (REST endpoints for watch)
+  - Bridge: MCPServer/bridge/cloud_client.py (relay to cloud worker)
+  - Watch: WatchService.swift:1174-1256 (fetchPendingRequests — unchanged)
+  - Watch: WatchService.swift:986-1015 (respondToCloudRequest — unchanged)
+```
+
+---
+
+### Flow 2b: Tool Approval (Legacy Hook-Based)
+
+> **Status**: Deprecated. Use bridge architecture (Flow 2a) for new implementations.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ APPROVAL FLOW (Legacy: Hook-Based)                                              │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │   HOOK                            CLOUD                           WATCH         │
@@ -206,11 +332,61 @@ FILE LOCATIONS:
   - Watch: WatchService.swift:986-1015 (respondToCloudRequest)
 ```
 
-### Flow 3: Question (AskUserQuestion)
+### Flow 3a: Question (Bridge Architecture - Current)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│ QUESTION FLOW (AskUserQuestion tool)                                            │
+│ QUESTION FLOW (Bridge Architecture)                                             │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   CLAUDE CLI                      BRIDGE                          WATCH         │
+│     │                               │                              │            │
+│  1. │──control_request─────────────▶│                              │            │
+│     │  (can_use_tool:               │                              │            │
+│     │   AskUserQuestion)            │                              │            │
+│     │  via WebSocket (port 8787)    │                              │            │
+│     │                               │                              │            │
+│  2. │                               │ [Extract recommended answer] │            │
+│     │                               │ [Transform to watch format]  │            │
+│     │                               │                              │            │
+│  3. │                               │──POST to cloud relay────────▶│            │
+│     │                               │  (question data)             │            │
+│     │                               │                              │            │
+│  4. │                               │◀─GET /questions──────────────│            │
+│     │                               │──{questions:[...]}───────────▶│            │
+│     │                               │         (polling)            │            │
+│     │                               │                              │            │
+│  5. │                               │◀─POST /questions/:id/resolve─│            │
+│     │                               │  {selectedIndices:[0]}       │            │
+│     │                               │──{success:true}──────────────▶│            │
+│     │                               │                              │            │
+│  6. │◀─control_response─────────────│                              │            │
+│     │  {behavior:"allow",           │                              │            │
+│     │   updatedInput:{answer:0}}    │                              │            │
+│     │  via WebSocket                │                              │            │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+TEST COVERAGE:
+  - test_e2e_question.py: E2E flow (control_request → recommendation extraction → watch answer → updatedInput)
+  - test_questions.py: Unit tests for question handler
+
+FILE LOCATIONS:
+  - Bridge: MCPServer/bridge/questions.py (AskUserQuestion parsing, recommendation extraction)
+  - Bridge: MCPServer/bridge/api.py (REST endpoints for watch)
+  - Watch: WatchService.swift:1393-1434 (fetchPendingQuestions — unchanged)
+  - Watch: WatchService.swift:1440-1461 (answerQuestion — unchanged)
+```
+
+---
+
+### Flow 3b: Question (Legacy Hook-Based)
+
+> **Status**: Deprecated. Known issues with COMP5 stdin proxy. Use bridge architecture (Flow 3a).
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ QUESTION FLOW (Legacy: Hook-Based)                                              │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │   HOOK                            CLOUD                           WATCH         │
@@ -257,11 +433,55 @@ FILE LOCATIONS:
   - Watch: WatchService.swift:1440-1461 (answerQuestion)
 ```
 
-### Flow 4: Session Progress
+### Flow 4a: Session Progress (Bridge Architecture - Current)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│ PROGRESS FLOW (TodoWrite hook)                                                  │
+│ PROGRESS FLOW (Bridge Architecture)                                             │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   CLAUDE CLI                      BRIDGE                          WATCH         │
+│     │                               │                              │            │
+│  1. │──tool_progress───────────────▶│                              │            │
+│     │  (native message type)        │                              │            │
+│     │  via WebSocket (port 8787)    │                              │            │
+│     │                               │                              │            │
+│  2. │──assistant message───────────▶│                              │            │
+│     │  (TodoWrite tool calls)       │ [Extract todos]              │            │
+│     │  via WebSocket                │ [Track status]               │            │
+│     │                               │                              │            │
+│  3. │──result message──────────────▶│                              │            │
+│     │  (modelUsage, num_turns)      │ [Compute context %]          │            │
+│     │  via WebSocket                │                              │            │
+│     │                               │                              │            │
+│  4. │                               │──POST to cloud relay────────▶│            │
+│     │                               │  (progress data)             │            │
+│     │                               │                              │            │
+│  5. │                               │◀─GET /progress───────────────│            │
+│     │                               │──{currentTask, progress,...}─▶│            │
+│     │                               │         (polling)            │            │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+TEST COVERAGE:
+  - test_e2e_progress.py: E2E flow (native messages → progress extraction → cloud relay → watch)
+  - test_progress.py: Unit tests for progress tracker
+
+FILE LOCATIONS:
+  - Bridge: MCPServer/bridge/progress.py (tool_progress, TodoWrite extraction, context % computation)
+  - Bridge: MCPServer/bridge/api.py (GET /progress endpoint)
+  - Watch: WatchService.swift:1259-1321 (fetchSessionProgress — unchanged)
+```
+
+---
+
+### Flow 4b: Session Progress (Legacy Hook-Based)
+
+> **Status**: Deprecated. Use bridge architecture (Flow 4a) for native progress tracking.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ PROGRESS FLOW (Legacy: Hook-Based)                                              │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │   HOOK                            CLOUD                           WATCH         │
@@ -390,14 +610,33 @@ All previously missing endpoints have been added to the cloud worker:
 
 ## File Reference
 
+### Current (Bridge Architecture)
+
 | File | Purpose | Key Functions/Endpoints |
 |------|---------|------------------------|
-| `claude-watch-cloud/src/index.ts` | Cloud worker | All `/api/*`, `/pair/*`, `/approval/*`, etc. |
-| `.claude/hooks/watch-approval-cloud.py` | PreToolUse hook | `create_request()`, `wait_for_response()` |
-| `.claude/hooks/progress-tracker.py` | PostToolUse hook | Posts to `/session-progress` |
-| `ClaudeWatch/Services/WatchService.swift` | Watch service | All cloud API calls, polling |
-| `claude-watch-npm/src/cli/cc-watch.ts` | CLI entry | Pairing, launching Claude |
-| `claude-watch-npm/src/cloud/pairing.ts` | CLI pairing | Legacy pairing flow |
+| `MCPServer/bridge/main.py` | Bridge entrypoint | Server startup, session initialization, cleanup |
+| `MCPServer/bridge/ndjson_server.py` | WebSocket server | Accept CLI connections, parse NDJSON, dispatch messages |
+| `MCPServer/bridge/permissions.py` | Permission handler | `can_use_tool` processing, approve/deny logic |
+| `MCPServer/bridge/questions.py` | Question handler | `AskUserQuestion` parsing, recommendation extraction |
+| `MCPServer/bridge/progress.py` | Progress tracker | TodoWrite extraction, context %, tool_progress |
+| `MCPServer/bridge/api.py` | REST API | `/state`, `/permissions`, `/questions`, `/progress`, `/interrupt` |
+| `MCPServer/bridge/cloud_client.py` | Cloud relay | Push data to cloud worker, poll for interrupt |
+| `MCPServer/bridge/launcher.py` | CLI launcher | Spawn Claude with `--sdk-url`, lifecycle management |
+| `remmy-cli/src/cli.ts` | CLI entry point | Command router, help, version |
+| `remmy-cli/src/commands/default.ts` | Default command | Pair + launch bridge + Claude |
+| `remmy-cli/src/commands/run.ts` | Run command | Launch bridge + Claude (requires pairing) |
+| `remmy-cli/src/commands/setup.ts` | Setup command | Pairing flow only |
+| `ClaudeWatch/Services/WatchService.swift` | Watch service | All cloud API calls, polling (unchanged) |
+| `claude-watch-cloud/src/index.ts` | Cloud worker | Relay between bridge and watch |
+
+### Legacy (Hook-Based)
+
+| File | Purpose | Key Functions/Endpoints |
+|------|---------|------------------------|
+| `.claude/hooks/watch-approval-cloud.py` | PreToolUse hook (deprecated) | `create_request()`, `wait_for_response()` |
+| `.claude/hooks/progress-tracker.py` | PostToolUse hook (deprecated) | Posts to `/session-progress` |
+| `claude-watch-npm/src/cli/cc-watch.ts` | Legacy CLI entry (deprecated) | Pairing, launching Claude |
+| `claude-watch-npm/src/cloud/pairing.ts` | Legacy CLI pairing (deprecated) | Old pairing flow |
 
 ---
 
@@ -425,7 +664,33 @@ When adding a new endpoint:
 
 ---
 
+## Migration Status (Phase 11)
+
+**Current State (2026-02-15):**
+- ✅ Bridge server implemented (workstreams A1-A8: 249 tests passing)
+- ✅ CLI implemented (remmy-cli: 129 tests passing)
+- ✅ Cloud relay sync (B2: 46 tests passing)
+- ✅ E2E integration tests (D1-D6: 82 tests passing)
+- ⏳ Review fixes in progress (R1-R4 critical blockers identified)
+- ⏳ Watch verification (C1) pending R1-R4 completion
+
+**What Changed:**
+- **Approval flow**: Hook → Bridge via WebSocket (control_request/response)
+- **Question flow**: Hook → Bridge with recommendation extraction + updatedInput
+- **Progress flow**: Hook → Bridge with native tool_progress + TodoWrite extraction
+- **Session isolation**: Env var → Inherent (only --sdk-url sessions connect)
+
+**What Stayed the Same:**
+- Watch UI (MainView, PairingView, ProgressView — zero changes)
+- Cloud worker endpoints (bridge REST API matches exactly)
+- APNs push notifications (delivery mechanism unchanged)
+- Pairing flow (watch initiates with code, CLI completes)
+
+**Migration Plan**: `.claude/plans/MIGRATION_PROGRESS.md`
+
+---
+
 ## Version
 
-Last updated: 2026-01-21
-Document version: 1.0
+Last updated: 2026-02-15
+Document version: 2.0 (added Phase 11 bridge architecture)

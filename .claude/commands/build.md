@@ -12,7 +12,7 @@ Build the ClaudeWatch watchOS app for simulator:
 3. Report build results with any errors or warnings
 
 ```bash
-xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm)' build
+xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)' build
 ```
 
 If build fails:

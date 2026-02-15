@@ -1,15 +1,15 @@
 ---
-description: Start the MCP server for watch connectivity
+description: Start the bridge server for watch connectivity
 allowed-tools: Bash(python:*), Bash(python3:*), Bash(source:*), Bash(pip:*), Read
 ---
 
-# Start MCP Server
+# Start Bridge Server
 
-Start the Python MCP server for watch connectivity:
+Start the Python bridge server for watch connectivity:
 
 1. Check if virtual environment exists, create if needed
 2. Install dependencies if missing
-3. Start the server in standalone mode
+3. Start the bridge server
 
 ```bash
 cd MCPServer
@@ -21,15 +21,21 @@ python3 -m venv venv 2>/dev/null || true
 source venv/bin/activate
 pip install -r requirements.txt
 
-# Start server
-python server.py --standalone --port 8787
+# Start bridge server (primary)
+python -m bridge.main
 ```
 
-The server provides:
-- WebSocket endpoint on port 8787
-- REST API on port 8788
-- MCP protocol support for Claude Code
+The bridge provides:
+- NDJSON WebSocket on port 8787 (for Claude CLI via --sdk-url)
+- REST API on port 8788 (for watch via cloud relay)
+- Cloud worker relay for remote watch access
 
 Test endpoints:
-- GET http://localhost:8788/state - Current state
-- POST http://localhost:8788/action/respond - Approve/reject actions
+- GET http://localhost:8788/state - Current session state
+- GET http://localhost:8788/permissions - Pending permissions
+- GET http://localhost:8788/progress - Task progress
+
+Legacy standalone mode (if needed):
+```bash
+python server.py --standalone --port 8787
+```

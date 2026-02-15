@@ -17,7 +17,7 @@
 │  4. Creates .claude/plans/phase{N}-CONTEXT.md                   │
 │                                                                 │
 │  DURING IMPLEMENTATION                                          │
-│  5. Use tasks.yaml for task tracking                            │
+│  5. Track progress in MIGRATION_PROGRESS.md                     │
 │  6. Commit atomically per task                                  │
 │                                                                 │
 │  BEFORE SHIPPING                                                │
@@ -68,33 +68,37 @@ Claude Watch is a watchOS app that provides a wearable interface for Claude Code
 claude-watch/
 ├── ClaudeWatch/                    # watchOS App
 │   ├── App/                        # Entry point + AppDelegate
-│   │   └── ClaudeWatchApp.swift    # Main app with notification handling
 │   ├── Views/                      # SwiftUI views
-│   │   └── MainView.swift          # Single-screen UI
 │   ├── Services/                   # Business logic
-│   │   └── WatchService.swift      # WebSocket client + state management
 │   └── Complications/              # Watch face widgets
-│       └── ComplicationViews.swift # Complication providers
+├── MCPServer/                      # Python backend
+│   ├── server.py                   # Legacy standalone server
+│   └── bridge/                     # SDK-URL bridge (primary)
+│       ├── main.py                 # Bridge entrypoint
+│       ├── ndjson_server.py        # NDJSON WebSocket server
+│       ├── api.py                  # Watch-facing REST API
+│       ├── cloud_client.py         # Cloud worker relay
+│       └── tests/                  # 379 tests
+├── remmy-cli/                      # TypeScript CLI
+│   └── src/                        # 129 tests
 ├── ClaudeWatch.xcodeproj/          # Xcode project
-└── MCPServer/                      # Python MCP server
-    └── server.py                   # WebSocket + MCP + APNs bridge
+└── .claude/                        # Agent & developer docs
 ```
 
 ## Documentation Structure
 
 ```
-inbox/ → plans/ → tasks.yaml → archive/
-(ideas)  (refined)  (execute)   (done)
+inbox/ → plans/ → MIGRATION_PROGRESS.md → archive/
+(ideas)  (refined)      (execute)          (done)
 ```
 
 | Directory | Purpose |
 |-----------|---------|
 | `.claude/state/SESSION_STATE.md` | **Handoff persistence** - read at session start |
-| `.claude/ralph/tasks.yaml` | **THE** source of truth for current work |
+| `.claude/plans/MIGRATION_PROGRESS.md` | **THE** source of truth for current work |
 | `.claude/plans/` | Refined plans, roadmap, and phase CONTEXT files |
 | `.claude/commands/` | Slash commands (`/progress`, `/ship-check`, etc.) |
-| `.claude/context/` | Always-on context (personas, PRD, journeys) |
-| `.claude/scope-creep/` | Future dreams (CarPlay, iOS app) - ignore |
+| `.claude/context/PRD.md` | Product requirements document |
 | `.claude/inbox/` | Raw ideas, quick captures |
 | `.claude/archive/` | Completed or obsolete content |
 | `docs/` | User-facing guides only |
@@ -133,7 +137,7 @@ inbox/ → plans/ → tasks.yaml → archive/
 ## Testing Commands
 ```bash
 # Build for simulator
-xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm)'
+xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)'
 
 # Run on device (requires provisioning)
 xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS'
@@ -148,7 +152,7 @@ xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'plat
 │   Apple Watch   │         │    Mac CLI      │
 │                 │         │                 │
 │  1. Tap "Pair"  │         │                 │
-│  2. Shows code  │ ──────> │  3. npx cc-watch│
+│  2. Shows code  │ ──────> │  3. remmy-cli   │
 │     "ABC-123"   │         │  4. Enter code  │
 │                 │         │  5. Paired!     │
 └─────────────────┘         └─────────────────┘
@@ -156,7 +160,7 @@ xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'plat
 
 ```bash
 # On Mac - after watch displays code:
-npx cc-watch
+remmy-cli
 # Enter the code FROM the watch INTO the CLI
 ```
 
@@ -164,7 +168,7 @@ npx cc-watch
 
 ## Watch Approval Mode (IMPORTANT)
 
-When `CLAUDE_WATCH_SESSION_ACTIVE=1` is set (by cc-watch), the user is approving from their Apple Watch.
+When `CLAUDE_WATCH_SESSION_ACTIVE=1` is set (by remmy-cli), the user is approving from their Apple Watch.
 
 **The watch can ONLY approve or reject. It cannot select from options or type text.**
 
@@ -198,7 +202,10 @@ By asking yes/no questions, you enable seamless watch-based code review.
 
 ## Server Commands
 ```bash
-# Start MCP server (standalone mode)
+# Start bridge server
+cd MCPServer && python -m bridge.main
+
+# Legacy standalone mode
 cd MCPServer && python server.py --standalone --port 8787
 
 # Test API
@@ -211,11 +218,14 @@ curl http://localhost:8788/state
 - Use force unwrapping (`!`) without justification
 - Block the main thread with synchronous network calls
 - Ignore notification permission states
-- **NEVER disable or clear PreToolUse hooks in `.claude/settings.json`** - The watch approval hook uses session isolation via `CLAUDE_WATCH_SESSION_ACTIVE` env var. It stays registered but only activates when cc-watch is running. DO NOT TOUCH IT.
+- **NEVER disable or clear PreToolUse hooks in `.claude/settings.json`** - The watch approval hook uses session isolation via `CLAUDE_WATCH_SESSION_ACTIVE` env var. It stays registered but only activates when remmy-cli is running. DO NOT TOUCH IT.
 
 ## Key Files
 - `ClaudeWatchApp.swift` - App entry, notification setup
 - `MainView.swift` - Primary UI
 - `WatchService.swift` - WebSocket, state, API calls
 - `ComplicationViews.swift` - Watch face widgets
-- `MCPServer/server.py` - Python backend
+- `MCPServer/bridge/main.py` - Bridge entrypoint, orchestrates all components
+- `MCPServer/bridge/ndjson_server.py` - NDJSON WebSocket server for CLI
+- `MCPServer/bridge/api.py` - Watch-facing REST API
+- `remmy-cli/src/commands/start.ts` - CLI start command
