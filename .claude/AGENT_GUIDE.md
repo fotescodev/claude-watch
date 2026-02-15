@@ -8,6 +8,30 @@
 1. `.claude/state/SESSION_STATE.md` — what happened last, what's next
 2. `.claude/plans/MIGRATION_PROGRESS.md` — workstream status & test counts
 
+## New Session Checklist
+
+If you're a new agent or starting a fresh session, do this:
+
+```bash
+# 1. You're reading this — good. Now read SESSION_STATE for context:
+#    .claude/state/SESSION_STATE.md
+
+# 2. Checkout the correct branch for your task:
+#    - Migration/bridge work: claude/investigate-websocket-terminal-utUEt
+#    - Docs/config changes: restructuring
+git checkout <branch>
+
+# 3. Verify green baseline (expect 379 bridge + 129 CLI = 508 total)
+python -m pytest MCPServer/bridge/tests/ -q
+cd remmy-cli && bun test src/ui/ src/lib/ src/cli.test.ts && bun test src/commands/
+
+# 4. Check MIGRATION_PROGRESS.md for current task (look for "UP NEXT")
+
+# 5. Read the relevant spec for your task (see "Specs & Plans" below)
+
+# 6. Start working. Commit atomically per task.
+```
+
 ---
 
 ## By Task Type
@@ -87,17 +111,19 @@ The bridge is the primary architecture (Phase 11). Old hook-based approval is le
 ## Test Commands
 
 ```bash
-# Bridge tests (379 passing as of 2026-02-15)
+# Bridge tests — expect 379 passed
 python -m pytest MCPServer/bridge/tests/ -q
 
-# Bridge unit only (297)
+# Bridge unit only — expect 297 passed
 python -m pytest MCPServer/bridge/tests/ -q --ignore=MCPServer/bridge/tests/test_e2e_*
 
-# Bridge E2E only (82)
+# Bridge E2E only — expect 82 passed
 python -m pytest MCPServer/bridge/tests/test_e2e_* -q
 
-# CLI tests (129) — must split due to bun mock.module() bleed
+# CLI tests — expect 129 passed (must split due to bun mock.module() bleed)
 cd remmy-cli && bun test src/ui/ src/lib/ src/cli.test.ts && bun test src/commands/
+
+# Total baseline: 508 tests
 ```
 
 ---

@@ -2,7 +2,10 @@
 
 > Last updated: 2026-02-15
 > Session: Phase 12 — Review Fixes + C1 Watch Verification
-> Branch: `claude/investigate-websocket-terminal-utUEt`
+>
+> **Branches:**
+> - Migration code: `claude/investigate-websocket-terminal-utUEt`
+> - Docs cleanup: `restructuring` (merged docs restructuring on 2026-02-15)
 
 ## Single Source of Truth
 
@@ -31,9 +34,12 @@ Next session execution plan: `.claude/plans/phase12-CONTEXT.md`
 ## Quick Start
 
 ```bash
-# 1. Confirm green baseline
-python -m pytest MCPServer/bridge/tests/ -q
-cd remmy-cli && bun test src/ui/ src/lib/ src/cli.test.ts && bun test src/commands/
+# 0. Checkout the migration branch
+git checkout claude/investigate-websocket-terminal-utUEt
+
+# 1. Confirm green baseline (expect 379 bridge + 129 CLI = 508 total)
+python -m pytest MCPServer/bridge/tests/ -q          # expect 379 passed
+cd remmy-cli && bun test src/ui/ src/lib/ src/cli.test.ts && bun test src/commands/  # expect 129 passed
 
 # 2. Read the execution plan
 # .claude/plans/phase12-CONTEXT.md
