@@ -208,7 +208,7 @@ final class WatchServiceTests: XCTestCase {
         // Then: Should have demo data
         XCTAssertEqual(service.connectionStatus, .connected)
         XCTAssertFalse(service.state.pendingActions.isEmpty)
-        XCTAssertEqual(service.state.status, .waiting)
+        XCTAssertEqual(service.state.status, .running)
         XCTAssertFalse(service.state.taskName.isEmpty)
     }
 

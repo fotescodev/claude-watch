@@ -28,9 +28,9 @@ struct QuestionResponseView: View {
             // V3 E1: StateCard with purple glow and border
             StateCard(state: .question, glowOffset: 5, padding: 14) {
                 VStack(alignment: .center, spacing: 10) {
-                    // Question mark icon (24pt bold, purple)
-                    Text("?")
-                        .font(.claudeHero)
+                    // Question icon
+                    Image(systemName: "questionmark.circle.fill")
+                        .font(.title2)
                         .foregroundStyle(Claude.question)
                         .frame(maxWidth: .infinity)
 

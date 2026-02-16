@@ -51,17 +51,17 @@ public enum ClaudeState: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    /// Associated color (Apple semantic colors for native feel)
+    /// Associated color — delegates to Claude design tokens for single source of truth
     public var color: Color {
         switch self {
-        case .idle: return .gray         // #8E8E93
-        case .working: return .blue      // #007AFF
-        case .approval: return .orange   // #FF9500
-        case .success: return .green     // #34C759
-        case .error: return .red         // #FF3B30
-        case .plan: return Color(red: 0.369, green: 0.361, blue: 0.902)     // #5E5CE6
-        case .context: return Color(red: 1.0, green: 0.839, blue: 0.039)    // #FFD60A
-        case .question: return Color(red: 0.749, green: 0.353, blue: 0.949) // #BF5AF2
+        case .idle: return Claude.idle
+        case .working: return Claude.info
+        case .approval: return Claude.warning
+        case .success: return Claude.success
+        case .error: return Claude.destructive
+        case .plan: return Claude.plan
+        case .context: return Claude.context
+        case .question: return Claude.question
         }
     }
 

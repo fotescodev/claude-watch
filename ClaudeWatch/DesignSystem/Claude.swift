@@ -26,8 +26,8 @@ public enum Claude {
     static let success = Color.green      // #34C759
     /// Warning state - Apple orange for approval needed, attention
     static let warning = Color.orange     // #FF9500
-    /// Danger/error state - Apple red for reject, errors, destructive
-    static let danger = Color.red         // #FF3B30
+    /// Destructive/error state - Apple red for reject, errors, destructive
+    static let destructive = Color.red    // #FF3B30
     /// Info/working state - Apple blue for active, progress
     static let info = Color.blue          // #007AFF
     /// Idle state - Apple gray for inactive, neutral
@@ -38,6 +38,16 @@ public enum Claude {
     static let context = Color(red: 1.0, green: 0.839, blue: 0.039)  // #FFD60A
     /// Question - Purple (#BF5AF2) - Needs user input
     static let question = Color(red: 0.749, green: 0.353, blue: 0.949)  // #BF5AF2
+
+    // MARK: - Backward Compatibility Aliases
+    /// Renamed to `destructive` — use `destructive` in new code
+    static let danger = destructive
+    /// Renamed to `fillCard` — use `fillCard` in new code
+    static let fill1 = fillCard
+    /// Renamed to `fillInteractive` — use `fillInteractive` in new code
+    static let fill2 = fillInteractive
+    /// Renamed to `fillProminent` — use `fillProminent` in new code
+    static let fill3 = fillProminent
 
     // MARK: - State Colors (V2 5-State Model)
     /// Returns the color for a given Claude state
@@ -73,12 +83,12 @@ public enum Claude {
     // MARK: - Fill Colors (White Overlays)
     /// Subtle fill for background tints (3%)
     static let fillSubtle = Color.white.opacity(0.03)
-    /// Fill level 1 for cards, badges (7%)
-    static let fill1 = Color.white.opacity(0.07)
-    /// Fill level 2 for interactive surfaces (12%)
-    static let fill2 = Color.white.opacity(0.12)
-    /// Fill level 3 for prominent surfaces (15%)
-    static let fill3 = Color.white.opacity(0.15)
+    /// Card fill for cards, badges (7%)
+    static let fillCard = Color.white.opacity(0.07)
+    /// Interactive fill for tappable surfaces (12%)
+    static let fillInteractive = Color.white.opacity(0.12)
+    /// Prominent fill for highlighted surfaces (15%)
+    static let fillProminent = Color.white.opacity(0.15)
 
     // MARK: - High Contrast Support
     /// Returns text secondary color adjusted for high contrast mode
@@ -167,8 +177,11 @@ public enum Claude {
             static let cardHorizontalPadding: CGFloat = 8
             /// Button horizontal padding: 16pt
             static let buttonHorizontalPadding: CGFloat = 16
-            /// Top padding above card: 4pt
+            /// Flexible top padding (used in Spacer minLength): 4pt
             static let topPadding: CGFloat = 4
+            /// Fixed clearance between status bar and card top border: 24pt
+            /// Hard stop — cards must never touch or crowd the status label
+            static let statusBarClearance: CGFloat = 24
             /// Bottom padding below hint: 8pt
             static let bottomPadding: CGFloat = 8
         }
@@ -227,12 +240,12 @@ extension Animation {
 
     /// Bouncy spring for attention-grabbing elements
     static var bouncySpring: Animation {
-        .interpolatingSpring(stiffness: 200, damping: 15)
+        .spring(duration: 0.35, bounce: 0.3)
     }
 
-    /// Gentle spring for subtle transitions
+    /// Gentle spring for subtle transitions (fast for watch)
     static var gentleSpring: Animation {
-        .spring(response: 0.5, dampingFraction: 0.8, blendDuration: 0)
+        .spring(response: 0.3, dampingFraction: 0.85, blendDuration: 0)
     }
 
     /// Returns appropriate animation based on Reduce Motion preference
@@ -249,57 +262,69 @@ extension Animation {
 }
 
 // MARK: - Typography Extensions
+/// Uses SwiftUI Dynamic Type styles wherever possible.
+/// Custom sizes only for genuinely unique needs (pairing code, monospaced data, icons).
+/// Minimum text size: 11pt (Apple HIG guideline for watchOS).
 extension Font {
+    // MARK: Dynamic Type Wrappers (prefer these)
+    /// Maps to .headline — use for card titles, section headers
+    static let claudeHeadline: Font = .headline
+    /// Maps to .body — use for primary content
+    static let claudeBody: Font = .body
+    /// Maps to .body.weight(.medium) — use for button labels
+    static let claudeBodyMedium: Font = .body.weight(.medium)
+    /// Maps to .subheadline — use for secondary labels
+    static let claudeSubheadline: Font = .subheadline.weight(.semibold)
+    /// Maps to .caption — use for secondary text
+    static let claudeCaption: Font = .caption
+    /// Maps to .caption.weight(.medium)
+    static let claudeCaptionMedium: Font = .caption.weight(.medium)
+    /// Maps to .caption.weight(.semibold) — use for badges
+    static let claudeCaptionBold: Font = .caption.weight(.semibold)
+    /// Maps to .caption2 — use for tertiary text
+    static let claudeFootnote: Font = .caption2
+    /// Maps to .caption2.weight(.medium)
+    static let claudeFootnoteMedium: Font = .caption2.weight(.medium)
+    /// Maps to .caption2.weight(.semibold)
+    static let claudeFootnoteBold: Font = .caption2.weight(.semibold)
+
+    // MARK: Custom Sizes (genuinely unique needs only)
     /// Hero display for large icons/emoji (24pt bold)
     static let claudeHero = Font.system(size: 24, weight: .bold)
     /// Large title for screen headers (18pt bold)
     static let claudeLargeTitle = Font.system(size: 18, weight: .bold)
-    /// Title for prominent content (16pt semibold)
-    static let claudeTitle = Font.system(size: 16, weight: .semibold)
-    /// Headline for section titles (15pt semibold)
-    static let claudeHeadline = Font.system(size: 15, weight: .semibold)
-    /// Body text (14pt regular)
-    static let claudeBody = Font.system(size: 14, weight: .regular)
-    /// Body text medium weight for buttons (14pt medium)
-    static let claudeBodyMedium = Font.system(size: 14, weight: .medium)
-    /// Subheadline for secondary content (13pt semibold)
-    static let claudeSubheadline = Font.system(size: 13, weight: .semibold)
-    /// Caption for secondary text (12pt regular)
-    static let claudeCaption = Font.system(size: 12, weight: .regular)
-    /// Caption medium for labels (12pt medium)
-    static let claudeCaptionMedium = Font.system(size: 12, weight: .medium)
-    /// Caption semibold for badges (12pt semibold)
-    static let claudeCaptionBold = Font.system(size: 12, weight: .semibold)
-    /// Footnote for tertiary text (11pt regular)
-    static let claudeFootnote = Font.system(size: 11, weight: .regular)
-    /// Footnote medium weight (11pt medium)
-    static let claudeFootnoteMedium = Font.system(size: 11, weight: .medium)
-    /// Footnote semibold (11pt semibold)
-    static let claudeFootnoteBold = Font.system(size: 11, weight: .semibold)
-    /// Micro for hint text, timestamps (10pt regular)
-    static let claudeMicro = Font.system(size: 10, weight: .regular)
-    /// Micro medium (10pt medium)
-    static let claudeMicroMedium = Font.system(size: 10, weight: .medium)
-    /// Micro semibold (10pt semibold)
-    static let claudeMicroSemibold = Font.system(size: 10, weight: .semibold)
-    /// Micro bold monospaced for tier badges (10pt bold mono)
-    static let claudeMicroMono = Font.system(size: 10, weight: .bold, design: .monospaced)
-    /// Nano for screen hints (9pt medium)
-    static let claudeNano = Font.system(size: 9, weight: .medium)
-    /// Nano bold (9pt bold)
-    static let claudeNanoBold = Font.system(size: 9, weight: .bold)
-    /// Monospaced for code/data (13pt monospaced)
-    static let claudeMono = Font.system(size: 13, weight: .medium, design: .monospaced)
-    /// Small monospaced for inline code (10pt mono)
-    static let claudeMonoSmall = Font.system(size: 10, design: .monospaced)
-    /// Tiny monospaced for tier badges (9pt bold mono)
-    static let claudeMonoTiny = Font.system(size: 9, weight: .bold, design: .monospaced)
+    /// Title for prominent content — maps to .title3
+    static let claudeTitle: Font = .title3.weight(.semibold)
+    /// Hint text — minimum readable size (11pt medium)
+    static let claudeHint = Font.caption2.weight(.medium)
+    /// Monospaced for code/data display
+    static let claudeMono = Font.system(.caption, design: .monospaced).weight(.medium)
+    /// Small monospaced for inline code
+    static let claudeMonoSmall = Font.system(.caption2, design: .monospaced)
+    /// Bold monospaced for tier badges
+    static let claudeMonoBadge = Font.system(size: 10, weight: .bold, design: .monospaced)
     /// Icon button font (20pt semibold)
     static let claudeIconButton = Font.system(size: 20, weight: .semibold)
     /// Large icon (36pt light) for empty states
     static let claudeIconLarge = Font.system(size: 36, weight: .light)
     /// Display icon (40pt light) for hero states
     static let claudeIconDisplay = Font.system(size: 40, weight: .light)
+
+    // MARK: Backward Compatibility Aliases
+    @available(*, deprecated, renamed: "claudeHint")
+    static let claudeNano: Font = .caption2.weight(.medium)
+    @available(*, deprecated, renamed: "claudeHint")
+    static let claudeNanoBold: Font = .caption2.weight(.bold)
+    @available(*, deprecated, renamed: "claudeHint")
+    static let claudeMicro: Font = .caption2
+    @available(*, deprecated, renamed: "claudeHint")
+    static let claudeMicroMedium: Font = .caption2.weight(.medium)
+    @available(*, deprecated, renamed: "claudeHint")
+    static let claudeMicroSemibold: Font = .caption2.weight(.semibold)
+    @available(*, deprecated, renamed: "claudeMonoBadge")
+    static let claudeMicroMono: Font = .system(size: 10, weight: .bold, design: .monospaced)
+    @available(*, deprecated, renamed: "claudeMonoSmall")
+    static let claudeMonoTiny: Font = .system(size: 10, weight: .bold, design: .monospaced)
 }
 
 // MARK: - Convenience Extensions

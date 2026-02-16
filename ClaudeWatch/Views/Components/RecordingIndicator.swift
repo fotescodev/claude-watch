@@ -58,8 +58,8 @@ struct RecordingIndicator: View {
     private func startPulseAnimation() {
         guard !reduceMotion else { return }
         withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
-            pulseScale = 1.5
-            pulseOpacity = 0.3
+            pulseScale = 1.2
+            pulseOpacity = 0.2
         }
     }
 

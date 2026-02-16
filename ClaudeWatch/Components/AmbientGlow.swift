@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Ambient Glow Effect
 /// Ambient glow effect for state emphasis
-/// V3 Spec: 100x80 ellipse, 35px blur, 18% opacity
+/// Uses RadialGradient (18% opacity) — no blur for GPU performance
 struct AmbientGlow: View {
     let color: Color
 
@@ -15,11 +15,14 @@ struct AmbientGlow: View {
     }
 
     var body: some View {
-        Ellipse()
-            .fill(color.opacity(0.35))  // V3: Increased opacity for visibility
-            .frame(width: 120, height: 100)  // V3: Larger glow
-            .blur(radius: 40)
-            .accessibilityHidden(true)
+        RadialGradient(
+            colors: [color.opacity(0.18), .clear],
+            center: .center,
+            startRadius: 5,
+            endRadius: 55
+        )
+        .frame(width: 120, height: 100)
+        .accessibilityHidden(true)
     }
 }
 

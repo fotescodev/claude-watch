@@ -65,7 +65,7 @@ struct EmptyStateView: View {
 
             // Title and subtitle
             VStack(spacing: 4) {
-                Text("Claude Code")
+                Text("Remmy")
                     .font(.headline)
                     .foregroundStyle(Claude.textPrimary)
 

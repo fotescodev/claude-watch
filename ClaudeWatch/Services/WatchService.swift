@@ -52,7 +52,7 @@ class WatchService {
     /// Complete state is a brief acknowledgment, then return to "Listening..."
     /// Extended to 5 minutes since hooks send heartbeats and there can be gaps between tool calls
     private let progressStaleThreshold: TimeInterval = 300
-    private let completeStaleThreshold: TimeInterval = 3
+    private let completeStaleThreshold: TimeInterval = 10
 
     // MARK: - Foundation Models (On-Device AI)
     var foundationModelsStatus: FoundationModelsStatus = .checking
@@ -1738,8 +1738,15 @@ class WatchService {
         }
 
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let questions = json["questions"] as? [[String: Any]],
-              let firstQuestion = questions.first else {
+              let questions = json["questions"] as? [[String: Any]] else {
+            return
+        }
+
+        // Clear pendingQuestion if queue is empty (answered from elsewhere)
+        guard let firstQuestion = questions.first else {
+            if pendingQuestion != nil {
+                await MainActor.run { pendingQuestion = nil }
+            }
             return
         }
 
@@ -2099,7 +2106,24 @@ class WatchService {
         state.pendingActions = []
         pendingQuestion = nil
         isSessionInterrupted = false
-        sessionProgress = nil
+
+        // Set session progress (heartbeat) so WorkingView returns after dismissal
+        state.taskName = "Refactoring auth module"
+        state.status = .running
+        sessionProgress = SessionProgress(
+            currentTask: "Refactoring auth module",
+            currentActivity: "Updating models",
+            progress: 0.45,
+            completedCount: 2,
+            totalCount: 5,
+            tasks: [
+                TodoItem(content: "Create models", status: "completed"),
+                TodoItem(content: "Add validation", status: "completed"),
+                TodoItem(content: "Update auth service", status: "in_progress"),
+                TodoItem(content: "Add unit tests", status: "pending"),
+                TodoItem(content: "Update docs", status: "pending")
+            ]
+        )
 
         // Set context warning to trigger E2 screen
         contextWarning = ContextWarning(
@@ -2116,11 +2140,29 @@ class WatchService {
         pairingId = "demo-paired"
         connectionStatus = .connected
 
-        // Clear states that would take priority
+        // Clear states that would take priority over question
         state.pendingActions = []
         contextWarning = nil
         isSessionInterrupted = false
-        sessionProgress = nil
+
+        // Set session progress (heartbeat) so WorkingView shows after question is answered
+        state.taskName = "Refactoring auth module"
+        state.status = .running
+        sessionProgress = SessionProgress(
+            currentTask: "Refactoring auth module",
+            currentActivity: "Updating models",
+            progress: 0.45,
+            completedCount: 2,
+            totalCount: 5,
+            elapsedSeconds: 127,
+            tasks: [
+                TodoItem(content: "Create models", status: "completed"),
+                TodoItem(content: "Add validation", status: "completed"),
+                TodoItem(content: "Update auth service", status: "in_progress"),
+                TodoItem(content: "Add unit tests", status: "pending"),
+                TodoItem(content: "Update docs", status: "pending")
+            ]
+        )
 
         // Set question to trigger E1 screen
         pendingQuestion = PendingQuestion(

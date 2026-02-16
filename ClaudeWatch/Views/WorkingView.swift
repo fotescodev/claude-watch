@@ -48,14 +48,30 @@ struct WorkingView: View {
                     }
                 }
             } else {
-                // Fallback loading state
-                StateCard(state: .working, glowOffset: 15, padding: 10) {
-                    VStack(spacing: 6) {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: ClaudeState.working.color))
-                        Text("Processing...")
-                            .font(.claudeFootnoteMedium)
+                // Fallback: show task name + progress from state
+                StateCard(state: .working, glowOffset: 15, padding: 12) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(service.state.taskName.isEmpty ? "Working..." : service.state.taskName)
+                            .font(.claudeHeadline)
                             .foregroundStyle(.white)
+                            .lineLimit(2)
+
+                        HStack(spacing: 8) {
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Claude.fill3)
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(ClaudeState.working.color)
+                                        .frame(width: geo.size.width * service.state.progress)
+                                }
+                            }
+                            .frame(height: 8)
+
+                            Text("\(Int(service.state.progress * 100))%")
+                                .font(.claudeCaptionBold)
+                                .foregroundStyle(ClaudeState.working.color)
+                        }
                     }
                 }
             }

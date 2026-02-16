@@ -45,7 +45,7 @@ struct ScreenContainer<Content: View, State: Hashable>: View {
     var body: some View {
         content
             .id(state)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: state)
+            .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.9), value: state)
     }
 }
 

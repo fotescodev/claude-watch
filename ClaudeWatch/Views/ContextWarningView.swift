@@ -15,21 +15,21 @@ struct ContextWarningView: View {
             // V3 E2: StateCard with context/yellow glow and border
             StateCard(state: .context, glowOffset: 10, padding: 10) {
                 VStack(alignment: .center, spacing: 6) {
-                    // Large percentage display (22pt bold, yellow)
+                    // Large percentage display
                     Text("\(percentage)%")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.title2.weight(.bold))
                         .foregroundStyle(Claude.context)
                         .frame(maxWidth: .infinity)
 
-                    // Title (11pt semibold, white)
-                    Text("Context Usage")
-                        .font(.claudeFootnoteBold)
-                        .foregroundStyle(.white)
+                    // Title
+                    Text("Memory Low")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
 
-                    // Subtitle (10pt, #ffffff99)
-                    Text("Running low on\nconversation context")
-                        .font(.claudeMicro)
-                        .foregroundStyle(Claude.textSecondary)
+                    // Subtitle
+                    Text("Claude is running low")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
 
                     // Progress bar (6px height, #ffffff20 bg, yellow fill)
@@ -44,16 +44,17 @@ struct ContextWarningView: View {
                     }
                     .frame(height: 6)
 
-                    // OK button (yellow bg, black text, rounded)
+                    // OK button
                     Button {
                         dismiss()
                     } label: {
                         Text("OK")
-                            .font(.claudeNano)
+                            .font(.caption.weight(.semibold))
                             .foregroundStyle(.black)
-                            .frame(width: 67, height: 27)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
                             .background(Claude.context)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
                     .disabled(acknowledged)
