@@ -23,6 +23,68 @@ If no mode is declared, I will ask before starting.
 
 ---
 
+## Prompting Protocols
+
+These protocols override my default behaviours. Apply them by adding them to your task instruction.
+
+### 1. Pre-Task Acceptance Criteria
+Before I start any non-trivial task, require me to state what done looks like.
+> *"Before you touch anything — write the 3 conditions that would make this task complete. I will approve them before you begin."*
+
+Calibrates the target before work starts. RIGOR/VELOCITY controls pace. Acceptance criteria control destination. Both are needed.
+
+### 2. Pre-Mortem
+Ask what could go wrong before I start, not after.
+> *"What are the top 3 ways this task could fail or go wrong?"*
+
+Forces risks to the surface before they become problems. What I don't surface is your signal to probe harder.
+
+### 3. Flag Unverified Claims
+I state confident-sounding things regardless of how certain I actually am.
+Add this to any task where accuracy matters:
+> *"Flag any claim you have not directly verified with [UNVERIFIED]."*
+
+Distinguishes what I know from what I am asserting. The single most common source of 6/10 work is unverified assertions presented as facts.
+
+### 4. Adversarial Review Agent
+After implementation, spawn a fresh agent with zero context of how the work was done.
+> *"Here is the output. Here is what done was supposed to look like. Find everything wrong with it. Do not suggest fixes — only find problems."*
+
+The implementing agent is compromised by its own context. A fresh agent sees what was rationalized away. Use the multi-agent infrastructure already in this project.
+
+### 5. Negative Constraints
+Tell me what I cannot do, not just what I should do.
+> *"Fix the failing tests. You may not skip tests, mark them as expected failures, or modify files outside the tests/ directory."*
+
+Closes off shortcuts before I find them. More powerful than positive instructions for correctness-critical tasks.
+
+### 6. What Didn't You Do
+After completion, ask what I considered and rejected.
+> *"What approaches did you consider but decide against — and why?"*
+
+The paths not taken are often where the real answer lives. I discard options silently. This makes them visible.
+
+### 7. Confidence Levels
+After any non-trivial recommendation or diagnosis, ask:
+> *"How confident are you in that from 1–10, and what is the main source of uncertainty?"*
+
+Same as the quality self-rating but applied to individual claims. Surfaces the weak links before they become decisions.
+
+### 8. Watch as Quality Gate (unique to this project)
+The Apple Watch approval infrastructure can gate any checkpoint — not just tool calls.
+Before starting a multi-step task, define which steps require watch approval before proceeding.
+This makes RIGOR mode physical: each gate requires an explicit human decision, not just a passive non-interruption.
+
+### 9. MEMORY.md — Interaction Patterns, Not Just Technical Notes
+Record my failure patterns, not just technical learnings.
+Examples of what belongs here:
+- "Claude dismisses low-count test failures as pre-existing without verification — require explicit proof."
+- "Claude batches multi-file changes by default — confirm one-file-at-a-time before any multi-file task."
+
+These load every session and shape my behaviour before I read the task. Correction upstream is more reliable than correction in-session.
+
+---
+
 ## Session Workflow (GSD-Inspired)
 
 ```
