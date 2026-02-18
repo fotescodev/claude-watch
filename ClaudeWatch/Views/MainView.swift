@@ -31,6 +31,10 @@ struct MainView: View {
             return ("Question", Claude.question)
         case .contextWarning:
             return ("Warning", Claude.warning)
+        case .approval:
+            return ("Approval", Claude.warning)
+        case .approvalQueue:
+            return nil  // Queue views manage their own tier-colored headers
         case .pairing:
             return ("Unpaired", Claude.idle)
         case .offline:
@@ -40,7 +44,7 @@ struct MainView: View {
         case .success:
             return ("Complete", Claude.success)
         default:
-            return nil  // approvalQueue, approval, empty, main, alwaysOn handle their own
+            return nil  // empty, main, alwaysOn handle their own
         }
     }
 
@@ -162,7 +166,7 @@ struct MainView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.bottom, 2)
+                .padding(.bottom, 24)
             }
         }
         #endif
@@ -282,27 +286,28 @@ struct MainView: View {
         }
 
         // V2 state-driven views
-        // Paused state takes priority
-        if service.isSessionInterrupted {
-            return .paused
-        }
 
-        // F18: Question takes high priority
+        // F18: Question takes highest interactive priority
         if service.pendingQuestion != nil {
             return .question
         }
 
-        // F16: Context warning takes priority over normal states
-        if service.contextWarning != nil {
-            return .contextWarning
-        }
-
-        // Approval states - PRIORITY over working (user must approve for Claude to continue)
+        // Approval states - PRIORITY over paused/working (user must act for Claude to continue)
         let pendingCount = service.state.pendingActions.count
         if pendingCount >= 2 {
             return .approvalQueue
         } else if pendingCount == 1 {
             return .approval
+        }
+
+        // Paused state (only when no pending approvals)
+        if service.isSessionInterrupted {
+            return .paused
+        }
+
+        // F16: Context warning takes priority over normal states
+        if service.contextWarning != nil {
+            return .contextWarning
         }
 
         // Session progress states (only shown when no pending approvals)

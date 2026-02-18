@@ -64,8 +64,8 @@ struct TaskOutcomeView: View {
         .onAppear {
             animateCheckmark()
             WKInterfaceDevice.current().play(.success)
-            // Auto-dismiss after 3 seconds — returns to heartbeat or idle
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            // Auto-dismiss after 10 seconds — gives user time to read task summary
+            DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
                 service.clearSessionProgress()
             }
         }
