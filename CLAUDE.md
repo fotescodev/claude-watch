@@ -4,6 +4,25 @@
 >
 > **Before proposing solutions:** Read `.claude/ARCHITECTURE.md` first.
 
+## Working Mode
+
+**Always declare the working mode before starting any task. Default is RIGOR.**
+
+| Mode | When to Use | My Behavior |
+|------|-------------|-------------|
+| **RIGOR** | Bug fixes, baseline verification, pre-ship, anything that gates the next step | One file/step at a time. Verify after each change before moving forward. Zero failures before declaring done. Surface every unexpected result immediately. No forward progress until current step is explicitly clean. |
+| **VELOCITY** | Exploration, prototyping, drafting, spike work | Batch changes. Run once at end. Flag remaining issues and continue. |
+
+**How to declare:** Say "RIGOR mode" or "VELOCITY mode" at the start of a task.
+If no mode is declared, I will ask before starting.
+
+> Why this matters: I naturally optimize for speed and task completion. Without an explicit
+> mode, I will make tradeoffs that favour throughput over correctness — batching changes,
+> asserting rather than verifying, and moving forward when "mostly done." RIGOR mode
+> overrides those defaults and holds a higher quality bar throughout.
+
+---
+
 ## Session Workflow (GSD-Inspired)
 
 ```
@@ -11,20 +30,21 @@
 │  SESSION START                                                  │
 │  1. Run /progress → See current phase, tasks, blockers          │
 │  2. Read .claude/state/SESSION_STATE.md → Handoff context       │
+│  3. Declare working mode: RIGOR or VELOCITY                     │
 │                                                                 │
 │  BEFORE NEW PHASE                                               │
-│  3. Run /discuss-phase N → Capture decisions upfront            │
-│  4. Creates .claude/plans/phase{N}-CONTEXT.md                   │
+│  4. Run /discuss-phase N → Capture decisions upfront            │
+│  5. Creates .claude/plans/phase{N}-CONTEXT.md                   │
 │                                                                 │
 │  DURING IMPLEMENTATION                                          │
-│  5. Track progress in MIGRATION_PROGRESS.md                     │
-│  6. Commit atomically per task                                  │
+│  6. Track progress in MIGRATION_PROGRESS.md                     │
+│  7. Commit atomically per task                                  │
 │                                                                 │
 │  BEFORE SHIPPING                                                │
-│  7. Run /ship-check → Pre-submission validation                 │
+│  8. Run /ship-check → Pre-submission validation                 │
 │                                                                 │
 │  SESSION END                                                    │
-│  8. Update SESSION_STATE.md with handoff notes                  │
+│  9. Update SESSION_STATE.md with handoff notes                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
