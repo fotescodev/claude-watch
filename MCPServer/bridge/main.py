@@ -70,7 +70,7 @@ class Bridge:
         self.cloud_url = cloud_url
 
         self._sessions: dict[str, Session] = {}  # session_id -> Session
-        self._ndjson = NDJSONServer(host="0.0.0.0", port=port)
+        self._ndjson = NDJSONServer(host="127.0.0.1", port=port)
         self._launcher: Any = None  # CLILauncher, set if --launch mode
         self._api: Any = None  # BridgeAPI instance, set if aiohttp available
         self._http_runner: Any = None  # aiohttp AppRunner, for cleanup
@@ -443,9 +443,9 @@ class Bridge:
             self._http_runner = runner
             # Run HTTP on port+1 to avoid conflict with WebSocket
             http_port = self.port + 1
-            site = web.TCPSite(runner, "0.0.0.0", http_port, reuse_address=True)
+            site = web.TCPSite(runner, "127.0.0.1", http_port, reuse_address=True)
             await site.start()
-            logger.info("HTTP API listening on http://0.0.0.0:%d", http_port)
+            logger.info("HTTP API listening on http://127.0.0.1:%d", http_port)
         except ImportError:
             logger.warning("aiohttp not available, HTTP API disabled")
 

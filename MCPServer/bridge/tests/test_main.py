@@ -134,7 +134,7 @@ class TestBridgeCreation:
         bridge = Bridge(port=9999)
 
         assert bridge.ndjson_server.port == 9999
-        assert bridge.ndjson_server.host == "0.0.0.0"
+        assert bridge.ndjson_server.host == "127.0.0.1"
 
     def test_creates_ndjson_server_default_port(self) -> None:
         bridge = Bridge()
