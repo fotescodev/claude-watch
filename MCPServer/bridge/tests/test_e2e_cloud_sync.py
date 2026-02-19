@@ -461,6 +461,41 @@ class TestCloudInterruptSync:
 
         assert found_interrupt, "Bridge should send interrupt to CLI after cloud poll"
 
+    @pytest.mark.asyncio
+    async def test_repeated_cloud_interrupted_sends_only_one_interrupt(
+        self, cloud_bridge, cloud_cli, mock_cloud
+    ):
+        """Cloud keeps returning interrupted=true but CLI receives only one interrupt.
+
+        Without rising-edge detection, the bridge would send an interrupt
+        every 2-second poll indefinitely. With R2 fix, only the first
+        false→true transition fires.
+        """
+        await cloud_cli.send_init()
+        await asyncio.sleep(0.1)
+
+        # Drain the initialize control_request
+        await cloud_cli.recv_all(timeout=0.1)
+
+        # Set interrupt on cloud
+        mock_cloud.set_interrupt(cloud_bridge.pairing_id, "stop")
+
+        # Wait for 3+ poll cycles (poll_interval=0.1, so 300ms = ~3 cycles)
+        await asyncio.sleep(0.5)
+
+        # Count interrupt control_requests received by CLI
+        interrupts = [
+            m for m in cloud_cli.received
+            if (
+                m.get("type") == "control_request"
+                and m.get("request", {}).get("subtype") == "interrupt"
+            )
+        ]
+        assert len(interrupts) == 1, (
+            f"Expected exactly 1 interrupt, got {len(interrupts)} "
+            "(rising-edge detection should suppress repeated polls)"
+        )
+
 
 class TestDoubleResolutionGuard:
     """R1: Concurrent REST and cloud-poll resolution must not send duplicate responses."""

@@ -78,6 +78,7 @@ class Bridge:
         self._cloud_poll_task: asyncio.Task | None = None
         self._cloud_poll_running = False
         self._last_progress_push: float = 0.0  # monotonic time of last push
+        self._last_interrupt_state: bool = False  # rising-edge detection for R2
 
         # Wire NDJSON handlers
         self._ndjson.on_connect(self._on_cli_connect)
@@ -362,10 +363,13 @@ class Bridge:
                             await self._ndjson.send_to_cli(session_id, resp)
                             logger.info("Cloud: approval %s rejected", req_id)
 
-        # Poll interrupt state
+        # Poll interrupt state — only send on rising edge (false → true)
         interrupt = await self._cloud_client.poll_interrupt_state()
-        if interrupt.get("interrupted") and interrupt.get("action") == "stop":
-            # Find active session and send interrupt
+        is_interrupted = bool(
+            interrupt.get("interrupted") and interrupt.get("action") == "stop"
+        )
+        if is_interrupted and not self._last_interrupt_state:
+            # First poll where interrupted=true: send interrupt to CLI
             for session_id in self._sessions:
                 interrupt_msg: dict[str, Any] = {
                     "type": "control_request",
@@ -375,6 +379,7 @@ class Bridge:
                 await self._ndjson.send_to_cli(session_id, interrupt_msg)
                 logger.info("Cloud: interrupt stop received")
                 break  # only interrupt the first active session
+        self._last_interrupt_state = is_interrupted
 
         # Poll session-end
         if not await self._cloud_client.poll_session_active():
