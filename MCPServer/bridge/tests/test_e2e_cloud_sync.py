@@ -46,6 +46,7 @@ class MockCloudServer:
         self.progress: dict[str, dict] = {}  # pairingId -> progress
         self.interrupt_state: dict[str, dict] = {}  # pairingId -> state
         self.session_active: dict[str, bool] = {}  # pairingId -> active
+        self.session_end_received: bool = False
         self.port: int = 0
 
     def create_app(self) -> web.Application:
@@ -54,6 +55,7 @@ class MockCloudServer:
         app.router.add_post("/approval", self._handle_push_approval)
         app.router.add_post("/question", self._handle_push_question)
         app.router.add_post("/session-progress", self._handle_push_progress)
+        app.router.add_post("/session-end", self._handle_push_session_end)
         # Poll endpoints (bridge polls cloud)
         app.router.add_get(
             "/approval/{pairing_id}/{request_id}",
@@ -94,6 +96,12 @@ class MockCloudServer:
     async def _handle_push_progress(self, request: web.Request) -> web.Response:
         body = await request.json()
         self.progress[body["pairingId"]] = body
+        return web.json_response({"success": True})
+
+    async def _handle_push_session_end(self, request: web.Request) -> web.Response:
+        body = await request.json()
+        self.session_active[body["pairingId"]] = False
+        self.session_end_received = True
         return web.json_response({"success": True})
 
     # --- Poll handlers ---
@@ -495,6 +503,48 @@ class TestCloudInterruptSync:
             f"Expected exactly 1 interrupt, got {len(interrupts)} "
             "(rising-edge detection should suppress repeated polls)"
         )
+
+
+class TestSessionCleanupOnStop:
+    """R3: Bridge stop must push session-end to cloud so watch clears the ghost session."""
+
+    @pytest.mark.asyncio
+    async def test_bridge_stop_pushes_session_end(self, mock_cloud):
+        """When bridge stops, cloud receives POST /session-end."""
+        port = _next_port()
+        pairing_id = f"r3-pair-{uuid.uuid4().hex[:8]}"
+        cloud_url = f"http://localhost:{mock_cloud.port}"
+        bridge = Bridge(port=port, pairing_id=pairing_id, cloud_url=cloud_url)
+        await bridge.start()
+        if bridge._cloud_client:
+            bridge._cloud_client._retry_delay = 0.01
+
+        # Connect a CLI so the bridge is live
+        session_id = f"cli-{uuid.uuid4().hex[:8]}"
+        url = f"ws://localhost:{port}/ws/cli/{session_id}"
+        cli = MockCLI(url, session_id)
+        await cli.connect()
+        await asyncio.sleep(0.05)
+
+        assert not mock_cloud.session_end_received
+
+        # Stop the bridge — should push session-end before closing
+        await bridge.stop()
+        await cli.disconnect()
+
+        assert mock_cloud.session_end_received, (
+            "Bridge stop should push POST /session-end to cloud"
+        )
+        assert mock_cloud.session_active.get(pairing_id) is False
+
+    @pytest.mark.asyncio
+    async def test_bridge_stop_without_cloud_does_not_error(self):
+        """Bridge with no cloud_url stops cleanly (no push_session_end attempted)."""
+        port = _next_port()
+        bridge = Bridge(port=port, pairing_id="no-cloud-pair")
+        await bridge.start()
+        # Should not raise
+        await bridge.stop()
 
 
 class TestDoubleResolutionGuard:

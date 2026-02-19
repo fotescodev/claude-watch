@@ -39,6 +39,7 @@ class MockCloudApp:
         self.received_approvals: list[dict] = []
         self.received_questions: list[dict] = []
         self.received_progress: list[dict] = []
+        self.received_session_end: list[dict] = []
 
         # Configurable responses for poll endpoints.
         self.approval_responses: dict[str, dict] = {}
@@ -56,6 +57,7 @@ class MockCloudApp:
         self.app.router.add_post("/approval", self._post_approval)
         self.app.router.add_post("/question", self._post_question)
         self.app.router.add_post("/session-progress", self._post_progress)
+        self.app.router.add_post("/session-end", self._post_session_end)
         self.app.router.add_get(
             "/approval/{pairing_id}/{request_id}", self._get_approval
         )
@@ -90,6 +92,13 @@ class MockCloudApp:
             return web.Response(status=self.error_status)
         payload = await request.json()
         self.received_progress.append(payload)
+        return web.json_response({"ok": True})
+
+    async def _post_session_end(self, request: web.Request) -> web.Response:
+        if self.force_error:
+            return web.Response(status=self.error_status)
+        payload = await request.json()
+        self.received_session_end.append(payload)
         return web.json_response({"ok": True})
 
     # -- GET handlers (poll) -------------------------------------------------
@@ -332,7 +341,37 @@ class TestPushProgress:
 
 
 # ===========================================================================
-# 4. TestPollApprovalStatus
+# 4. TestPushSessionEnd
+# ===========================================================================
+
+
+class TestPushSessionEnd:
+    """Tests for CloudClient.push_session_end()."""
+
+    @pytest.mark.asyncio
+    async def test_push_session_end_success(self, client, mock_cloud):
+        """push_session_end returns True and cloud receives the call."""
+        result = await client.push_session_end()
+        assert result is True
+        assert len(mock_cloud.received_session_end) == 1
+
+    @pytest.mark.asyncio
+    async def test_push_session_end_includes_pairing_id(self, client, mock_cloud):
+        """Payload contains pairingId."""
+        await client.push_session_end()
+        payload = mock_cloud.received_session_end[0]
+        assert payload["pairingId"] == "test-pair-123"
+
+    @pytest.mark.asyncio
+    async def test_push_session_end_cloud_error_returns_false(self, client, mock_cloud):
+        """push_session_end returns False when cloud returns an error."""
+        mock_cloud.force_error = True
+        result = await client.push_session_end()
+        assert result is False
+
+
+# ===========================================================================
+# 5. TestPollApprovalStatus
 # ===========================================================================
 
 

@@ -504,6 +504,13 @@ class Bridge:
 
     async def stop(self) -> None:
         """Stop everything gracefully."""
+        # Notify cloud that bridge is shutting down (clears ghost session on watch)
+        if self._cloud_client and self._cloud_client.is_enabled:
+            try:
+                await self._cloud_client.push_session_end()
+            except Exception as exc:
+                logger.debug("push_session_end failed: %s", exc)
+
         # Stop cloud sync
         self._cloud_poll_running = False
         if self._cloud_poll_task:

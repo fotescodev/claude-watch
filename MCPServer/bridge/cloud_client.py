@@ -154,6 +154,14 @@ class CloudClient:
         }
         return await self._post("/session-progress", payload)
 
+    async def push_session_end(self) -> bool:
+        """Notify the cloud worker that the bridge session has ended.
+
+        Calls ``POST /session-end`` so the cloud clears the session state
+        and the watch stops showing a ghost "Session Active" indicator.
+        """
+        return await self._post("/session-end", {"pairingId": self.pairing_id})
+
     # ------------------------------------------------------------------
     # Poll: Cloud → Bridge  (watch responses)
     # ------------------------------------------------------------------
