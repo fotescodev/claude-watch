@@ -40,6 +40,7 @@ export async function runDefault(): Promise<void> {
 
 async function pairedFlow(): Promise<void> {
   const config = readConfig()!;
+  const cloudUrl = config.cloudUrl ?? getCloudUrl();
   const truncatedId = config.pairingId.substring(0, 8);
   process.stdout.write(`  ${dim("Pairing ID:")} ${truncatedId}\n`);
 
@@ -52,7 +53,7 @@ async function pairedFlow(): Promise<void> {
   }
 
   // Launch bridge + Claude
-  await launchAndRun(config.pairingId);
+  await launchAndRun(config.pairingId, cloudUrl);
 }
 
 async function unpairedFlow(): Promise<void> {
@@ -101,17 +102,17 @@ async function unpairedFlow(): Promise<void> {
   saveConfig(config);
 
   // Launch bridge + Claude
-  await launchAndRun(pairingId);
+  await launchAndRun(pairingId, cloudUrl);
 }
 
 /**
  * Shared launch logic: start bridge, register SIGINT, launch Claude, cleanup.
  */
-async function launchAndRun(pairingId: string): Promise<void> {
+async function launchAndRun(pairingId: string, cloudUrl?: string): Promise<void> {
   const bridge = await launchBridge({
     pairingId,
     port: 8787,
-    cloudUrl: getCloudUrl(),
+    cloudUrl: cloudUrl ?? getCloudUrl(),
   });
 
   // Handle Ctrl+C — stop bridge gracefully

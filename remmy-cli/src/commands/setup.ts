@@ -24,9 +24,12 @@ import {
 export async function runSetup(): Promise<void> {
   showHeader();
 
+  // Read existing config upfront to get cloudUrl if available
+  const existingConfig = readConfig();
+
   // Step 2: If already paired, offer reconfigure
   if (isPaired()) {
-    const config = readConfig()!;
+    const config = existingConfig!;
     const truncatedId = config.pairingId.slice(0, 8) + "...";
     process.stdout.write(`  Already paired: ${dim(truncatedId)}\n\n`);
 
@@ -38,7 +41,8 @@ export async function runSetup(): Promise<void> {
   }
 
   // Step 3: Check cloud connectivity (BLOCKING)
-  const cloudUrl = getCloudUrl();
+  // Prefer cloudUrl from existing config, fall back to env/default
+  const cloudUrl = existingConfig?.cloudUrl ?? getCloudUrl();
   const spinner = new Spinner();
   spinner.start("Checking cloud connectivity...");
 

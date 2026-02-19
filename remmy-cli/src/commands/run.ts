@@ -38,7 +38,7 @@ export async function runRun(extraArgs?: string[]): Promise<void> {
     bridge = await launchBridge({
       pairingId: config.pairingId,
       port: 8787,
-      cloudUrl: getCloudUrl(),
+      cloudUrl: config.cloudUrl ?? getCloudUrl(),
     });
     spinner.succeed(`Bridge running on port ${bridge.port}`);
   } catch (err) {

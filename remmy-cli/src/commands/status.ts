@@ -42,7 +42,9 @@ export async function runStatus(): Promise<void> {
   const spinner = new Spinner();
   spinner.start("Checking cloud connectivity...");
 
-  const cloudUrl = getCloudUrl();
+  // Prefer cloudUrl from config, fall back to env/default
+  const statusConfig = readConfig();
+  const cloudUrl = statusConfig?.cloudUrl ?? getCloudUrl();
   const connectivity = await checkConnectivity(cloudUrl);
 
   if (connectivity.connected) {
