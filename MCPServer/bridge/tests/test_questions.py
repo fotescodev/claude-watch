@@ -258,9 +258,12 @@ class TestToWatchQuestion:
         assert result["header"] == "DB"
 
     def test_a4_7_watch_question_has_all_required_keys(self, single_question_input):
-        """Output contains exactly the expected keys."""
+        """Output contains exactly the expected keys (matches cloud worker QuestionRequest schema)."""
         result = to_watch_question("req-008", single_question_input)
-        expected_keys = {"questionId", "question", "recommendedAnswer", "optionCount", "allOptions", "header"}
+        expected_keys = {
+            "questionId", "question", "recommendedAnswer", "optionCount",
+            "options", "allOptions", "header", "multiSelect", "status", "createdAt",
+        }
         assert set(result.keys()) == expected_keys
 
     def test_watch_question_empty_questions(self):

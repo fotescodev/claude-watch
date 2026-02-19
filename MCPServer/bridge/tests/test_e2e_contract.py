@@ -450,9 +450,9 @@ class TestD6_2_ProgressSchema:
 # ===========================================================================
 
 class TestD6_3_QuestionsSchema:
-    """Verify GET /questions/{pairing_id} returns the exact contract schema.
+    """Verify GET /question-queue/{pairing_id} returns the exact contract schema.
 
-    Contract (actual implementation)::
+    Contract::
 
         {
             "questions": [
@@ -461,8 +461,12 @@ class TestD6_3_QuestionsSchema:
                     "question": str,
                     "recommendedAnswer": str,
                     "optionCount": int,
+                    "options": [{"label": str, "description": str|null}],
                     "allOptions": [str],
-                    "header": str
+                    "header": str,
+                    "multiSelect": bool,
+                    "status": str,
+                    "createdAt": str
                 }
             ]
         }
@@ -476,7 +480,7 @@ class TestD6_3_QuestionsSchema:
         await _init_and_drain(mock_cli)
 
         resp = await api_client.get(
-            f"/questions/{e2e_bridge.pairing_id}"
+            f"/question-queue/{e2e_bridge.pairing_id}"
         )
         assert resp.status == 200
         data = await resp.json()
@@ -509,20 +513,21 @@ class TestD6_3_QuestionsSchema:
         )
 
         resp = await api_client.get(
-            f"/questions/{e2e_bridge.pairing_id}"
+            f"/question-queue/{e2e_bridge.pairing_id}"
         )
         data = await resp.json()
 
         assert len(data["questions"]) == 1
         q = data["questions"][0]
 
-        # Strict key check -- exactly these keys
+        # Strict key check -- exactly these keys (matches cloud worker QuestionRequest schema)
         assert set(q.keys()) == {
             "questionId", "question", "recommendedAnswer",
-            "optionCount", "allOptions", "header",
+            "optionCount", "options", "allOptions", "header",
+            "multiSelect", "status", "createdAt",
         }
 
-        # Type checks
+        # Core field checks
         assert isinstance(q["questionId"], str)
         assert q["questionId"] == "q-1"
         assert isinstance(q["question"], str)
@@ -536,6 +541,14 @@ class TestD6_3_QuestionsSchema:
         assert q["allOptions"] == ["PostgreSQL (Recommended)", "MySQL"]
         assert isinstance(q["header"], str)
         assert q["header"] == "Database"
+        # Cloud worker schema fields
+        assert isinstance(q["options"], list)
+        assert len(q["options"]) == 2
+        assert q["options"][0]["label"] == "PostgreSQL (Recommended)"
+        assert isinstance(q["multiSelect"], bool)
+        assert q["multiSelect"] is False
+        assert isinstance(q["status"], str)
+        assert isinstance(q["createdAt"], str)
 
     @pytest.mark.asyncio
     async def test_question_excluded_from_approval_queue(
@@ -566,9 +579,9 @@ class TestD6_3_QuestionsSchema:
         assert data["totalCount"] == 0
         assert data["requests"] == []
 
-        # Present in questions endpoint
+        # Present in question-queue endpoint
         resp = await api_client.get(
-            f"/questions/{e2e_bridge.pairing_id}"
+            f"/question-queue/{e2e_bridge.pairing_id}"
         )
         data = await resp.json()
         assert len(data["questions"]) == 1
@@ -577,7 +590,7 @@ class TestD6_3_QuestionsSchema:
     async def test_question_answer_response_exact_schema(
         self, e2e_bridge: E2EBridge, mock_cli: MockCLI, api_client
     ) -> None:
-        """POST /question/{id}/answer returns exactly {success: true}."""
+        """POST /question/{id} returns exactly {success: true}."""
         await _init_and_drain(mock_cli)
 
         await _send_control_request_raw(
@@ -595,11 +608,10 @@ class TestD6_3_QuestionsSchema:
         )
 
         resp = await api_client.post(
-            "/question/q-ans/answer",
+            "/question/q-ans",
             json={
                 "pairingId": e2e_bridge.pairing_id,
-                "accepted": True,
-                "handleOnMac": False,
+                "answer": "PG (Recommended)",
             },
         )
         assert resp.status == 200
@@ -616,7 +628,7 @@ class TestD6_3_QuestionsSchema:
         await _init_and_drain(mock_cli)
 
         resp = await api_client.get(
-            f"/questions/{e2e_bridge.pairing_id}"
+            f"/question-queue/{e2e_bridge.pairing_id}"
         )
         data = await resp.json()
 
@@ -807,8 +819,8 @@ class TestD6_6_UnknownPairing404:
     async def test_questions_404_exact_body(
         self, e2e_bridge: E2EBridge, api_client
     ) -> None:
-        """GET /questions with unknown pairing returns 404."""
-        resp = await api_client.get("/questions/nonexistent-pair")
+        """GET /question-queue with unknown pairing returns 404."""
+        resp = await api_client.get("/question-queue/nonexistent-pair")
         assert resp.status == 404
         data = await resp.json()
 
@@ -857,13 +869,12 @@ class TestD6_6_UnknownPairing404:
     async def test_question_answer_unknown_pairing_404(
         self, e2e_bridge: E2EBridge, api_client
     ) -> None:
-        """POST /question/{id}/answer with unknown pairingId returns 404."""
+        """POST /question/{id} with unknown pairingId returns 404."""
         resp = await api_client.post(
-            "/question/some-q-id/answer",
+            "/question/some-q-id",
             json={
                 "pairingId": "nonexistent-pair",
-                "accepted": True,
-                "handleOnMac": False,
+                "answer": "some answer",
             },
         )
         assert resp.status == 404
@@ -1000,9 +1011,9 @@ class TestD6_7_ToolTypeMapping:
         data = await resp.json()
         assert data["totalCount"] == 0
 
-        # Present in questions endpoint
+        # Present in question-queue endpoint
         resp = await api_client.get(
-            f"/questions/{e2e_bridge.pairing_id}"
+            f"/question-queue/{e2e_bridge.pairing_id}"
         )
         data = await resp.json()
         assert len(data["questions"]) == 1

@@ -6,8 +6,8 @@ Tests follow the spec naming from sdk-url-agent-execution-spec.md task A7:
   A7.2   POST /approval/{id} with approved=true triggers allow response
   A7.3   POST /approval/{id} with approved=false triggers deny response
   A7.4   GET /session-progress returns correct schema
-  A7.5   GET /questions returns AskUserQuestion items (not regular approvals)
-  A7.6   POST /question/{id}/answer with accepted=true sends updatedInput
+  A7.5   GET /question-queue returns AskUserQuestion items (not regular approvals)
+  A7.6   POST /question/{id} with answer sends updatedInput
   A7.7   POST /session-interrupt with action=stop sends interrupt control_request
   A7.8   GET /health returns {"status": "ok"}
   A7.9   GET /approval-queue with unknown pairing_id returns 404
@@ -339,13 +339,13 @@ class TestGetProgress:
 # ---------------------------------------------------------------------------
 
 class TestGetQuestions:
-    """GET /questions/{pairing_id}."""
+    """GET /question-queue/{pairing_id}."""
 
     @pytest.mark.asyncio
     async def test_returns_ask_user_questions_only(
         self, cli, wired_api: BridgeAPI, session: Session
     ) -> None:
-        """A7.5 — Only AskUserQuestion items appear in /questions, not
+        """A7.5 — Only AskUserQuestion items appear in /question-queue, not
         regular tool approvals.
         """
         client: TestClient = await cli
@@ -373,7 +373,7 @@ class TestGetQuestions:
             },
         )
 
-        resp = await client.get("/questions/pair-123")
+        resp = await client.get("/question-queue/pair-123")
         assert resp.status == 200
         data = await resp.json()
 
@@ -390,12 +390,12 @@ class TestGetQuestions:
     async def test_no_questions_returns_empty(
         self, cli, wired_api: BridgeAPI, session: Session
     ) -> None:
-        """When there are no AskUserQuestion items, /questions returns empty."""
+        """When there are no AskUserQuestion items, /question-queue returns empty."""
         client: TestClient = await cli
 
         _add_perm(session, "r1", "Bash", {"command": "ls"})
 
-        resp = await client.get("/questions/pair-123")
+        resp = await client.get("/question-queue/pair-123")
         data = await resp.json()
         assert data == {"questions": []}
 
@@ -405,7 +405,7 @@ class TestGetQuestions:
 # ---------------------------------------------------------------------------
 
 class TestPostQuestionAnswer:
-    """POST /question/{question_id}/answer."""
+    """POST /question/{question_id}."""
 
     @pytest.mark.asyncio
     async def test_accepted_sends_updated_input(
@@ -415,7 +415,7 @@ class TestPostQuestionAnswer:
         session: Session,
         mock_send: AsyncMock,
     ) -> None:
-        """A7.6 — Accepting a question sends a control_response with
+        """A7.6 — Answering a question sends a control_response with
         updatedInput containing the recommended answers.
         """
         client: TestClient = await cli
@@ -440,8 +440,8 @@ class TestPostQuestionAnswer:
         )
 
         resp = await client.post(
-            "/question/q1/answer",
-            json={"pairingId": "pair-123", "accepted": True, "handleOnMac": False},
+            "/question/q1",
+            json={"pairingId": "pair-123", "answer": "PostgreSQL (Recommended)"},
         )
         assert resp.status == 200
         data = await resp.json()
@@ -465,7 +465,7 @@ class TestPostQuestionAnswer:
         session: Session,
         mock_send: AsyncMock,
     ) -> None:
-        """handleOnMac=true defers the question to the terminal."""
+        """answer='handle_on_mac' defers the question to the terminal."""
         client: TestClient = await cli
 
         _add_perm(
@@ -487,8 +487,8 @@ class TestPostQuestionAnswer:
         )
 
         resp = await client.post(
-            "/question/q1/answer",
-            json={"pairingId": "pair-123", "accepted": False, "handleOnMac": True},
+            "/question/q1",
+            json={"pairingId": "pair-123", "answer": "handle_on_mac"},
         )
         assert resp.status == 200
 
@@ -505,7 +505,7 @@ class TestPostQuestionAnswer:
         session: Session,
         mock_send: AsyncMock,
     ) -> None:
-        """After answering, the question no longer appears in /questions."""
+        """After answering, the question no longer appears in /question-queue."""
         client: TestClient = await cli
 
         _add_perm(
@@ -525,11 +525,11 @@ class TestPostQuestionAnswer:
         )
 
         await client.post(
-            "/question/q1/answer",
-            json={"pairingId": "pair-123", "accepted": True, "handleOnMac": False},
+            "/question/q1",
+            json={"pairingId": "pair-123", "answer": "PG"},
         )
 
-        resp = await client.get("/questions/pair-123")
+        resp = await client.get("/question-queue/pair-123")
         data = await resp.json()
         assert data == {"questions": []}
 
@@ -666,10 +666,10 @@ class TestUnknownPairingId:
 
     @pytest.mark.asyncio
     async def test_questions_404(self, cli) -> None:
-        """Unknown pairing_id in questions returns 404."""
+        """Unknown pairing_id in question-queue returns 404."""
         client: TestClient = await cli
 
-        resp = await client.get("/questions/unknown-pair")
+        resp = await client.get("/question-queue/unknown-pair")
         assert resp.status == 404
 
     @pytest.mark.asyncio

@@ -100,8 +100,8 @@ async def test_d2_1_happy_path_question_answer(
     # Wait for bridge to process the message
     await asyncio.sleep(0.15)
 
-    # Poll GET /questions/{pairing_id}
-    resp = await api_client.get(f"/questions/{e2e_bridge.pairing_id}")
+    # Poll GET /question-queue/{pairing_id}
+    resp = await api_client.get(f"/question-queue/{e2e_bridge.pairing_id}")
     assert resp.status == 200
     data = await resp.json()
 
@@ -116,11 +116,10 @@ async def test_d2_1_happy_path_question_answer(
 
     # Accept the question
     answer_resp = await api_client.post(
-        f"/question/{request_id}/answer",
+        f"/question/{request_id}",
         json={
             "pairingId": e2e_bridge.pairing_id,
-            "accepted": True,
-            "handleOnMac": False,
+            "answer": "PostgreSQL (Recommended)",
         },
     )
     assert answer_resp.status == 200
@@ -143,7 +142,7 @@ async def test_d2_1_happy_path_question_answer(
     assert updated_input["answers"] == {"Database": "PostgreSQL"}
 
     # Question should be gone from the queue now
-    resp2 = await api_client.get(f"/questions/{e2e_bridge.pairing_id}")
+    resp2 = await api_client.get(f"/question-queue/{e2e_bridge.pairing_id}")
     data2 = await resp2.json()
     assert len(data2["questions"]) == 0
 
@@ -170,13 +169,12 @@ async def test_d2_2_reject_question(
     )
     await asyncio.sleep(0.15)
 
-    # Reject the question
+    # Reject the question (no answer → deny)
     answer_resp = await api_client.post(
-        f"/question/{request_id}/answer",
+        f"/question/{request_id}",
         json={
             "pairingId": e2e_bridge.pairing_id,
-            "accepted": False,
-            "handleOnMac": False,
+            "answer": None,
         },
     )
     assert answer_resp.status == 200
@@ -224,7 +222,7 @@ async def test_d2_3_no_recommended_option_uses_first(
     await asyncio.sleep(0.15)
 
     # Poll questions — recommendedAnswer should be the first option
-    resp = await api_client.get(f"/questions/{e2e_bridge.pairing_id}")
+    resp = await api_client.get(f"/question-queue/{e2e_bridge.pairing_id}")
     assert resp.status == 200
     data = await resp.json()
 
@@ -236,11 +234,10 @@ async def test_d2_3_no_recommended_option_uses_first(
 
     # Accept — should use the first option as the answer
     answer_resp = await api_client.post(
-        f"/question/{request_id}/answer",
+        f"/question/{request_id}",
         json={
             "pairingId": e2e_bridge.pairing_id,
-            "accepted": True,
-            "handleOnMac": False,
+            "answer": "React",
         },
     )
     assert answer_resp.status == 200
@@ -287,7 +284,7 @@ async def test_d2_4_questions_not_in_approval_queue(
 
     # Questions endpoint should have 1 question
     questions_resp = await api_client.get(
-        f"/questions/{e2e_bridge.pairing_id}"
+        f"/question-queue/{e2e_bridge.pairing_id}"
     )
     assert questions_resp.status == 200
     questions_data = await questions_resp.json()
@@ -317,13 +314,12 @@ async def test_d2_5_handle_on_mac(
     )
     await asyncio.sleep(0.15)
 
-    # Answer with handleOnMac=true
+    # Defer to terminal
     answer_resp = await api_client.post(
-        f"/question/{request_id}/answer",
+        f"/question/{request_id}",
         json={
             "pairingId": e2e_bridge.pairing_id,
-            "accepted": True,  # accepted is irrelevant when handleOnMac is true
-            "handleOnMac": True,
+            "answer": "handle_on_mac",
         },
     )
     assert answer_resp.status == 200

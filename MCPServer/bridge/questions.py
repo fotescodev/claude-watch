@@ -103,20 +103,34 @@ def to_watch_question(request_id: str, input_data: dict) -> dict:
             "question": "",
             "recommendedAnswer": "",
             "optionCount": 0,
+            "options": [],
             "allOptions": [],
             "header": "",
+            "multiSelect": False,
+            "status": "pending",
+            "createdAt": "",
         }
 
     first = questions[0]
     options = first.get("options", [])
+
+    # Match cloud worker QuestionRequest schema: options as {label, description?}
+    watch_options = [
+        {"label": opt.get("label", ""), "description": opt.get("description")}
+        for opt in options
+    ]
 
     return {
         "questionId": request_id,
         "question": first.get("question", ""),
         "recommendedAnswer": extract_recommendation(first),
         "optionCount": len(options),
+        "options": watch_options,
         "allOptions": [opt.get("label", "") for opt in options],
         "header": first.get("header", ""),
+        "multiSelect": first.get("multiSelect", False),
+        "status": "pending",
+        "createdAt": "",
     }
 
 

@@ -9,8 +9,8 @@ Endpoints:
   GET  /approval-queue/{pairing_id}     -- Pending tool approvals
   POST /approval/{request_id}            -- Approve/reject a tool call
   GET  /session-progress/{pairing_id}    -- Current progress + todo list
-  GET  /questions/{pairing_id}           -- Pending AskUserQuestion items
-  POST /question/{question_id}/answer    -- Answer a question
+  GET  /question-queue/{pairing_id}      -- Pending AskUserQuestion items
+  POST /question/{question_id}           -- Answer a question
   POST /session-interrupt                -- Pause/resume session
   GET  /session-interrupt/{pairing_id}   -- Check interrupt state
   GET  /state                            -- Full debug state snapshot
@@ -178,9 +178,11 @@ class BridgeAPI:
         app.router.add_get(
             "/session-progress/{pairing_id}", self.handle_get_progress
         )
-        app.router.add_get("/questions/{pairing_id}", self.handle_get_questions)
+        app.router.add_get(
+            "/question-queue/{pairing_id}", self.handle_get_questions
+        )
         app.router.add_post(
-            "/question/{question_id}/answer", self.handle_post_question_answer
+            "/question/{question_id}", self.handle_post_question_answer
         )
         app.router.add_post("/session-interrupt", self.handle_post_interrupt)
         app.router.add_get(
@@ -280,7 +282,7 @@ class BridgeAPI:
         return web.json_response({"progress": progress})
 
     async def handle_get_questions(self, request: web.Request) -> web.Response:
-        """``GET /questions/{pairing_id}``
+        """``GET /question-queue/{pairing_id}``
 
         Returns pending AskUserQuestion items (these are *not* in the
         approval queue).
@@ -303,13 +305,13 @@ class BridgeAPI:
     async def handle_post_question_answer(
         self, request: web.Request
     ) -> web.Response:
-        """``POST /question/{question_id}/answer``
+        """``POST /question/{question_id}``
 
-        Body: ``{"pairingId": "...", "accepted": true, "handleOnMac": false}``
+        Body: ``{"pairingId": "...", "answer": "selected option"}``
 
-        Answers a pending AskUserQuestion.  If ``accepted`` the recommended
-        answer is sent back to the CLI.  If ``handleOnMac`` the question is
-        denied so it falls back to the terminal.
+        Matches the cloud worker contract.  The watch sends ``answer``
+        as the selected option text, or ``"handle_on_mac"`` to defer
+        to the terminal.
         """
         question_id = request.match_info["question_id"]
         try:
@@ -320,8 +322,7 @@ class BridgeAPI:
             )
 
         pairing_id: str = body.get("pairingId", "")
-        accepted: bool = body.get("accepted", False)
-        handle_on_mac: bool = body.get("handleOnMac", False)
+        answer: str | None = body.get("answer")
 
         session = self.get_session_by_pairing(pairing_id)
         if session is None:
@@ -337,9 +338,9 @@ class BridgeAPI:
                 status=404,
             )
 
-        if handle_on_mac:
+        if answer == "handle_on_mac":
             resp_msg = build_deny_response(question_id)
-        elif accepted:
+        elif answer:
             resp_msg = build_approve_response(question_id, perm.input)
         else:
             resp_msg = build_deny_response(question_id)
