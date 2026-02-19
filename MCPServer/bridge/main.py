@@ -336,7 +336,9 @@ class Bridge:
                 if is_ask_user_question(perm.tool_name):
                     result = await self._cloud_client.poll_question_status(req_id)
                     if result and result.get("status") == "answered":
-                        # Accept with recommended answer
+                        # Guard: REST API may have resolved this concurrently
+                        if session.pending_permissions.get(req_id) is None:
+                            continue
                         resp = build_approve_response(req_id, perm.input)
                         session.resolve_permission(req_id)
                         await self._ndjson.send_to_cli(session_id, resp)
@@ -344,11 +346,17 @@ class Bridge:
                 else:
                     status = await self._cloud_client.poll_approval_status(req_id)
                     if status == "approved":
+                        # Guard: REST API may have resolved this concurrently
+                        if session.pending_permissions.get(req_id) is None:
+                            continue
                         resp = approve_permission(session, req_id)
                         if resp:
                             await self._ndjson.send_to_cli(session_id, resp)
                             logger.info("Cloud: approval %s approved", req_id)
                     elif status == "rejected":
+                        # Guard: REST API may have resolved this concurrently
+                        if session.pending_permissions.get(req_id) is None:
+                            continue
                         resp = deny_permission(session, req_id)
                         if resp:
                             await self._ndjson.send_to_cli(session_id, resp)

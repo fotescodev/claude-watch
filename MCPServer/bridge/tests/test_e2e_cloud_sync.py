@@ -460,3 +460,104 @@ class TestCloudInterruptSync:
                 break
 
         assert found_interrupt, "Bridge should send interrupt to CLI after cloud poll"
+
+
+class TestDoubleResolutionGuard:
+    """R1: Concurrent REST and cloud-poll resolution must not send duplicate responses."""
+
+    @pytest.mark.asyncio
+    async def test_rest_resolves_before_cloud_poll_no_duplicate(
+        self, cloud_bridge, cloud_cli, mock_cloud
+    ):
+        """REST API approves while cloud is also set to approved.
+
+        Expected: CLI receives exactly one control_response, not two.
+        """
+        await cloud_cli.send_init()
+        await asyncio.sleep(0.1)
+
+        req_id = f"req-r1-{uuid.uuid4().hex[:8]}"
+        await cloud_cli.send_control_request(
+            req_id, tool_name="Bash", tool_input={"command": "ls"}
+        )
+        # Wait for push to cloud and bridge registration
+        await asyncio.sleep(0.3)
+
+        # REST API resolves it first (simulates watch approving directly)
+        bridge_http_port = cloud_bridge.port + 1
+        async with aiohttp.ClientSession() as http:
+            resp = await http.post(
+                f"http://localhost:{bridge_http_port}/approval/{req_id}",
+                json={"pairingId": cloud_bridge.pairing_id, "approved": True},
+            )
+            assert resp.status == 200
+
+        # Also mark as approved on cloud (bridge poll will try to resolve too)
+        mock_cloud.approve(req_id)
+
+        # Wait for cloud poll to fire (poll_interval=0.1, give 2 cycles)
+        await asyncio.sleep(0.4)
+
+        # Count control_response messages — expect exactly 1
+        control_responses = [
+            m for m in cloud_cli.received
+            if m.get("type") == "control_response"
+        ]
+        assert len(control_responses) == 1, (
+            f"Expected 1 control_response, got {len(control_responses)}"
+        )
+        assert control_responses[0]["response"]["response"]["behavior"] == "allow"
+
+    @pytest.mark.asyncio
+    async def test_rest_question_resolves_before_cloud_poll_no_duplicate(
+        self, cloud_bridge, cloud_cli, mock_cloud
+    ):
+        """REST API answers question while cloud is also set to answered.
+
+        Expected: CLI receives exactly one control_response, not two.
+        """
+        await cloud_cli.send_init()
+        await asyncio.sleep(0.1)
+
+        req_id = f"q-r1-{uuid.uuid4().hex[:8]}"
+        await cloud_cli.send_control_request(
+            req_id,
+            tool_name="AskUserQuestion",
+            tool_input={
+                "questions": [
+                    {
+                        "header": "DB",
+                        "question": "Which database?",
+                        "options": [
+                            {"label": "PostgreSQL (Recommended)", "description": "Popular"},
+                        ],
+                        "multiSelect": False,
+                    }
+                ]
+            },
+        )
+        await asyncio.sleep(0.3)
+
+        # REST API answers it first
+        bridge_http_port = cloud_bridge.port + 1
+        async with aiohttp.ClientSession() as http:
+            resp = await http.post(
+                f"http://localhost:{bridge_http_port}/question/{req_id}",
+                json={"pairingId": cloud_bridge.pairing_id, "answer": "PostgreSQL (Recommended)"},
+            )
+            assert resp.status == 200
+
+        # Also mark as answered on cloud
+        mock_cloud.answer_question(req_id, "PostgreSQL")
+
+        # Wait for cloud poll to fire
+        await asyncio.sleep(0.4)
+
+        control_responses = [
+            m for m in cloud_cli.received
+            if m.get("type") == "control_response"
+        ]
+        assert len(control_responses) == 1, (
+            f"Expected 1 control_response, got {len(control_responses)}"
+        )
+        assert control_responses[0]["response"]["response"]["behavior"] == "allow"
