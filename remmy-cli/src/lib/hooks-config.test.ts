@@ -117,6 +117,21 @@ describe("hooks-config", () => {
       expect(calls.chmodSync[0]![1]).toBe(0o755);
     });
 
+    test("copies from dist/hooks/ when src/lib/ path does not exist", () => {
+      // Simulate running from dist/ — only dist/hooks/ path exists
+      // import.meta.dirname in test context points to src/lib/,
+      // so the ../../hooks/ path is the "src" path. We skip that
+      // and instead set up the dist-relative path (currentDir + /hooks/)
+      const currentDir = import.meta.dirname ?? process.cwd();
+      const distHookPath = `${currentDir}/hooks/watch-approval-cloud.py`;
+      mockFiles.set(distHookPath, "#!/usr/bin/env python3\n# dist hook");
+
+      const result = installHookScript();
+
+      expect(result).toBe(true);
+      expect(calls.copyFileSync.length).toBeGreaterThanOrEqual(1);
+    });
+
     test("returns false when no hook script found anywhere", () => {
       // No hook files exist
       const result = installHookScript();

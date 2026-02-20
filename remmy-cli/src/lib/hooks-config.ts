@@ -58,8 +58,17 @@ function getBundledHookPath(): string {
     typeof import.meta.dirname === "string"
       ? import.meta.dirname
       : dirname(new URL(import.meta.url).pathname);
-  // From src/lib/ go up two levels to package root, then into hooks/
-  return join(currentDir, "..", "..", "hooks", HOOK_FILENAME);
+
+  // From src/lib/ → ../../hooks/ (package root)
+  const srcPath = join(currentDir, "..", "..", "hooks", HOOK_FILENAME);
+  if (existsSync(srcPath)) return srcPath;
+
+  // From dist/ → ./hooks/ (copied during build)
+  const distPath = join(currentDir, "hooks", HOOK_FILENAME);
+  if (existsSync(distPath)) return distPath;
+
+  // Neither found — return srcPath and let caller handle missing file
+  return srcPath;
 }
 
 /**

@@ -9,13 +9,14 @@
 
 import { showHeader } from "../ui/header.ts";
 import { Spinner } from "../ui/spinner.ts";
-import { askText } from "../ui/prompt.ts";
+import { askText, askConfirm } from "../ui/prompt.ts";
 import { green, yellow, red, dim } from "../ui/colors.ts";
 import {
   readConfig,
   saveConfig,
   isPaired,
   createConfig,
+  deleteConfig,
   migrateLegacyConfig,
 } from "../lib/config.ts";
 import {
@@ -41,7 +42,16 @@ async function pairedFlow(): Promise<void> {
   const config = readConfig()!;
   const cloudUrl = config.cloudUrl ?? getCloudUrl();
   const truncatedId = config.pairingId.substring(0, 8);
-  process.stdout.write(`  ${dim("Pairing ID:")} ${truncatedId}\n`);
+  process.stdout.write(`  ${dim("Paired as")} ${truncatedId}\n`);
+
+  // Ask if user wants to keep this pairing
+  const keepPairing = await askConfirm(`  Keep this pairing?`, true);
+  if (keepPairing === null) return; // Ctrl+C
+  if (!keepPairing) {
+    deleteConfig();
+    await unpairedFlow();
+    return;
+  }
 
   // Cloud check is INFORMATIONAL when paired — warn but don't block
   const connectivity = await checkConnectivity(cloudUrl);

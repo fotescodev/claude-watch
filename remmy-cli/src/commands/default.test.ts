@@ -18,6 +18,7 @@ let mockConfig: RemmyConfig | null = null;
 let mockConnectivity: ConnectivityResult = { connected: true, latency: 42 };
 let mockCompletePairingResult: string | Error = "pairing-id-from-server";
 let mockAskTextResult: string | null = "123456";
+let mockAskConfirmResult: boolean | null = true;
 let mockLaunchClaudeExitCode = 0;
 let mockHookResult = { installed: true, registered: true };
 
@@ -35,6 +36,8 @@ const calls = {
   setupHook: [] as unknown[][],
   launchClaude: [] as unknown[][],
   askText: [] as unknown[][],
+  askConfirm: [] as unknown[][],
+  deleteConfig: [] as unknown[][],
   spinnerStart: [] as string[],
   spinnerSucceed: [] as string[],
   spinnerFail: [] as string[],
@@ -90,7 +93,10 @@ mock.module("../ui/prompt.ts", () => ({
     capturedValidator = validate;
     return Promise.resolve(mockAskTextResult);
   },
-  askConfirm: () => Promise.resolve(true),
+  askConfirm: (question: string, defaultValue?: boolean) => {
+    calls.askConfirm.push([question, defaultValue]);
+    return Promise.resolve(mockAskConfirmResult);
+  },
 }));
 
 mock.module("../lib/config.ts", () => ({
@@ -117,7 +123,9 @@ mock.module("../lib/config.ts", () => ({
     calls.migrateLegacyConfig.push([]);
     return false;
   },
-  deleteConfig: () => {},
+  deleteConfig: () => {
+    calls.deleteConfig.push([]);
+  },
   getConfigPath: () => "/home/test/.remmy/config.json",
   getConfigDir: () => "/home/test/.remmy",
 }));
@@ -171,6 +179,7 @@ describe("default command", () => {
     mockConnectivity = { connected: true, latency: 42 };
     mockCompletePairingResult = "pairing-id-from-server";
     mockAskTextResult = "123456";
+    mockAskConfirmResult = true;
     mockLaunchClaudeExitCode = 0;
     mockHookResult = { installed: true, registered: true };
     capturedValidator = undefined;
@@ -199,8 +208,9 @@ describe("default command", () => {
   // -------------------------------------------------------------------------
   // Paired flow — skips pairing, calls setupHook + launchClaude (no bridge)
   // -------------------------------------------------------------------------
-  test("paired flow — calls setupHook + launchClaude (no bridge)", async () => {
+  test("paired flow — asks to keep pairing, calls setupHook + launchClaude", async () => {
     mockIsPaired = true;
+    mockAskConfirmResult = true;
     mockConfig = {
       pairingId: "abcd1234-5678-90ab-cdef-1234567890ab",
       cloudUrl: "https://remmy.watch",
@@ -214,6 +224,10 @@ describe("default command", () => {
 
     // Should call migrateLegacyConfig
     expect(calls.migrateLegacyConfig).toHaveLength(1);
+
+    // Should ask to keep pairing (with default=true)
+    expect(calls.askConfirm).toHaveLength(1);
+    expect(calls.askConfirm[0]![1]).toBe(true); // defaultValue = true
 
     // Should NOT prompt for code
     expect(calls.askText).toHaveLength(0);
@@ -236,6 +250,67 @@ describe("default command", () => {
       w.includes("Launching Claude with watch approvals"),
     );
     expect(launchMsg).toBeDefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // Paired flow — user declines re-pair → falls through to unpaired flow
+  // -------------------------------------------------------------------------
+  test("paired flow — user declines → deletes config and runs unpaired flow", async () => {
+    mockIsPaired = true;
+    mockAskConfirmResult = false;
+    mockConfig = {
+      pairingId: "old-pairing-to-replace",
+      cloudUrl: "https://remmy.watch",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+    // Unpaired flow will need these:
+    mockAskTextResult = "111222";
+    mockCompletePairingResult = "new-pairing-after-repairage";
+
+    await runDefault();
+
+    // Should ask to keep pairing
+    expect(calls.askConfirm).toHaveLength(1);
+
+    // Should delete existing config
+    expect(calls.deleteConfig).toHaveLength(1);
+
+    // Should fall through to unpaired flow — prompts for code
+    expect(calls.askText).toHaveLength(1);
+
+    // Should complete pairing with new code
+    expect(calls.completePairing).toHaveLength(1);
+    expect(calls.completePairing[0]).toEqual(["111222"]);
+
+    // Should launch claude after re-pairing
+    expect(calls.launchClaude).toHaveLength(1);
+  });
+
+  // -------------------------------------------------------------------------
+  // Paired flow — user Ctrl+C → exits without launch
+  // -------------------------------------------------------------------------
+  test("paired flow — user Ctrl+C on confirm → exits without launch", async () => {
+    mockIsPaired = true;
+    mockAskConfirmResult = null; // Ctrl+C
+    mockConfig = {
+      pairingId: "test-pair-ctrl-c",
+      cloudUrl: "https://remmy.watch",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    await runDefault();
+
+    // Should ask to keep pairing
+    expect(calls.askConfirm).toHaveLength(1);
+
+    // Should NOT delete config
+    expect(calls.deleteConfig).toHaveLength(0);
+
+    // Should NOT launch claude
+    expect(calls.launchClaude).toHaveLength(0);
+
+    // Should NOT call setupHook
+    expect(calls.setupHook).toHaveLength(0);
   });
 
   // -------------------------------------------------------------------------

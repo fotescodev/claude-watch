@@ -8,7 +8,7 @@
  */
 
 import { $ } from "bun";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, cpSync } from "node:fs";
 
 // Ensure dist/ exists
 if (!existsSync("dist")) {
@@ -24,6 +24,9 @@ const content = await file.text();
 if (!content.startsWith("#!")) {
   await Bun.write("dist/cli.mjs", `#!/usr/bin/env node\n${content}`);
 }
+
+// Copy hooks/ into dist/hooks/ so getBundledHookPath() works from built output
+cpSync("hooks", "dist/hooks", { recursive: true });
 
 // Make executable
 await $`chmod +x dist/cli.mjs`;
