@@ -458,7 +458,7 @@ When adding a new endpoint:
 3. [ ] Update this document (`DATA_FLOW.md`)
 4. [ ] If hook calls it: Update `watch-approval-cloud.py`
 5. [ ] If watch calls it: Update `WatchService.swift`
-6. [ ] If CLI calls it: Update relevant `claude-watch-npm/src/` file
+6. [ ] If CLI calls it: Update relevant `remmy-cli/src/` file
 
 ---
 
