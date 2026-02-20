@@ -1,9 +1,9 @@
-# SDK-URL Migration Progress
+# Architecture & Progress Tracker
 
 > **Branch**: `restructuring`
-> **Spec**: `.claude/plans/sdk-url-agent-execution-spec.md`
-> **Plan**: `.claude/plans/lucky-questing-balloon.md` (hooks pivot)
-> **Last updated**: 2026-02-19
+> **Primary architecture**: Hooks-based (remmy-cli + cloud worker)
+> **Secondary**: Bridge-based (MCPServer/bridge/, advanced use cases)
+> **Last updated**: 2026-02-20
 
 ## Architecture Pivot (2026-02-19)
 
@@ -22,9 +22,9 @@ The bridge was over-engineered for MVP. The hook-based approach (proven in `clau
 | R: Review Fixes (R1-R4) | DONE | — |
 | **T: TUI (Ink)** | **CANCELLED** (hooks pivot) | — |
 | **H: Hooks Pivot** | **DONE** | 14 new |
-| C: Watch App (C1-C2) | PENDING | — |
+| C: Watch App (C1) | **DONE** | — |
 | E: New Capabilities (E1-E5) | PENDING | — |
-| F: Cleanup (F1-F3) | PARTIAL | — |
+| F: Cleanup (F1-F3) | **DONE** | — |
 | **Total passing** | | **~503** |
 
 ---
@@ -56,10 +56,10 @@ The bridge was over-engineered for MVP. The hook-based approach (proven in `clau
 
 ---
 
-## Workstream R: Review Fixes — UP NEXT
+## Workstream R: Review Fixes — DONE (hooks-relevant items)
 
 > 3-specialist review (QA, Dev, Integration) on 2026-02-14 identified 18 findings.
-> Detailed fix descriptions with code snippets: `.claude/plans/REVIEW_FINDINGS.md`
+> Detailed findings archived: `.claude/archive/plans/REVIEW_FINDINGS.md`
 
 ### Phase 1: Must Fix Before C1 — DONE
 
@@ -68,15 +68,13 @@ The bridge was over-engineered for MVP. The hook-based approach (proven in `clau
 - [x] **R3: No session cleanup on bridge stop** — commit `2c1df00`
 - [x] **R4: Servers bind to 0.0.0.0** — commit `4a5c8d2`
 
-### Phase 2: Fix Before Real Usage — HIGH/MEDIUM
+### Phase 2: Fix Before Real Usage
 
-Won't block C1 but must be fixed before anyone relies on this.
-
-- [ ] R5: Cloud KV TTL expires mid-session (5 min TTL, long tool calls) — HIGH
-- [ ] R6: Interrupt from REST + cloud without coordination — HIGH
-- [ ] R7: Permission marked resolved before WS send confirmed — HIGH
+- [x] **R5: Cloud KV TTL expires mid-session** — fixed: 5min → 1hr, commit `e48b8f4`
+- [ ] R6: Interrupt from REST + cloud without coordination — *bridge-only, not hooks-relevant*
+- [ ] R7: Permission marked resolved before WS send confirmed — *bridge-only, not hooks-relevant*
 - [ ] R8: Missing `cloudUrl` test coverage in CLI — MEDIUM
-- [ ] R9: Debounce logic (`_cloud_push_progress_debounced`) not tested — MEDIUM
+- [ ] R9: Debounce logic (`_cloud_push_progress_debounced`) not tested — *bridge-only*
 - [ ] R10: No health heartbeat to cloud — MEDIUM
 
 ### Phase 3: Hardening — LOW
@@ -118,10 +116,10 @@ Pre-production polish.
 
 ---
 
-## Workstream C: Watch App — BLOCKED on R Phase 1
+## Workstream C: Watch App — C1 DONE
 
-- [ ] C1: Zero Changes for MVP — verify watch works against bridge REST API
-- [ ] C2: Direct WebSocket (Post-MVP)
+- [x] **C1: Watch approval flow verified live** — approvals + questions route through cloud worker, tested in real Claude session (2026-02-20)
+- [ ] C2: Direct WebSocket (Post-MVP, bridge path only)
 
 ## Workstream E: New Capabilities — PENDING
 
@@ -131,11 +129,11 @@ Pre-production polish.
 - [ ] E4: Session Resume on Crash
 - [ ] E5: File Undo from Watch
 
-## Workstream F: Cleanup — PENDING
+## Workstream F: Cleanup — DONE (2026-02-20)
 
-- [ ] F1: Remove Legacy Hooks
-- [ ] F2: Remove Cloud Worker Approval Endpoints
-- [ ] F3: Remove Temp Files & Config
+- [x] F1: Remove legacy hooks from `.claude/hooks/` (17 files deleted)
+- [x] F2: Remove legacy cloud worker endpoints (6 dead endpoints removed, deployed)
+- [x] F3: Remove stale MCP server config, archive SDK-URL docs
 
 ---
 
@@ -173,13 +171,14 @@ WEEK 4: Review Fixes + Hooks Pivot (DONE)
   H1-H8 (Hooks pivot — hooks primary, bridge advanced)
   TUI cancelled (not needed with hooks approach)
 
-WEEK 5: Watch Verification + Usage Fixes (NEXT)
-  C1 (verify watch works against cloud worker via hooks)
-  R5-R10 (Phase 2 fixes for real usage)
+WEEK 5: Watch Verification + Fixes (DONE)
+  C1 (watch approval + questions verified live via hooks)
+  R5 (KV TTL fixed: 5min → 1hr)
+  F1-F3 (legacy cleanup: hooks, cloud endpoints, config, docs)
 
-WEEK 6: New Capabilities + Hardening
+WEEK 6: New Capabilities + Hardening (NEXT)
   E1-E5 (permission learning, model switch, streaming, resume, undo)
-  R11-R18 (Phase 3 hardening)
+  R8, R10-R18 (remaining review fixes + hardening)
 ```
 
 ## Commits
@@ -201,7 +200,7 @@ WEEK 6: New Capabilities + Hardening
 ## Test Commands
 
 ```bash
-# CLI tests (143) — must split due to bun mock.module() bleed
+# CLI tests (147) — must split due to bun mock.module() bleed
 cd remmy-cli && bun test src/ui/ src/lib/config.test.ts src/lib/cloud-client.test.ts src/lib/claude-launcher.test.ts src/lib/bridge-launcher.test.ts src/cli.test.ts && bun test src/lib/hooks-config.test.ts && bun test src/commands/
 
 # Bridge tests (346)

@@ -1,7 +1,7 @@
 # Session State - Claude Watch
 
 > Last updated: 2026-02-20
-> Session: Bug fixes (hook path + re-pair + cloud URL)
+> Session: Legacy cleanup — hooks, cloud endpoints, config, docs
 >
 > **Branch:** `restructuring`
 
@@ -11,7 +11,7 @@
 
 ## Current State
 
-**All known bugs fixed. E2E tested. Ready for next feature work.**
+**Post-cleanup. Hooks architecture is clean. Ready for E1-E5 new capabilities.**
 
 ```
 [x] remmy-cli built (dist/cli.mjs, 14KB + dist/hooks/)
@@ -21,9 +21,10 @@
 [x] Hook installed at ~/.claude/hooks/watch-approval-cloud.py
 [x] Hook registered in ~/.claude/settings.json (PreToolUse)
 [x] All watch views E2E tested on simulator (see docs/E2E_TESTING.md)
-[x] Hook path resolution fixed — works from both src/ and dist/
-[x] Re-pair dialogue added — "Keep this pairing? (Y/n)"
-[x] Default cloud URL fixed — uses workers.dev (remmy.watch had no /health)
+[x] C1: Watch approval flow verified in live Claude session
+[x] AskUserQuestion routes to watch — answer via /tmp/remmy-question-answer.json
+[x] R5: KV TTL fixed — session data 5min → 1hr, deployed
+[x] F1-F3: Legacy cleanup — 17 hook files, 6 cloud endpoints, stale config removed
 ```
 
 ## Architecture
@@ -36,21 +37,46 @@ remmy-cli → install hook → spawn claude (native TUI)
          Cloud Worker ← Watch polls
 ```
 
+### AskUserQuestion Flow (NEW)
+
+```
+Claude calls AskUserQuestion
+  → Hook intercepts, POSTs to /question on cloud
+  → Watch shows QuestionResponseView with options
+  → User taps an option
+  → Watch POSTs answer to /question/:questionId
+  → Hook polls, gets answer, writes /tmp/remmy-question-answer.json
+  → Hook denies tool (exit 2)
+  → Claude reads temp file, proceeds with user's choice
+```
+
+Graceful degradation: cloud failure or "Handle on Mac" → falls through to terminal.
+
 ## Recent Commits
 
 | Commit | Description |
 |--------|-------------|
+| `e48b8f4` | feat: route AskUserQuestion to watch + fix KV TTL expiry |
 | `2d084f0` | fix: use workers.dev as default cloud URL |
 | `a461bfc` | fix: hook install path resolution and add re-pair dialogue |
 | `f2276f5` | feat: E2E tested full watch flow, fix task list windowing |
 
-## Discovery: Keychain Persistence
+## What's Next
 
-watchOS Keychain survives app reinstalls on both simulator and device. `pairingId` is stored in Keychain (`KeychainHelper`), so reinstalling the app does NOT trigger the pairing screen. Use Settings > Unpair or Erase Simulator to reset.
+| Priority | Item | Status |
+|----------|------|--------|
+| 1 | E1: Permission Learning ("Always Allow" from watch) | PENDING |
+| 2 | E2: Model Switching from Watch | PENDING |
+| 3 | E3: Real-Time Streaming | PENDING |
+| 4 | E4: Session Resume on Crash | PENDING |
+| 5 | E5: File Undo from Watch | PENDING |
+| 6 | R8, R10: Test coverage gaps (cloudUrl, heartbeat) | PENDING |
+| 7 | R11-R18: Hardening (auth, retry jitter, etc.) | PENDING |
 
 ## Key Learnings
 
-1. `bun build` sets `import.meta.dirname` to the output directory — copy non-code assets into `dist/` during build
-2. `remmy.watch` domain exists but has no `/health` route — actual worker is at `claude-watch.fotescodev.workers.dev`
-3. After `deleteConfig()` in re-pair flow, `getCloudUrl()` falls back to `DEFAULT_CLOUD_URL` — must be correct
-4. `bun run test` exits code 1 despite 0 failures — mocked `process.exit` in command tests
+1. Claude Code hooks can only allow/deny — cannot inject answers into interactive tools
+2. Workaround: deny AskUserQuestion + write answer to temp file + Claude reads it
+3. Cloud KV TTL of 5 min was too short — long thinking pauses caused session data to expire
+4. The watch QuestionResponseView already supported multi-option questions — only the hook was missing
+5. `--sdk-url` is undocumented and potentially unsupported — hooks approach is safer long-term

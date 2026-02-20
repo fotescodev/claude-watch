@@ -9,15 +9,7 @@ interface Env {
 }
 
 // Types for data structures
-interface PairingSession {
-  code: string;
-  sessionId: string;
-  createdAt: string;
-  paired: boolean;
-  pairingId: string | null;
-}
-
-// Watch-initiated pairing session (new flow)
+// Watch-initiated pairing session
 interface WatchPairingSession {
   code: string;
   watchId: string;
@@ -78,62 +70,8 @@ app.use('*', cors());
 // Health check
 app.get('/health', (c) => c.json({ status: 'ok' }));
 
-// Register pairing code (from npm package)
-app.post('/api/pairing/register', async (c) => {
-  const { code, sessionId } = await c.req.json<{ code: string; sessionId: string }>();
-
-  const session: PairingSession = {
-    code,
-    sessionId,
-    createdAt: new Date().toISOString(),
-    paired: false,
-    pairingId: null,
-  };
-
-  // Store by both code and sessionId for lookup
-  await c.env.PAIRING_KV.put(`code:${code}`, JSON.stringify(session), { expirationTtl: PAIRING_TTL });
-  await c.env.PAIRING_KV.put(`session:${sessionId}`, JSON.stringify(session), { expirationTtl: PAIRING_TTL });
-
-  return c.json({ success: true });
-});
-
-// Check if pairing completed (polled by npm package)
-app.get('/api/pairing/check', async (c) => {
-  const sessionId = c.req.query('sessionId');
-
-  if (!sessionId) {
-    return c.json({ error: 'sessionId required' }, 400);
-  }
-
-  const session = await c.env.PAIRING_KV.get<PairingSession>(`session:${sessionId}`, 'json');
-
-  if (!session) {
-    return c.json({ paired: false });
-  }
-
-  return c.json({
-    paired: session.paired,
-    pairingId: session.pairingId,
-  });
-});
-
-// Cleanup expired session (from npm package)
-app.post('/api/pairing/cleanup', async (c) => {
-  const { sessionId } = await c.req.json<{ sessionId: string }>();
-
-  if (sessionId) {
-    const session = await c.env.PAIRING_KV.get<PairingSession>(`session:${sessionId}`, 'json');
-    if (session) {
-      await c.env.PAIRING_KV.delete(`code:${session.code}`);
-      await c.env.PAIRING_KV.delete(`session:${sessionId}`);
-    }
-  }
-
-  return c.json({ success: true });
-});
-
 // ============================================
-// NEW FLOW: Watch-initiated pairing endpoints
+// Watch-initiated pairing endpoints
 // ============================================
 
 // Generate 6-digit numeric code
@@ -195,125 +133,36 @@ app.post('/pair/complete', async (c) => {
   const body = await c.req.json<{ code: string; deviceToken?: string; publicKey?: string }>();
   const { code, deviceToken, publicKey } = body;
 
-  // First try new watch-initiated flow
-  let watchSession = await c.env.PAIRING_KV.get<WatchPairingSession>(`watch_code:${code}`, 'json');
+  const watchSession = await c.env.PAIRING_KV.get<WatchPairingSession>(`watch_code:${code}`, 'json');
 
-  if (watchSession) {
-    // New flow: CLI completing watch-initiated pairing
-    const pairingId = crypto.randomUUID();
-
-    // Update session as paired
-    watchSession.paired = true;
-    watchSession.pairingId = pairingId;
-    // E2E encryption: store CLI's public key
-    watchSession.cliPublicKey = publicKey;
-    await c.env.PAIRING_KV.put(`watch_code:${code}`, JSON.stringify(watchSession), { expirationTtl: PAIRING_TTL });
-    await c.env.PAIRING_KV.put(`watch:${watchSession.watchId}`, JSON.stringify(watchSession), { expirationTtl: PAIRING_TTL });
-
-    // Store connection with encryption keys
-    const connection: Connection = {
-      pairingId,
-      deviceToken: watchSession.deviceToken,
-      createdAt: new Date().toISOString(),
-      lastSeen: new Date().toISOString(),
-    };
-    await c.env.CONNECTIONS_KV.put(`pairing:${pairingId}`, JSON.stringify(connection), { expirationTtl: CONNECTION_TTL });
-
-    // E2E encryption: return watch's public key to CLI
-    return c.json({
-      pairingId,
-      watchPublicKey: watchSession.watchPublicKey,
-    });
-  }
-
-  // Fallback: Try legacy CLI-initiated flow (for backwards compatibility)
-  const session = await c.env.PAIRING_KV.get<PairingSession>(`code:${code}`, 'json');
-
-  if (!session) {
+  if (!watchSession) {
     return c.json({ error: 'Invalid or expired code' }, 404);
   }
 
-  // Legacy flow: Watch completing CLI-initiated pairing
   const pairingId = crypto.randomUUID();
 
-  session.paired = true;
-  session.pairingId = pairingId;
-  await c.env.PAIRING_KV.put(`code:${code}`, JSON.stringify(session), { expirationTtl: PAIRING_TTL });
-  await c.env.PAIRING_KV.put(`session:${session.sessionId}`, JSON.stringify(session), { expirationTtl: PAIRING_TTL });
+  // Update session as paired
+  watchSession.paired = true;
+  watchSession.pairingId = pairingId;
+  // E2E encryption: store CLI's public key
+  watchSession.cliPublicKey = publicKey;
+  await c.env.PAIRING_KV.put(`watch_code:${code}`, JSON.stringify(watchSession), { expirationTtl: PAIRING_TTL });
+  await c.env.PAIRING_KV.put(`watch:${watchSession.watchId}`, JSON.stringify(watchSession), { expirationTtl: PAIRING_TTL });
 
-  // Store connection
+  // Store connection with encryption keys
   const connection: Connection = {
     pairingId,
-    deviceToken: deviceToken || 'unknown',
+    deviceToken: watchSession.deviceToken,
     createdAt: new Date().toISOString(),
     lastSeen: new Date().toISOString(),
   };
   await c.env.CONNECTIONS_KV.put(`pairing:${pairingId}`, JSON.stringify(connection), { expirationTtl: CONNECTION_TTL });
 
-  return c.json({ pairingId });
-});
-
-// Send message (from npm MCP server to watch)
-app.post('/api/message', async (c) => {
-  const { pairingId, type, payload } = await c.req.json<{ pairingId: string; type: string; payload: unknown }>();
-
-  // Get existing messages
-  const existing = await c.env.MESSAGES_KV.get<MessageQueue>(`to_watch:${pairingId}`, 'json') || { messages: [] };
-
-  existing.messages.push({
-    id: crypto.randomUUID(),
-    type,
-    payload,
-    timestamp: new Date().toISOString(),
+  // E2E encryption: return watch's public key to CLI
+  return c.json({
+    pairingId,
+    watchPublicKey: watchSession.watchPublicKey,
   });
-
-  // Keep last 50 messages
-  if (existing.messages.length > 50) {
-    existing.messages = existing.messages.slice(-50);
-  }
-
-  await c.env.MESSAGES_KV.put(`to_watch:${pairingId}`, JSON.stringify(existing), { expirationTtl: SESSION_TTL });
-
-  return c.json({ success: true });
-});
-
-// Poll messages (from watch or server)
-app.get('/api/messages', async (c) => {
-  const pairingId = c.req.query('pairingId');
-  const direction = c.req.query('direction') || 'to_watch';
-
-  if (!pairingId) {
-    return c.json({ error: 'pairingId required' }, 400);
-  }
-
-  const key = `${direction}:${pairingId}`;
-  const data = await c.env.MESSAGES_KV.get<MessageQueue>(key, 'json') || { messages: [] };
-
-  // Clear messages after reading
-  await c.env.MESSAGES_KV.delete(key);
-
-  return c.json(data);
-});
-
-// Respond to approval (from watch)
-app.post('/respond/:requestId', async (c) => {
-  const requestId = c.req.param('requestId');
-  const { approved, pairingId } = await c.req.json<{ approved: boolean; pairingId: string }>();
-
-  // Store response for MCP server to poll
-  // Include 'type' in payload since MCP server looks for it there
-  const existing = await c.env.MESSAGES_KV.get<MessageQueue>(`to_server:${pairingId}`, 'json') || { messages: [] };
-
-  existing.messages.push({
-    id: crypto.randomUUID(),
-    type: 'action_response',
-    payload: { type: 'action_response', action_id: requestId, approved },
-    timestamp: new Date().toISOString(),
-  });
-
-  await c.env.MESSAGES_KV.put(`to_server:${pairingId}`, JSON.stringify(existing), { expirationTtl: SESSION_TTL });
-
-  return c.json({ success: true });
 });
 
 // Approval request stored in queue
@@ -586,36 +435,6 @@ app.delete('/question-queue/:pairingId', async (c) => {
   const pairingId = c.req.param('pairingId');
   await c.env.MESSAGES_KV.delete(`question_queue:${pairingId}`);
   return c.json({ success: true });
-});
-
-// Legacy: Fetch pending requests (for backwards compatibility)
-app.get('/requests/:pairingId', async (c) => {
-  const pairingId = c.req.param('pairingId');
-
-  // Try new approval queue first
-  const queue = await c.env.MESSAGES_KV.get<ApprovalQueue>(`approval_queue:${pairingId}`, 'json');
-  if (queue) {
-    const pending = queue.requests.filter(r => r.status === 'pending');
-    return c.json({ requests: pending.map(r => ({
-      id: r.id,
-      type: r.type,
-      title: r.title,
-      description: r.description,
-      filePath: r.filePath,
-      command: r.command,
-      timestamp: r.createdAt,
-    }))});
-  }
-
-  // Fallback to old message queue
-  const data = await c.env.MESSAGES_KV.get<MessageQueue>(`to_watch:${pairingId}`, 'json') || { messages: [] };
-  const requests = data.messages.filter(m => m.type === 'action_requested');
-
-  if (requests.length > 0) {
-    await c.env.MESSAGES_KV.delete(`to_watch:${pairingId}`);
-  }
-
-  return c.json({ requests });
 });
 
 // ============================================

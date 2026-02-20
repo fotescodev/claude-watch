@@ -91,13 +91,6 @@
         "@kimsungwhee/apple-docs-mcp"
       ],
       "description": "Apple Developer Documentation, WWDC videos, framework APIs, and platform compatibility"
-    },
-    "claude-watch": {
-      "command": "python",
-      "args": [
-        "MCPServer/server.py"
-      ],
-      "description": "Claude Watch bridge server for Apple Watch integration"
     }
   },
   "_disabledPlugins_note": "Disabled compound-engineering and superpowers to prevent research sprees. Re-enable if needed for specific tasks."
