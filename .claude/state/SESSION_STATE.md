@@ -1,7 +1,7 @@
 # Session State - Claude Watch
 
 > Last updated: 2026-02-20
-> Session: Legacy cleanup — hooks, cloud endpoints, config, docs
+> Session: Complications brainstorm + double-tap fix
 >
 > **Branch:** `restructuring`
 
@@ -65,13 +65,17 @@ Graceful degradation: cloud failure or "Handle on Mac" → falls through to term
 
 | Priority | Item | Status |
 |----------|------|--------|
-| 1 | E1: Permission Learning ("Always Allow" from watch) | PENDING |
-| 2 | E2: Model Switching from Watch | PENDING |
-| 3 | E3: Real-Time Streaming | PENDING |
-| 4 | E4: Session Resume on Crash | PENDING |
-| 5 | E5: File Undo from Watch | PENDING |
-| 6 | R8, R10: Test coverage gaps (cloudUrl, heartbeat) | PENDING |
-| 7 | R11-R18: Hardening (auth, retry jitter, etc.) | PENDING |
+| **P1** | Activity Rings (Build/Ship/Guard) | Brainstormed, see `.claude/plans/watchos-complications-brainstorm.md` |
+| **P1** | Interactive widget approve/reject buttons | Brainstormed |
+| **P1** | APNs complication push for real-time widget updates | Brainstormed |
+| **P2** | Session mood ring complication | Brainstormed |
+| **P2** | Watch face sharing during onboarding | Brainstormed |
+| **P3** | Claude Radio (walkie-talkie voice to Claude) | Brainstormed |
+| P3 | Developer daily dashboard | Brainstormed |
+| -- | E1: Permission Learning ("Always Allow" from watch) | PENDING |
+| -- | E2: Model Switching from Watch | PENDING |
+| -- | E3: Real-Time Streaming | PENDING |
+| -- | R8, R10: Test coverage gaps | PENDING |
 
 ## Key Learnings
 
@@ -80,3 +84,6 @@ Graceful degradation: cloud failure or "Handle on Mac" → falls through to term
 3. Cloud KV TTL of 5 min was too short — long thinking pauses caused session data to expire
 4. The watch QuestionResponseView already supported multi-option questions — only the hook was missing
 5. `--sdk-url` is undocumented and potentially unsupported — hooks approach is safer long-term
+6. `.handGestureShortcut(.primaryAction)` requires watchOS 11.0 — was incorrectly gated at 26.0
+7. `ControlWidget` APIs genuinely require watchOS 26.0 — not available earlier
+8. `.claude/inbox/` consolidated into `.claude/plans/` — single directory

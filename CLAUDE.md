@@ -171,18 +171,17 @@ claude-watch/
 ## Documentation Structure
 
 ```
-inbox/ → plans/ → MIGRATION_PROGRESS.md → archive/
-(ideas)  (refined)      (execute)          (done)
+plans/ → MIGRATION_PROGRESS.md → archive/
+(ideas + specs)    (execute)        (done)
 ```
 
 | Directory | Purpose |
 |-----------|---------|
 | `.claude/state/SESSION_STATE.md` | **Handoff persistence** - read at session start |
 | `.claude/plans/MIGRATION_PROGRESS.md` | **THE** source of truth for current work |
-| `.claude/plans/` | Refined plans, roadmap, and phase CONTEXT files |
+| `.claude/plans/` | Ideas, specs, roadmap, and phase CONTEXT files |
 | `.claude/commands/` | Slash commands (`/progress`, `/ship-check`, etc.) |
 | `.claude/context/PRD.md` | Product requirements document |
-| `.claude/inbox/` | Raw ideas, quick captures |
 | `.claude/archive/` | Completed or obsolete content |
 | `docs/` | User-facing guides only |
 | `docs/solutions/` | **Documented fixes** - check [INDEX.md](docs/solutions/INDEX.md) when debugging |

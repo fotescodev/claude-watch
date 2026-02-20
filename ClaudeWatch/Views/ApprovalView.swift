@@ -124,6 +124,8 @@ struct ApprovalView: View {
                             .onChanged { _ in approvePressed = true }
                             .onEnded { _ in approvePressed = false }
                     )
+                    // Double tap to approve (Tier 1-2 only)
+                    .modifier(DoubleTapApproveModifier(enabled: action.tier != .high))
 
                     // Reject button (red)
                     Button {
@@ -152,12 +154,6 @@ struct ApprovalView: View {
                 ScreenHint(action.tier == .high ? "Dangerous - handle on Mac" : "Double tap to approve")
             }
         }
-        // Double tap to approve (Tier 1-2 only)
-        .modifier(ApprovalDoubleTapModifier(onApprove: {
-            if let action = action, action.tier != .high {
-                approve(action)
-            }
-        }))
     }
 
     private func approve(_ action: PendingAction) {
@@ -198,14 +194,19 @@ struct ApprovalView: View {
     }
 }
 
-/// Double tap modifier for approval
-private struct ApprovalDoubleTapModifier: ViewModifier {
-    let onApprove: () -> Void
+/// Applies `.handGestureShortcut(.primaryAction)` to the Approve button
+/// so double-tap gesture triggers approval (Series 9+ / Ultra 2+, watchOS 11+)
+private struct DoubleTapApproveModifier: ViewModifier {
+    let enabled: Bool
 
     func body(content: Content) -> some View {
-        if #available(watchOS 26.0, *) {
-            content
-                .handGestureShortcut(.primaryAction)
+        if enabled {
+            if #available(watchOS 11.0, *) {
+                content
+                    .handGestureShortcut(.primaryAction)
+            } else {
+                content
+            }
         } else {
             content
         }
