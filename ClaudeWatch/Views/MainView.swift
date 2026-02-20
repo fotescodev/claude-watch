@@ -36,7 +36,7 @@ struct MainView: View {
         case .approvalQueue:
             return nil  // Queue views manage their own tier-colored headers
         case .pairing:
-            return ("Unpaired", Claude.idle)
+            return nil  // PairingView manages its own header
         case .offline:
             return ("Offline", Claude.danger)
         case .reconnecting:

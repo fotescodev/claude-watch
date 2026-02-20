@@ -41,12 +41,10 @@ struct ScreenShell<CardContent: View, ActionContent: View, HintContent: View>: V
 
     var body: some View {
         VStack(spacing: Claude.Screen.Shell.rootSpacing) {
-            // Top spacer
-            Spacer(minLength: Claude.Screen.Shell.topPadding)
-
-            // Card slot with standard horizontal padding
+            // Card slot with fixed top clearance from status bar (hard stop)
             cardContent
                 .padding(.horizontal, Claude.Screen.Shell.cardHorizontalPadding)
+                .padding(.top, Claude.Screen.Shell.statusBarClearance)
 
             // Flexible space between card and action
             Spacer(minLength: Claude.Screen.Shell.topPadding)
