@@ -16,10 +16,11 @@
   "scripts": {
     "dev": "bun run src/cli.ts",
     "build": "bun run scripts/build.ts",
-    "test": "bun test src/ui/ src/lib/ src/cli.test.ts && bun test src/commands/",
-    "test:lib": "bun test src/ui/ src/lib/ src/cli.test.ts",
+    "test": "bun test src/ui/ src/lib/config.test.ts src/lib/cloud-client.test.ts src/lib/claude-launcher.test.ts src/lib/bridge-launcher.test.ts src/cli.test.ts && bun test src/lib/hooks-config.test.ts && bun test src/commands/",
+    "test:lib": "bun test src/ui/ src/lib/config.test.ts src/lib/cloud-client.test.ts src/lib/claude-launcher.test.ts src/lib/bridge-launcher.test.ts src/cli.test.ts",
+    "test:hooks": "bun test src/lib/hooks-config.test.ts",
     "test:commands": "bun test src/commands/",
-    "test:all": "bun test src/ui/ src/lib/ src/cli.test.ts && bun test src/commands/",
+    "test:all": "bun test src/ui/ src/lib/config.test.ts src/lib/cloud-client.test.ts src/lib/claude-launcher.test.ts src/lib/bridge-launcher.test.ts src/cli.test.ts && bun test src/lib/hooks-config.test.ts && bun test src/commands/",
     "test:watch": "bun test --watch",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "bun run build && bun test && bun run typecheck"
@@ -54,5 +55,6 @@
   "bugs": {
     "url": "https://github.com/fotescodev/remmy-watch/issues"
   },
-  "homepage": "https://remmy.watch"
+  "homepage": "https://remmy.watch",
+  "dependencies": {}
 }

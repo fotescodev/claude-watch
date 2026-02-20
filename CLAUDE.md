@@ -155,14 +155,15 @@ claude-watch/
 │   └── Complications/              # Watch face widgets
 ├── MCPServer/                      # Python backend
 │   ├── server.py                   # Legacy standalone server
-│   └── bridge/                     # SDK-URL bridge (primary)
+│   └── bridge/                     # SDK-URL bridge (advanced, 346 tests)
 │       ├── main.py                 # Bridge entrypoint
 │       ├── ndjson_server.py        # NDJSON WebSocket server
 │       ├── api.py                  # Watch-facing REST API
 │       ├── cloud_client.py         # Cloud worker relay
-│       └── tests/                  # 379 tests
+│       └── tests/                  # 346 tests
 ├── remmy-cli/                      # TypeScript CLI
-│   └── src/                        # 129 tests
+│   ├── hooks/                      # watch-approval-cloud.py (hook script)
+│   └── src/                        # 143 tests
 ├── ClaudeWatch.xcodeproj/          # Xcode project
 └── .claude/                        # Agent & developer docs
 ```
@@ -282,16 +283,16 @@ It **cannot**:
 
 By asking yes/no questions, you enable seamless watch-based code review.
 
-## Server Commands
+## CLI Commands
 ```bash
-# Start bridge server
+# Default flow: pair + install hook + launch Claude
+cd remmy-cli && bun run dev
+
+# Run tests
+cd remmy-cli && bun run test
+
+# Start bridge server (advanced mode)
 cd MCPServer && python -m bridge.main
-
-# Legacy standalone mode
-cd MCPServer && python server.py --standalone --port 8787
-
-# Test API
-curl http://localhost:8788/state
 ```
 
 ## DO NOT
@@ -307,7 +308,7 @@ curl http://localhost:8788/state
 - `MainView.swift` - Primary UI
 - `WatchService.swift` - WebSocket, state, API calls
 - `ComplicationViews.swift` - Watch face widgets
-- `MCPServer/bridge/main.py` - Bridge entrypoint, orchestrates all components
-- `MCPServer/bridge/ndjson_server.py` - NDJSON WebSocket server for CLI
-- `MCPServer/bridge/api.py` - Watch-facing REST API
-- `remmy-cli/src/commands/start.ts` - CLI start command
+- `remmy-cli/hooks/watch-approval-cloud.py` - PreToolUse hook (bundled)
+- `remmy-cli/src/lib/hooks-config.ts` - Hook installation + registration
+- `remmy-cli/src/lib/claude-launcher.ts` - Spawns Claude with env var
+- `remmy-cli/src/commands/default.ts` - CLI default command (pair + hook + launch)

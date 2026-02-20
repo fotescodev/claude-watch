@@ -50,69 +50,69 @@ describe("claude-launcher", () => {
   });
 
   describe("launchClaude", () => {
-    test("R6.T1: constructs args with ONLY --sdk-url, no forbidden flags", async () => {
-      const sdkUrl = "ws://localhost:8787/ws/cli/test-session";
-      await launchClaude({ sdkUrl });
+    test("spawns with NO --sdk-url flag", async () => {
+      await launchClaude();
 
       expect(spawnCalls).toHaveLength(1);
       const call = spawnCalls[0]!;
-      expect(call.args).toEqual(["--sdk-url", sdkUrl]);
+      // No args by default (no --sdk-url)
+      expect(call.args).toEqual([]);
 
       // Verify forbidden flags are NOT present
-      const forbidden = ["--print", "--output-format", "--input-format", "-p", "--verbose"];
+      const forbidden = ["--sdk-url", "--print", "--output-format", "--input-format", "-p", "--verbose"];
       for (const flag of forbidden) {
         expect(call.args).not.toContain(flag);
       }
     });
 
-    test("R6.T2: spawn options include stdio: 'inherit'", async () => {
-      await launchClaude({ sdkUrl: "ws://localhost:8787/ws/cli/s1" });
+    test("spawn options include stdio: 'inherit'", async () => {
+      await launchClaude();
 
       expect(spawnCalls).toHaveLength(1);
       expect(spawnCalls[0]!.options.stdio).toBe("inherit");
     });
 
-    test("R6.T3: returns exit code from process", async () => {
+    test("returns exit code from process", async () => {
       fakeExitCode = 42;
-      const code = await launchClaude({ sdkUrl: "ws://localhost:8787/ws/cli/s2" });
+      const code = await launchClaude();
       expect(code).toBe(42);
     });
 
-    test("R6.T4: env does NOT contain CLAUDE_WATCH_SESSION_ACTIVE", async () => {
-      await launchClaude({ sdkUrl: "ws://localhost:8787/ws/cli/s3" });
+    test("env CONTAINS CLAUDE_WATCH_SESSION_ACTIVE=1", async () => {
+      await launchClaude();
 
       expect(spawnCalls).toHaveLength(1);
       const env = spawnCalls[0]!.options.env as Record<string, string | undefined>;
 
-      // The env should be process.env itself (no additions)
-      expect(env).toBe(process.env);
-
-      // Double-check the key isn't present
-      expect(env.CLAUDE_WATCH_SESSION_ACTIVE).toBeUndefined();
+      // Must contain the env var
+      expect(env.CLAUDE_WATCH_SESSION_ACTIVE).toBe("1");
     });
 
-    test("R6.T5: passes extra args after --sdk-url", async () => {
-      const sdkUrl = "ws://localhost:8787/ws/cli/s4";
+    test("env is a copy of process.env (not the same reference)", async () => {
+      await launchClaude();
+
+      expect(spawnCalls).toHaveLength(1);
+      const env = spawnCalls[0]!.options.env as Record<string, string | undefined>;
+
+      // Should NOT be process.env itself — it should be a copy with additions
+      expect(env).not.toBe(process.env);
+    });
+
+    test("passes extra args", async () => {
       await launchClaude({
-        sdkUrl,
         extraArgs: ["--model", "opus"],
       });
 
       expect(spawnCalls).toHaveLength(1);
       const call = spawnCalls[0]!;
-      expect(call.args).toEqual(["--sdk-url", sdkUrl, "--model", "opus"]);
-
-      // --sdk-url must come before extra args
-      const sdkIndex = call.args.indexOf("--sdk-url");
-      const modelIndex = call.args.indexOf("--model");
-      expect(sdkIndex).toBeLessThan(modelIndex);
+      expect(call.args).toEqual(["--model", "opus"]);
     });
 
     test("throws when claude binary is not found", async () => {
       execSyncResult = new Error("not found");
 
       await expect(
-        launchClaude({ sdkUrl: "ws://localhost:8787/ws/cli/nope" }),
+        launchClaude(),
       ).rejects.toThrow("Claude CLI not found");
     });
   });
@@ -124,7 +124,7 @@ describe("claude-launcher", () => {
       expect(result).toBe("/usr/local/bin/claude");
     });
 
-    test("R6.T6: returns null when binary not found", () => {
+    test("returns null when binary not found", () => {
       execSyncResult = new Error("which: no claude in PATH");
       const result = findClaude();
       expect(result).toBeNull();

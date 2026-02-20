@@ -1,17 +1,17 @@
 /**
- * Claude Launcher — spawns the Claude CLI with --sdk-url for bridge control.
+ * Claude Launcher — spawns the Claude CLI with CLAUDE_WATCH_SESSION_ACTIVE=1.
  *
  * Zero runtime dependencies: uses node:child_process only.
  *
- * CRITICAL: Claude MUST run in interactive TUI mode. The --sdk-url flag is the
- * ONLY extra flag passed. DO NOT add --print, --output-format, --input-format,
- * or -p "" flags. The user gets the normal Claude Code interactive experience.
+ * CRITICAL: Claude MUST run in interactive TUI mode. NO extra flags are passed
+ * (no --sdk-url, --print, --output-format, --input-format, or -p "").
+ * The user gets the normal Claude Code interactive experience.
+ * The watch approval hook activates via the CLAUDE_WATCH_SESSION_ACTIVE env var.
  */
 
 import { spawn, execSync } from "node:child_process";
 
 export interface ClaudeOptions {
-  sdkUrl: string; // ws://localhost:{port}/ws/cli/{sessionId}
   extraArgs?: string[]; // User-provided args passed through to Claude
 }
 
@@ -29,16 +29,16 @@ export function findClaude(): string | null {
 }
 
 /**
- * Launch Claude CLI with --sdk-url pointing to the bridge WebSocket.
+ * Launch Claude CLI with the watch session env var set.
  *
  * - Spawns with `stdio: "inherit"` so the user gets the full interactive TUI.
- * - Does NOT set CLAUDE_WATCH_SESSION_ACTIVE or any other custom env vars.
- * - Only passes --sdk-url and any user-provided extraArgs.
+ * - Sets CLAUDE_WATCH_SESSION_ACTIVE=1 to activate the approval hook.
+ * - Only passes user-provided extraArgs (no --sdk-url).
  *
  * Returns a Promise that resolves with the exit code when Claude exits.
  * Throws if the `claude` binary cannot be found.
  */
-export async function launchClaude(opts: ClaudeOptions): Promise<number> {
+export async function launchClaude(opts?: ClaudeOptions): Promise<number> {
   const claudePath = findClaude();
   if (!claudePath) {
     throw new Error(
@@ -46,16 +46,12 @@ export async function launchClaude(opts: ClaudeOptions): Promise<number> {
     );
   }
 
-  const args = ["--sdk-url", opts.sdkUrl];
-
-  if (opts.extraArgs) {
-    args.push(...opts.extraArgs);
-  }
+  const args = opts?.extraArgs ?? [];
 
   return new Promise<number>((resolve, reject) => {
     const child = spawn(claudePath, args, {
       stdio: "inherit",
-      env: process.env,
+      env: { ...process.env, CLAUDE_WATCH_SESSION_ACTIVE: "1" },
     });
 
     child.on("close", (code) => {

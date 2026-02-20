@@ -3,9 +3,8 @@
  *
  * 1. Show header
  * 2. Migrate legacy config if present
- * 3. If paired → informational cloud check → launch bridge + Claude
- * 4. If unpaired → blocking cloud check → pair → launch bridge + Claude
- * 5. Stop bridge on Claude exit
+ * 3. If paired → informational cloud check → ensure hook → launch Claude
+ * 4. If unpaired → blocking cloud check → pair → ensure hook → launch Claude
  */
 
 import { showHeader } from "../ui/header.ts";
@@ -24,7 +23,7 @@ import {
   completePairing,
   getCloudUrl,
 } from "../lib/cloud-client.ts";
-import { launchBridge, stopBridge } from "../lib/bridge-launcher.ts";
+import { setupHook } from "../lib/hooks-config.ts";
 import { launchClaude } from "../lib/claude-launcher.ts";
 
 export async function runDefault(): Promise<void> {
@@ -45,15 +44,18 @@ async function pairedFlow(): Promise<void> {
   process.stdout.write(`  ${dim("Pairing ID:")} ${truncatedId}\n`);
 
   // Cloud check is INFORMATIONAL when paired — warn but don't block
-  const connectivity = await checkConnectivity();
+  const connectivity = await checkConnectivity(cloudUrl);
   if (!connectivity.connected) {
     process.stdout.write(
       `  ${yellow("Cloud unreachable")} — watch notifications may be delayed\n`,
     );
   }
 
-  // Launch bridge + Claude
-  await launchAndRun(config.pairingId, cloudUrl);
+  // Ensure hook is installed
+  ensureHook();
+
+  // Launch Claude with watch session active
+  await launchAndRun();
 }
 
 async function unpairedFlow(): Promise<void> {
@@ -101,28 +103,31 @@ async function unpairedFlow(): Promise<void> {
   config.pairingId = pairingId;
   saveConfig(config);
 
-  // Launch bridge + Claude
-  await launchAndRun(pairingId, cloudUrl);
+  // Ensure hook is installed
+  ensureHook();
+
+  // Launch Claude with watch session active
+  await launchAndRun();
 }
 
 /**
- * Shared launch logic: start bridge, register SIGINT, launch Claude, cleanup.
+ * Install the watch-approval hook if not already configured.
  */
-async function launchAndRun(pairingId: string, cloudUrl?: string): Promise<void> {
-  const bridge = await launchBridge({
-    pairingId,
-    port: 8787,
-    cloudUrl: cloudUrl ?? getCloudUrl(),
-  });
+function ensureHook(): void {
+  const result = setupHook();
+  if (result.installed && result.registered) {
+    process.stdout.write(`  ${dim("Hook installed")} ✓\n`);
+  } else if (!result.installed) {
+    process.stdout.write(
+      `  ${yellow("Warning:")} Could not install hook script.\n`,
+    );
+  }
+}
 
-  // Handle Ctrl+C — stop bridge gracefully
-  const onSigint = async () => {
-    process.stdout.write("\n");
-    await stopBridge(bridge);
-    process.exit(130);
-  };
-  process.on("SIGINT", onSigint);
-
+/**
+ * Launch Claude with CLAUDE_WATCH_SESSION_ACTIVE=1 and exit when it does.
+ */
+async function launchAndRun(): Promise<void> {
   process.stdout.write(
     `\n  ${green("Launching Claude with watch approvals...")}\n`,
   );
@@ -130,11 +135,6 @@ async function launchAndRun(pairingId: string, cloudUrl?: string): Promise<void>
     `  ${dim("Other `claude` sessions run normally.")}\n\n`,
   );
 
-  const exitCode = await launchClaude({
-    sdkUrl: `ws://localhost:${bridge.port}/ws/cli/${bridge.pairingId}`,
-  });
-
-  process.removeListener("SIGINT", onSigint);
-  await stopBridge(bridge);
+  const exitCode = await launchClaude();
   process.exit(exitCode);
 }

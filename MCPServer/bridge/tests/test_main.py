@@ -667,7 +667,8 @@ class TestHandleAssistant:
         history = bridge.sessions[session_id].message_history
         assert len(history) == 1
         assert history[0]["type"] == "assistant"
-        assert history[0]["data"] is msg
+        # Flat format: raw CLI fields merged into top level (no "data" envelope)
+        assert "content" in history[0] or "message" in history[0]
 
 
 class TestHandleResult:

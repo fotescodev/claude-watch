@@ -1,12 +1,11 @@
 /**
  * Tests for the run command.
  *
- * Mocks ALL dependencies: config, bridge-launcher, claude-launcher, spinner, colors.
+ * Mocks ALL dependencies: config, hooks-config, claude-launcher, spinner, colors.
  */
 
 import { describe, test, expect, mock, beforeEach } from "bun:test";
 import type { RemmyConfig } from "../types.ts";
-import type { BridgeProcess } from "../lib/bridge-launcher.ts";
 
 // ---------------------------------------------------------------------------
 // Shared mock state
@@ -15,26 +14,14 @@ import type { BridgeProcess } from "../lib/bridge-launcher.ts";
 let mockIsPaired = false;
 let mockConfig: RemmyConfig | null = null;
 let mockLaunchClaudeExitCode = 0;
-let mockLaunchBridgeError: Error | null = null;
-
-// Fake bridge process
-const fakeBridge: BridgeProcess = {
-  process: {} as BridgeProcess["process"],
-  port: 8787,
-  httpPort: 8788,
-  pairingId: "test-pairing-id",
-};
+let mockLaunchClaudeError: Error | null = null;
 
 // Track calls
 const calls = {
   isPaired: [] as unknown[][],
   readConfig: [] as unknown[][],
-  launchBridge: [] as unknown[][],
+  setupHook: [] as unknown[][],
   launchClaude: [] as unknown[][],
-  stopBridge: [] as unknown[][],
-  spinnerStart: [] as string[],
-  spinnerSucceed: [] as string[],
-  spinnerFail: [] as string[],
 };
 
 // Capture stdout + process.exit
@@ -61,15 +48,9 @@ mock.module("../ui/colors.ts", () => ({
 
 mock.module("../ui/spinner.ts", () => ({
   Spinner: class {
-    start(msg: string) {
-      calls.spinnerStart.push(msg);
-    }
-    succeed(msg: string) {
-      calls.spinnerSucceed.push(msg);
-    }
-    fail(msg: string) {
-      calls.spinnerFail.push(msg);
-    }
+    start() {}
+    succeed() {}
+    fail() {}
     stop() {}
   },
 }));
@@ -107,23 +88,20 @@ mock.module("../lib/cloud-client.ts", () => ({
   completePairing: () => Promise.resolve("pair-id"),
 }));
 
-mock.module("../lib/bridge-launcher.ts", () => ({
-  launchBridge: (opts: unknown) => {
-    calls.launchBridge.push([opts]);
-    if (mockLaunchBridgeError) {
-      return Promise.reject(mockLaunchBridgeError);
-    }
-    return Promise.resolve({ ...fakeBridge, pairingId: (opts as { pairingId: string }).pairingId });
+mock.module("../lib/hooks-config.ts", () => ({
+  setupHook: () => {
+    calls.setupHook.push([]);
+    return { installed: true, registered: true };
   },
-  stopBridge: (bp: unknown) => {
-    calls.stopBridge.push([bp]);
-    return Promise.resolve();
-  },
+  isHookConfigured: () => true,
 }));
 
 mock.module("../lib/claude-launcher.ts", () => ({
   launchClaude: (opts: unknown) => {
     calls.launchClaude.push([opts]);
+    if (mockLaunchClaudeError) {
+      return Promise.reject(mockLaunchClaudeError);
+    }
     return Promise.resolve(mockLaunchClaudeExitCode);
   },
 }));
@@ -141,7 +119,7 @@ describe("run command", () => {
     mockIsPaired = false;
     mockConfig = null;
     mockLaunchClaudeExitCode = 0;
-    mockLaunchBridgeError = null;
+    mockLaunchClaudeError = null;
     processExitCode = undefined;
 
     // Reset call trackers
@@ -166,8 +144,8 @@ describe("run command", () => {
     }) as typeof process.exit;
   });
 
-  // R8.T3: rejects if not paired
-  test("R8.T3: rejects if not paired", async () => {
+  // Rejects if not paired
+  test("rejects if not paired", async () => {
     mockIsPaired = false;
 
     await runRun();
@@ -179,13 +157,12 @@ describe("run command", () => {
     // Should set exit code to 1
     expect(process.exitCode).toBe(1);
 
-    // Should NOT launch bridge or claude
-    expect(calls.launchBridge).toHaveLength(0);
+    // Should NOT launch claude
     expect(calls.launchClaude).toHaveLength(0);
   });
 
-  // R8.T4: launches bridge + claude when paired
-  test("R8.T4: launches bridge + claude when paired", async () => {
+  // Calls setupHook + launchClaude when paired (no bridge)
+  test("calls setupHook + launchClaude when paired", async () => {
     mockIsPaired = true;
     mockConfig = {
       pairingId: "my-pair-id-for-run",
@@ -196,26 +173,15 @@ describe("run command", () => {
 
     await runRun();
 
-    // Should launch bridge with correct pairingId
-    expect(calls.launchBridge).toHaveLength(1);
-    const bridgeOpts = (calls.launchBridge[0] as [{ pairingId: string; port: number }])[0];
-    expect(bridgeOpts.pairingId).toBe("my-pair-id-for-run");
-    expect(bridgeOpts.port).toBe(8787);
+    // Should call setupHook
+    expect(calls.setupHook).toHaveLength(1);
 
-    // Should launch claude with sdkUrl
+    // Should launch claude (no sdkUrl, no bridge)
     expect(calls.launchClaude).toHaveLength(1);
-    const claudeOpts = (calls.launchClaude[0] as [{ sdkUrl: string; extraArgs?: string[] }])[0];
-    expect(claudeOpts.sdkUrl).toContain("ws://localhost:8787/ws/cli/");
-
-    // Should stop bridge after claude exits
-    expect(calls.stopBridge).toHaveLength(1);
-
-    // Spinner should show bridge start
-    expect(calls.spinnerStart.some((m) => m.includes("bridge"))).toBe(true);
   });
 
-  // R8.T5: passes extra args directly
-  test("R8.T5: passes extra args directly to launchClaude", async () => {
+  // Passes extra args directly
+  test("passes extra args directly to launchClaude", async () => {
     mockIsPaired = true;
     mockConfig = {
       pairingId: "pair-with-args",
@@ -227,7 +193,7 @@ describe("run command", () => {
 
     // Should launch claude with extra args
     expect(calls.launchClaude).toHaveLength(1);
-    const claudeOpts = (calls.launchClaude[0] as [{ sdkUrl: string; extraArgs?: string[] }])[0];
+    const claudeOpts = (calls.launchClaude[0] as [{ extraArgs?: string[] }])[0];
     expect(claudeOpts.extraArgs).toEqual(["--model", "opus", "--verbose"]);
   });
 });

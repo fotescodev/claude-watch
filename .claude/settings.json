@@ -67,26 +67,7 @@
       }
     ],
     "PostToolUse": [],
-    "PreToolUse": [
-      {
-        "matcher": "_ALL_DISABLED_Write|Edit|MultiEdit|mobile_install_app|mobile_uninstall_app",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/watch-approval-cloud.py"
-          }
-        ]
-      },
-      {
-        "matcher": "AskUserQuestion",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/question-handler.py"
-          }
-        ]
-      }
-    ],
+    "PreToolUse": [],
     "SubagentStop": [
       {
         "matcher": "",

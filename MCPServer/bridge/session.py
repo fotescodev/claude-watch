@@ -7,9 +7,13 @@ updated incrementally as NDJSON messages arrive from the CLI.
 """
 from __future__ import annotations
 
+import collections
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from MCPServer.bridge.types import (
     ResultMessage,
@@ -82,8 +86,8 @@ class Session:
         self.status: str = "idle"  # idle | running | waiting | completed | failed
         self.context_warning: bool = False
 
-        # Message history (for late-joining watch clients) -------------------
-        self.message_history: list[dict] = []
+        # Message history (for late-joining clients) -------------------------
+        self.message_history: collections.deque[dict] = collections.deque(maxlen=500)
 
         # Queue for messages before CLI connects -----------------------------
         self.pending_messages: list[str] = []

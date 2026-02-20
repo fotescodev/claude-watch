@@ -1,22 +1,31 @@
 # SDK-URL Migration Progress
 
-> **Branch**: `claude/investigate-websocket-terminal-utUEt`
+> **Branch**: `restructuring`
 > **Spec**: `.claude/plans/sdk-url-agent-execution-spec.md`
-> **Plan**: `.claude/plans/sdk-url-migration-plan.md`
-> **Last updated**: 2026-02-15
+> **Plan**: `.claude/plans/lucky-questing-balloon.md` (hooks pivot)
+> **Last updated**: 2026-02-19
+
+## Architecture Pivot (2026-02-19)
+
+**FROM**: Bridge-based (`remmy` → bridge → `claude --sdk-url`) with custom Ink TUI
+**TO**: Hooks-based (`remmy` → install hook → `claude` with native TUI)
+
+The bridge was over-engineered for MVP. The hook-based approach (proven in `claude-watch-npm`) is simpler: hook talks directly to cloud worker, watch polls cloud worker directly.
 
 ## Status Overview
 
 | Workstream | Status | Tests |
 |------------|--------|-------|
 | A: Bridge Server (A1-A8) | DONE | 249 |
-| B: Remmy CLI + Cloud Relay (B1-B2) | DONE | 129+46 |
+| B: Remmy CLI + Cloud Relay (B1-B2) | DONE | 143+46 |
 | D: Integration Tests (D1-D6) | DONE | 82 |
-| **R: Review Fixes (R1-R4)** | **UP NEXT** | ~10 planned |
-| C: Watch App (C1-C2) | BLOCKED on R | — |
+| R: Review Fixes (R1-R4) | DONE | — |
+| **T: TUI (Ink)** | **CANCELLED** (hooks pivot) | — |
+| **H: Hooks Pivot** | **DONE** | 14 new |
+| C: Watch App (C1-C2) | PENDING | — |
 | E: New Capabilities (E1-E5) | PENDING | — |
-| F: Cleanup (F1-F3) | PENDING | — |
-| **Total passing** | | **508** |
+| F: Cleanup (F1-F3) | PARTIAL | — |
+| **Total passing** | | **~503** |
 
 ---
 
@@ -52,33 +61,12 @@
 > 3-specialist review (QA, Dev, Integration) on 2026-02-14 identified 18 findings.
 > Detailed fix descriptions with code snippets: `.claude/plans/REVIEW_FINDINGS.md`
 
-### Phase 1: Must Fix Before C1 — CRITICAL
+### Phase 1: Must Fix Before C1 — DONE
 
-These are correctness and security bugs. Gate for C1 watch verification.
-
-- [ ] **R1: Double-resolution race condition** — CRITICAL
-  - Files: `main.py` (`_cloud_poll_once`), `api.py`
-  - Both REST API and cloud poll can resolve same permission simultaneously
-  - Fix: check-before-resolve guard in `_cloud_poll_once`
-  - Tests: E2E test for concurrent resolution
-
-- [ ] **R2: Interrupt poll fires repeatedly** — CRITICAL
-  - File: `main.py` (`_cloud_poll_once`)
-  - No rising-edge detection; sends interrupt every 2s indefinitely
-  - Fix: track `_last_interrupt_state` per session, fire only on false→true
-  - Tests: E2E verifying single interrupt even when cloud keeps returning true
-
-- [ ] **R3: No session cleanup on bridge stop** — CRITICAL
-  - File: `main.py` (`stop()`), `cloud_client.py`
-  - Watch shows ghost session for ~5 min after bridge dies
-  - Fix: add `push_session_end()` to CloudClient, call from `stop()`
-  - Tests: unit test for push_session_end, E2E for session-end on stop
-
-- [ ] **R4: Servers bind to 0.0.0.0** — CRITICAL
-  - Files: `ndjson_server.py`, `main.py`
-  - Anyone on LAN can connect and approve/reject tool calls
-  - Fix: bind to `127.0.0.1` (localhost only)
-  - Tests: update existing startup tests to verify bind address
+- [x] **R1: Double-resolution race condition** — commit `4470c7d`
+- [x] **R2: Interrupt poll fires repeatedly** — commit `0ad5c1e`
+- [x] **R3: No session cleanup on bridge stop** — commit `2c1df00`
+- [x] **R4: Servers bind to 0.0.0.0** — commit `4a5c8d2`
 
 ### Phase 2: Fix Before Real Usage — HIGH/MEDIUM
 
@@ -103,6 +91,30 @@ Pre-production polish.
 - [ ] R16: CLI SIGINT handler registered twice — LOW
 - [ ] R17: No connectivity retry on initial pairing — LOW
 - [ ] R18: Interrupt state not persisted across restart — LOW
+
+---
+
+## Workstream T: TUI (Ink Terminal Interface) — CANCELLED
+
+> **Cancelled 2026-02-19**: Hooks pivot eliminates the need for a custom TUI.
+> Claude Code's native TUI is used directly. All TUI code deleted (~1,754 LOC).
+
+---
+
+## Workstream H: Hooks Pivot — DONE
+
+> **Plan**: `.claude/plans/lucky-questing-balloon.md`
+> **Branch**: `restructuring`
+> **Completed**: 2026-02-19
+
+- [x] **H1: Hook management** — `remmy-cli/src/lib/hooks-config.ts` (14 tests)
+- [x] **H2: Hook script** — `remmy-cli/hooks/watch-approval-cloud.py` (ported from claude-watch-npm)
+- [x] **H3: Simplify CLI launch** — Remove `--sdk-url`, add `CLAUDE_WATCH_SESSION_ACTIVE=1`
+- [x] **H4: Remove TUI code** — Deleted `remmy-cli/src/tui/` (17 files), 6 npm deps
+- [x] **H5: Bridge TUI cleanup** — Removed TUI WS endpoint, `tui_clients`, `broadcast_to_tui`
+- [x] **H6: Update tests** — 143 CLI tests passing (up from 129), 346 bridge tests passing
+- [x] **H7: Settings cleanup** — Removed disabled PreToolUse entry from project settings
+- [x] **H8: Documentation** — Updated ARCHITECTURE.md, DATA_FLOW.md, SESSION_STATE.md
 
 ---
 
@@ -156,18 +168,18 @@ WEEK 3: CLI + E2E (DONE)
   D1-D5 (E2E integration tests)
   3-specialist review → 18 findings
 
-WEEK 4: Review Fixes + Watch Verification (CURRENT)
-  R1-R4 (Phase 1 critical fixes — gate for C1)
-  C1 (verify watch works with zero changes)
-  R5-R10 (Phase 2 fixes if time allows)
+WEEK 4: Review Fixes + Hooks Pivot (DONE)
+  R1-R4 (Phase 1 critical fixes)
+  H1-H8 (Hooks pivot — hooks primary, bridge advanced)
+  TUI cancelled (not needed with hooks approach)
 
-WEEK 5: New Capabilities
+WEEK 5: Watch Verification + Usage Fixes (NEXT)
+  C1 (verify watch works against cloud worker via hooks)
+  R5-R10 (Phase 2 fixes for real usage)
+
+WEEK 6: New Capabilities + Hardening
   E1-E5 (permission learning, model switch, streaming, resume, undo)
-
-WEEK 6: Cleanup + Hardening
   R11-R18 (Phase 3 hardening)
-  F1-F3 (remove hooks, cloud endpoints, temp files)
-  C2 (optional: direct WebSocket from watch)
 ```
 
 ## Commits
@@ -189,17 +201,17 @@ WEEK 6: Cleanup + Hardening
 ## Test Commands
 
 ```bash
-# Bridge tests (379)
+# CLI tests (143) — must split due to bun mock.module() bleed
+cd remmy-cli && bun test src/ui/ src/lib/config.test.ts src/lib/cloud-client.test.ts src/lib/claude-launcher.test.ts src/lib/bridge-launcher.test.ts src/cli.test.ts && bun test src/lib/hooks-config.test.ts && bun test src/commands/
+
+# Bridge tests (346)
 python -m pytest MCPServer/bridge/tests/ -q
 
-# Bridge unit only (297)
+# Bridge unit only
 python -m pytest MCPServer/bridge/tests/ -q --ignore=MCPServer/bridge/tests/test_e2e_*
 
-# Bridge E2E only (82)
+# Bridge E2E only
 python -m pytest MCPServer/bridge/tests/test_e2e_* -q
-
-# CLI tests (129) — must split due to bun mock.module() bleed
-cd remmy-cli && bun test src/ui/ src/lib/ src/cli.test.ts && bun test src/commands/
 ```
 
 ## Key Learnings

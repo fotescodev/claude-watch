@@ -187,7 +187,7 @@ class Bridge:
         if not session:
             return
         session.status = "running"
-        session.message_history.append({"type": "assistant", "data": msg})
+        session.message_history.append({**msg, "type": "assistant"})
         old_tasks = list(session.todo_tasks)
         update_session_progress(session, msg)
         # Push to cloud immediately if todo list changed
@@ -201,7 +201,7 @@ class Bridge:
             return
         parsed = parse_cli_message(msg)
         session.update_from_result(parsed)
-        session.message_history.append({"type": "result", "data": msg})
+        session.message_history.append({**msg, "type": "result"})
         update_session_progress(session, msg)
         # Always push progress on result (session complete)
         await self._cloud_push_progress(session)
@@ -239,9 +239,8 @@ class Bridge:
                     await self._cloud_push_approval(perm)
 
     async def _handle_stream_event(self, session_id: str, msg: dict) -> None:
-        """Handle stream events (real-time token streaming, post-MVP)."""
-        # Stream events are forwarded to watch in real-time (post-MVP)
-        pass
+        """Handle stream events (real-time token streaming)."""
+        pass  # No TUI clients to broadcast to
 
     async def _handle_tool_progress(self, session_id: str, msg: dict) -> None:
         """Handle tool_progress heartbeat messages."""

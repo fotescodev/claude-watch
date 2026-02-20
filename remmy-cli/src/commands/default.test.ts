@@ -1,13 +1,12 @@
 /**
  * Tests for the default command (main happy path).
  *
- * Mocks ALL dependencies: config, cloud-client, bridge-launcher, claude-launcher,
+ * Mocks ALL dependencies: config, cloud-client, hooks-config, claude-launcher,
  * prompt, spinner, header.
  */
 
 import { describe, test, expect, mock, beforeEach } from "bun:test";
 import type { RemmyConfig } from "../types.ts";
-import type { BridgeProcess } from "../lib/bridge-launcher.ts";
 import type { ConnectivityResult } from "../lib/cloud-client.ts";
 
 // ---------------------------------------------------------------------------
@@ -20,6 +19,7 @@ let mockConnectivity: ConnectivityResult = { connected: true, latency: 42 };
 let mockCompletePairingResult: string | Error = "pairing-id-from-server";
 let mockAskTextResult: string | null = "123456";
 let mockLaunchClaudeExitCode = 0;
+let mockHookResult = { installed: true, registered: true };
 
 // Track calls for assertions
 const calls = {
@@ -32,9 +32,8 @@ const calls = {
   createConfig: [] as unknown[][],
   saveConfig: [] as unknown[][],
   getCloudUrl: [] as unknown[][],
-  launchBridge: [] as unknown[][],
+  setupHook: [] as unknown[][],
   launchClaude: [] as unknown[][],
-  stopBridge: [] as unknown[][],
   askText: [] as unknown[][],
   spinnerStart: [] as string[],
   spinnerSucceed: [] as string[],
@@ -43,14 +42,6 @@ const calls = {
 
 // Capture askText validator for testing
 let capturedValidator: ((input: string) => true | string) | undefined;
-
-// Fake bridge process
-const fakeBridge: BridgeProcess = {
-  process: {} as BridgeProcess["process"],
-  port: 8787,
-  httpPort: 8788,
-  pairingId: "test-pairing-id",
-};
 
 // Track process.exit calls instead of actually exiting
 let processExitCode: number | undefined;
@@ -150,15 +141,12 @@ mock.module("../lib/cloud-client.ts", () => ({
   },
 }));
 
-mock.module("../lib/bridge-launcher.ts", () => ({
-  launchBridge: (opts: unknown) => {
-    calls.launchBridge.push([opts]);
-    return Promise.resolve(fakeBridge);
+mock.module("../lib/hooks-config.ts", () => ({
+  setupHook: () => {
+    calls.setupHook.push([]);
+    return mockHookResult;
   },
-  stopBridge: (bp: unknown) => {
-    calls.stopBridge.push([bp]);
-    return Promise.resolve();
-  },
+  isHookConfigured: () => mockHookResult.installed && mockHookResult.registered,
 }));
 
 mock.module("../lib/claude-launcher.ts", () => ({
@@ -184,6 +172,7 @@ describe("default command", () => {
     mockCompletePairingResult = "pairing-id-from-server";
     mockAskTextResult = "123456";
     mockLaunchClaudeExitCode = 0;
+    mockHookResult = { installed: true, registered: true };
     capturedValidator = undefined;
     processExitCode = undefined;
 
@@ -207,13 +196,10 @@ describe("default command", () => {
     }) as typeof process.exit;
   });
 
-  // Restore originals at end (after all tests in this describe)
-  // Note: beforeEach re-mocks each time so tests stay isolated
-
   // -------------------------------------------------------------------------
-  // R7.T1: paired flow — skips pairing, calls launchBridge + launchClaude
+  // Paired flow — skips pairing, calls setupHook + launchClaude (no bridge)
   // -------------------------------------------------------------------------
-  test("R7.T1: paired flow — skips pairing, calls launchBridge + launchClaude", async () => {
+  test("paired flow — calls setupHook + launchClaude (no bridge)", async () => {
     mockIsPaired = true;
     mockConfig = {
       pairingId: "abcd1234-5678-90ab-cdef-1234567890ab",
@@ -235,18 +221,11 @@ describe("default command", () => {
     // Should NOT call completePairing
     expect(calls.completePairing).toHaveLength(0);
 
-    // Should call launchBridge with pairingId and port
-    expect(calls.launchBridge).toHaveLength(1);
-    const bridgeOpts = (calls.launchBridge[0] as [{ pairingId: string; port: number }])[0];
-    expect(bridgeOpts.pairingId).toBe("abcd1234-5678-90ab-cdef-1234567890ab");
-    expect(bridgeOpts.port).toBe(8787);
+    // Should call setupHook
+    expect(calls.setupHook).toHaveLength(1);
 
-    // Should call launchClaude with sdkUrl
+    // Should call launchClaude (no sdkUrl arg)
     expect(calls.launchClaude).toHaveLength(1);
-    const claudeOpts = (calls.launchClaude[0] as [{ sdkUrl: string }])[0];
-    expect(claudeOpts.sdkUrl).toBe(
-      `ws://localhost:${fakeBridge.port}/ws/cli/${fakeBridge.pairingId}`,
-    );
 
     // Should show truncated pairing ID (first 8 chars)
     const idOutput = stdoutWrites.find((w) => w.includes("abcd1234"));
@@ -260,9 +239,9 @@ describe("default command", () => {
   });
 
   // -------------------------------------------------------------------------
-  // R7.T2: unpaired flow — prompts for code, calls completePairing, saves
+  // Unpaired flow — prompts for code, pairs, installs hook, launches
   // -------------------------------------------------------------------------
-  test("R7.T2: unpaired flow — prompts for code, calls completePairing, saves config, launches", async () => {
+  test("unpaired flow — prompts for code, calls completePairing, saves config, launches", async () => {
     mockIsPaired = false;
     mockAskTextResult = "987654";
     mockCompletePairingResult = "new-pairing-id-from-server";
@@ -299,19 +278,17 @@ describe("default command", () => {
     const savedConfig = (calls.saveConfig[0] as [RemmyConfig])[0];
     expect(savedConfig.pairingId).toBe("new-pairing-id-from-server");
 
-    // Should launch bridge + claude
-    expect(calls.launchBridge).toHaveLength(1);
-    const bridgeOpts = (calls.launchBridge[0] as [{ pairingId: string; port: number }])[0];
-    expect(bridgeOpts.pairingId).toBe("new-pairing-id-from-server");
-    expect(bridgeOpts.port).toBe(8787);
+    // Should call setupHook
+    expect(calls.setupHook).toHaveLength(1);
 
+    // Should launch claude (no bridge)
     expect(calls.launchClaude).toHaveLength(1);
   });
 
   // -------------------------------------------------------------------------
-  // R7.T3: validates 6-digit input (askText validator rejects non-6-digit)
+  // Validates 6-digit input
   // -------------------------------------------------------------------------
-  test("R7.T3: validates 6-digit input — askText validator rejects non-6-digit", async () => {
+  test("validates 6-digit input — askText validator rejects non-6-digit", async () => {
     mockIsPaired = false;
     mockAskTextResult = "123456";
 
@@ -338,9 +315,9 @@ describe("default command", () => {
   });
 
   // -------------------------------------------------------------------------
-  // R7.T4: pairing failure — completePairing throws, shows error, no launch
+  // Pairing failure — completePairing throws, shows error, no launch
   // -------------------------------------------------------------------------
-  test("R7.T4: pairing failure — completePairing throws, shows error, doesn't launch", async () => {
+  test("pairing failure — completePairing throws, shows error, doesn't launch", async () => {
     mockIsPaired = false;
     mockAskTextResult = "999999";
     mockCompletePairingResult = new Error("Invalid or expired code");
@@ -354,8 +331,7 @@ describe("default command", () => {
     expect(calls.spinnerFail).toHaveLength(1);
     expect(calls.spinnerFail[0]).toContain("Invalid or expired code");
 
-    // Should NOT launch bridge or claude
-    expect(calls.launchBridge).toHaveLength(0);
+    // Should NOT launch claude
     expect(calls.launchClaude).toHaveLength(0);
 
     // Should NOT save config
@@ -363,12 +339,12 @@ describe("default command", () => {
   });
 
   // -------------------------------------------------------------------------
-  // R7.T5: stops bridge on claude exit
+  // Exits with Claude's exit code
   // -------------------------------------------------------------------------
-  test("R7.T5: stops bridge on claude exit", async () => {
+  test("exits with Claude's exit code", async () => {
     mockIsPaired = true;
     mockConfig = {
-      pairingId: "test-pair-id-for-stop-check",
+      pairingId: "test-pair-id-for-exit-check",
       cloudUrl: "https://remmy.watch",
       createdAt: "2026-01-01T00:00:00.000Z",
     };
@@ -376,18 +352,14 @@ describe("default command", () => {
 
     await runDefault();
 
-    // stopBridge should be called after claude exits
-    expect(calls.stopBridge).toHaveLength(1);
-    expect(calls.stopBridge[0]).toEqual([fakeBridge]);
-
     // process.exit should be called with claude's exit code
     expect(processExitCode).toBe(7);
   });
 
   // -------------------------------------------------------------------------
-  // R7.T6: cloud failure when paired is informational (still launches)
+  // Cloud failure when paired is informational (still launches)
   // -------------------------------------------------------------------------
-  test("R7.T6: cloud failure when paired is informational — still launches bridge + claude", async () => {
+  test("cloud failure when paired is informational — still launches", async () => {
     mockIsPaired = true;
     mockConfig = {
       pairingId: "paired-but-cloud-down",
@@ -402,13 +374,12 @@ describe("default command", () => {
     const warningMsg = stdoutWrites.find((w) => w.includes("Cloud unreachable"));
     expect(warningMsg).toBeDefined();
 
-    // Should still launch bridge + claude despite cloud being down
-    expect(calls.launchBridge).toHaveLength(1);
+    // Should still launch claude despite cloud being down
     expect(calls.launchClaude).toHaveLength(1);
   });
 
   // -------------------------------------------------------------------------
-  // Additional: cloud failure when unpaired is BLOCKING
+  // Cloud failure when unpaired blocks pairing
   // -------------------------------------------------------------------------
   test("cloud failure when unpaired blocks pairing and does not launch", async () => {
     mockIsPaired = false;
@@ -423,8 +394,7 @@ describe("default command", () => {
     // Should NOT prompt for code
     expect(calls.askText).toHaveLength(0);
 
-    // Should NOT launch bridge or claude
-    expect(calls.launchBridge).toHaveLength(0);
+    // Should NOT launch claude
     expect(calls.launchClaude).toHaveLength(0);
   });
 });

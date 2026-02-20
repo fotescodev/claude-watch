@@ -144,19 +144,20 @@ async function isPortBusy(port: number): Promise<boolean> {
  * 5. Waits for the HTTP health endpoint to respond
  */
 export async function launchBridge(opts: BridgeOptions): Promise<BridgeProcess> {
-  // 1. Find Python
-  const pythonBin = opts.pythonPath ?? findPython();
-  if (!pythonBin) {
-    throw new Error(
-      "Python 3 not found. Install Python 3.8+ and ensure `python3` or `python` is on your PATH.",
-    );
-  }
-
-  // 2. Find repo root with MCPServer/bridge
+  // 1. Find repo root with MCPServer/bridge
   const repoRoot = findRepoRoot();
   if (!repoRoot) {
     throw new Error(
       "Could not find MCPServer/bridge/ module. Ensure you are running from within the claude-watch repository.",
+    );
+  }
+
+  // 2. Find Python — prefer repo .venv so dependencies are always available
+  const venvPython = join(repoRoot, ".venv", "bin", "python3");
+  const pythonBin = opts.pythonPath ?? (existsSync(venvPython) ? venvPython : findPython());
+  if (!pythonBin) {
+    throw new Error(
+      "Python 3 not found. Install Python 3.8+ and ensure `python3` or `python` is on your PATH.",
     );
   }
 
