@@ -65,6 +65,11 @@ interface SessionProgress {
   updatedAt: string;
 }
 
+// TTL constants
+const PAIRING_TTL = 300;       // 5 min — pairing codes are short-lived
+const SESSION_TTL = 3600;      // 1 hour — session data must survive long tool calls
+const CONNECTION_TTL = 86400;  // 24 hours — persists across sessions
+
 const app = new Hono<{ Bindings: Env }>();
 
 // Enable CORS for all routes
@@ -86,8 +91,8 @@ app.post('/api/pairing/register', async (c) => {
   };
 
   // Store by both code and sessionId for lookup
-  await c.env.PAIRING_KV.put(`code:${code}`, JSON.stringify(session), { expirationTtl: 300 }); // 5 minutes
-  await c.env.PAIRING_KV.put(`session:${sessionId}`, JSON.stringify(session), { expirationTtl: 300 });
+  await c.env.PAIRING_KV.put(`code:${code}`, JSON.stringify(session), { expirationTtl: PAIRING_TTL });
+  await c.env.PAIRING_KV.put(`session:${sessionId}`, JSON.stringify(session), { expirationTtl: PAIRING_TTL });
 
   return c.json({ success: true });
 });
@@ -160,9 +165,9 @@ app.post('/pair/initiate', async (c) => {
     watchPublicKey: publicKey,
   };
 
-  // Store by both code and watchId for lookup (5 min TTL)
-  await c.env.PAIRING_KV.put(`watch_code:${code}`, JSON.stringify(session), { expirationTtl: 300 });
-  await c.env.PAIRING_KV.put(`watch:${watchId}`, JSON.stringify(session), { expirationTtl: 300 });
+  // Store by both code and watchId for lookup
+  await c.env.PAIRING_KV.put(`watch_code:${code}`, JSON.stringify(session), { expirationTtl: PAIRING_TTL });
+  await c.env.PAIRING_KV.put(`watch:${watchId}`, JSON.stringify(session), { expirationTtl: PAIRING_TTL });
 
   return c.json({ code, watchId });
 });
@@ -202,8 +207,8 @@ app.post('/pair/complete', async (c) => {
     watchSession.pairingId = pairingId;
     // E2E encryption: store CLI's public key
     watchSession.cliPublicKey = publicKey;
-    await c.env.PAIRING_KV.put(`watch_code:${code}`, JSON.stringify(watchSession), { expirationTtl: 60 });
-    await c.env.PAIRING_KV.put(`watch:${watchSession.watchId}`, JSON.stringify(watchSession), { expirationTtl: 60 });
+    await c.env.PAIRING_KV.put(`watch_code:${code}`, JSON.stringify(watchSession), { expirationTtl: PAIRING_TTL });
+    await c.env.PAIRING_KV.put(`watch:${watchSession.watchId}`, JSON.stringify(watchSession), { expirationTtl: PAIRING_TTL });
 
     // Store connection with encryption keys
     const connection: Connection = {
@@ -212,7 +217,7 @@ app.post('/pair/complete', async (c) => {
       createdAt: new Date().toISOString(),
       lastSeen: new Date().toISOString(),
     };
-    await c.env.CONNECTIONS_KV.put(`pairing:${pairingId}`, JSON.stringify(connection), { expirationTtl: 86400 });
+    await c.env.CONNECTIONS_KV.put(`pairing:${pairingId}`, JSON.stringify(connection), { expirationTtl: CONNECTION_TTL });
 
     // E2E encryption: return watch's public key to CLI
     return c.json({
@@ -233,8 +238,8 @@ app.post('/pair/complete', async (c) => {
 
   session.paired = true;
   session.pairingId = pairingId;
-  await c.env.PAIRING_KV.put(`code:${code}`, JSON.stringify(session), { expirationTtl: 60 });
-  await c.env.PAIRING_KV.put(`session:${session.sessionId}`, JSON.stringify(session), { expirationTtl: 60 });
+  await c.env.PAIRING_KV.put(`code:${code}`, JSON.stringify(session), { expirationTtl: PAIRING_TTL });
+  await c.env.PAIRING_KV.put(`session:${session.sessionId}`, JSON.stringify(session), { expirationTtl: PAIRING_TTL });
 
   // Store connection
   const connection: Connection = {
@@ -243,7 +248,7 @@ app.post('/pair/complete', async (c) => {
     createdAt: new Date().toISOString(),
     lastSeen: new Date().toISOString(),
   };
-  await c.env.CONNECTIONS_KV.put(`pairing:${pairingId}`, JSON.stringify(connection), { expirationTtl: 86400 });
+  await c.env.CONNECTIONS_KV.put(`pairing:${pairingId}`, JSON.stringify(connection), { expirationTtl: CONNECTION_TTL });
 
   return c.json({ pairingId });
 });
@@ -267,7 +272,7 @@ app.post('/api/message', async (c) => {
     existing.messages = existing.messages.slice(-50);
   }
 
-  await c.env.MESSAGES_KV.put(`to_watch:${pairingId}`, JSON.stringify(existing), { expirationTtl: 300 });
+  await c.env.MESSAGES_KV.put(`to_watch:${pairingId}`, JSON.stringify(existing), { expirationTtl: SESSION_TTL });
 
   return c.json({ success: true });
 });
@@ -306,7 +311,7 @@ app.post('/respond/:requestId', async (c) => {
     timestamp: new Date().toISOString(),
   });
 
-  await c.env.MESSAGES_KV.put(`to_server:${pairingId}`, JSON.stringify(existing), { expirationTtl: 300 });
+  await c.env.MESSAGES_KV.put(`to_server:${pairingId}`, JSON.stringify(existing), { expirationTtl: SESSION_TTL });
 
   return c.json({ success: true });
 });
@@ -361,7 +366,7 @@ app.post('/approval', async (c) => {
     if (queue.requests.length > 50) {
       queue.requests = queue.requests.slice(-50);
     }
-    await c.env.MESSAGES_KV.put(`approval_queue:${body.pairingId}`, JSON.stringify(queue), { expirationTtl: 300 });
+    await c.env.MESSAGES_KV.put(`approval_queue:${body.pairingId}`, JSON.stringify(queue), { expirationTtl: SESSION_TTL });
   }
 
   return c.json({ success: true, requestId: body.id });
@@ -393,7 +398,7 @@ app.post('/approval/:requestId', async (c) => {
   const request = queue.requests.find(r => r.id === requestId);
   if (request) {
     request.status = approved ? 'approved' : 'rejected';
-    await c.env.MESSAGES_KV.put(`approval_queue:${pairingId}`, JSON.stringify(queue), { expirationTtl: 300 });
+    await c.env.MESSAGES_KV.put(`approval_queue:${pairingId}`, JSON.stringify(queue), { expirationTtl: SESSION_TTL });
   }
 
   // Also store response for hook to poll
@@ -404,7 +409,7 @@ app.post('/approval/:requestId', async (c) => {
     payload: { type: 'action_response', action_id: requestId, approved },
     timestamp: new Date().toISOString(),
   });
-  await c.env.MESSAGES_KV.put(`to_server:${pairingId}`, JSON.stringify(existing), { expirationTtl: 300 });
+  await c.env.MESSAGES_KV.put(`to_server:${pairingId}`, JSON.stringify(existing), { expirationTtl: SESSION_TTL });
 
   return c.json({ success: true });
 });
@@ -504,7 +509,7 @@ app.post('/question', async (c) => {
     if (queue.questions.length > 50) {
       queue.questions = queue.questions.slice(-50);
     }
-    await c.env.MESSAGES_KV.put(`question_queue:${body.pairingId}`, JSON.stringify(queue), { expirationTtl: 300 });
+    await c.env.MESSAGES_KV.put(`question_queue:${body.pairingId}`, JSON.stringify(queue), { expirationTtl: SESSION_TTL });
   }
 
   return c.json({ questionId: body.questionId, success: true });
@@ -537,7 +542,7 @@ app.post('/question/:questionId', async (c) => {
   if (question) {
     question.status = 'answered';
     question.answer = answer;
-    await c.env.MESSAGES_KV.put(`question_queue:${pairingId}`, JSON.stringify(queue), { expirationTtl: 300 });
+    await c.env.MESSAGES_KV.put(`question_queue:${pairingId}`, JSON.stringify(queue), { expirationTtl: SESSION_TTL });
   }
 
   // Also store response for hook to poll
@@ -548,7 +553,7 @@ app.post('/question/:questionId', async (c) => {
     payload: { type: 'question_response', question_id: questionId, answer },
     timestamp: new Date().toISOString(),
   });
-  await c.env.MESSAGES_KV.put(`to_server:${pairingId}`, JSON.stringify(existing), { expirationTtl: 300 });
+  await c.env.MESSAGES_KV.put(`to_server:${pairingId}`, JSON.stringify(existing), { expirationTtl: SESSION_TTL });
 
   return c.json({ success: true });
 });
@@ -625,7 +630,7 @@ app.post('/session-progress', async (c) => {
   await c.env.MESSAGES_KV.put(
     `progress:${body.pairingId}`,
     JSON.stringify({ ...body, updatedAt: new Date().toISOString() }),
-    { expirationTtl: 300 }
+    { expirationTtl: SESSION_TTL }
   );
 
   return c.json({ success: true });
@@ -673,7 +678,7 @@ app.post('/session-end', async (c) => {
     interruptAction: null,
     updatedAt: new Date().toISOString(),
   };
-  await c.env.MESSAGES_KV.put(`session:${pairingId}`, JSON.stringify(sessionState), { expirationTtl: 300 });
+  await c.env.MESSAGES_KV.put(`session:${pairingId}`, JSON.stringify(sessionState), { expirationTtl: SESSION_TTL });
 
   // Clear approval queue
   await c.env.MESSAGES_KV.delete(`approval_queue:${pairingId}`);
@@ -735,7 +740,7 @@ app.post('/session-interrupt', async (c) => {
   }
 
   sessionState.updatedAt = new Date().toISOString();
-  await c.env.MESSAGES_KV.put(`session:${pairingId}`, JSON.stringify(sessionState), { expirationTtl: 300 });
+  await c.env.MESSAGES_KV.put(`session:${pairingId}`, JSON.stringify(sessionState), { expirationTtl: SESSION_TTL });
 
   return c.json({
     success: true,

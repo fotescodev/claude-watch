@@ -253,6 +253,146 @@ def wait_for_response(cloud_url: str, request_id: str, pairing_id: str, timeout:
 
 
 # =============================================================================
+# AskUserQuestion handler
+# =============================================================================
+
+def create_question(cloud_url: str, question_data: dict) -> str | None:
+    """Create a question on the cloud server, return question_id."""
+    try:
+        result = http_request(
+            f"{cloud_url}/question",
+            method="POST",
+            data=question_data,
+            timeout=10,
+        )
+        if result is None:
+            return None
+        return result.get("questionId", question_data.get("questionId"))
+    except Exception:
+        return None
+
+
+def wait_for_question_answer(cloud_url: str, pairing_id: str, question_id: str, timeout: int = 300) -> str | None:
+    """
+    Poll the cloud server for a question answer.
+    Returns: answer string, or None on timeout/error.
+    """
+    start_time = time.time()
+    poll_interval = 1.0
+
+    while time.time() - start_time < timeout:
+        try:
+            result = http_request(
+                f"{cloud_url}/question/{pairing_id}/{question_id}",
+                method="GET",
+                timeout=10,
+            )
+            if result is not None:
+                answer = result.get("answer")
+                if answer is not None:
+                    log(f"Question {question_id[:8]} answered: {answer}")
+                    return answer
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None
+        except Exception:
+            pass
+
+        time.sleep(poll_interval)
+
+    log(f"Question {question_id[:8]} timed out after {timeout}s")
+    return None
+
+
+def handle_ask_user_question(cloud_url: str, pairing_id: str, tool_input: dict) -> None:
+    """
+    Route AskUserQuestion to the watch via cloud.
+    Sends question + options, waits for answer, then denies the tool
+    with the answer so Claude proceeds without re-asking.
+    """
+    questions = tool_input.get("questions", [])
+    if not questions:
+        log("AskUserQuestion with no questions, passing through")
+        sys.exit(0)
+
+    # Handle first question (most common case)
+    q = questions[0]
+    question_text = q.get("question", "")
+    raw_options = q.get("options", [])
+
+    # Build options in cloud format: [{label, description}]
+    options = []
+    for opt in raw_options:
+        if isinstance(opt, dict):
+            options.append({
+                "label": opt.get("label", ""),
+                "description": opt.get("description", ""),
+            })
+        elif isinstance(opt, str):
+            options.append({"label": opt, "description": ""})
+
+    if not options:
+        log("AskUserQuestion with no options, passing through")
+        sys.exit(0)
+
+    question_id = str(uuid.uuid4())
+    question_data = {
+        "pairingId": pairing_id,
+        "questionId": question_id,
+        "question": question_text,
+        "options": options,
+    }
+
+    log(f"Sending question to watch: {question_text[:50]}")
+
+    created_id = create_question(cloud_url, question_data)
+    if not created_id:
+        log("Failed to create question on cloud, falling back to terminal")
+        sys.exit(0)
+
+    log(f"Question created: {created_id[:8]}..., waiting for answer")
+
+    answer = wait_for_question_answer(cloud_url, pairing_id, created_id)
+
+    if answer is None:
+        log("No answer received, falling back to terminal")
+        sys.exit(0)
+
+    if answer == "handle_on_mac":
+        log("User chose 'Handle on Mac', falling back to terminal")
+        sys.exit(0)
+
+    # Write answer to temp file so Claude can read it after denial
+    answer_file = "/tmp/remmy-question-answer.json"
+    try:
+        import json as _json
+        with open(answer_file, "w") as f:
+            _json.dump({
+                "question": question_text,
+                "answer": answer,
+                "questionId": question_id,
+                "timestamp": time.time(),
+            }, f)
+        log(f"Wrote answer to {answer_file}")
+    except IOError:
+        pass
+
+    # Deny the tool — Claude should read /tmp/remmy-question-answer.json
+    print(f"User answered via Apple Watch: {answer}", file=sys.stderr)
+    log(f"Denying AskUserQuestion with answer: {answer}")
+
+    output = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "reason": f"User already answered via Apple Watch: {answer}",
+        }
+    }
+    print(json.dumps(output))
+    sys.exit(2)
+
+
+# =============================================================================
 # Display helpers
 # =============================================================================
 
@@ -344,14 +484,8 @@ def main():
 
     log(f"Tool: {tool_name}")
 
-    # AskUserQuestion: always pass through (Approach A)
-    # Questions appear in terminal, watch gets no blocking prompt
-    if tool_name == "AskUserQuestion":
-        log("AskUserQuestion - passthrough (Approach A)")
-        sys.exit(0)
-
-    # Skip tools that don't need approval
-    if tool_name not in TOOLS_REQUIRING_APPROVAL:
+    # Skip tools that don't need approval (unless it's AskUserQuestion)
+    if tool_name != "AskUserQuestion" and tool_name not in TOOLS_REQUIRING_APPROVAL:
         log(f"Tool {tool_name} does not require approval, skipping")
         sys.exit(0)
 
@@ -365,6 +499,11 @@ def main():
     # Get cloud URL from config (don't hardcode)
     cloud_url = get_cloud_url()
     log(f"Pairing ID: {pairing_id[:8]}..., Cloud: {cloud_url}")
+
+    # AskUserQuestion: route to watch, deny tool with answer
+    if tool_name == "AskUserQuestion":
+        handle_ask_user_question(cloud_url, pairing_id, tool_input)
+        sys.exit(0)  # fallback if handle function doesn't exit
 
     # Check if session was ended from watch
     if check_session_ended(cloud_url, pairing_id):

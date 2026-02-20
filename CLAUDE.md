@@ -253,35 +253,24 @@ remmy-cli
 
 When `CLAUDE_WATCH_SESSION_ACTIVE=1` is set (by remmy-cli), the user is approving from their Apple Watch.
 
-**The watch can ONLY approve or reject. It cannot select from options or type text.**
+### AskUserQuestion → Watch Flow
 
-### CRITICAL: Only Ask Yes/No Questions
+The hook intercepts `AskUserQuestion` and routes it to the watch. The user selects an option on the watch. The hook then **denies** the tool and writes the answer to `/tmp/remmy-question-answer.json`.
 
-1. When you need user input, **recommend ONE approach** and ask "Proceed? (y/n)"
-2. **NEVER present numbered option lists** - the watch cannot select from them
-3. If the user says "no", offer the next best alternative
-4. For open-ended inputs (naming, etc.), use a sensible default: "I'll name it `UserService`. OK? (y/n)"
+**CRITICAL: After any `AskUserQuestion` denial by hook, you MUST read `/tmp/remmy-question-answer.json` to get the user's answer and proceed with it. Do NOT re-ask the question.**
 
-### Question Transformations
+```json
+// /tmp/remmy-question-answer.json format:
+{"question": "...", "answer": "Selected Option", "questionId": "...", "timestamp": ...}
+```
 
-| Instead of... | Ask... |
-|---------------|--------|
-| "Which approach? 1. A  2. B  3. C" | "I recommend A because [reason]. Proceed? (y/n)" |
-| "Where should I save? 1. New file  2. Existing" | "I'll create `foo.ts`. OK? (y/n)" |
-| "What should I name the function?" | "I'll call it `processData`. OK? (y/n)" |
+### Question Guidelines
 
-### Why This Matters
-
-The Apple Watch has a tiny screen and limited input. It can:
-- Tap "Approve" or "Reject" buttons
-- Receive push notifications
-
-It **cannot**:
-- Select from numbered options
-- Type text input
-- See multi-line question context
-
-By asking yes/no questions, you enable seamless watch-based code review.
+- Keep questions short — the watch screen is tiny
+- Limit to 2-3 options (the watch shows them as tappable buttons)
+- The watch **cannot** handle free-text input — only option selection
+- For open-ended inputs (naming, etc.), use a sensible default: "I'll name it `UserService`. OK?" with Yes/No options
+- If the user selects "Handle on Mac", the question falls through to the terminal
 
 ## CLI Commands
 ```bash
