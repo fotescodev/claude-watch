@@ -56,8 +56,8 @@ afterEach(() => {
 
 describe("cloud-client", () => {
   // R4.T6
-  test("DEFAULT_CLOUD_URL is 'https://remmy.watch'", () => {
-    expect(DEFAULT_CLOUD_URL).toBe("https://remmy.watch");
+  test("DEFAULT_CLOUD_URL is the workers.dev URL", () => {
+    expect(DEFAULT_CLOUD_URL).toBe("https://claude-watch.fotescodev.workers.dev");
   });
 
   // R4.T7

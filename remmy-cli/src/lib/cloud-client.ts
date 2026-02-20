@@ -4,7 +4,7 @@
  * Zero runtime dependencies: uses native fetch() and AbortSignal.timeout().
  */
 
-export const DEFAULT_CLOUD_URL = "https://remmy.watch";
+export const DEFAULT_CLOUD_URL = "https://claude-watch.fotescodev.workers.dev";
 
 /**
  * Returns the cloud URL from the REMMY_CLOUD_URL env var,
