@@ -27,6 +27,6 @@ This script tests:
 11. Danger Queue - Review Each only
 
 **Requirements:**
-- Active pairing (`npx cc-watch`)
+- Active pairing (`remmy-cli`)
 - Watch connected (simulator or physical)
 - Cloud server healthy

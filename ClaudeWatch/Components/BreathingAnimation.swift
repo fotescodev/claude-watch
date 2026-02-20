@@ -22,11 +22,11 @@ struct BreathingAnimationModifier: ViewModifier {
     /// Animation duration in seconds
     var duration: Double = 3.0
 
-    /// Minimum scale (at exhale)
-    var minScale: CGFloat = 0.9
+    /// Minimum scale (at exhale) — subtle, Apple-style
+    var minScale: CGFloat = 0.97
 
-    /// Minimum opacity (at exhale)
-    var minOpacity: Double = 0.6
+    /// Minimum opacity (at exhale) — subtle, Apple-style
+    var minOpacity: Double = 0.8
 
     func body(content: Content) -> some View {
         content
@@ -54,8 +54,8 @@ extension View {
     ///   - minOpacity: Minimum opacity at exhale (default: 0.6)
     func breathingAnimation(
         duration: Double = 3.0,
-        minScale: CGFloat = 0.9,
-        minOpacity: Double = 0.6
+        minScale: CGFloat = 0.97,
+        minOpacity: Double = 0.8
     ) -> some View {
         modifier(BreathingAnimationModifier(
             duration: duration,
@@ -78,19 +78,19 @@ struct BreathingCircle: View {
 
     var body: some View {
         ZStack {
-            // Outer glow (more pronounced breathing)
+            // Outer glow (subtle breathing)
             Circle()
                 .fill(color.opacity(0.3))
                 .frame(width: size * 1.5, height: size * 1.5)
-                .scaleEffect(reduceMotion ? 1.0 : (isBreathing ? 1.1 : 0.85))
-                .opacity(reduceMotion ? 0.3 : (isBreathing ? 0.5 : 0.2))
+                .scaleEffect(reduceMotion ? 1.0 : (isBreathing ? 1.05 : 0.95))
+                .opacity(reduceMotion ? 0.3 : (isBreathing ? 0.4 : 0.2))
 
             // Inner circle
             Circle()
                 .fill(color)
                 .frame(width: size, height: size)
-                .scaleEffect(reduceMotion ? 1.0 : (isBreathing ? 1.0 : 0.9))
-                .opacity(reduceMotion ? 1.0 : (isBreathing ? 1.0 : 0.6))
+                .scaleEffect(reduceMotion ? 1.0 : (isBreathing ? 1.0 : 0.97))
+                .opacity(reduceMotion ? 1.0 : (isBreathing ? 1.0 : 0.8))
         }
         .onAppear {
             guard !reduceMotion else { return }
@@ -121,8 +121,8 @@ struct ClaudeFaceLogo: View {
             .resizable()
             .aspectRatio(contentMode: .fit)
             .frame(width: size, height: size)
-            .scaleEffect(animated && !reduceMotion ? (isBreathing ? 1.0 : 0.95) : 1.0)
-            .opacity(animated && !reduceMotion ? (isBreathing ? 1.0 : 0.8) : 1.0)
+            .scaleEffect(animated && !reduceMotion ? (isBreathing ? 1.0 : 0.97) : 1.0)
+            .opacity(animated && !reduceMotion ? (isBreathing ? 1.0 : 0.85) : 1.0)
             .onAppear {
                 guard animated && !reduceMotion else { return }
                 withAnimation(

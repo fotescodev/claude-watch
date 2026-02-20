@@ -5,7 +5,7 @@
     "PLATFORM": "watchOS",
     "SWIFT_VERSION": "5.9",
     "WATCHOS_DEPLOYMENT_TARGET": "10.0",
-    "DEFAULT_SIMULATOR": "Apple Watch Series 9 (45mm)"
+    "DEFAULT_SIMULATOR": "Apple Watch Series 11 (46mm)"
   },
   "permissions": {
     "allow": [
@@ -67,26 +67,7 @@
       }
     ],
     "PostToolUse": [],
-    "PreToolUse": [
-      {
-        "matcher": "_ALL_DISABLED_Write|Edit|MultiEdit|mobile_install_app|mobile_uninstall_app",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/watch-approval-cloud.py"
-          }
-        ]
-      },
-      {
-        "matcher": "AskUserQuestion",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/question-handler.py"
-          }
-        ]
-      }
-    ],
+    "PreToolUse": [],
     "SubagentStop": [
       {
         "matcher": "",
@@ -110,13 +91,6 @@
         "@kimsungwhee/apple-docs-mcp"
       ],
       "description": "Apple Developer Documentation, WWDC videos, framework APIs, and platform compatibility"
-    },
-    "claude-watch": {
-      "command": "python",
-      "args": [
-        "MCPServer/server.py"
-      ],
-      "description": "Claude Watch bridge server for Apple Watch integration"
     }
   },
   "_disabledPlugins_note": "Disabled compound-engineering and superpowers to prevent research sprees. Re-enable if needed for specific tasks."

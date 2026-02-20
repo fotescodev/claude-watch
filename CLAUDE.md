@@ -4,6 +4,87 @@
 >
 > **Before proposing solutions:** Read `.claude/ARCHITECTURE.md` first.
 
+## Working Mode
+
+**Always declare the working mode before starting any task. Default is RIGOR.**
+
+| Mode | When to Use | My Behavior |
+|------|-------------|-------------|
+| **RIGOR** | Bug fixes, baseline verification, pre-ship, anything that gates the next step | One file/step at a time. Verify after each change before moving forward. Zero failures before declaring done. Surface every unexpected result immediately. No forward progress until current step is explicitly clean. |
+| **VELOCITY** | Exploration, prototyping, drafting, spike work | Batch changes. Run once at end. Flag remaining issues and continue. |
+
+**How to declare:** Say "RIGOR mode" or "VELOCITY mode" at the start of a task.
+If no mode is declared, I will ask before starting.
+
+> Why this matters: I naturally optimize for speed and task completion. Without an explicit
+> mode, I will make tradeoffs that favour throughput over correctness — batching changes,
+> asserting rather than verifying, and moving forward when "mostly done." RIGOR mode
+> overrides those defaults and holds a higher quality bar throughout.
+
+---
+
+## Prompting Protocols
+
+These protocols override my default behaviours. Apply them by adding them to your task instruction.
+
+### 1. Pre-Task Acceptance Criteria
+Before I start any non-trivial task, require me to state what done looks like.
+> *"Before you touch anything — write the 3 conditions that would make this task complete. I will approve them before you begin."*
+
+Calibrates the target before work starts. RIGOR/VELOCITY controls pace. Acceptance criteria control destination. Both are needed.
+
+### 2. Pre-Mortem
+Ask what could go wrong before I start, not after.
+> *"What are the top 3 ways this task could fail or go wrong?"*
+
+Forces risks to the surface before they become problems. What I don't surface is your signal to probe harder.
+
+### 3. Flag Unverified Claims
+I state confident-sounding things regardless of how certain I actually am.
+Add this to any task where accuracy matters:
+> *"Flag any claim you have not directly verified with [UNVERIFIED]."*
+
+Distinguishes what I know from what I am asserting. The single most common source of 6/10 work is unverified assertions presented as facts.
+
+### 4. Adversarial Review Agent
+After implementation, spawn a fresh agent with zero context of how the work was done.
+> *"Here is the output. Here is what done was supposed to look like. Find everything wrong with it. Do not suggest fixes — only find problems."*
+
+The implementing agent is compromised by its own context. A fresh agent sees what was rationalized away. Use the multi-agent infrastructure already in this project.
+
+### 5. Negative Constraints
+Tell me what I cannot do, not just what I should do.
+> *"Fix the failing tests. You may not skip tests, mark them as expected failures, or modify files outside the tests/ directory."*
+
+Closes off shortcuts before I find them. More powerful than positive instructions for correctness-critical tasks.
+
+### 6. What Didn't You Do
+After completion, ask what I considered and rejected.
+> *"What approaches did you consider but decide against — and why?"*
+
+The paths not taken are often where the real answer lives. I discard options silently. This makes them visible.
+
+### 7. Confidence Levels
+After any non-trivial recommendation or diagnosis, ask:
+> *"How confident are you in that from 1–10, and what is the main source of uncertainty?"*
+
+Same as the quality self-rating but applied to individual claims. Surfaces the weak links before they become decisions.
+
+### 8. Watch as Quality Gate (unique to this project)
+The Apple Watch approval infrastructure can gate any checkpoint — not just tool calls.
+Before starting a multi-step task, define which steps require watch approval before proceeding.
+This makes RIGOR mode physical: each gate requires an explicit human decision, not just a passive non-interruption.
+
+### 9. MEMORY.md — Interaction Patterns, Not Just Technical Notes
+Record my failure patterns, not just technical learnings.
+Examples of what belongs here:
+- "Claude dismisses low-count test failures as pre-existing without verification — require explicit proof."
+- "Claude batches multi-file changes by default — confirm one-file-at-a-time before any multi-file task."
+
+These load every session and shape my behaviour before I read the task. Correction upstream is more reliable than correction in-session.
+
+---
+
 ## Session Workflow (GSD-Inspired)
 
 ```
@@ -11,20 +92,21 @@
 │  SESSION START                                                  │
 │  1. Run /progress → See current phase, tasks, blockers          │
 │  2. Read .claude/state/SESSION_STATE.md → Handoff context       │
+│  3. Declare working mode: RIGOR or VELOCITY                     │
 │                                                                 │
 │  BEFORE NEW PHASE                                               │
-│  3. Run /discuss-phase N → Capture decisions upfront            │
-│  4. Creates .claude/plans/phase{N}-CONTEXT.md                   │
+│  4. Run /discuss-phase N → Capture decisions upfront            │
+│  5. Creates .claude/plans/phase{N}-CONTEXT.md                   │
 │                                                                 │
 │  DURING IMPLEMENTATION                                          │
-│  5. Use tasks.yaml for task tracking                            │
-│  6. Commit atomically per task                                  │
+│  6. Track progress in MIGRATION_PROGRESS.md                     │
+│  7. Commit atomically per task                                  │
 │                                                                 │
 │  BEFORE SHIPPING                                                │
-│  7. Run /ship-check → Pre-submission validation                 │
+│  8. Run /ship-check → Pre-submission validation                 │
 │                                                                 │
 │  SESSION END                                                    │
-│  8. Update SESSION_STATE.md with handoff notes                  │
+│  9. Update SESSION_STATE.md with handoff notes                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -68,34 +150,38 @@ Claude Watch is a watchOS app that provides a wearable interface for Claude Code
 claude-watch/
 ├── ClaudeWatch/                    # watchOS App
 │   ├── App/                        # Entry point + AppDelegate
-│   │   └── ClaudeWatchApp.swift    # Main app with notification handling
 │   ├── Views/                      # SwiftUI views
-│   │   └── MainView.swift          # Single-screen UI
 │   ├── Services/                   # Business logic
-│   │   └── WatchService.swift      # WebSocket client + state management
 │   └── Complications/              # Watch face widgets
-│       └── ComplicationViews.swift # Complication providers
+├── MCPServer/                      # Python backend
+│   ├── server.py                   # Legacy standalone server
+│   └── bridge/                     # SDK-URL bridge (advanced, 346 tests)
+│       ├── main.py                 # Bridge entrypoint
+│       ├── ndjson_server.py        # NDJSON WebSocket server
+│       ├── api.py                  # Watch-facing REST API
+│       ├── cloud_client.py         # Cloud worker relay
+│       └── tests/                  # 346 tests
+├── remmy-cli/                      # TypeScript CLI
+│   ├── hooks/                      # watch-approval-cloud.py (hook script)
+│   └── src/                        # 143 tests
 ├── ClaudeWatch.xcodeproj/          # Xcode project
-└── MCPServer/                      # Python MCP server
-    └── server.py                   # WebSocket + MCP + APNs bridge
+└── .claude/                        # Agent & developer docs
 ```
 
 ## Documentation Structure
 
 ```
-inbox/ → plans/ → tasks.yaml → archive/
-(ideas)  (refined)  (execute)   (done)
+plans/ → MIGRATION_PROGRESS.md → archive/
+(ideas + specs)    (execute)        (done)
 ```
 
 | Directory | Purpose |
 |-----------|---------|
 | `.claude/state/SESSION_STATE.md` | **Handoff persistence** - read at session start |
-| `.claude/ralph/tasks.yaml` | **THE** source of truth for current work |
-| `.claude/plans/` | Refined plans, roadmap, and phase CONTEXT files |
+| `.claude/plans/MIGRATION_PROGRESS.md` | **THE** source of truth for current work |
+| `.claude/plans/` | Ideas, specs, roadmap, and phase CONTEXT files |
 | `.claude/commands/` | Slash commands (`/progress`, `/ship-check`, etc.) |
-| `.claude/context/` | Always-on context (personas, PRD, journeys) |
-| `.claude/scope-creep/` | Future dreams (CarPlay, iOS app) - ignore |
-| `.claude/inbox/` | Raw ideas, quick captures |
+| `.claude/context/PRD.md` | Product requirements document |
 | `.claude/archive/` | Completed or obsolete content |
 | `docs/` | User-facing guides only |
 | `docs/solutions/` | **Documented fixes** - check [INDEX.md](docs/solutions/INDEX.md) when debugging |
@@ -133,7 +219,7 @@ inbox/ → plans/ → tasks.yaml → archive/
 ## Testing Commands
 ```bash
 # Build for simulator
-xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm)'
+xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)'
 
 # Run on device (requires provisioning)
 xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS'
@@ -148,7 +234,7 @@ xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'plat
 │   Apple Watch   │         │    Mac CLI      │
 │                 │         │                 │
 │  1. Tap "Pair"  │         │                 │
-│  2. Shows code  │ ──────> │  3. npx cc-watch│
+│  2. Shows code  │ ──────> │  3. remmy-cli   │
 │     "ABC-123"   │         │  4. Enter code  │
 │                 │         │  5. Paired!     │
 └─────────────────┘         └─────────────────┘
@@ -156,7 +242,7 @@ xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'plat
 
 ```bash
 # On Mac - after watch displays code:
-npx cc-watch
+remmy-cli
 # Enter the code FROM the watch INTO the CLI
 ```
 
@@ -164,45 +250,37 @@ npx cc-watch
 
 ## Watch Approval Mode (IMPORTANT)
 
-When `CLAUDE_WATCH_SESSION_ACTIVE=1` is set (by cc-watch), the user is approving from their Apple Watch.
+When `CLAUDE_WATCH_SESSION_ACTIVE=1` is set (by remmy-cli), the user is approving from their Apple Watch.
 
-**The watch can ONLY approve or reject. It cannot select from options or type text.**
+### AskUserQuestion → Watch Flow
 
-### CRITICAL: Only Ask Yes/No Questions
+The hook intercepts `AskUserQuestion` and routes it to the watch. The user selects an option on the watch. The hook then **denies** the tool and writes the answer to `/tmp/remmy-question-answer.json`.
 
-1. When you need user input, **recommend ONE approach** and ask "Proceed? (y/n)"
-2. **NEVER present numbered option lists** - the watch cannot select from them
-3. If the user says "no", offer the next best alternative
-4. For open-ended inputs (naming, etc.), use a sensible default: "I'll name it `UserService`. OK? (y/n)"
+**CRITICAL: After any `AskUserQuestion` denial by hook, you MUST read `/tmp/remmy-question-answer.json` to get the user's answer and proceed with it. Do NOT re-ask the question.**
 
-### Question Transformations
+```json
+// /tmp/remmy-question-answer.json format:
+{"question": "...", "answer": "Selected Option", "questionId": "...", "timestamp": ...}
+```
 
-| Instead of... | Ask... |
-|---------------|--------|
-| "Which approach? 1. A  2. B  3. C" | "I recommend A because [reason]. Proceed? (y/n)" |
-| "Where should I save? 1. New file  2. Existing" | "I'll create `foo.ts`. OK? (y/n)" |
-| "What should I name the function?" | "I'll call it `processData`. OK? (y/n)" |
+### Question Guidelines
 
-### Why This Matters
+- Keep questions short — the watch screen is tiny
+- Limit to 2-3 options (the watch shows them as tappable buttons)
+- The watch **cannot** handle free-text input — only option selection
+- For open-ended inputs (naming, etc.), use a sensible default: "I'll name it `UserService`. OK?" with Yes/No options
+- If the user selects "Handle on Mac", the question falls through to the terminal
 
-The Apple Watch has a tiny screen and limited input. It can:
-- Tap "Approve" or "Reject" buttons
-- Receive push notifications
-
-It **cannot**:
-- Select from numbered options
-- Type text input
-- See multi-line question context
-
-By asking yes/no questions, you enable seamless watch-based code review.
-
-## Server Commands
+## CLI Commands
 ```bash
-# Start MCP server (standalone mode)
-cd MCPServer && python server.py --standalone --port 8787
+# Default flow: pair + install hook + launch Claude
+cd remmy-cli && bun run dev
 
-# Test API
-curl http://localhost:8788/state
+# Run tests
+cd remmy-cli && bun run test
+
+# Start bridge server (advanced mode)
+cd MCPServer && python -m bridge.main
 ```
 
 ## DO NOT
@@ -211,11 +289,14 @@ curl http://localhost:8788/state
 - Use force unwrapping (`!`) without justification
 - Block the main thread with synchronous network calls
 - Ignore notification permission states
-- **NEVER disable or clear PreToolUse hooks in `.claude/settings.json`** - The watch approval hook uses session isolation via `CLAUDE_WATCH_SESSION_ACTIVE` env var. It stays registered but only activates when cc-watch is running. DO NOT TOUCH IT.
+- **NEVER disable or clear PreToolUse hooks in `.claude/settings.json`** - The watch approval hook uses session isolation via `CLAUDE_WATCH_SESSION_ACTIVE` env var. It stays registered but only activates when remmy-cli is running. DO NOT TOUCH IT.
 
 ## Key Files
 - `ClaudeWatchApp.swift` - App entry, notification setup
 - `MainView.swift` - Primary UI
 - `WatchService.swift` - WebSocket, state, API calls
 - `ComplicationViews.swift` - Watch face widgets
-- `MCPServer/server.py` - Python backend
+- `remmy-cli/hooks/watch-approval-cloud.py` - PreToolUse hook (bundled)
+- `remmy-cli/src/lib/hooks-config.ts` - Hook installation + registration
+- `remmy-cli/src/lib/claude-launcher.ts` - Spawns Claude with env var
+- `remmy-cli/src/commands/default.ts` - CLI default command (pair + hook + launch)

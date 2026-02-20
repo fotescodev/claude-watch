@@ -31,8 +31,12 @@ struct MainView: View {
             return ("Question", Claude.question)
         case .contextWarning:
             return ("Warning", Claude.warning)
+        case .approval:
+            return ("Approval", Claude.warning)
+        case .approvalQueue:
+            return nil  // Queue views manage their own tier-colored headers
         case .pairing:
-            return ("Unpaired", Claude.idle)
+            return nil  // PairingView manages its own header
         case .offline:
             return ("Offline", Claude.danger)
         case .reconnecting:
@@ -40,7 +44,7 @@ struct MainView: View {
         case .success:
             return ("Complete", Claude.success)
         default:
-            return nil  // approvalQueue, approval, empty, main, alwaysOn handle their own
+            return nil  // empty, main, alwaysOn handle their own
         }
     }
 
@@ -162,7 +166,7 @@ struct MainView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.bottom, 2)
+                .padding(.bottom, 24)
             }
         }
         #endif
@@ -209,7 +213,7 @@ struct MainView: View {
             VStack(spacing: 8) {
                 // Only show status header when NO pending actions
                 if service.state.pendingActions.isEmpty {
-                    StatusHeader(pulsePhase: pulsePhase)
+                    StatusHeader()
 
                     // Bottom row: Pause button + Mode selector on same plane
                     HStack(spacing: 8) {
@@ -282,22 +286,13 @@ struct MainView: View {
         }
 
         // V2 state-driven views
-        // Paused state takes priority
-        if service.isSessionInterrupted {
-            return .paused
-        }
 
-        // F18: Question takes high priority
+        // F18: Question takes highest interactive priority
         if service.pendingQuestion != nil {
             return .question
         }
 
-        // F16: Context warning takes priority over normal states
-        if service.contextWarning != nil {
-            return .contextWarning
-        }
-
-        // Approval states - PRIORITY over working (user must approve for Claude to continue)
+        // Approval states - PRIORITY over paused/working (user must act for Claude to continue)
         let pendingCount = service.state.pendingActions.count
         if pendingCount >= 2 {
             return .approvalQueue
@@ -305,14 +300,28 @@ struct MainView: View {
             return .approval
         }
 
+        // Paused state (only when no pending approvals)
+        if service.isSessionInterrupted {
+            return .paused
+        }
+
+        // F16: Context warning takes priority over normal states
+        if service.contextWarning != nil {
+            return .contextWarning
+        }
+
         // Session progress states (only shown when no pending approvals)
         if let progress = service.sessionProgress {
-            let isComplete = progress.isComplete
-            if isComplete {
+            if progress.isComplete {
                 return .success
             } else {
                 return .working
             }
+        }
+
+        // Running/waiting without session progress → still show WorkingView
+        if service.state.status == .running || service.state.status == .waiting {
+            return .working
         }
 
         // Idle/empty state
@@ -337,7 +346,7 @@ struct MainView: View {
 
     private func startPulse() {
         guard !reduceMotion else { return }
-        withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
             pulsePhase = 1
         }
     }
@@ -389,146 +398,44 @@ struct MainView: View {
 // MARK: - Status Header
 struct StatusHeader: View {
     var service = WatchService.shared
-    let pulsePhase: CGFloat
-
-    // Accessibility: Reduce Motion support
-    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     // Accessibility: High Contrast support
     @Environment(\.colorSchemeContrast) var colorSchemeContrast
 
     var body: some View {
         VStack(spacing: 10) {
-            // Show session progress from TodoWrite if available
-            if let progress = service.sessionProgress {
-                sessionProgressView(progress)
+            if !service.state.taskName.isEmpty {
+                Text(service.state.taskName)
+                    .font(.claudeHeadline)
+                    .foregroundStyle(Claude.textPrimary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
             } else {
-                // Fallback to existing task name display
-                if !service.state.taskName.isEmpty {
-                    Text(service.state.taskName)
-                        .font(.claudeHeadline)
-                        .foregroundStyle(Claude.textPrimary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
-                } else {
-                    Text(idleMessage)
-                        .font(.claudeHeadline)
-                        .foregroundStyle(Claude.textPrimary)
-                        .multilineTextAlignment(.center)
-                }
-
-                // Progress bar with percentage when running (fallback)
-                if service.state.status == .running || service.state.status == .waiting {
-                    VStack(spacing: 4) {
-                        ProgressView(value: service.state.progress)
-                            .tint(Claude.orange)
-
-                        Text("\(Int(service.state.progress * 100))%")
-                            .font(.system(size: 11, weight: .medium, design: .monospaced))
-                            .foregroundStyle(Claude.textSecondary)
-                    }
-                }
+                Text(idleMessage)
+                    .font(.claudeHeadline)
+                    .foregroundStyle(Claude.textPrimary)
+                    .multilineTextAlignment(.center)
             }
 
-            // Status indicator - only show when NOT displaying session progress
-            // (session progress already shows status in the header)
-            if service.sessionProgress == nil {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(statusColor)
-                        .frame(width: 6, height: 6)
+            // Progress bar when running
+            if service.state.status == .running || service.state.status == .waiting {
+                ProgressView(value: service.state.progress)
+                    .tint(Claude.orange)
+            }
 
-                    Text(statusText)
-                        .font(.claudeFootnote)
-                        .foregroundStyle(Claude.textSecondaryContrast(colorSchemeContrast))
-                }
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 6, height: 6)
+
+                Text(statusText)
+                    .font(.claudeFootnote)
+                    .foregroundStyle(Claude.textSecondaryContrast(colorSchemeContrast))
             }
         }
         .frame(maxWidth: .infinity)
         .padding(12)
         .glassEffectCompat(RoundedRectangle(cornerRadius: 16))
-    }
-
-    /// Session progress view showing rich state from TodoWrite
-    /// Optimized spacing to fit within watch bezel
-    @ViewBuilder
-    private func sessionProgressView(_ progress: SessionProgress) -> some View {
-        let isComplete = progress.isComplete
-
-        VStack(spacing: 4) {
-            // Current task label + activity
-            VStack(alignment: .leading, spacing: 1) {
-                // Subtle "CURRENT TASK" label
-                if !isComplete {
-                    Text("CURRENT TASK")
-                        .font(.system(size: 7, weight: .medium))
-                        .foregroundStyle(Claude.textTertiary)
-                        .tracking(0.5)
-                }
-
-                // Activity with status indicator
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(isComplete ? Claude.success : Claude.orange)
-                        .frame(width: 5, height: 5)
-                        .opacity(isComplete || reduceMotion ? 1.0 : 0.5 + 0.5 * Double(pulsePhase))
-
-                    // Show completion state, current activity, or working status
-                    if isComplete {
-                        Text("Complete")
-                            .font(.claudeCaptionBold)
-                            .foregroundStyle(Claude.success)
-                    } else if let activity = progress.currentActivity ?? progress.currentTask {
-                        Text(activity)
-                            .font(.claudeCaptionBold)
-                            .foregroundStyle(Claude.textPrimary)
-                            .lineLimit(1)
-                    } else {
-                        Text("Working...")
-                            .font(.claudeCaptionBold)
-                            .foregroundStyle(Claude.textPrimary)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            // Todo list (show up to 3 items to save space on watch)
-            if !progress.tasks.isEmpty {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(progress.tasks.prefix(3)) { task in
-                        HStack(spacing: 4) {
-                            Text(task.status.icon)
-                                .font(.system(size: 8))
-                                .foregroundStyle(task.status.color)
-
-                            Text(task.content)
-                                .font(.claudeNano)
-                                .foregroundStyle(task.status == .completed ? Claude.textSecondary : Claude.textPrimary)
-                                .lineLimit(1)
-                        }
-                    }
-
-                    // Show "... and X more" if there are more tasks
-                    if progress.tasks.count > 3 {
-                        Text("+\(progress.tasks.count - 3) more")
-                            .font(.system(size: 8, weight: .regular))
-                            .foregroundStyle(Claude.textSecondary)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            // Progress bar with stats - compact
-            HStack(spacing: 6) {
-                ProgressView(value: progress.progress)
-                    .tint(isComplete ? Claude.success : Claude.orange)
-
-                Text("\(progress.completedCount)/\(progress.totalCount)")
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Claude.textSecondary)
-            }
-
-        }
     }
 
     private var idleMessage: String {
@@ -547,11 +454,6 @@ struct StatusHeader: View {
     }
 
     private var statusText: String {
-        // Override status text when showing session progress
-        if let progress = service.sessionProgress {
-            return progress.isComplete ? "Complete" : "Working"
-        }
-
         switch service.state.status {
         case .idle: return "Idle"
         case .running: return "Working"
@@ -562,11 +464,6 @@ struct StatusHeader: View {
     }
 
     private var statusColor: Color {
-        // Override status color when showing session progress
-        if let progress = service.sessionProgress {
-            return progress.isComplete ? Claude.success : Claude.orange
-        }
-
         switch service.state.status {
         case .idle: return Claude.textSecondary
         case .running: return Claude.orange

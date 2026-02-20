@@ -6,34 +6,40 @@
 
 ---
 
-## System Components
+## System Components (Primary Architecture — Hooks-Based)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              CLAUDE WATCH SYSTEM                                │
+│                      CLAUDE WATCH SYSTEM (Hooks-Based)                          │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │   MAC (Developer Machine)                                                       │
-│   ├── Claude Code (agent runtime)                                               │
+│   ├── Claude Code CLI (native TUI — no modifications)                           │
 │   │   ├── PreToolUse hooks → approval requests                                  │
-│   │   ├── PostToolUse hooks → progress updates + mobile validation              │
-│   │   ├── SessionStart hooks → context injection                                │
-│   │   └── Mobile-MCP tools → iOS Simulator automation                           │
+│   │   └── CLAUDE_WATCH_SESSION_ACTIVE=1 → gates watch mode                     │
 │   │                                                                             │
-│   └── cc-watch CLI (claude-watch-npm/)                                          │
+│   └── remmy-cli (TypeScript CLI)                                                │
 │       ├── Pairing flow → POST /pair/complete                                    │
+│       ├── Installs hook → ~/.claude/hooks/watch-approval-cloud.py               │
+│       ├── Registers hook → ~/.claude/settings.json (PreToolUse)                 │
 │       └── Spawns Claude with CLAUDE_WATCH_SESSION_ACTIVE=1                      │
+│                                                                                 │
+│   HOOK (watch-approval-cloud.py)                                                │
+│   ├── Intercepts PreToolUse for Bash/Edit/Write/MultiEdit/NotebookEdit          │
+│   ├── Checks CLAUDE_WATCH_SESSION_ACTIVE=1 (skip if not set)                   │
+│   ├── Sends approval request → cloud worker                                    │
+│   └── Polls for response (5-minute timeout)                                    │
 │                                                                                 │
 │   CLOUDFLARE WORKER (claude-watch-cloud/)                                       │
 │   ├── /pair/* → Pairing handshake (watch initiates, CLI completes)              │
 │   ├── /approval/* → Tool approval requests + responses                          │
-│   ├── /session-progress/* → Progress updates from TodoWrite hook                │
+│   ├── /session-progress/* → Progress updates                                    │
 │   └── APNs → Push notifications to watch (instant alerts)                       │
 │                                                                                 │
 │   APPLE WATCH (ClaudeWatch/)                                                    │
-│   ├── WatchService.swift → Polls cloud, sends responses, manages state          │
-│   ├── Views/ → MainView (approvals), PairingView (setup), ProgressView          │
-│   └── Complications/ → Watch face widgets for quick access                      │
+│   ├── WatchService.swift → Polls cloud (same endpoints, same contract)          │
+│   ├── Views/ → MainView, PairingView, ProgressView                             │
+│   └── Complications/ → Watch face widgets                                       │
 │                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -44,10 +50,9 @@
 
 | Flow | Direction | Files Involved |
 |------|-----------|----------------|
-| **Pairing** | Watch → Cloud → CLI | `WatchService.swift` → `index.ts` → `cc-watch.ts` |
-| **Approval** | Hook → Cloud → Watch → Cloud → Hook | `watch-approval-cloud.py` → `index.ts` → `WatchService.swift` |
-| **Progress** | Hook → Cloud → Watch | `progress-tracker.py` → `index.ts` → `WatchService.swift` |
-| **Mobile Test** | Agent → Simulator → Validator | `mobile_*` tools → iOS Simulator → `screen_state_validator.py` |
+| **Pairing** | Watch → Cloud → CLI | `WatchService.swift` → `index.ts` → `remmy-cli` |
+| **Approval** | Hook → Cloud → Watch → Cloud → Hook → Claude | `watch-approval-cloud.py` → `index.ts` → `WatchService.swift` |
+| **Progress** | Hook → Cloud → Watch | `watch-approval-cloud.py` → `index.ts` → `WatchService.swift` |
 
 ### Key File Locations
 
@@ -55,11 +60,10 @@
 |-----------|------|---------|
 | **Watch App** | `ClaudeWatch/` | SwiftUI watchOS app |
 | **Watch Service** | `ClaudeWatch/Services/WatchService.swift` | All cloud API calls, polling, state |
-| **Cloud Worker** | `claude-watch-cloud/src/index.ts` | Cloudflare Worker (message router) |
-| **CLI** | `claude-watch-npm/src/cli/cc-watch.ts` | Pairing + Claude launcher |
-| **Approval Hook** | `.claude/hooks/watch-approval-cloud.py` | PreToolUse → sends approvals |
-| **Progress Hook** | `.claude/hooks/progress-tracker.py` | PostToolUse → sends progress |
-| **Mobile Validator** | `.claude/hooks/validators/mobile/screen_state_validator.py` | PostToolUse → validates UI state |
+| **Hook** | `remmy-cli/hooks/watch-approval-cloud.py` | PreToolUse hook (installed to `~/.claude/hooks/`) |
+| **Hook Config** | `remmy-cli/src/lib/hooks-config.ts` | Hook installation + settings.json registration |
+| **Cloud Worker** | `claude-watch-cloud/src/index.ts` | Cloudflare Worker |
+| **CLI** | `remmy-cli/src/commands/` | Pairing, hook setup, Claude launch |
 
 ---
 
@@ -81,8 +85,7 @@ Answer these questions FIRST:
 | Add new UI element | Watch only |
 | Change polling interval | Watch only (WatchService) |
 | Add new API endpoint | Cloud + caller (Hook or Watch) |
-| Add mobile test automation | Mobile-MCP tools + validator hook |
-| Add UI validation assertion | `screen_state_validator.py` |
+| Change hook installation | `remmy-cli/src/lib/hooks-config.ts` |
 
 ---
 
@@ -103,10 +106,10 @@ Answer these questions FIRST:
 - Watch polls every 2 seconds when app is in foreground
 
 ### Session Isolation
-- `CLAUDE_WATCH_SESSION_ACTIVE=1` gates watch mode
-- Set by `cc-watch` when spawning Claude
-- Hooks exit early (code 0) if not set
-- Multiple Claude sessions can run, only cc-watch sessions use watch
+- `CLAUDE_WATCH_SESSION_ACTIVE=1` env var gates watch mode
+- Set by `remmy-cli` when spawning Claude
+- Multiple Claude sessions can run; only remmy-cli sessions use watch
+- Hook script exits immediately when env var is not set
 
 ---
 
@@ -134,9 +137,9 @@ When something doesn't work:
 ### Environment Variables
 | Variable | Purpose | Set By |
 |----------|---------|--------|
-| `CLAUDE_WATCH_SESSION_ACTIVE` | Gates watch mode | cc-watch |
-| `CLAUDE_WATCH_PAIRING_ID` | Current pairing | cc-watch or ~/.claude-watch-pairing |
-| `CLAUDE_WATCH_DEBUG` | Verbose logging | User |
+| `CLAUDE_WATCH_SESSION_ACTIVE` | Gates watch mode | remmy-cli |
+| `REMMY_DEBUG` | Verbose hook logging | User |
+| `REMMY_CLOUD_URL` | Override cloud URL | User (optional) |
 
 ### Cloud Server
 - **URL:** `https://claude-watch.fotescodev.workers.dev`
@@ -146,10 +149,75 @@ When something doesn't work:
 ```
 Watch: POST /pair/initiate → receives code "ABC123"
 Watch: Displays code to user
-CLI:   User runs `npx cc-watch`, enters code
+CLI:   User runs `remmy-cli`, enters code
 CLI:   POST /pair/complete {code: "ABC123"}
 Watch: Polls /pair/status/:watchId → {paired: true, pairingId}
 ```
+
+---
+
+## Advanced Architecture (Bridge-Based)
+
+> **Status**: Available but not the default flow. Battle-tested with 346+ Python tests.
+> **Use case**: When you need richer capabilities like multi-option question handling,
+> exact token tracking, or real-time streaming — the bridge provides a WebSocket-based
+> intermediary between Claude CLI and the watch.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                      CLAUDE WATCH SYSTEM (Bridge — Advanced)                    │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   MAC (Developer Machine)                                                       │
+│   ├── Claude Code CLI                                                           │
+│   │   └── --sdk-url ws://localhost:8787/ws/cli/{session_id}                     │
+│   │       Sends: NDJSON messages (system, assistant, result, control_request)    │
+│   │       Receives: control_response (approve/deny with updatedInput)           │
+│   │                                                                             │
+│   ├── Bridge Server (MCPServer/bridge/)                                        │
+│   │   ├── NDJSON WebSocket ← Claude CLI connection                              │
+│   │   ├── Permission handler (can_use_tool → approve/deny)                      │
+│   │   ├── Question handler (AskUserQuestion → recommended answer)               │
+│   │   ├── Progress tracker (tool_progress, TodoWrite, context %)                │
+│   │   └── REST API (same contract as cloud worker)                              │
+│   │                                                                             │
+│   └── remmy-cli (TypeScript CLI)                                                │
+│       └── Launches bridge server + Claude with --sdk-url                        │
+│                                                                                 │
+│   CLOUDFLARE WORKER — Relay between bridge and watch                            │
+│   APPLE WATCH — Polls cloud (same endpoints, zero changes)                      │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Bridge vs Hooks Comparison
+
+| Capability | Hooks (Default) | Bridge (Advanced) |
+|-----------|-----------------|-------------------|
+| **Approval flow** | Hook → cloud → watch polls | WebSocket `can_use_tool` → bridge → cloud → watch polls |
+| **Question handling** | Yes/no only (watch limitation) | Multi-option via `updatedInput` response |
+| **Progress tracking** | Not yet implemented | Native `tool_progress` + TodoWrite extraction |
+| **Context tracking** | Not yet implemented | `result.modelUsage` (exact token counts) |
+| **Session isolation** | `CLAUDE_WATCH_SESSION_ACTIVE=1` env var | Inherent: only `--sdk-url` sessions connect |
+| **Interrupt/pause** | Hook polls `/session-interrupt` | Direct `control_request { subtype: "interrupt" }` |
+| **User experience** | Native Claude TUI (unchanged) | Custom TUI required (or headless) |
+| **Complexity** | Minimal (1 hook script) | Full Python server + process management |
+
+### Bridge Server Files: MCPServer/bridge/
+
+| File | Purpose |
+|------|---------|
+| `__init__.py` | Package init |
+| `types.py` | Dataclasses for all NDJSON message types |
+| `session.py` | Per-session state (model, tools, cost, pending permissions, todos) |
+| `ndjson_server.py` | WebSocket server accepting CLI connections |
+| `permissions.py` | `can_use_tool` handler + `control_response` construction |
+| `questions.py` | `AskUserQuestion` parsing + recommendation extraction |
+| `progress.py` | TodoWrite + tool_progress + context % tracking |
+| `launcher.py` | CLI process spawning with `--sdk-url`, lifecycle management |
+| `api.py` | REST API matching cloud worker contract |
+| `cloud_client.py` | Cloud worker relay client |
+| `main.py` | Entrypoint wiring everything together |
 
 ---
 
@@ -185,4 +253,4 @@ Watch: Polls /pair/status/:watchId → {paired: true, pairingId}
 
 ---
 
-*Last updated: 2026-01-23*
+*Last updated: 2026-02-19*

@@ -17,75 +17,57 @@ struct TaskOutcomeView: View {
 
     var body: some View {
         ScreenShell {
-            // V3 D1: StateCard containing checkmark + title + task list
-            StateCard(state: .success, glowOffset: 10, padding: 14) {
-                VStack(spacing: 10) {
-                    // Checkmark icon (outline style per spec)
-                    ZStack {
-                        Circle()
-                            .stroke(ClaudeState.success.color, lineWidth: 2)
-                            .frame(width: 36, height: 36)
+            // Single card: checkmark + title + task summary
+            StateCard(state: .success, glowOffset: 10, padding: Claude.Spacing.sm) {
+                VStack(spacing: 4) {
+                    // Checkmark icon
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundStyle(ClaudeState.success.color)
+                        .scaleEffect(checkmarkScale)
+                        .opacity(checkmarkOpacity)
 
-                        Image(systemName: "checkmark")
-                            .font(.claudeLargeTitle)
-                            .foregroundStyle(ClaudeState.success.color)
-                    }
-                    .scaleEffect(checkmarkScale)
-                    .opacity(checkmarkOpacity)
+                    Text("Done")
+                        .font(.claudeHeadline)
+                        .foregroundStyle(Claude.textPrimary)
 
-                    // Title
-                    Text("Tasks Complete")
-                        .font(.claudeBodyMedium)
-                        .foregroundStyle(.white)
-
-                    // Task list (inside card)
+                    // Task list with bullet dots (max 2 visible)
                     if !completedTasks.isEmpty {
-                        VStack(alignment: .leading, spacing: 3) {
-                            ForEach(completedTasks.prefix(5)) { task in
-                                HStack(spacing: 6) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            ForEach(completedTasks.prefix(2)) { task in
+                                HStack(spacing: 4) {
                                     Circle()
-                                        .fill(ClaudeState.success.color)
-                                        .frame(width: 5, height: 5)
+                                        .fill(Claude.textMuted)
+                                        .frame(width: 3, height: 3)
 
                                     Text(task.content)
-                                        .font(.claudeMicro)
+                                        .font(.caption2)
                                         .foregroundStyle(Claude.textSecondary)
                                         .lineLimit(1)
                                 }
                             }
 
-                            if completedTasks.count > 5 {
-                                Text("+\(completedTasks.count - 5) more")
-                                    .font(.claudeNano)
+                            if completedTasks.count > 2 {
+                                Text("+\(completedTasks.count - 2) more")
+                                    .font(.caption2)
                                     .foregroundStyle(Claude.textMuted)
-                                    .padding(.leading, 11)
+                                    .padding(.leading, 7)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
             }
-        } action: {
-            // V3: Dismiss button (subtle, inside footer area)
-            Button {
-                WKInterfaceDevice.current().play(.click)
-                service.clearSessionProgress()
-            } label: {
-                Text("Dismiss")
-                    .font(.claudeSubheadline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(Claude.fill2)
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
-            }
-            .buttonStyle(.plain)
         } hint: {
             ScreenHint("Double tap to dismiss")
         }
         .onAppear {
             animateCheckmark()
             WKInterfaceDevice.current().play(.success)
+            // Auto-dismiss after 10 seconds — gives user time to read task summary
+            DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+                service.clearSessionProgress()
+            }
         }
         // Double tap to dismiss (watchOS 26+)
         .modifier(TaskOutcomeDoubleTapModifier(onDismiss: {

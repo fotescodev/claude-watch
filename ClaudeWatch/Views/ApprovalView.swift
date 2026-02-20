@@ -10,6 +10,10 @@ struct ApprovalView: View {
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
+    // Press feedback states
+    @State private var approvePressed = false
+    @State private var rejectPressed = false
+
     /// Current action to display
     private var action: PendingAction? {
         service.state.pendingActions.first
@@ -87,7 +91,7 @@ struct ApprovalView: View {
             // V3: Button row OUTSIDE card
             if let action = action {
                 HStack(spacing: 8) {
-                    // Approve button (green gradient, or red for dangerous)
+                    // Approve button (green gradient, or muted for dangerous)
                     Button {
                         approve(action)
                     } label: {
@@ -98,9 +102,9 @@ struct ApprovalView: View {
                             .padding(.vertical, 10)
                             .background(
                                 action.tier == .high
-                                    ? AnyShapeStyle(Claude.danger.opacity(0.3))
+                                    ? AnyShapeStyle(Claude.destructive.opacity(0.3))
                                     : AnyShapeStyle(LinearGradient(
-                                        colors: [Color(red: 0.29, green: 0.87, blue: 0.50), Claude.success],
+                                        colors: [Claude.success.opacity(0.85), Claude.success],
                                         startPoint: .top,
                                         endPoint: .bottom
                                     ))
@@ -108,11 +112,20 @@ struct ApprovalView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 20))
                             .overlay(
                                 action.tier == .high
-                                    ? RoundedRectangle(cornerRadius: 20).stroke(Claude.danger, lineWidth: 1)
+                                    ? RoundedRectangle(cornerRadius: 20).stroke(Claude.destructive, lineWidth: 1)
                                     : nil
                             )
+                            .scaleEffect(approvePressed && !reduceMotion ? 0.92 : 1.0)
+                            .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: approvePressed)
                     }
                     .buttonStyle(.plain)
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { _ in approvePressed = true }
+                            .onEnded { _ in approvePressed = false }
+                    )
+                    // Double tap to approve (Tier 1-2 only)
+                    .modifier(DoubleTapApproveModifier(enabled: action.tier != .high))
 
                     // Reject button (red)
                     Button {
@@ -123,10 +136,17 @@ struct ApprovalView: View {
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .background(Claude.danger)
+                            .background(Claude.destructive)
                             .clipShape(RoundedRectangle(cornerRadius: 20))
+                            .scaleEffect(rejectPressed && !reduceMotion ? 0.92 : 1.0)
+                            .animation(.buttonSpringIfAllowed(reduceMotion: reduceMotion), value: rejectPressed)
                     }
                     .buttonStyle(.plain)
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { _ in rejectPressed = true }
+                            .onEnded { _ in rejectPressed = false }
+                    )
                 }
             }
         } hint: {
@@ -134,12 +154,6 @@ struct ApprovalView: View {
                 ScreenHint(action.tier == .high ? "Dangerous - handle on Mac" : "Double tap to approve")
             }
         }
-        // Double tap to approve (Tier 1-2 only)
-        .modifier(ApprovalDoubleTapModifier(onApprove: {
-            if let action = action, action.tier != .high {
-                approve(action)
-            }
-        }))
     }
 
     private func approve(_ action: PendingAction) {
@@ -180,14 +194,19 @@ struct ApprovalView: View {
     }
 }
 
-/// Double tap modifier for approval
-private struct ApprovalDoubleTapModifier: ViewModifier {
-    let onApprove: () -> Void
+/// Applies `.handGestureShortcut(.primaryAction)` to the Approve button
+/// so double-tap gesture triggers approval (Series 9+ / Ultra 2+, watchOS 11+)
+private struct DoubleTapApproveModifier: ViewModifier {
+    let enabled: Bool
 
     func body(content: Content) -> some View {
-        if #available(watchOS 26.0, *) {
-            content
-                .handGestureShortcut(.primaryAction)
+        if enabled {
+            if #available(watchOS 11.0, *) {
+                content
+                    .handGestureShortcut(.primaryAction)
+            } else {
+                content
+            }
         } else {
             content
         }

@@ -20,10 +20,10 @@ Steps:
 xcrun simctl list devices available | grep -i watch
 
 # Boot simulator (if needed)
-xcrun simctl boot "Apple Watch Series 9 (45mm)"
+xcrun simctl boot "Apple Watch Series 11 (46mm)"
 
 # Build
-xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm)' build
+xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)' build
 
 # Get bundle ID and install
 xcrun simctl install booted /path/to/ClaudeWatch.app

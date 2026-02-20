@@ -28,8 +28,8 @@
 
 ```bash
 # Install and pair in 30 seconds
-npm install -g cc-watch
-cc-watch
+npm install -g remmy-cli
+remmy-cli
 # Enter the code shown on your Apple Watch
 ```
 
@@ -94,15 +94,15 @@ You're using Claude Code. It's incredible. But...
 ## 💡 The Solution
 
 ```
-┌─────────────┐         ┌──────────────────┐         ┌─────────────┐
-│ Claude Code │──HTTP──►│ Cloudflare Worker│◄──HTTP──│ Apple Watch │
-│  (on Mac)   │         │  (Cloud Relay)   │         │  (on wrist) │
-└─────────────┘         └────────┬─────────┘         └─────────────┘
-       ▲                         │                          │
-       │                         ▼                          │
-       │                   APNs (optional)                  │
-       │                         │                          │
-       └─────────polling─────────┴──────────polling─────────┘
+┌─────────────┐         ┌─────────────┐         ┌──────────────────┐         ┌─────────────┐
+│ Claude Code │──WS────►│Bridge Server│──HTTP──►│ Cloudflare Worker│◄──HTTP──│ Apple Watch │
+│   (CLI)     │         │  (on Mac)   │         │  (Cloud Relay)   │         │  (on wrist) │
+└─────────────┘         └─────────────┘         └────────┬─────────┘         └─────────────┘
+                                                          │                          │
+                                                          ▼                          │
+                                                    APNs (optional)                  │
+                                                          │                          │
+                                                          └──────────polling─────────┘
 ```
 
 **Claude Watch** uses a cloud relay. When Claude needs your approval:
@@ -261,7 +261,7 @@ claude-watch/
 │   │   ├── MainView.swift       # Main UI with action queue
 │   │   └── PairingView.swift    # Pairing code entry
 │   ├── Services/                # Business logic
-│   │   └── WatchService.swift   # Cloud polling, WebSocket, state
+│   │   └── WatchService.swift   # Cloud polling, state
 │   └── Complications/           # Watch face widgets
 │
 ├── 🌐 MCPServer/worker/         # Cloudflare Worker (JavaScript)
@@ -269,43 +269,49 @@ claude-watch/
 │   ├── wrangler.toml            # Cloudflare config
 │   └── package.json             # Dependencies
 │
-└── 🖥️ MCPServer/                # Local Python Server (optional)
-    └── server.py                # MCP + WebSocket + APNs
+├── 🖥️ MCPServer/bridge/         # Bridge Server (Python)
+│   ├── main.py                  # Entrypoint
+│   ├── ndjson_server.py         # NDJSON WebSocket for CLI
+│   ├── api.py                   # Watch-facing REST API
+│   ├── cloud_client.py          # Cloud relay client
+│   └── tests/                   # 379 tests
+│
+├── 💻 remmy-cli/                # TypeScript CLI
+│   └── src/                     # 129 tests
+│
+└── 🖥️ MCPServer/server.py       # Legacy standalone server (optional)
 ```
 
-### Cloud Mode Flow (Production)
+### Bridge Mode Flow (Production)
 
 ```
-┌───────────────────────────────────────────────────────────────────────────┐
-│                                                                           │
-│  1. PAIRING                                                               │
-│  ───────────────────────────────────────────────────────────────────────  │
-│  Claude Code                    Cloudflare                   Watch        │
-│       │                              │                          │         │
-│       │─── POST /pair ──────────────►│                          │         │
-│       │◄── {code: "ABC-123"} ───────│                          │          │
-│       │                              │                          │         │
-│       │         User shows code      │◄── POST /pair/complete ──│         │
-│       │         on terminal          │    {code, deviceToken}   │         │
-│       │                              │                          │         │
-│                                                                           │
-│  2. REQUEST/RESPONSE                                                      │
-│  ───────────────────────────────────────────────────────────────────────  │
-│  Claude Code                    Cloudflare                   Watch        │
-│       │                              │                          │         │
-│       │─── POST /request ───────────►│                          │         │
-│       │    {pairingId, type, title}  │─── APNs push (optional) ─►│        │
-│       │                              │                          │         │
-│       │                              │◄── GET /requests/{id} ────│ (poll) │
-│       │                              │    returns pending list   │ every  │
-│       │                              │                          │ 2 sec   │ 
-│       │                              │◄── POST /respond/{id} ────│        │
-│       │                              │    {approved: true}       │        │
-│       │                              │                           │        │
-│       │◄── GET /request/{id} ─────── │                           │        │
-│       │    {status: "approved"}      │                           │        │
-│       │                              │                           │        │
-└───────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                │
+│  1. PAIRING                                                                    │
+│  ────────────────────────────────────────────────────────────────────────────  │
+│  remmy-cli                 Bridge              Cloudflare          Watch       │
+│       │                      │                      │                 │        │
+│       │                      │                      │◄── POST /pair ──│        │
+│       │                      │                      │──► {code:"ABC"}─►│       │
+│       │                      │                      │                 │        │
+│       │─ Enter code ────────►│                      │                 │        │
+│       │                      │─ POST /pair/complete ►│                 │        │
+│       │                      │                      │                 │        │
+│                                                                                │
+│  2. REQUEST/RESPONSE                                                           │
+│  ────────────────────────────────────────────────────────────────────────────  │
+│  Claude CLI              Bridge              Cloudflare          Watch         │
+│       │                      │                      │                 │        │
+│       │─ can_use_tool (WS) ─►│                      │                 │        │
+│       │                      │─ POST /request ─────►│                 │        │
+│       │                      │                      │─ APNs push ────►│        │
+│       │                      │                      │                 │        │
+│       │                      │                      │◄── GET polls ───│        │
+│       │                      │                      │◄── POST respond ─│       │
+│       │                      │◄─ GET /request ──────│                 │        │
+│       │◄─ control_response ──│                      │                 │        │
+│       │                      │                      │                 │        │
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Cloud Relay API Endpoints
@@ -321,7 +327,7 @@ claude-watch/
 | `/respond/:id` | POST | Watch sends approve/reject |
 | `/health` | GET | Health check |
 
-### Local WebSocket Mode (Development)
+### Legacy Standalone Mode (Development)
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -330,9 +336,9 @@ claude-watch/
 │       │                                                        │
 │       │ MCP Protocol                                           │
 │       ▼                                                        │
-│   ┌─────────┐    WebSocket     ┌─────────────┐                 │
-│   │ Server  │◄────────────────►│ Apple Watch │                 │
-│   └────┬────┘                  └─────────────┘                 │
+│   ┌──────────┐    WebSocket     ┌─────────────┐                │
+│   │server.py │◄────────────────►│ Apple Watch │                │
+│   └────┬─────┘                  └─────────────┘                │
 │        │                              ▲                        │
 │        │ APNs Push                    │                        │
 │        └──────────────────────────────┘                        │
@@ -499,8 +505,12 @@ curl -X POST http://localhost:8788/action/respond \
 
 | File | Description |
 |------|-------------|
-| `MCPServer/worker/src/index.js` | Cloudflare Worker - all API endpoints |
-| `MCPServer/worker/wrangler.toml` | Cloudflare config, KV namespace bindings |
+| `MCPServer/bridge/main.py` | Bridge entrypoint - orchestrates all components |
+| `MCPServer/bridge/ndjson_server.py` | NDJSON WebSocket server for Claude CLI |
+| `MCPServer/bridge/api.py` | Watch-facing REST API |
+| `MCPServer/bridge/cloud_client.py` | Cloud worker relay client |
+| `remmy-cli/src/commands/start.ts` | CLI start command |
+| `MCPServer/worker/src/index.js` | Cloudflare Worker - cloud relay API endpoints |
 | `ClaudeWatch/Services/WatchService.swift` | Watch app service - polling, state, API calls |
 | `ClaudeWatch/Views/MainView.swift` | Main UI - action queue, approve/reject buttons |
 | `ClaudeWatch/Views/PairingView.swift` | Pairing code entry UI |

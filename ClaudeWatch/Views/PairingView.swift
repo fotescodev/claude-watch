@@ -11,15 +11,25 @@ struct PairingView: View {
             Claude.background.ignoresSafeArea()
 
             if showCodeDisplay {
-                PairingCodeDisplayView(service: service, onBack: { showCodeDisplay = false })
+                PairingCodeDisplayView(service: service, onBack: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                        showCodeDisplay = false
+                    }
+                })
+                .transition(.push(from: .trailing))
             } else {
                 UnpairedMainView(
-                    onPairNow: { showCodeDisplay = true },
+                    onPairNow: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                            showCodeDisplay = true
+                        }
+                    },
                     onLocalMode: {
                         service.useCloudMode = false
                         service.connect()
                     }
                 )
+                .transition(.push(from: .leading))
             }
         }
     }
@@ -332,7 +342,7 @@ struct ConnectedSuccessView: View {
                 .foregroundStyle(Claude.textPrimary)
 
             // Description
-            Text("Paired with Claude Code")
+            Text("Paired with Remmy")
                 .font(.claudeFootnote)
                 .foregroundStyle(Claude.textSecondary)
 

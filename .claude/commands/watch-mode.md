@@ -14,7 +14,7 @@ Configure this session so tool calls require Apple Watch approval.
 if [ -f ~/.claude-watch-pairing ]; then
   echo "✓ Paired: $(cat ~/.claude-watch-pairing)"
 else
-  echo "✗ Not paired - run 'npx cc-watch' first"
+  echo "✗ Not paired - run 'remmy-cli' first"
   exit 1
 fi
 ```

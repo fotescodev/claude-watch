@@ -65,11 +65,14 @@ struct CardGlow: View {
     let color: Color
 
     var body: some View {
-        Ellipse()
-            .fill(color.opacity(0.30))
-            .frame(width: 100, height: 80)
-            .blur(radius: 35)
-            .accessibilityHidden(true)
+        RadialGradient(
+            colors: [color.opacity(0.18), .clear],
+            center: .center,
+            startRadius: 5,
+            endRadius: 45
+        )
+        .frame(width: 100, height: 80)
+        .accessibilityHidden(true)
     }
 }
 

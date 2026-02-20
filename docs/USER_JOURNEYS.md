@@ -43,7 +43,7 @@ Remmy enables developers to approve or reject Claude Code's tool use requests di
 │          ▼                                                                  │
 │   ┌───────────────┐                  ┌───────────────┐                      │
 │   │  Pairing Code │                  │               │                      │
-│   │               │                  │  $ npx cc-watch│                     │
+│   │               │                  │  $ npx remmy-cli│                    │
 │   │   ABC-123     │ ──────────────►  │               │                      │
 │   │               │   User reads     │  Enter code:  │                      │
 │   │  Waiting...   │   code aloud     │  > ABC-123    │◄─── User types       │
@@ -80,6 +80,8 @@ A: APNs token registration must complete before pairing succeeds. Showing "Prepa
 
 **Q: What happens if pairing fails?**
 A: The watch shows an error message with retry option. Common failures: network unavailable, code expired, code already used.
+
+**Note**: The CLI was originally named `cc-watch`, now renamed to `remmy-cli`.
 
 ---
 
@@ -393,7 +395,7 @@ A: Screen space. A single contextual button is clearer and prevents accidental d
 A: They remain in queue. Pausing stops Claude from requesting NEW approvals, but existing requests can still be processed.
 
 **Q: Can the user end the session entirely from the watch?**
-A: Yes, via Settings (gear icon). "End Session" disconnects the watch and terminates the cc-watch CLI session.
+A: Yes, via Settings (gear icon). "End Session" disconnects the watch and terminates the remmy-cli session.
 
 ---
 
@@ -772,7 +774,7 @@ The outcome display completes the feedback loop and provides the satisfying "don
 3. **How does this fit with existing Claude Code UX?**
    - Complements, doesn't replace terminal prompts
    - Same approve/reject model, different input surface
-   - Opt-in via `npx cc-watch`
+   - Opt-in via `npx remmy-cli` (formerly `cc-watch`)
 
 4. **Battery impact?**
    - Polling every 3s only when paired

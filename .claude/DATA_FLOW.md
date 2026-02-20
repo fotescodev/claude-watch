@@ -7,45 +7,59 @@
 
 ## System Architecture
 
+### Current (Hooks-Based Architecture)
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              CLAUDE WATCH SYSTEM                                │
+│                      CLAUDE WATCH SYSTEM (Hooks-Based)                          │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │   ┌─────────────────┐      ┌──────────────────────┐      ┌─────────────────┐   │
 │   │   MAC (CLI)     │      │   CLOUD SERVER       │      │  APPLE WATCH    │   │
 │   │                 │      │   (Cloudflare)       │      │                 │   │
 │   │  ┌───────────┐  │      │                      │      │  ┌───────────┐  │   │
-│   │  │ cc-watch  │──┼─────▶│  /pair/complete      │◀─────┼──│ Pair View │  │   │
-│   │  │ (npm)     │  │      │  /pair/initiate      │      │  └───────────┘  │   │
+│   │  │ remmy-cli │──┼─────▶│  /pair/complete      │◀─────┼──│ Pair View │  │   │
+│   │  │           │  │      │  /pair/initiate      │      │  └───────────┘  │   │
 │   │  └───────────┘  │      │  /pair/status/:id    │      │                 │   │
-│   │                 │      │                      │      │  ┌───────────┐  │   │
-│   │  ┌───────────┐  │      │  ┌────────────────┐  │      │  │ MainView  │  │   │
-│   │  │ PreToolUse│──┼─────▶│  │ /approval      │──┼─APNs─┼─▶│ Actions   │  │   │
-│   │  │ Hook      │  │      │  │ /approval/:id  │◀─┼──────┼──│ List      │  │   │
-│   │  └───────────┘  │      │  └────────────────┘  │      │  └───────────┘  │   │
-│   │       │         │      │                      │      │        │        │   │
-│   │       │ polls   │      │  ┌────────────────┐  │      │        │ polls  │   │
-│   │       ▼         │      │  │ /approval-queue│◀─┼──────┼────────┘        │   │
-│   │  ┌───────────┐  │      │  │ /:pairingId    │  │      │                 │   │
-│   │  │ /approval/│◀─┼──────┼──│                │  │      │                 │   │
-│   │  │ {pid}/{id}│  │      │  └────────────────┘  │      │                 │   │
+│   │       │         │      │                      │      │  ┌───────────┐  │   │
+│   │  installs hook  │      │  ┌────────────────┐  │      │  │ MainView  │  │   │
+│   │       ▼         │      │  │ /approval      │──┼─APNs─┼─▶│ Actions   │  │   │
+│   │  ┌───────────┐  │      │  │ /approval/:id  │◀─┼──────┼──│ List      │  │   │
+│   │  │ PreToolUse│──┼─────▶│  └────────────────┘  │      │  └───────────┘  │   │
+│   │  │ Hook      │  │      │                      │      │        │        │   │
+│   │  └───────────┘  │      │  ┌────────────────┐  │      │        │ polls  │   │
+│   │       │         │      │  │ /approval-queue│◀─┼──────┼────────┘        │   │
+│   │       │ polls   │      │  │ /:pairingId    │  │      │                 │   │
+│   │       ▼         │      │  └────────────────┘  │      │                 │   │
+│   │  ┌───────────┐  │      │                      │      │                 │   │
+│   │  │ /approval/│◀─┼──────┼──(poll for response) │      │                 │   │
+│   │  │ {pid}/{id}│  │      │                      │      │  ┌───────────┐  │   │
+│   │  └───────────┘  │      │  ┌────────────────┐  │      │  │ Progress  │  │   │
+│   │                 │      │  │ /session-      │──┼──────┼─▶│ View      │  │   │
+│   │  ┌───────────┐  │      │  │   progress     │  │      │  └───────────┘  │   │
+│   │  │  claude   │  │      │  └────────────────┘  │      │                 │   │
+│   │  │  (native  │  │      │                      │      │                 │   │
+│   │  │   TUI)    │  │      │                      │      │                 │   │
 │   │  └───────────┘  │      │                      │      │                 │   │
-│   │                 │      │  ┌────────────────┐  │      │  ┌───────────┐  │   │
-│   │  ┌───────────┐  │      │  │ /question      │──┼─APNs─┼─▶│ Question  │  │   │
-│   │  │ Question  │──┼─────▶│  │ /question/:id  │◀─┼──────┼──│ View      │  │   │
-│   │  │ Hook      │  │      │  │ /question/:id/ │  │      │  └───────────┘  │   │
-│   │  └───────────┘  │      │  │   answer       │  │      │                 │   │
-│   │                 │      │  └────────────────┘  │      │                 │   │
-│   │  ┌───────────┐  │      │  ┌────────────────┐  │      │  ┌───────────┐  │   │
-│   │  │ TodoWrite │──┼─────▶│  │ /session-      │──┼──────┼─▶│ Progress  │  │   │
-│   │  │ Hook      │  │      │  │   progress     │  │      │  │ View      │  │   │
-│   │  └───────────┘  │      │  └────────────────┘  │      │  └───────────┘  │   │
-│   │                 │      │                      │      │                 │   │
 │   └─────────────────┘      └──────────────────────┘      └─────────────────┘   │
 │                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+**Key Design Decisions:**
+- `remmy-cli` installs hook to `~/.claude/hooks/` and registers in `~/.claude/settings.json`
+- Hook talks **directly** to cloud worker (no intermediary)
+- Claude runs with its **native TUI** (no `--sdk-url`, no custom UI)
+- Session isolation via `CLAUDE_WATCH_SESSION_ACTIVE=1` env var
+- Watch continues polling cloud worker (same endpoints, same payloads)
+
+---
+
+### Advanced (Bridge Architecture)
+
+> **Status**: Battle-tested with 346+ Python tests. Available for advanced use cases
+> requiring multi-option questions, exact token tracking, or real-time streaming.
+> See `ARCHITECTURE.md` for bridge component details.
 
 ---
 
@@ -152,14 +166,15 @@ TEST COVERAGE: NONE - No E2E test exists for this flow!
 FILE LOCATIONS:
   - Watch: WatchService.swift:843-925 (initiatePairing, checkPairingStatus)
   - Cloud: index.ts:158-262 (/pair/initiate, /pair/status, /pair/complete)
-  - CLI: cc-watch.ts:159-218 (runPairing → POST /pair/complete)
+  - CLI (legacy): cc-watch.ts:159-218 (runPairing → POST /pair/complete)
+  - CLI (current): remmy-cli/src/commands/setup.ts (pairing flow)
 ```
 
-### Flow 2: Tool Approval
+### Flow 2a: Tool Approval (Hook-Based — Current)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│ APPROVAL FLOW (Bash/Edit/Write tools)                                           │
+│ APPROVAL FLOW (Hook-Based — Current)                                            │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │   HOOK                            CLOUD                           WATCH         │
@@ -206,11 +221,13 @@ FILE LOCATIONS:
   - Watch: WatchService.swift:986-1015 (respondToCloudRequest)
 ```
 
-### Flow 3: Question (AskUserQuestion)
+### Flow 3a: Question (Hook-Based — Current)
+
+> Watch can only approve/reject, so questions are handled as yes/no via CLAUDE.md constraints.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│ QUESTION FLOW (AskUserQuestion tool)                                            │
+│ QUESTION FLOW (Hook-Based — Current)                                            │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │   HOOK                            CLOUD                           WATCH         │
@@ -257,11 +274,11 @@ FILE LOCATIONS:
   - Watch: WatchService.swift:1440-1461 (answerQuestion)
 ```
 
-### Flow 4: Session Progress
+### Flow 4a: Session Progress (Hook-Based — Current)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│ PROGRESS FLOW (TodoWrite hook)                                                  │
+│ PROGRESS FLOW (Hook-Based — Current)                                            │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
 │   HOOK                            CLOUD                           WATCH         │
@@ -319,11 +336,11 @@ All previously missing endpoints have been added to the cloud worker:
 | Component | Unit Tests | Integration Tests | E2E Tests |
 |-----------|------------|-------------------|-----------|
 | Hook (watch-approval-cloud.py) | `test_watch_approval.py` | - | `test-hooks.py` |
-| Hook (progress-tracker.py) | - | - | `test-hooks.py` |
 | Cloud (index.ts) | - | `test-hooks.py` | `test-hooks.py` |
 | Watch (WatchService.swift) | - | - | Manual via `/test-e2e` |
-| CLI (cc-watch.ts) | - | - | - |
-| CLI (stdin-proxy.ts) | `stdin-proxy.test.ts` | - | - |
+| CLI (remmy-cli) | `src/lib/*.test.ts` | - | `src/commands/*.test.ts` |
+| Hook config (hooks-config.ts) | `hooks-config.test.ts` (14 tests) | - | - |
+| Bridge (advanced) | `bridge/tests/` (346 tests) | E2E tests | `test_e2e_*.py` |
 
 **E2E Tests in `test-hooks.py`:**
 - Question flow (create → pending → answer → answered)
@@ -390,14 +407,32 @@ All previously missing endpoints have been added to the cloud worker:
 
 ## File Reference
 
+### Current (Hooks-Based Architecture)
+
 | File | Purpose | Key Functions/Endpoints |
 |------|---------|------------------------|
-| `claude-watch-cloud/src/index.ts` | Cloud worker | All `/api/*`, `/pair/*`, `/approval/*`, etc. |
-| `.claude/hooks/watch-approval-cloud.py` | PreToolUse hook | `create_request()`, `wait_for_response()` |
-| `.claude/hooks/progress-tracker.py` | PostToolUse hook | Posts to `/session-progress` |
+| `remmy-cli/hooks/watch-approval-cloud.py` | PreToolUse hook (bundled, installed to ~/.claude/hooks/) | `create_request()`, `wait_for_response()` |
+| `remmy-cli/src/lib/hooks-config.ts` | Hook installation + registration | `setupHook()`, `installHookScript()`, `registerHook()` |
+| `remmy-cli/src/lib/claude-launcher.ts` | Claude launcher | Spawn Claude with `CLAUDE_WATCH_SESSION_ACTIVE=1` |
+| `remmy-cli/src/cli.ts` | CLI entry point | Command router, help, version |
+| `remmy-cli/src/commands/default.ts` | Default command | Pair + install hook + launch Claude |
+| `remmy-cli/src/commands/run.ts` | Run command | Install hook + launch Claude (requires pairing) |
+| `remmy-cli/src/commands/setup.ts` | Setup command | Pairing flow only |
 | `ClaudeWatch/Services/WatchService.swift` | Watch service | All cloud API calls, polling |
-| `claude-watch-npm/src/cli/cc-watch.ts` | CLI entry | Pairing, launching Claude |
-| `claude-watch-npm/src/cloud/pairing.ts` | CLI pairing | Legacy pairing flow |
+| `claude-watch-cloud/src/index.ts` | Cloud worker | Pairing, approval relay, progress storage |
+
+### Advanced (Bridge Architecture)
+
+| File | Purpose | Key Functions/Endpoints |
+|------|---------|------------------------|
+| `MCPServer/bridge/main.py` | Bridge entrypoint | Server startup, session initialization, cleanup |
+| `MCPServer/bridge/ndjson_server.py` | WebSocket server | Accept CLI connections, parse NDJSON, dispatch messages |
+| `MCPServer/bridge/permissions.py` | Permission handler | `can_use_tool` processing, approve/deny logic |
+| `MCPServer/bridge/questions.py` | Question handler | `AskUserQuestion` parsing, recommendation extraction |
+| `MCPServer/bridge/progress.py` | Progress tracker | TodoWrite extraction, context %, tool_progress |
+| `MCPServer/bridge/api.py` | REST API | `/state`, `/permissions`, `/questions`, `/progress`, `/interrupt` |
+| `MCPServer/bridge/cloud_client.py` | Cloud relay | Push data to cloud worker, poll for interrupt |
+| `MCPServer/bridge/launcher.py` | CLI launcher | Spawn Claude with `--sdk-url`, lifecycle management |
 
 ---
 
@@ -407,8 +442,10 @@ All previously missing endpoints have been added to the cloud worker:
 |------|-------|
 | `.claude/hooks/test-hooks.py` | Cloud endpoint validation, E2E flows |
 | `.claude/hooks/test_watch_approval.py` | Hook unit tests |
-| `claude-watch-npm/src/__tests__/stdin-proxy.test.ts` | Question parsing |
-| `claude-watch-npm/src/__tests__/cc-watch.test.ts` | CLI tests |
+| `remmy-cli/src/lib/hooks-config.test.ts` | Hook installation + registration (14 tests) |
+| `remmy-cli/src/lib/claude-launcher.test.ts` | Claude launcher (env var, args) |
+| `remmy-cli/src/commands/*.test.ts` | CLI command tests (20 tests) |
+| `MCPServer/bridge/tests/` | Bridge server tests (346 tests) |
 
 ---
 
@@ -421,11 +458,32 @@ When adding a new endpoint:
 3. [ ] Update this document (`DATA_FLOW.md`)
 4. [ ] If hook calls it: Update `watch-approval-cloud.py`
 5. [ ] If watch calls it: Update `WatchService.swift`
-6. [ ] If CLI calls it: Update relevant `claude-watch-npm/src/` file
+6. [ ] If CLI calls it: Update relevant `remmy-cli/src/` file
+
+---
+
+## Architecture Status
+
+**Current State (2026-02-19):**
+- ✅ **Hooks-based flow is PRIMARY** — `remmy` installs hook, spawns Claude with native TUI
+- ✅ Bridge server available as advanced option (346 Python tests passing)
+- ✅ CLI implemented (remmy-cli: 143 tests passing)
+- ✅ Hook management (install, register, unregister, status check)
+
+**Architecture Pivot (2026-02-19):**
+- **FROM**: Bridge-based (`remmy` → bridge → `claude --sdk-url`) with custom TUI
+- **TO**: Hooks-based (`remmy` → install hook → `claude` with native TUI)
+- **Reason**: Claude Code's native TUI is excellent; the watch only needs a transparent background notification layer via hooks. No intermediary needed.
+
+**What Stayed the Same:**
+- Watch UI (MainView, PairingView, ProgressView — zero changes)
+- Cloud worker endpoints (hook talks to same endpoints)
+- APNs push notifications (delivery mechanism unchanged)
+- Pairing flow (watch initiates with code, CLI completes)
 
 ---
 
 ## Version
 
-Last updated: 2026-01-21
-Document version: 1.0
+Last updated: 2026-02-19
+Document version: 3.0 (hooks-based architecture is now primary)

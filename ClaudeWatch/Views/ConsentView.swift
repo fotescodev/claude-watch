@@ -18,7 +18,7 @@ struct ConsentView: View {
                 ConsentPage3Accept(onAccept: acceptConsent)
                     .tag(2)
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
+            .tabViewStyle(.page(indexDisplayMode: .automatic))
         }
     }
 
@@ -35,44 +35,31 @@ struct ConsentPage1Privacy: View {
     var body: some View {
         VStack(spacing: Claude.Spacing.sm) {
             // Icon
-            ZStack {
-                Circle()
-                    .fill(Claude.orange.opacity(0.2))
-                    .frame(width: 44, height: 44)
-                Image(systemName: "lock.fill")
-                    .font(.claudeIconButton)
-                    .foregroundStyle(Claude.orange)
-            }
-            .accessibilityHidden(true)
+            Image(systemName: "lock.fill")
+                .font(.claudeIconButton)
+                .foregroundStyle(Claude.orange)
+                .accessibilityHidden(true)
 
             // Title
-            Text("Privacy First")
-                .font(.claudeHeadline)
-                .foregroundStyle(Claude.textPrimary)
+            Text("Secure Connection")
+                .font(.headline)
+                .foregroundStyle(.primary)
 
             // Content
-            Text("Connects to Claude Code for action approvals")
-                .font(.claudeFootnote)
-                .foregroundStyle(Claude.textSecondary)
+            Text("Approve Claude Code actions directly from your wrist")
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
             Spacer()
-
-            // Pagination dots
-            HStack(spacing: 6) {
-                Circle().fill(Claude.orange).frame(width: 5, height: 5)
-                Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
-                Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
-            }
-            .accessibilityHidden(true)
 
             // Continue button
             Button {
                 WKInterfaceDevice.current().play(.click)
                 onContinue()
             } label: {
-                Text("Continue →")
-                    .font(.claudeFootnote)
+                Text("Continue")
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(Claude.orange)
             }
             .buttonStyle(.plain)
@@ -89,45 +76,31 @@ struct ConsentPage2Data: View {
     var body: some View {
         VStack(spacing: Claude.Spacing.sm) {
             // Icon
-            ZStack {
-                Circle()
-                    .fill(Claude.info.opacity(0.2))
-                    .frame(width: 44, height: 44)
-                Image(systemName: "antenna.radiowaves.left.and.right")
-                    .font(.system(size: 18))
-                    .foregroundStyle(Claude.info)
-            }
-            .accessibilityHidden(true)
+            Image(systemName: "lock.shield.fill")
+                .font(.claudeIconButton)
+                .foregroundStyle(Claude.info)
+                .accessibilityHidden(true)
 
             // Title
-            Text("Data Handling")
-                .font(.claudeHeadline)
-                .foregroundStyle(Claude.textPrimary)
+            Text("Your Data")
+                .font(.headline)
+                .foregroundStyle(.primary)
 
-            // Bullet list - compact
-            VStack(alignment: .leading, spacing: 2) {
-                DataBullet(text: "Action titles only")
-                DataBullet(text: "No code content")
-                DataBullet(text: "Encrypted transit")
-            }
+            // Concise description
+            Text("Only action titles are sent.\nAll data is encrypted end-to-end.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
 
             Spacer()
-
-            // Pagination dots
-            HStack(spacing: 6) {
-                Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
-                Circle().fill(Claude.orange).frame(width: 5, height: 5)
-                Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
-            }
-            .accessibilityHidden(true)
 
             // Continue button
             Button {
                 WKInterfaceDevice.current().play(.click)
                 onContinue()
             } label: {
-                Text("Continue →")
-                    .font(.claudeFootnote)
+                Text("Continue")
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(Claude.orange)
             }
             .buttonStyle(.plain)
@@ -161,43 +134,24 @@ struct ConsentPage3Accept: View {
     var body: some View {
         VStack(spacing: Claude.Spacing.sm) {
             // Icon
-            ZStack {
-                Circle()
-                    .fill(Claude.success.opacity(0.2))
-                    .frame(width: 44, height: 44)
-                Image(systemName: "checkmark")
-                    .font(.claudeIconButton)
-                    .foregroundStyle(Claude.success)
-            }
-            .accessibilityHidden(true)
+            Image(systemName: "checkmark.circle.fill")
+                .font(.claudeIconButton)
+                .foregroundStyle(Claude.success)
+                .accessibilityHidden(true)
 
             // Title
-            Text("Ready to Start")
-                .font(.claudeHeadline)
-                .foregroundStyle(Claude.textPrimary)
-
-            // Content
-            Text("By continuing you agree to Terms & Privacy Policy")
-                .font(.claudeFootnote)
-                .foregroundStyle(Claude.textSecondary)
-                .multilineTextAlignment(.center)
+            Text("Ready")
+                .font(.headline)
+                .foregroundStyle(.primary)
 
             Spacer()
-
-            // Pagination dots
-            HStack(spacing: 6) {
-                Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
-                Circle().fill(Claude.textTertiary).frame(width: 5, height: 5)
-                Circle().fill(Claude.orange).frame(width: 5, height: 5)
-            }
-            .accessibilityHidden(true)
 
             // Accept button
             Button {
                 onAccept()
             } label: {
-                Text("Accept")
-                    .font(.claudeBodyMedium)
+                Text("Get Started")
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -205,7 +159,7 @@ struct ConsentPage3Accept: View {
                     .clipShape(Capsule())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Accept terms")
+            .accessibilityLabel("Get started")
         }
         .padding(Claude.Spacing.md)
     }

@@ -34,12 +34,11 @@ If Claude made changes overnight, summarize what was completed.
 ### Step 3: Scan Task Status
 
 ```
-Read: .claude/ralph/tasks.yaml
-Count:
-- Total tasks
-- Completed tasks
-- In-progress tasks
-- Critical priority incomplete tasks
+Read: .claude/plans/MIGRATION_PROGRESS.md
+Check:
+- Workstream status (which are DONE, UP NEXT, BLOCKED)
+- Current phase and next tasks
+- Test counts
 ```
 
 ### Step 4: Check Build Health
@@ -84,7 +83,7 @@ Based on the above, identify the top 3 things to work on right now.
 ### Quick Actions
 - `/build` - Rebuild if needed
 - `/ship-check` - Validate submission readiness
-- `/discuss-phase 5` - Review phase decisions
+- `/discuss-phase` - Review phase decisions
 
 ---
 Ready to work. What would you like to focus on?

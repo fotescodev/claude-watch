@@ -60,7 +60,7 @@ def main():
     # ... rest of hook logic
 ```
 
-**Usage**: Only `npx cc-watch` sets this env var when starting a session. Other sessions (including Ralph) exit hooks immediately.
+**Usage**: Only `npx remmy-cli` (formerly `cc-watch`) sets this env var when starting a session. Other sessions (including Ralph) exit hooks immediately.
 
 ### Fix 2: Stale Progress Timeout (60 seconds)
 

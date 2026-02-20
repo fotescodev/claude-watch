@@ -168,7 +168,7 @@ Task(
   WORKFLOW:
   1. Read the current implementation
   2. Make minimum changes to fix the issue
-  3. Build with: xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 9 (45mm)'
+  3. Build with: xcodebuild -project ClaudeWatch.xcodeproj -scheme ClaudeWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)'
   4. If build fails, fix errors and rebuild
   5. Take screenshot with mobile_take_screenshot
   6. Verify all acceptance criteria

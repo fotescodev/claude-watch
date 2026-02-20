@@ -17,7 +17,6 @@ Quick reference for previously solved problems. **Check here before debugging.**
 | E2E tests failing - missing cloud endpoints & wrong API references | [missing-cloud-endpoints-e2e-failure.md](integration-issues/missing-cloud-endpoints-e2e-failure.md) | High |
 | Silent push notifications not updating watch UI | [watchos-silent-push-ui-update.md](integration-issues/watchos-silent-push-ui-update.md) | High |
 | Multi-session progress conflicts & stale UI state | [multi-session-progress-conflicts.md](integration-issues/multi-session-progress-conflicts.md) | Medium |
-| COMP5 question proxy failure (codex-review branch) | [comp5-question-proxy-failure-analysis.md](integration-issues/comp5-question-proxy-failure-analysis.md) | Critical |
 
 ### Build Errors
 _None documented yet_
@@ -78,7 +77,7 @@ _None documented yet_
 - **Multiple sessions fighting?** → Only one session should have `CLAUDE_WATCH_SESSION_ACTIVE=1`
 
 ### Question Flow Issues
-- **Questions not showing on watch?** → Run via `npx cc-watch`, not `claude` directly
+- **Questions not showing on watch?** → Run via `remmy-cli`, not `claude` directly
 - **Pairing ID mismatch?** → Run: `jq -r '.pairingId' ~/.claude-watch/config.json > ~/.claude-watch-pairing`
 - **Wrong function used?** → `handle_question()` for answers, `send_question_notification_only()` for info only
 - **Answers not returning?** → Check `CLAUDE_WATCH_PROXY_MODE=1` and stdin-proxy poll loop

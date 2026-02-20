@@ -8,10 +8,10 @@ Approve Claude Code changes from your Apple Watch.
 
 ```bash
 # 1. Install the CLI
-npm install -g cc-watch
+npm install -g remmy-cli
 
 # 2. Run the pairing command
-cc-watch
+remmy-cli
 
 # 3. Enter the code shown on your Apple Watch
 ```
@@ -71,7 +71,7 @@ BUNDLE_ID="com.edgeoftrust.remmy"
 # Enable cloud mode
 xcrun simctl spawn "$DEVICE_ID" defaults write "$BUNDLE_ID" useCloudMode -bool true
 
-# Set pairing ID (get from cc-watch pairing)
+# Set pairing ID (get from remmy-cli pairing)
 xcrun simctl spawn "$DEVICE_ID" defaults write "$BUNDLE_ID" pairingId -string "YOUR_PAIRING_ID"
 ```
 
@@ -177,7 +177,7 @@ Then redeploy: `npx wrangler deploy`
 #### "Invalid or expired pairing code"
 
 - Codes expire after 30 minutes
-- Generate new code: run `cc-watch` again
+- Generate new code: run `remmy-cli` again
 - Verify code is exactly 6 characters, no spaces
 
 #### "Network unavailable"

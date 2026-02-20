@@ -16,8 +16,8 @@ allowed-tools: Read, Write, Glob, AskUserQuestion
 ### 1. Load Phase Context
 
 ```
-Read: .claude/plans/APPSTORE-ROADMAP.md
-Find: Phase [N] details and deliverables
+Read: .claude/plans/MIGRATION_PROGRESS.md
+Find: Current phase details, workstream status, and deliverables
 ```
 
 ### 2. Identify Decision Points
