@@ -19,10 +19,10 @@ struct WorkingView: View {
                             .foregroundStyle(.white)
                             .lineLimit(1)
 
-                        // Task checklist - max 3 items, larger text
+                        // Task checklist - max 3 items centered around current task
                         if !progress.tasks.isEmpty {
                             VStack(alignment: .leading, spacing: 3) {
-                                ForEach(Array(progress.tasks.prefix(3))) { task in
+                                ForEach(visibleTasks(from: progress.tasks)) { task in
                                     taskRow(task)
                                 }
                             }
@@ -84,6 +84,25 @@ struct WorkingView: View {
             }
             .accessibilityLabel("Pause task")
         }
+    }
+
+    /// Pick up to 3 tasks centered around the current in-progress task.
+    /// Shows: last completed (context) → current → next pending.
+    /// Falls back to first 3 if no in-progress task found.
+    private func visibleTasks(from tasks: [TodoItem]) -> [TodoItem] {
+        guard tasks.count > 3 else { return tasks }
+
+        // Find the first in-progress task
+        guard let currentIndex = tasks.firstIndex(where: { $0.status == .inProgress }) else {
+            return Array(tasks.prefix(3))
+        }
+
+        // Window: one before current (if exists), current, one after (if exists)
+        let start = max(0, currentIndex - 1)
+        let end = min(tasks.count, start + 3)
+        // Adjust start if we're near the end
+        let adjustedStart = max(0, end - 3)
+        return Array(tasks[adjustedStart..<end])
     }
 
     /// Task row with status indicator (larger for glanceability)

@@ -7,14 +7,21 @@
 import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
 import { EventEmitter } from "node:events";
 import type { ChildProcess } from "node:child_process";
+import { existsSync as _existsSyncImport } from "node:fs";
+
+// Capture the real existsSync via .bind() before mock.module can replace the
+// live ESM binding.  .bind() returns a NEW function that holds a reference to
+// the original, so it survives Bun's module-level mock replacement.
+const realExistsSync = _existsSyncImport.bind(undefined);
 
 // ---------------------------------------------------------------------------
 // Mock setup — must happen before importing the module under test
 // ---------------------------------------------------------------------------
 
-// We'll use Bun's module mocking to intercept child_process
+// We'll use Bun's module mocking to intercept child_process and node:fs
 let mockSpawn: ReturnType<typeof mock>;
 let mockExecSync: ReturnType<typeof mock>;
+let mockExistsSync: ReturnType<typeof mock>;
 
 // Create a fake ChildProcess-like EventEmitter for spawn mocks
 function createFakeProcess(opts?: {
@@ -61,11 +68,25 @@ describe("bridge-launcher", () => {
     // Reset mocks before each test
     mockSpawn = mock();
     mockExecSync = mock();
+    // existsSync: delegate to real implementation but block .venv paths
+    // so tests always go through findPython() instead of the venv shortcut
+    mockExistsSync = mock((path: string) => {
+      if (typeof path === "string" && path.includes(".venv")) {
+        return false;
+      }
+      return realExistsSync(path);
+    });
 
     // Mock the child_process module
     mock.module("node:child_process", () => ({
       spawn: mockSpawn,
       execSync: mockExecSync,
+    }));
+
+    // Mock node:fs to control existsSync (keeps other exports real)
+    mock.module("node:fs", () => ({
+      existsSync: mockExistsSync,
+      // bridge-launcher only uses existsSync from node:fs
     }));
 
     // Re-import to pick up mocks
