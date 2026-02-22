@@ -17,8 +17,10 @@ watchOS 26 introduces several capabilities that didn't exist when the original b
 | **RelevanceConfiguration** | New widget type designed for Smart Stack. Widgets appear only when relevant (e.g., when a Claude session is active) |
 | **Controls** | Custom controls in Control Center, Action Button, and Smart Stack. Quick actions without opening the app |
 | **Wrist Flick** | Dismiss notifications with a wrist flick (Series 9+). Changes how we think about notification persistence |
-| **Smart Stack Hints** | System surfaces visual cues to guide users to relevant widgets |
+| **Smart Stack Hints** | Proactive Liquid Glass icons at bottom of watch face guide users to relevant widgets |
 | **Accented Rendering** | Five rendering modes for widget images. Better watch face integration |
+| **Foundation Models** | On-device AI for text generation/summarization. Summarize diffs, classify risk, generate session digests |
+| **ARM64 Migration** | Series 9+ moves to full arm64. Dual-architecture builds needed |
 
 ---
 
@@ -475,6 +477,70 @@ Liquid Glass effects should be reduced in always-on mode. The system handles thi
 
 ---
 
+## 11. On-Device Intelligence (Foundation Models Framework)
+
+### New in watchOS 26
+Apple's Foundation Models framework is available on watchOS 26, enabling on-device text generation, summarization, and classification with full privacy (no server round-trip).
+
+### Opportunities for Remmy
+
+#### a. Approval Summary Generation
+When an approval request arrives with a long command or multi-file edit, use Foundation Models to generate a one-line summary:
+
+```
+Raw:  Bash: cd /Users/dev/project && npm run test -- --coverage --reporter=json
+Model: "Run test suite with coverage"
+
+Raw:  Edit: src/services/authentication/providers/oauth2/token-refresh.ts (47 lines changed)
+Model: "Refactor OAuth2 token refresh logic"
+```
+
+This makes the 2-second approve flow more informed — the user sees intent, not raw commands.
+
+#### b. Risk Assessment
+Use on-device classification to tag approval requests with risk levels:
+- **Low**: Read operations, test runs, linting
+- **Medium**: File edits, package installs
+- **High**: Destructive commands (`rm`, `git push --force`), env/credential file access
+
+The risk level drives notification priority and visual treatment (green/amber/red glass tint).
+
+#### c. Session Digest
+At session end (or on demand via Siri), generate a spoken/written summary:
+> "Claude completed 12 tasks today. You approved 28 actions and rejected 3. The main work was refactoring the auth module and adding test coverage."
+
+#### d. Smart Auto-Approve Suggestions
+After learning from a user's approval patterns, suggest which low-risk actions could be auto-approved:
+> "You've approved 'npm test' 47 times without rejecting. Auto-approve test runs?"
+
+**Privacy note**: All processing happens on-device. No approval data leaves the watch.
+
+---
+
+## 12. Smart Stack Hints
+
+### New in watchOS 26
+Smart Stack hints are proactive circular Liquid Glass icons that appear at the bottom of the watch face. They tap the user's wrist with a haptic and guide them to relevant widgets in the Smart Stack.
+
+### Remmy Hint Scenarios
+- **Approval waiting**: A Remmy hint appears when an approval has been pending >60 seconds. Tapping opens the Smart Stack scrolled to the Remmy widget.
+- **Session started**: When a Claude session begins, a subtle hint appears to confirm the watch is connected.
+- **Rings closing**: Near end of day, a hint nudges the user if their Guard ring is incomplete.
+
+Hints are system-managed based on relevance signals from RelevanceKit. We influence them by providing strong relevance context, not by directly triggering them.
+
+---
+
+## 13. Architecture Consideration: ARM64 Migration
+
+watchOS 26 moves Apple Watch Series 9+, Series 10, and Ultra 2 from arm64_32 to full arm64. Older models (SE 2nd gen, Series 6-8) remain on arm64_32.
+
+**Impact**: `Int`, `Float`, and pointer sizes differ between architectures. Use explicit `Int32`/`Int64` where precision matters. Xcode 26's "Standard Architectures" build setting handles dual-architecture builds automatically.
+
+**Caveat**: When migrating widgets from `StaticConfiguration` to `IntentConfiguration` or `RelevanceConfiguration`, do NOT reuse the same `kind` string — the widget will silently disappear from the watch face. Use a new kind and handle the migration gracefully.
+
+---
+
 ## Design Principles for Remmy on watchOS 26
 
 1. **Glass-first**: Every surface should feel like it belongs in the Liquid Glass ecosystem. No opaque black cards.
@@ -490,6 +556,8 @@ Liquid Glass effects should be reduced in always-on mode. The system handles thi
 6. **No reading on the watch**: Show what happened (tool name, file name, risk level), not the full details. The Mac has the details. The watch has the decision.
 
 7. **Gestures over taps**: Double-tap to approve, wrist flick to defer. Minimize touch interaction.
+
+8. **On-device intelligence**: Use Foundation Models to summarize, classify, and assess — so the watch shows intent and risk, not raw commands.
 
 ---
 
@@ -515,12 +583,19 @@ Liquid Glass effects should be reduced in always-on mode. The system handles thi
 4. "Close your rings" end-of-day notification
 5. Streak tracking
 
-### Phase D: Polish & Delight
+### Phase D: On-Device Intelligence
+1. Foundation Models integration for approval summarization
+2. Risk classification (Low/Medium/High) for notification triage
+3. Session digest generation (end-of-day summary)
+4. Smart auto-approve suggestions based on approval patterns
+
+### Phase E: Polish & Delight
 1. Watch Face Sharing (curated "Developer Face")
 2. Question notifications with tappable options
 3. Sensitive content redaction in AOD
 4. Spotlight indexing for pending approvals
 5. Haptic vocabulary refinement
+6. Smart Stack hints via RelevanceKit
 
 ---
 
@@ -535,3 +610,7 @@ Liquid Glass effects should be reduced in always-on mode. The system handles thi
 4. **Ring gamification vs. utility**: Rings create habit loops, but developers might find them patronizing. Should rings be opt-in?
 
 5. **Companion iPhone app**: Would unlock Live Activities, but adds maintenance burden. Worth it?
+
+6. **Foundation Models quality**: Is the on-device model good enough to summarize shell commands and code diffs accurately? Needs testing with real approval payloads.
+
+7. **Widget kind migration**: Changing from `StaticConfiguration` to `RelevanceConfiguration` requires a new `kind` string (known watchOS 26 bug). How to handle existing users?
