@@ -58,7 +58,7 @@ class WatchService {
     var foundationModelsStatus: FoundationModelsStatus = .checking
 
     // MARK: - Configuration (UserDefaults-backed for persistence)
-    var serverURLString: String = UserDefaults.standard.string(forKey: "serverURL") ?? "wss://localhost:8787" {
+    var serverURLString: String = UserDefaults.standard.string(forKey: "serverURL") ?? "wss://claude-watch.fotescodev.workers.dev" {
         didSet { UserDefaults.standard.set(serverURLString, forKey: "serverURL") }
     }
     var cloudServerURL: String = UserDefaults.standard.string(forKey: "cloudServerURL") ?? "https://claude-watch.fotescodev.workers.dev" {
@@ -1456,8 +1456,6 @@ class WatchService {
             case .clear:
                 isSessionInterrupted = false
             }
-            // TODO: Fix double haptic bug - muted for now
-            // playHaptic(action == .stop ? .stop : .start)
             return
         }
 
@@ -1487,8 +1485,6 @@ class WatchService {
                    let interrupted = json["interrupted"] as? Bool {
                     self.isSessionInterrupted = interrupted
                 }
-                // TODO: Fix double haptic bug - muted for now
-                // playHaptic(action == .stop ? .stop : .start)
             }
         } catch {
             logger.error("Failed to send interrupt signal: \(error)")
