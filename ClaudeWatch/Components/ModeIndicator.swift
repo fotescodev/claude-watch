@@ -11,7 +11,7 @@ import SwiftUI
 // MARK: - Agent Operating Mode
 
 /// The operating mode of the Claude agent
-enum AgentMode: String, CaseIterable {
+enum AgentMode: String, CaseIterable, Codable, Sendable {
     case normal   // Standard mode - green circle
     case plan     // Plan mode - purple rounded square
     case auto     // Auto mode - orange pill
@@ -43,11 +43,10 @@ struct ModeIndicator: View {
     var body: some View {
         ZStack {
             modeShape
-                .fill(mode.color)
                 .frame(width: 18, height: 18)
 
             Text(mode.letter)
-                .font(.claudeMicroMono)
+                .font(.claudeMonoBadge)
                 .foregroundStyle(.black)
         }
     }
@@ -56,11 +55,11 @@ struct ModeIndicator: View {
     private var modeShape: some View {
         switch mode {
         case .normal:
-            Circle()
+            Circle().fill(mode.color)
         case .plan:
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: 4).fill(mode.color)
         case .auto:
-            Capsule()
+            Capsule().fill(mode.color)
         }
     }
 }

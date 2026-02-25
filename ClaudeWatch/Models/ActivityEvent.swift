@@ -11,7 +11,7 @@ import SwiftUI
 // MARK: - Activity Event Type
 
 /// Types of activity events that can occur during a Claude session
-enum ActivityEventType: String, Codable, CaseIterable {
+enum ActivityEventType: String, Codable, CaseIterable, Sendable {
     case sessionStarted
     case sessionEnded
     case taskStarted
@@ -73,7 +73,7 @@ enum ActivityEventType: String, Codable, CaseIterable {
 // MARK: - Activity Event
 
 /// Represents a single activity event in the session timeline
-struct ActivityEvent: Identifiable, Codable, Equatable {
+struct ActivityEvent: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
     let timestamp: Date
     let type: ActivityEventType

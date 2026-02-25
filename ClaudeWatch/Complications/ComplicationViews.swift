@@ -1,14 +1,16 @@
+import AppIntents
 import SwiftUI
 import WidgetKit
 
 // MARK: - Widget Entry
-struct RemmyEntry: TimelineEntry {
+struct RemmyEntry: TimelineEntry, Sendable {
     let date: Date
     let taskName: String
     let progress: Double
     let pendingCount: Int
     let model: String
     let isConnected: Bool
+    let sessionState: ClaudeState
 
     /// Relevance score for Smart Stack (0.0 to 1.0)
     /// Higher scores surface the widget when most useful
@@ -17,8 +19,12 @@ struct RemmyEntry: TimelineEntry {
         if pendingCount > 0 {
             return TimelineEntryRelevance(score: 1.0, duration: 300) // 5 min
         }
+        // Medium-high relevance on error or context warning
+        if sessionState == .error || sessionState == .context {
+            return TimelineEntryRelevance(score: 0.8, duration: 120) // 2 min
+        }
         // Medium relevance when actively working
-        if progress > 0 && progress < 1.0 {
+        if sessionState == .working {
             return TimelineEntryRelevance(score: 0.6, duration: 60) // 1 min
         }
         // Low relevance when idle
@@ -26,8 +32,14 @@ struct RemmyEntry: TimelineEntry {
     }
 }
 
+// MARK: - Widget Configuration Intent
+struct RemmyWidgetConfigIntent: WidgetConfigurationIntent {
+    static var title: LocalizedStringResource = "Remmy Widget"
+    static var description = IntentDescription("Configure the Remmy widget display")
+}
+
 // MARK: - Provider (with RelevanceKit support for Smart Stack)
-struct RemmyProvider: TimelineProvider {
+struct RemmyProvider: AppIntentTimelineProvider {
     private let defaults = UserDefaults(suiteName: "group.com.remmy")
 
     func placeholder(in context: Context) -> RemmyEntry {
@@ -37,15 +49,16 @@ struct RemmyProvider: TimelineProvider {
             progress: 0.5,
             pendingCount: 0,
             model: "opus",
-            isConnected: true
+            isConnected: true,
+            sessionState: .working
         )
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (RemmyEntry) -> Void) {
-        completion(currentEntry())
+    func snapshot(for configuration: RemmyWidgetConfigIntent, in context: Context) async -> RemmyEntry {
+        currentEntry()
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<RemmyEntry>) -> Void) {
+    func timeline(for configuration: RemmyWidgetConfigIntent, in context: Context) async -> Timeline<RemmyEntry> {
         let entry = currentEntry()
 
         // Dynamic refresh based on activity level
@@ -61,21 +74,34 @@ struct RemmyProvider: TimelineProvider {
             refreshInterval = 900
         }
 
-        let timeline = Timeline(
+        return Timeline(
             entries: [entry],
             policy: .after(Date().addingTimeInterval(refreshInterval))
         )
-        completion(timeline)
+    }
+
+    func recommendations() -> [AppIntentRecommendation<RemmyWidgetConfigIntent>] {
+        [AppIntentRecommendation(intent: RemmyWidgetConfigIntent(), description: "Remmy")]
     }
 
     private func currentEntry() -> RemmyEntry {
-        RemmyEntry(
+        // Read session state from shared UserDefaults
+        let sessionState: ClaudeState
+        if let stateString = defaults?.string(forKey: "session_state"),
+           let decoded = ClaudeState(rawValue: stateString) {
+            sessionState = decoded
+        } else {
+            sessionState = .idle
+        }
+
+        return RemmyEntry(
             date: .now,
             taskName: defaults?.string(forKey: "taskName") ?? "Remmy",
             progress: defaults?.double(forKey: "progress") ?? 0,
             pendingCount: defaults?.integer(forKey: "pendingCount") ?? 0,
             model: defaults?.string(forKey: "model") ?? "opus",
-            isConnected: defaults?.bool(forKey: "isConnected") ?? false
+            isConnected: defaults?.bool(forKey: "isConnected") ?? false,
+            sessionState: sessionState
         )
     }
 }
@@ -89,8 +115,6 @@ struct RemmyWidgetEntryView: View {
         switch family {
         case .accessoryCircular:
             CircularWidgetView(entry: entry)
-        case .accessoryRectangular:
-            RectangularWidgetView(entry: entry)
         case .accessoryCorner:
             CornerWidgetView(entry: entry)
         case .accessoryInline:
@@ -106,130 +130,36 @@ struct CircularWidgetView: View {
     let entry: RemmyEntry
     @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
-    var body: some View {
-        ZStack {
-            // Progress Ring - dimmed in always-on mode
-            Circle()
-                .stroke(progressColor.opacity(isLuminanceReduced ? 0.15 : 0.3), lineWidth: 4)
+    private var dimFactor: Double { isLuminanceReduced ? 0.5 : 1.0 }
 
-            Circle()
-                .trim(from: 0, to: entry.progress)
-                .stroke(progressColor.opacity(isLuminanceReduced ? 0.5 : 1.0), style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                .rotationEffect(.degrees(-90))
+    private var stateColor: Color {
+        entry.sessionState.color
+    }
 
-            // Center Content
-            VStack(spacing: 0) {
-                Image(systemName: entry.pendingCount > 0 ? "hand.raised.fill" : "terminal.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(iconColor.opacity(isLuminanceReduced ? 0.6 : 1.0))
-
-                if entry.pendingCount > 0 {
-                    Text("\(entry.pendingCount)")
-                        .font(.caption2.weight(.bold).monospaced())
-                        .foregroundStyle(Claude.warning.opacity(isLuminanceReduced ? 0.6 : 1.0))
-                }
-            }
+    /// Center content: pending count > progress % > state label
+    @ViewBuilder
+    private var centerContent: some View {
+        if entry.pendingCount > 0 {
+            Text("\(entry.pendingCount)")
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundStyle(Claude.warning.opacity(dimFactor))
+        } else if entry.progress > 0 && entry.progress < 1.0 {
+            Text("\(Int(entry.progress * 100))")
+                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .foregroundStyle(stateColor.opacity(dimFactor))
+        } else {
+            Text(entry.sessionState.shortLabel)
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(stateColor.opacity(dimFactor))
         }
-        .padding(2)
     }
-
-    private var progressColor: Color {
-        Claude.success
-    }
-
-    private var iconColor: Color {
-        entry.pendingCount > 0 ? Claude.warning : Claude.success
-    }
-}
-
-// MARK: - Rectangular Widget
-struct RectangularWidgetView: View {
-    let entry: RemmyEntry
-    @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            // Header
-            HStack {
-                Image(systemName: "terminal.fill")
-                    .font(.caption2)
-                    .foregroundStyle(greenColor)
-
-                Text("REMMY")
-                    .font(.caption2.weight(.bold).monospaced())
-                    .foregroundStyle(greenColor)
-
-                Spacer()
-
-                if entry.isConnected {
-                    Circle()
-                        .fill(greenColor)
-                        .frame(width: 6, height: 6)
-                }
-            }
-
-            // Task Info
-            HStack {
-                Text(entry.taskName)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(isLuminanceReduced ? .gray : .white)
-
-                Spacer()
-
-                Text("\(Int(entry.progress * 100))%")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(greenColor)
-            }
-
-            // Progress Bar - dimmed in always-on mode
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Rectangle()
-                        .fill(Claude.idle.opacity(isLuminanceReduced ? 0.15 : 0.3))
-                        .frame(height: 3)
-                        .clipShape(RoundedRectangle(cornerRadius: 1.5))
-
-                    Rectangle()
-                        .fill(greenColor)
-                        .frame(width: geometry.size.width * entry.progress, height: 3)
-                        .clipShape(RoundedRectangle(cornerRadius: 1.5))
-                }
-            }
-            .frame(height: 3)
-
-            // Bottom Info
-            HStack {
-                if entry.pendingCount > 0 {
-                    Text("\(entry.pendingCount) pending")
-                        .font(.caption2.monospaced())
-                        .foregroundStyle(orangeColor)
-                } else {
-                    Text("All clear")
-                        .font(.caption2.monospaced())
-                        .foregroundStyle(greenColor)
-                }
-
-                Spacer()
-
-                Text(entry.model)
-                    .font(.caption2.weight(.medium).monospaced())
-                    .foregroundStyle(purpleColor)
-            }
+        Gauge(value: entry.progress) {
+            centerContent
         }
-        .padding(4)
-    }
-
-    // Dimmed colors for always-on mode
-    private var greenColor: Color {
-        Claude.success.opacity(isLuminanceReduced ? 0.5 : 1.0)
-    }
-
-    private var orangeColor: Color {
-        Claude.warning.opacity(isLuminanceReduced ? 0.5 : 1.0)
-    }
-
-    private var purpleColor: Color {
-        Color.purple.opacity(isLuminanceReduced ? 0.5 : 1.0)
+        .gaugeStyle(.accessoryCircularCapacity)
+        .tint(stateColor.opacity(dimFactor))
     }
 }
 
@@ -238,28 +168,31 @@ struct CornerWidgetView: View {
     let entry: RemmyEntry
     @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
-    var body: some View {
-        ZStack {
-            // Arc Progress - dimmed in always-on mode
-            Circle()
-                .trim(from: 0, to: entry.progress)
-                .stroke(greenColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                .rotationEffect(.degrees(-90))
+    private var dimFactor: Double { isLuminanceReduced ? 0.5 : 1.0 }
 
-            VStack(spacing: 0) {
-                Text("\(Int(entry.progress * 100))")
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
-                    .foregroundStyle(isLuminanceReduced ? .gray : .white)
-
-                Text("%")
-                    .font(.caption2.monospaced())
-                    .foregroundStyle(.gray)
-            }
-        }
+    private var stateColor: Color {
+        entry.sessionState.color
     }
 
-    private var greenColor: Color {
-        Claude.success.opacity(isLuminanceReduced ? 0.5 : 1.0)
+    var body: some View {
+        ZStack {
+            if entry.pendingCount > 0 {
+                Text("\(entry.pendingCount)")
+                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Claude.warning.opacity(dimFactor))
+            } else {
+                Text(entry.sessionState.shortLabel)
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(stateColor.opacity(dimFactor))
+            }
+        }
+        .widgetLabel {
+            Gauge(value: entry.progress) {
+                Text("R")
+            }
+            .gaugeStyle(.accessoryLinearCapacity)
+            .tint(stateColor.opacity(dimFactor))
+        }
     }
 }
 
@@ -268,20 +201,22 @@ struct InlineWidgetView: View {
     let entry: RemmyEntry
     @Environment(\.isLuminanceReduced) var isLuminanceReduced
 
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "terminal.fill")
-                .foregroundStyle(isLuminanceReduced ? .gray : .white)
-
-            Text("\(entry.taskName) \(Int(entry.progress * 100))%")
-                .font(.system(size: 12, design: .monospaced))
-                .foregroundStyle(isLuminanceReduced ? .gray : .white)
-
-            if entry.pendingCount > 0 {
-                Text("• \(entry.pendingCount)")
-                    .foregroundStyle(Claude.warning.opacity(isLuminanceReduced ? 0.5 : 1.0))
-            }
+    private var displayText: String {
+        if entry.pendingCount > 0 {
+            return "\(entry.pendingCount) pending"
         }
+        if entry.sessionState == .working {
+            let name = entry.taskName.isEmpty ? "" : ": \(entry.taskName)"
+            let truncated = name.count > 20 ? String(name.prefix(20)) + "..." : name
+            return "Working\(truncated)"
+        }
+        return entry.sessionState.displayName
+    }
+
+    var body: some View {
+        Text(displayText)
+            .font(.system(size: 12, design: .monospaced))
+            .foregroundStyle(isLuminanceReduced ? .gray : .white)
     }
 }
 
@@ -290,7 +225,7 @@ struct RemmyWidgets: Widget {
     let kind: String = "RemmyWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: RemmyProvider()) { entry in
+        AppIntentConfiguration(kind: kind, intent: RemmyWidgetConfigIntent.self, provider: RemmyProvider()) { entry in
             RemmyWidgetEntryView(entry: entry)
                 .containerBackground(.black, for: .widget)
         }
@@ -298,16 +233,31 @@ struct RemmyWidgets: Widget {
         .description("Monitor your coding session")
         .supportedFamilies([
             .accessoryCircular,
-            .accessoryRectangular,
             .accessoryCorner,
             .accessoryInline
         ])
     }
 }
 
-#Preview(as: .accessoryRectangular) {
+#Preview(as: .accessoryCircular) {
     RemmyWidgets()
 } timeline: {
-    RemmyEntry(date: .now, taskName: "REFACTOR", progress: 0.6, pendingCount: 3, model: "OPUS", isConnected: true)
-    RemmyEntry(date: .now, taskName: "BUILD", progress: 0.9, pendingCount: 0, model: "OPUS", isConnected: true)
+    // Active session with pending actions
+    RemmyEntry(
+        date: .now, taskName: "REFACTOR", progress: 0.6,
+        pendingCount: 3, model: "OPUS", isConnected: true,
+        sessionState: .approval
+    )
+    // Working session, no pending
+    RemmyEntry(
+        date: .now, taskName: "auth-service", progress: 0.75,
+        pendingCount: 0, model: "OPUS", isConnected: true,
+        sessionState: .working
+    )
+    // Idle
+    RemmyEntry(
+        date: .now, taskName: "", progress: 0,
+        pendingCount: 0, model: "OPUS", isConnected: true,
+        sessionState: .idle
+    )
 }

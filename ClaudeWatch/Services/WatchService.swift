@@ -758,6 +758,7 @@ class WatchService {
         // Clear the notification for this action
         clearDeliveredNotification(for: actionId)
 
+        updateComplicationData()
         playHaptic(.success)
     }
 
@@ -792,6 +793,7 @@ class WatchService {
         // Clear the notification for this action
         clearDeliveredNotification(for: actionId)
 
+        updateComplicationData()
         playHaptic(.failure)
     }
 
@@ -838,6 +840,8 @@ class WatchService {
 
         // Clear ALL delivered notifications
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+
+        updateComplicationData()
     }
 
     /// Rejects all pending actions at once.
@@ -867,6 +871,7 @@ class WatchService {
         // Clear ALL delivered notifications
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
 
+        updateComplicationData()
         playHaptic(.failure)
     }
 
@@ -1331,6 +1336,8 @@ class WatchService {
 
         // Clear delivered notifications for this request
         clearDeliveredNotification(for: requestId)
+
+        updateComplicationData()
 
         // Note: Haptic feedback is handled by the calling view/intent, not here
         // to avoid double haptics when views play their own feedback
@@ -1932,12 +1939,19 @@ class WatchService {
 
     // MARK: - Complication Data
     private func updateComplicationData() {
+        let sessionState = ClaudeState.derive(
+            pendingCount: state.pendingActions.count,
+            sessionStatus: state.status,
+            hasProgress: state.progress > 0
+        )
+
         let snapshot = ComplicationSnapshot(
             pendingCount: state.pendingActions.count,
             progress: state.progress,
             taskName: state.taskName,
             model: state.model,
-            isConnected: connectionStatus == .connected
+            isConnected: connectionStatus == .connected,
+            sessionState: sessionState
         )
 
         // Always write shared defaults so complications read fresh data
@@ -1946,8 +1960,9 @@ class WatchService {
         sharedDefaults?.set(snapshot.taskName, forKey: "taskName")
         sharedDefaults?.set(snapshot.model, forKey: "model")
         sharedDefaults?.set(snapshot.isConnected, forKey: "isConnected")
+        sharedDefaults?.set(snapshot.sessionState.rawValue, forKey: "session_state")
 
-        // Throttle reloadTimelines: only reload if state changed AND enough time has passed
+        // Only reload if complication-relevant state has changed
         guard snapshot != lastComplicationState else { return }
 
         let now = Date()
@@ -1958,7 +1973,7 @@ class WatchService {
 
         lastComplicationState = snapshot
         lastComplicationUpdate = now
-        WidgetCenter.shared.reloadTimelines(ofKind: "RemmyWidget")
+        WidgetReloadCoordinator.shared.requestReload()
     }
 
     // MARK: - Push Token Registration
@@ -1985,6 +2000,10 @@ class WatchService {
 
     /// Helper to finalize demo approval setup - respects auto-accept mode
     private func finalizeDemoApproval() {
+        // Populate activity events and complication state for demo mode
+        ActivityStore.shared.loadDemoEvents()
+        updateComplicationData()
+
         // Read mode directly from AppStorage to ensure we have the persisted value
         let currentMode = PermissionMode(rawValue: storedMode) ?? .normal
         NSLog("[DEMO] finalizeDemoApproval - storedMode: %@, state.mode: %@, pendingCount: %d",
@@ -2627,6 +2646,7 @@ private struct ComplicationSnapshot: Equatable {
     let taskName: String
     let model: String
     let isConnected: Bool
+    let sessionState: ClaudeState
 }
 
 struct WatchState {
@@ -2833,33 +2853,8 @@ enum PermissionMode: String, CaseIterable {
     }
 }
 
-enum SessionStatus: String {
-    case idle
-    case running
-    case waiting
-    case completed
-    case failed
-
-    var displayName: String {
-        switch self {
-        case .idle: return "IDLE"
-        case .running: return "RUNNING"
-        case .waiting: return "WAITING"
-        case .completed: return "DONE"
-        case .failed: return "FAILED"
-        }
-    }
-
-    var color: String {
-        switch self {
-        case .idle: return "gray"
-        case .running: return "green"
-        case .waiting: return "orange"
-        case .completed: return "green"
-        case .failed: return "red"
-        }
-    }
-}
+// SessionStatus is defined in ClaudeWatch/Models/SessionStatus.swift
+// (extracted for widget extension sharing)
 
 enum ConnectionStatus: Equatable {
     case disconnected

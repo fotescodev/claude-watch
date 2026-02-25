@@ -14,8 +14,8 @@ public enum Claude {
     static let anthropicLight = Color(red: 0.980, green: 0.976, blue: 0.961)   // #faf9f5
 
     // Legacy brand colors (kept for backward compatibility)
-    /// Primary accent (legacy - maps to anthropicOrange)
-    static let orange = Color(red: 0.851, green: 0.467, blue: 0.341)           // #d97757
+    /// Primary accent (legacy - alias for anthropicOrange)
+    static let orange = anthropicOrange
     /// Light variant for highlights
     static let orangeLight = Color(red: 0.902, green: 0.569, blue: 0.463)      // #e69176
     /// Dark variant for depth

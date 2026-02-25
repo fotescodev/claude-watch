@@ -23,6 +23,20 @@ public enum ClaudeState: String, CaseIterable, Codable, Sendable {
 
     // MARK: - Display Properties
 
+    /// Short label for complication center text (4 chars max)
+    public var shortLabel: String {
+        switch self {
+        case .idle: return "IDLE"
+        case .working: return "WORK"
+        case .approval: return "WAIT"
+        case .success: return "DONE"
+        case .error: return "ERR"
+        case .plan: return "PLAN"
+        case .context: return "CTX"
+        case .question: return "ASK"
+        }
+    }
+
     /// Human-readable display name
     public var displayName: String {
         switch self {

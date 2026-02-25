@@ -33,6 +33,7 @@
 		MODEL003 /* ActionTier.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_MODEL003 /* ActionTier.swift */; };
 		MODEL004 /* ActivityEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_MODEL004 /* ActivityEvent.swift */; };
 		SVC002 /* ActivityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_SVC002 /* ActivityStore.swift */; };
+		SVC003 /* WidgetReloadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_SVC003 /* WidgetReloadCoordinator.swift */; };
 		VIEW016 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW016 /* HistoryView.swift */; };
 		COMP001 /* BreathingAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP001 /* BreathingAnimation.swift */; };
 		COMP002 /* SwipeActionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP002 /* SwipeActionCard.swift */; };
@@ -62,6 +63,19 @@
 		VIEW014 /* ApprovalQueueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW014 /* ApprovalQueueView.swift */; };
 		VIEW015 /* QuickActionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW015 /* QuickActionsView.swift */; };
 		VIEW017 /* ApprovalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_VIEW017 /* ApprovalView.swift */; };
+		COMP011 /* ModeIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_COMP011 /* ModeIndicator.swift */; };
+		TEST007 /* UITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC007 /* UITests.swift */; };
+		TEST008 /* DesignSystemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC008 /* DesignSystemTests.swift */; };
+		TEST009 /* FoundationModelsStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC009 /* FoundationModelsStatusTests.swift */; };
+		TEST010 /* CloudErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC010 /* CloudErrorTests.swift */; };
+		TEST011 /* ApprovalRequestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TEST_SRC011 /* ApprovalRequestTests.swift */; };
+		MODEL006 /* SessionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_MODEL006 /* SessionStatus.swift */; };
+		WGT_SRC001 /* RemmyWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_WIDGET001 /* RemmyWidgetBundle.swift */; };
+		WGT_SRC002 /* ComplicationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC014 /* ComplicationViews.swift */; };
+		WGT_SRC005 /* Claude.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_DS001 /* Claude.swift */; };
+		WGT_SRC006 /* ClaudeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_MODEL002 /* ClaudeState.swift */; };
+		WGT_SRC007 /* SessionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC_MODEL006 /* SessionStatus.swift */; };
+		EMBED001 /* RemmyWidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = PROD003 /* RemmyWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -71,6 +85,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = TARGET001;
 			remoteInfo = ClaudeWatch;
+		};
+		PROXY002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = PROJECT001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = TARGET003;
+			remoteInfo = RemmyWidgetExtension;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -106,6 +127,7 @@
 		SRC_MODEL003 /* ActionTier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionTier.swift; sourceTree = "<group>"; };
 		SRC_MODEL004 /* ActivityEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityEvent.swift; sourceTree = "<group>"; };
 		SRC_SVC002 /* ActivityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityStore.swift; sourceTree = "<group>"; };
+		SRC_SVC003 /* WidgetReloadCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetReloadCoordinator.swift; sourceTree = "<group>"; };
 		SRC_VIEW016 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		SRC_COMP001 /* BreathingAnimation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreathingAnimation.swift; sourceTree = "<group>"; };
 		SRC_COMP002 /* SwipeActionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeActionCard.swift; sourceTree = "<group>"; };
@@ -135,6 +157,17 @@
 		SRC_VIEW014 /* ApprovalQueueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalQueueView.swift; sourceTree = "<group>"; };
 		SRC_VIEW015 /* QuickActionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickActionsView.swift; sourceTree = "<group>"; };
 		SRC_VIEW017 /* ApprovalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalView.swift; sourceTree = "<group>"; };
+		SRC_COMP011 /* ModeIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModeIndicator.swift; sourceTree = "<group>"; };
+		TEST_SRC007 /* UITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITests.swift; sourceTree = "<group>"; };
+		TEST_SRC008 /* DesignSystemTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystemTests.swift; sourceTree = "<group>"; };
+		TEST_SRC009 /* FoundationModelsStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoundationModelsStatusTests.swift; sourceTree = "<group>"; };
+		TEST_SRC010 /* CloudErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudErrorTests.swift; sourceTree = "<group>"; };
+		TEST_SRC011 /* ApprovalRequestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalRequestTests.swift; sourceTree = "<group>"; };
+		SRC_MODEL006 /* SessionStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStatus.swift; sourceTree = "<group>"; };
+		SRC_WIDGET001 /* RemmyWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemmyWidgetBundle.swift; sourceTree = "<group>"; };
+		ENT_WIDGET /* RemmyWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RemmyWidget.entitlements; sourceTree = "<group>"; };
+		RES_WIDGET_INFO /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		PROD003 /* RemmyWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RemmyWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -145,6 +178,7 @@
 				SRC_MODEL001 /* ApprovalRequest.swift */,
 				SRC_MODEL002 /* ClaudeState.swift */,
 				SRC_MODEL003 /* ActionTier.swift */,
+				SRC_MODEL006 /* SessionStatus.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -202,6 +236,7 @@
 			children = (
 				PROD001 /* ClaudeWatch.app */,
 				PROD002 /* ClaudeWatchTests.xctest */,
+				PROD003 /* RemmyWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -213,6 +248,7 @@
 				SRC_ENC001 /* EncryptionService.swift */,
 				SRC_KEY001 /* KeychainHelper.swift */,
 				SRC011 /* WatchService.swift */,
+				SRC_SVC003 /* WidgetReloadCoordinator.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -225,6 +261,11 @@
 				TEST_SRC003 /* WebSocketErrorTests.swift */,
 				TEST_SRC004 /* QueuedMessageTests.swift */,
 				TEST_SRC005 /* WatchServiceTests.swift */,
+				TEST_SRC007 /* UITests.swift */,
+				TEST_SRC008 /* DesignSystemTests.swift */,
+				TEST_SRC009 /* FoundationModelsStatusTests.swift */,
+				TEST_SRC010 /* CloudErrorTests.swift */,
+				TEST_SRC011 /* ApprovalRequestTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -287,8 +328,19 @@
 			isa = PBXGroup;
 			children = (
 				GRP_WATCH /* ClaudeWatch */,
+				GRP_WIDGET /* RemmyWidget */,
 				GRP_PRODUCTS /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		GRP_WIDGET /* RemmyWidget */ = {
+			isa = PBXGroup;
+			children = (
+				SRC_WIDGET001 /* RemmyWidgetBundle.swift */,
+				ENT_WIDGET /* RemmyWidget.entitlements */,
+				RES_WIDGET_INFO /* Info.plist */,
+			);
+			path = RemmyWidget;
 			sourceTree = "<group>";
 		};
 GRP_COMP /* Components */ = {
@@ -304,6 +356,7 @@ GRP_COMP /* Components */ = {
 				SRC_COMP008 /* FloatingSettingsButton.swift */,
 				SRC_COMP009 /* ScreenShell.swift */,
 				SRC_COMP010 /* ScreenTransition.swift */,
+				SRC_COMP011 /* ModeIndicator.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -317,10 +370,12 @@ GRP_COMP /* Components */ = {
 			buildPhases = (
 				PHASE_SOURCES /* Sources */,
 				PHASE_RESOURCES /* Resources */,
+				PHASE_EMBED_EXTENSIONS /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				DEP002 /* PBXTargetDependency */,
 			);
 			name = ClaudeWatch;
 			productName = ClaudeWatch;
@@ -343,6 +398,21 @@ GRP_COMP /* Components */ = {
 			productReference = PROD002 /* ClaudeWatchTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		TARGET003 /* RemmyWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CFG_LIST003 /* Build configuration list for PBXNativeTarget "RemmyWidgetExtension" */;
+			buildPhases = (
+				PHASE_WIDGET_SOURCES /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RemmyWidgetExtension;
+			productName = RemmyWidgetExtension;
+			productReference = PROD003 /* RemmyWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -359,6 +429,9 @@ GRP_COMP /* Components */ = {
 					TARGET002 = {
 						CreatedOnToolsVersion = 15.0;
 						TestTargetID = TARGET001;
+					};
+					TARGET003 = {
+						CreatedOnToolsVersion = 15.0;
 					};
 				};
 			};
@@ -377,6 +450,7 @@ GRP_COMP /* Components */ = {
 			targets = (
 				TARGET001 /* ClaudeWatch */,
 				TARGET002 /* ClaudeWatchTests */,
+				TARGET003 /* RemmyWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -392,6 +466,20 @@ GRP_COMP /* Components */ = {
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		PHASE_EMBED_EXTENSIONS /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				EMBED001 /* RemmyWidgetExtension.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		PHASE_SOURCES /* Sources */ = {
@@ -417,6 +505,7 @@ GRP_COMP /* Components */ = {
 				MODEL003 /* ActionTier.swift in Sources */,
 				MODEL004 /* ActivityEvent.swift in Sources */,
 				SVC002 /* ActivityStore.swift in Sources */,
+				SVC003 /* WidgetReloadCoordinator.swift in Sources */,
 				VIEW016 /* HistoryView.swift in Sources */,
 				COMP001 /* BreathingAnimation.swift in Sources */,
 				COMP002 /* SwipeActionCard.swift in Sources */,
@@ -446,6 +535,20 @@ GRP_COMP /* Components */ = {
 				VIEW014 /* ApprovalQueueView.swift in Sources */,
 				VIEW015 /* QuickActionsView.swift in Sources */,
 				VIEW017 /* ApprovalView.swift in Sources */,
+				COMP011 /* ModeIndicator.swift in Sources */,
+				MODEL006 /* SessionStatus.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		PHASE_WIDGET_SOURCES /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				WGT_SRC001 /* RemmyWidgetBundle.swift in Sources */,
+				WGT_SRC002 /* ComplicationViews.swift in Sources */,
+				WGT_SRC005 /* Claude.swift in Sources */,
+				WGT_SRC006 /* ClaudeState.swift in Sources */,
+				WGT_SRC007 /* SessionStatus.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -458,6 +561,11 @@ GRP_COMP /* Components */ = {
 				TEST003 /* WebSocketErrorTests.swift in Sources */,
 				TEST004 /* QueuedMessageTests.swift in Sources */,
 				TEST005 /* WatchServiceTests.swift in Sources */,
+				TEST007 /* UITests.swift in Sources */,
+				TEST008 /* DesignSystemTests.swift in Sources */,
+				TEST009 /* FoundationModelsStatusTests.swift in Sources */,
+				TEST010 /* CloudErrorTests.swift in Sources */,
+				TEST011 /* ApprovalRequestTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -468,6 +576,11 @@ GRP_COMP /* Components */ = {
 			isa = PBXTargetDependency;
 			target = TARGET001 /* ClaudeWatch */;
 			targetProxy = PROXY001 /* PBXContainerItemProxy */;
+		};
+		DEP002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = TARGET003 /* RemmyWidgetExtension */;
+			targetProxy = PROXY002 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -671,6 +784,65 @@ GRP_COMP /* Components */ = {
 			};
 			name = Release;
 		};
+		CFG_DEBUG_WIDGET /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = RemmyWidget/RemmyWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 98R5RJKR5F;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RemmyWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Remmy Widget";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.edgeoftrust.remmy.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = (
+					"DEBUG",
+					"WIDGET_EXTENSION",
+				);
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.6;
+			};
+			name = Debug;
+		};
+		CFG_RELEASE_WIDGET /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = RemmyWidget/RemmyWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 98R5RJKR5F;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RemmyWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Remmy Widget";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.edgeoftrust.remmy.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = WIDGET_EXTENSION;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.6;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -697,6 +869,15 @@ GRP_COMP /* Components */ = {
 			buildConfigurations = (
 				CFG_DEBUG_PROJECT /* Debug */,
 				CFG_RELEASE_PROJECT /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CFG_LIST003 /* Build configuration list for PBXNativeTarget "RemmyWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CFG_DEBUG_WIDGET /* Debug */,
+				CFG_RELEASE_WIDGET /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
