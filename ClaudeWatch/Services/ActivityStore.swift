@@ -8,6 +8,7 @@
 
 import Foundation
 import SwiftUI
+import WidgetKit
 import os
 
 private let logger = Logger(subsystem: "com.edgeoftrust.remmy", category: "ActivityStore")
@@ -31,6 +32,8 @@ class ActivityStore {
 
     /// Last completed session ID (for stats display after session ends)
     private var lastSessionId: UUID?
+
+    // Widget reloads delegated to WidgetReloadCoordinator.shared
 
     // MARK: - Configuration
 
@@ -237,6 +240,71 @@ class ActivityStore {
         }
     }
 
+    // MARK: - Demo Data
+
+    /// Populate today's events with realistic demo data for complications
+    /// Generates: 32 approvals, 3 rejections, 3 completed tasks, 8 questions
+    /// → Build: 35/50 = 70%, Ship: 3/5 = 60%, Guard: 43/20 = 215%
+    func loadDemoEvents() {
+        // Clear previous demo events to prevent accumulation across demo screen cycles
+        events.removeAll()
+
+        let sessionId = UUID()
+        currentSessionId = sessionId
+        let now = Date()
+
+        // Session started 2 hours ago
+        events.append(ActivityEvent(
+            timestamp: now.addingTimeInterval(-7200),
+            type: .sessionStarted,
+            title: "Session Started",
+            sessionId: sessionId
+        ))
+
+        // Approvals (32) spread over the session
+        for i in 0..<32 {
+            events.insert(ActivityEvent(
+                timestamp: now.addingTimeInterval(Double(-7000 + i * 200)),
+                type: .approvalApproved,
+                title: "Approved action \(i + 1)",
+                sessionId: sessionId
+            ), at: 0)
+        }
+
+        // Rejections (3)
+        for i in 0..<3 {
+            events.insert(ActivityEvent(
+                timestamp: now.addingTimeInterval(Double(-5000 + i * 600)),
+                type: .approvalRejected,
+                title: "Rejected action \(i + 1)",
+                sessionId: sessionId
+            ), at: 0)
+        }
+
+        // Task completions (3)
+        for (i, name) in ["Create models", "Add validation", "Update tests"].enumerated() {
+            events.insert(ActivityEvent(
+                timestamp: now.addingTimeInterval(Double(-4000 + i * 1200)),
+                type: .taskCompleted,
+                title: name,
+                sessionId: sessionId
+            ), at: 0)
+        }
+
+        // Questions answered (8)
+        for i in 0..<8 {
+            events.insert(ActivityEvent(
+                timestamp: now.addingTimeInterval(Double(-6000 + i * 700)),
+                type: .questionAnswered,
+                title: "Question \(i + 1)",
+                sessionId: sessionId
+            ), at: 0)
+        }
+
+        saveEvents()
+        reloadWidgetTimeline()
+    }
+
     // MARK: - Clear / Reset
 
     /// Clear all events (for testing or reset)
@@ -264,6 +332,12 @@ class ActivityStore {
         }
 
         saveEvents()
+        reloadWidgetTimeline()
+    }
+
+    /// Delegate widget timeline reload to the shared coordinator
+    private func reloadWidgetTimeline() {
+        WidgetReloadCoordinator.shared.requestReload()
     }
 
     private func truncate(_ text: String, maxLength: Int = 30) -> String {

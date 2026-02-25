@@ -1,6 +1,7 @@
 import SwiftUI
 import WatchKit
 import UserNotifications
+import WidgetKit
 import os
 
 private let logger = Logger(subsystem: "com.edgeoftrust.remmy", category: "App")
@@ -25,6 +26,13 @@ struct RemmyApp: App {
 
 // MARK: - App Delegate
 class AppDelegate: NSObject, WKApplicationDelegate {
+
+    /// Delegate widget timeline reload to the shared coordinator
+    private func reloadWidgetTimeline() {
+        Task { @MainActor in
+            WidgetReloadCoordinator.shared.requestReload()
+        }
+    }
 
     func applicationDidFinishLaunching() {
         // Request notification permissions
@@ -96,6 +104,7 @@ class AppDelegate: NSObject, WKApplicationDelegate {
         if notificationType == "progress" {
             // Handle progress update
             handleProgressNotificationBackground(userInfo: userInfo)
+            reloadWidgetTimeline()
             completionHandler(.newData)
         } else {
             completionHandler(.noData)
@@ -179,12 +188,14 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         if notificationType == "progress" {
             // Handle progress update - update UI without showing banner
             handleProgressNotification(userInfo: userInfo)
+            reloadWidgetTimeline()
             completionHandler([])
         } else if notificationType == "question" {
             // F18: Question Response - show QuestionResponseView
             Task { @MainActor in
                 WatchService.shared.handleQuestionNotification(userInfo)
             }
+            reloadWidgetTimeline()
             completionHandler([])
         } else if notificationType == "context_warning" {
             // F16: Context Warning - show ContextWarningView
@@ -195,6 +206,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         } else {
             // Parse notification payload and add to pending actions
             addPendingActionFromNotification(userInfo: userInfo)
+            reloadWidgetTimeline()
             // App is in foreground - suppress banner, let UI show the action inline
             // The action is already added to pendingActions queue above
             completionHandler([])
@@ -283,6 +295,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                     } else {
                         service.approveAction(requestId)
                     }
+                    reloadWidgetTimeline()
                 }
 
             case "REJECT_ACTION":
@@ -292,10 +305,12 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
                     } else {
                         service.rejectAction(requestId)
                     }
+                    reloadWidgetTimeline()
                 }
 
             case "APPROVE_ALL_ACTION":
                 service.approveAll()
+                reloadWidgetTimeline()
 
             case UNNotificationDefaultActionIdentifier:
                 // User tapped notification - handle based on type
