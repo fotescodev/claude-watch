@@ -1,6 +1,6 @@
 # Project: Claude Watch
 
-> **New Claude session?** Start with `/progress` to orient yourself.
+> **New Claude session?** Start with `/session-start` to orient yourself.
 >
 > **Before proposing solutions:** Read `.claude/ARCHITECTURE.md` first.
 
@@ -85,37 +85,11 @@ These load every session and shape my behaviour before I read the task. Correcti
 
 ---
 
-## Session Workflow (GSD-Inspired)
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  SESSION START                                                  │
-│  1. Run /progress → See current phase, tasks, blockers          │
-│  2. Read .claude/state/SESSION_STATE.md → Handoff context       │
-│  3. Declare working mode: RIGOR or VELOCITY                     │
-│                                                                 │
-│  BEFORE NEW PHASE                                               │
-│  4. Run /discuss-phase N → Capture decisions upfront            │
-│  5. Creates .claude/plans/phase{N}-CONTEXT.md                   │
-│                                                                 │
-│  DURING IMPLEMENTATION                                          │
-│  6. Track progress in MIGRATION_PROGRESS.md                     │
-│  7. Commit atomically per task                                  │
-│                                                                 │
-│  BEFORE SHIPPING                                                │
-│  8. Run /ship-check → Pre-submission validation                 │
-│                                                                 │
-│  SESSION END                                                    │
-│  9. Update SESSION_STATE.md with handoff notes                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
 ### Key Commands
 
 | Command | Purpose | When to Use |
 |---------|---------|-------------|
-| `/progress` | Show current phase, tasks, blockers | Session start, orientation |
-| `/discuss-phase N` | Capture implementation decisions | Before starting new phase |
+| `/session-start` | Show current phase, tasks, blockers | Session start, orientation |
 | `/ship-check` | Pre-submission validation | Before TestFlight/App Store |
 | `/build` | Build for simulator | Development |
 | `/deploy-device` | Deploy to physical watch | Device testing |
@@ -180,7 +154,7 @@ plans/ → MIGRATION_PROGRESS.md → archive/
 | `.claude/state/SESSION_STATE.md` | **Handoff persistence** - read at session start |
 | `.claude/plans/MIGRATION_PROGRESS.md` | **THE** source of truth for current work |
 | `.claude/plans/` | Ideas, specs, roadmap, and phase CONTEXT files |
-| `.claude/commands/` | Slash commands (`/progress`, `/ship-check`, etc.) |
+| `.claude/commands/` | Slash commands (`/session-start`, `/ship-check`, etc.) |
 | `.claude/context/PRD.md` | Product requirements document |
 | `.claude/archive/` | Completed or obsolete content |
 | `docs/` | User-facing guides only |
