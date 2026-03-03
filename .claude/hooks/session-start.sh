@@ -1,5 +1,5 @@
 #!/bin/bash
-# Session start hook - GSD-inspired orientation
+# Session start hook - orientation
 # Provides instant context: where we left off, what's next
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-.}"
@@ -17,7 +17,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "" >&2
 
 # ═══════════════════════════════════════════════════════════════════════════
-# SESSION STATE (GSD-inspired handoff)
+# SESSION STATE
 # ═══════════════════════════════════════════════════════════════════════════
 if [ -f "$STATE_FILE" ]; then
     echo "━━━ Session Handoff ━━━" >&2
@@ -93,7 +93,7 @@ else
 fi
 
 echo "" >&2
-echo "Commands: /progress /discuss-phase /ship-check /build" >&2
+echo "Commands: /session-start /ship-check /build" >&2
 echo "Context: .claude/state/SESSION_STATE.md | Tasks: .claude/ralph/tasks.yaml" >&2
 
 # ═══════════════════════════════════════════════════════════════════════════

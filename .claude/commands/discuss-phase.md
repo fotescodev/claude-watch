@@ -1,5 +1,5 @@
 ---
-description: Capture implementation decisions before starting a phase (GSD-inspired)
+description: Capture implementation decisions before starting a phase
 allowed-tools: Read, Write, Glob, AskUserQuestion
 ---
 

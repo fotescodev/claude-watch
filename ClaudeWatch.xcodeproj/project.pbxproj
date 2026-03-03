@@ -650,7 +650,6 @@ GRP_COMP /* Components */ = {
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ClaudeWatch/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Remmy;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -747,7 +746,6 @@ GRP_COMP /* Components */ = {
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ClaudeWatch/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Remmy;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
