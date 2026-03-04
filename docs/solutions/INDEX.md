@@ -35,7 +35,7 @@ _None documented yet_
 
 ### MCPServer (Cloudflare Worker)
 - [Missing cloud endpoints](integration-issues/missing-cloud-endpoints-e2e-failure.md) - Session control endpoints not implemented
-- [DATA_FLOW.md](/.claude/DATA_FLOW.md) - Complete API endpoint reference
+- [DATA_FLOW.md](../../.claude/DATA_FLOW.md) - Complete API endpoint reference
 
 ## By Symptom
 
@@ -86,7 +86,7 @@ _None documented yet_
 - **New `@Published` property not showing?** → Check ALL view conditions that might hide it (empty states, loading states)
 
 ### Cloud API / E2E Testing
-- **E2E test returns 404?** → Check endpoint names match [DATA_FLOW.md](/.claude/DATA_FLOW.md)
+- **E2E test returns 404?** → Check endpoint names match [DATA_FLOW.md](../../.claude/DATA_FLOW.md)
 - **Using `/request` endpoint?** → Wrong! Use `/approval` instead
 - **Session control not working?** → Endpoints added 2026-01-21, redeploy cloud worker
 - **Approval flow hangs?** → Hook polls `GET /approval/:pairingId/:requestId`, verify it exists

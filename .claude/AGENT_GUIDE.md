@@ -1,7 +1,7 @@
 # Agent Guide — Reading Order by Task Type
 
 > Referenced by CLAUDE.md. Maps task types to the docs you need.
-> Last updated: 2026-02-15
+> Last updated: 2026-03-04
 
 ## Quick Orientation (Every Session)
 
@@ -16,12 +16,10 @@ If you're a new agent or starting a fresh session, do this:
 # 1. You're reading this — good. Now read SESSION_STATE for context:
 #    .claude/state/SESSION_STATE.md
 
-# 2. Checkout the correct branch for your task:
-#    - Migration/bridge work: claude/investigate-websocket-terminal-utUEt
-#    - Docs/config changes: restructuring
+# 2. Checkout the correct branch for your task
 git checkout <branch>
 
-# 3. Verify green baseline (expect 379 bridge + 129 CLI = 508 total)
+# 3. Verify green baseline (expect 346+ bridge + CLI tests)
 python -m pytest MCPServer/bridge/tests/ -q
 cd remmy-cli && bun test src/ui/ src/lib/ src/cli.test.ts && bun test src/commands/
 
@@ -90,20 +88,25 @@ cd remmy-cli && bun test src/ui/ src/lib/ src/cli.test.ts && bun test src/comman
 
 ## Key Architecture (Current)
 
+**Primary: Hooks-based** — `remmy` CLI installs a PreToolUse hook that routes approvals through the cloud worker.
+
 ```
-Claude CLI  <--NDJSON/WS (8787)-->  Bridge  <--REST (8788)-->  Cloud Worker  <--poll-->  Watch
-                                  (MCPServer/bridge/)         (Cloudflare)
+Claude CLI  --hook-->  Cloud Worker (claude-watch-cloud/)  <--poll-->  Watch
 ```
 
-The bridge is the primary architecture (Phase 11). Old hook-based approval is legacy.
+**Advanced: Bridge-based** — Optional Python bridge for richer capabilities (multi-option questions, token tracking).
 
-### Data Flow Overview
+```
+Claude CLI  <--NDJSON/WS-->  Bridge (MCPServer/bridge/)  <--REST-->  Cloud  <--poll-->  Watch
+```
+
+### Data Flow Overview (Hooks — Primary)
 
 | Flow | Direction | Key Files |
 |------|-----------|-----------|
-| **Approval** | CLI → Bridge (WebSocket) → Cloud → Watch → Cloud → Bridge → CLI | `bridge/permissions.py` → `index.ts` → `WatchService.swift` |
-| **Question** | CLI → Bridge (parse + recommend) → Cloud → Watch → Cloud → Bridge → CLI | `bridge/questions.py` → `index.ts` → `WatchService.swift` |
-| **Progress** | CLI → Bridge (native messages) → Cloud → Watch | `bridge/progress.py` → `index.ts` → `WatchService.swift` |
+| **Approval** | Hook → Cloud → Watch → Cloud → Hook → Claude | `watch-approval-cloud.py` → `index.ts` → `WatchService.swift` |
+| **Question** | Hook → Cloud → Watch → Cloud → Hook → Claude | `watch-approval-cloud.py` → `index.ts` → `WatchService.swift` |
+| **Progress** | Hook → Cloud → Watch | `watch-approval-cloud.py` → `index.ts` → `WatchService.swift` |
 | **Pairing** | Watch → Cloud → CLI | `WatchService.swift` → `index.ts` → `remmy-cli/src/commands/setup.ts` |
 
 ---
@@ -111,19 +114,17 @@ The bridge is the primary architecture (Phase 11). Old hook-based approval is le
 ## Test Commands
 
 ```bash
-# Bridge tests — expect 379 passed
+# Bridge tests (expect 346+)
 python -m pytest MCPServer/bridge/tests/ -q
 
-# Bridge unit only — expect 297 passed
+# Bridge unit only
 python -m pytest MCPServer/bridge/tests/ -q --ignore=MCPServer/bridge/tests/test_e2e_*
 
-# Bridge E2E only — expect 82 passed
+# Bridge E2E only
 python -m pytest MCPServer/bridge/tests/test_e2e_* -q
 
-# CLI tests — expect 129 passed (must split due to bun mock.module() bleed)
+# CLI tests (must split due to bun mock.module() bleed)
 cd remmy-cli && bun test src/ui/ src/lib/ src/cli.test.ts && bun test src/commands/
-
-# Total baseline: 508 tests
 ```
 
 ---
@@ -134,7 +135,7 @@ cd remmy-cli && bun test src/ui/ src/lib/ src/cli.test.ts && bun test src/comman
 |------|---------|
 | `.claude/plans/sdk-url-agent-execution-spec.md` | Bridge server implementation (workstreams A-F) |
 | `.claude/plans/remmy-watch-cli-spec.md` | CLI command structure and behavior |
-| `.claude/plans/REVIEW_FINDINGS.md` | 18 findings from 3-specialist review (R1-R18) |
+| `.claude/archive/plans/REVIEW_FINDINGS.md` | 18 findings from 3-specialist review (R1-R18) |
 | `docs/specs/SWIFTUI_DESIGN_SYSTEM.md` | Watch UI design tokens and patterns |
 
 ---
@@ -165,7 +166,9 @@ Endpoints:
 
 ### Session Isolation
 
-In the bridge architecture, session isolation is **inherent** — only `--sdk-url` sessions connect to the bridge. The old `CLAUDE_WATCH_SESSION_ACTIVE=1` env var is legacy (hook-based).
+In the hooks-based architecture (primary), `CLAUDE_WATCH_SESSION_ACTIVE=1` env var gates watch mode — set by `remmy` CLI when spawning Claude. The hook script exits immediately when the env var is not set, so other Claude sessions are unaffected.
+
+In the bridge architecture (advanced), session isolation is inherent — only `--sdk-url` sessions connect to the bridge.
 
 ---
 
@@ -187,7 +190,7 @@ In the bridge architecture, session isolation is **inherent** — only `--sdk-ur
 - R3: No session cleanup on bridge stop
 - R4: Servers bind to 0.0.0.0 (security risk)
 
-See `.claude/plans/REVIEW_FINDINGS.md` for full details and fix specs.
+See `.claude/archive/plans/REVIEW_FINDINGS.md` for full details and fix specs.
 
 ---
 

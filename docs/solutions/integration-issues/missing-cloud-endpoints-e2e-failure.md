@@ -121,5 +121,5 @@ Expected: All 35 tests pass, including:
 
 ## Related Documentation
 
-- [DATA_FLOW.md](/.claude/DATA_FLOW.md) - Complete endpoint reference
+- [DATA_FLOW.md](../../../.claude/DATA_FLOW.md) - Complete endpoint reference
 - [cc-watch-session-isolation.md](./cc-watch-session-isolation.md) - Session isolation patterns (CLI now named `remmy-cli`)

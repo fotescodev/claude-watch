@@ -1054,7 +1054,7 @@ wrangler tail
 - [SIMULATOR_SETUP_GUIDE.md](./SIMULATOR_SETUP_GUIDE.md) - Complete simulator testing and troubleshooting guide
 
 ### Connection & Pairing
-- [SEAMLESS_PAIRING_SPEC.md](./specs/SEAMLESS_PAIRING_SPEC.md) - Pairing flow specification and design
+- [Architecture](../.claude/ARCHITECTURE.md) - System design and pairing flow
 - `ClaudeWatch/Services/WatchService.swift` - Connection implementation and state management
 - [pairing-code-case-sensitivity-CloudflareWorker-20260116.md](./solutions/integration-issues/pairing-code-case-sensitivity-CloudflareWorker-20260116.md) - Pairing code case sensitivity fix
 - [pairing-flow-loading-spinner-PairingView-20260116.md](./solutions/ui-bugs/pairing-flow-loading-spinner-PairingView-20260116.md) - Pairing UI improvements
@@ -1074,8 +1074,7 @@ wrangler tail
 - [watchos26-deprecation-warnings-20260115.md](./solutions/build-errors/watchos26-deprecation-warnings-20260115.md) - Deprecation warnings
 
 ### Project Planning
-- [PRD.md](./PRD.md) - Product requirements and architecture
-- [APPSTORE-ROADMAP.md](./APPSTORE-ROADMAP.md) - App Store release roadmap
+- [PRD](../.claude/context/PRD.md) - Product requirements and architecture
 
 ---
 

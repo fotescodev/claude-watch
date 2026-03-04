@@ -65,7 +65,7 @@ Build the app and obtain the app bundle path (typically in your Xcode build fold
 
 ```bash
 # Assuming your app path is available
-APP_PATH="path/to/your/CloudWatch.app"
+APP_PATH="path/to/your/ClaudeWatch.app"
 DEVICE_NAME="Apple Watch Series 11 (46mm)"
 
 # Install the app
@@ -155,7 +155,7 @@ BUNDLE_ID="com.edgeoftrust.remmy"
 xcrun simctl listapps "$DEVICE_NAME" | grep -i claude
 
 # View system logs (simulator must be running)
-log stream --predicate 'process == "CloudWatch"' --level debug
+log stream --predicate 'process == "ClaudeWatch"' --level debug
 ```
 
 ---
@@ -295,7 +295,7 @@ xcrun simctl spawn "$DEVICE_ID" defaults read "$BUNDLE_ID" useCloudMode
 4. **Check App Logs**
    ```bash
    # View simulator app logs
-   log stream --predicate 'process == "CloudWatch"' --level debug --device-id="YOUR_DEVICE_UUID"
+   log stream --predicate 'process == "ClaudeWatch"' --level debug --device-id="YOUR_DEVICE_UUID"
    ```
 
 ### Issue 4: Simulator Won't Boot
@@ -336,7 +336,7 @@ open -a Simulator
 
 1. **Check System Logs**
    ```bash
-   log stream --predicate 'process == "CloudWatch"' --level debug
+   log stream --predicate 'process == "ClaudeWatch"' --level debug
    ```
 
 2. **Reset App Defaults**
@@ -388,7 +388,7 @@ xcrun simctl list devices | grep "Apple Watch Series 11" | grep -oE '[A-F0-9]{8}
 
 ```bash
 # Install app
-xcrun simctl install "Apple Watch Series 11 (46mm)" path/to/CloudWatch.app
+xcrun simctl install "Apple Watch Series 11 (46mm)" path/to/ClaudeWatch.app
 
 # Uninstall app
 xcrun simctl uninstall "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy
@@ -441,13 +441,13 @@ EOF
 
 ```bash
 # Stream logs for CloudWatch app
-log stream --predicate 'process == "CloudWatch"' --level debug
+log stream --predicate 'process == "ClaudeWatch"' --level debug
 
 # Stream logs for specific simulator
-log stream --predicate 'process == "CloudWatch"' --device-id=DEVICE_UUID --level debug
+log stream --predicate 'process == "ClaudeWatch"' --device-id=DEVICE_UUID --level debug
 
 # View system log file
-log show --last 1h --process CloudWatch
+log show --last 1h --process ClaudeWatch
 
 # Capture console output
 xcrun simctl launch "Apple Watch Series 11 (46mm)" com.edgeoftrust.remmy 2>&1
@@ -465,7 +465,7 @@ Use this script to automate the entire setup process:
 # Configuration
 DEVICE_NAME="Apple Watch Series 11 (46mm)"
 BUNDLE_ID="com.edgeoftrust.remmy"
-APP_PATH="path/to/your/CloudWatch.app"
+APP_PATH="path/to/your/ClaudeWatch.app"
 PAIRING_ID="your-pairing-id-from-server"
 SERVER_URL="https://your-server-address"
 
@@ -542,7 +542,7 @@ echo -e "${YELLOW}Check the simulator window for the app${NC}"
 
 4. **Monitor Logs During Testing**
    - Keep a log stream running in a separate terminal
-   - Helps identify issues quickly: `log stream --predicate 'process == "CloudWatch"' --level debug`
+   - Helps identify issues quickly: `log stream --predicate 'process == "ClaudeWatch"' --level debug`
 
 5. **Test Network Connectivity**
    - Verify cloud server is accessible before testing app
